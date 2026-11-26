@@ -359,24 +359,59 @@ gfx::Vec3 MissionView::standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from) 
     return {site[0] + dx / length * kStandOff, from[1], site[2] + dz / length * kStandOff};
 }
 
-std::set<std::pair<int, int>> MissionView::takenCellsOf(const std::vector<MapScene::Unit> &units,
-                                                        const std::vector<bool> &moves) {
+std::set<std::pair<int, int>> MissionView::takenCellsOf(const std::vector<Footprint> &footprints) {
     constexpr float kCell = 50; // STATION_PLACEMENT_GRID_SIZE
+    // The starbase's box, 37.7 and 36.6 each way, and its 80 give the
+    // original's yellow block, cells 11 to 15 by 7 to 12, to the cell.
     std::set<std::pair<int, int>> taken;
-    for (size_t i = 0; i < units.size(); ++i) {
-        if (i < moves.size() && moves[i])
-            continue;
-        const gfx::Vec3 middle = ringMiddleOf(units[i]);
-        const float half = ringHalfOf(units[i]);
-        const int x0 = int(std::floor((middle[0] - half) / kCell)) - 1;
-        const int x1 = int(std::floor((middle[0] + half) / kCell)) + 1;
-        const int z0 = int(std::floor((middle[2] - half) / kCell)) - 1;
-        const int z1 = int(std::floor((middle[2] + half) / kCell)) + 1;
+    for (const Footprint &f : footprints) {
+        const int x0 = int(std::floor((f.x - f.halfX - f.buffer) / kCell));
+        const int x1 = int(std::floor((f.x + f.halfX + f.buffer) / kCell));
+        const int z0 = int(std::floor((f.z - f.halfZ - f.buffer) / kCell));
+        const int z1 = int(std::floor((f.z + f.halfZ + f.buffer) / kCell));
         for (int x = x0; x <= x1; ++x)
             for (int z = z0; z <= z1; ++z)
                 taken.insert({x, z});
     }
     return taken;
+}
+
+std::vector<std::pair<int, int>> MissionView::siteCellsOf(const gfx::Vec3 &site, const Footprint &station) {
+    constexpr float kCell = 50;
+    const float across = 2 * (std::max(station.halfX, station.halfZ) + station.buffer) / kCell;
+    const int reach = std::max(0, (int(std::lround(across)) - 1) / 2);
+    const int cx = int(std::floor(site[0] / kCell));
+    const int cz = int(std::floor(site[2] / kCell));
+    std::vector<std::pair<int, int>> cells;
+    for (int x = cx - reach; x <= cx + reach; ++x)
+        for (int z = cz - reach; z <= cz + reach; ++z)
+            cells.emplace_back(x, z);
+    return cells;
+}
+
+std::optional<MissionView::Footprint> MissionView::footprintOf(const std::string &odf, const gfx::Vec3 &at,
+                                                               float fallback) {
+    const auto box = _scene.boxOf(odf);
+    if (!box)
+        return std::nullopt;
+    Odf def;
+    const float buffer =
+        def.load(odf + ".odf", loaderOf(_files.files())) ? fallback : float(def.number("footprintBuffer", fallback));
+    Footprint f;
+    f.x = at[0] + (box->first[0] + box->second[0]) / 2;
+    f.z = at[2] + (box->first[2] + box->second[2]) / 2;
+    f.halfX = (box->second[0] - box->first[0]) / 2;
+    f.halfZ = (box->second[2] - box->first[2]) / 2;
+    f.buffer = buffer;
+    return f;
+}
+
+bool MissionView::placeable(const gfx::Vec3 &site) const {
+    const auto taken = takenCellsOf(_footprints);
+    for (const auto &c : siteCellsOf(site, _placingFootprint))
+        if (taken.count(c))
+            return false;
+    return true;
 }
 
 int MissionView::grownCrew(int crew, double &carry, int starbases, double seconds) {
@@ -434,6 +469,7 @@ void MissionView::pressControl(int slot) {
                 // A ship builds a station where it's placed, and pays as it
                 // starts.
                 _placing = _buildItems[size_t(slot) - 1];
+                _placingFootprint = footprintOf(*_placing, {}, 0).value_or(Footprint{});
             } else if (b.slot == slot && b.enabled && _resources) {
                 const Order o = orderOf(_buildItems[size_t(slot) - 1], loaderOf(_files.files()));
                 if (pay(*_resources, o))
@@ -451,8 +487,7 @@ void MissionView::place(int x, int y) {
     const auto at = MapScene::pointOn(camera(), _ships[builder].at[1], x, y);
     if (!at)
         return;
-    const auto taken = takenCellsOf(_scene.units(), _moves);
-    if (taken.count({int(std::floor((*at)[0] / 50)), int(std::floor((*at)[2] / 50))}))
+    if (!placeable(*at))
         return;
     Site site;
     site.builder = builder;
@@ -478,6 +513,8 @@ void MissionView::raise(const Site &site) {
         return;
     _moves.push_back(false);
     _physics.emplace_back();
+    if (auto f = footprintOf(site.order.item, site.at, 0))
+        _footprints.push_back(*f);
     Movement::Ship standing;
     standing.at = site.at;
     _ships.push_back(standing);
@@ -580,6 +617,22 @@ Hud::Minimap MissionView::minimapOf(const BznMap &map, const std::vector<MapScen
     return m;
 }
 
+std::vector<Hud::Minimap::Icon> MissionView::mapIconsOf(const BznMap &map, const Odf::Loader &loader) {
+    std::map<std::string, std::string> icons; // by definition
+    std::vector<Hud::Minimap::Icon> out;
+    for (const BznMap::Object &o : map.objects) {
+        const std::string odf = text::toLower(o.odf);
+        auto it = icons.find(odf);
+        if (it == icons.end()) {
+            Odf def;
+            it = icons.emplace(odf, def.load(odf + ".odf", loader) ? std::string() : def.string("mapIcon")).first;
+        }
+        if (!it->second.empty())
+            out.push_back({o.position[0], o.position[2], it->second});
+    }
+    return out;
+}
+
 std::string MissionView::hudRaceOf(const std::string &race) {
     static const std::map<std::string, std::string> kNames = {
         {"fed", "fed"}, {"federation", "fed"}, {"kling", "kli"}, {"klingon", "kli"},
@@ -614,6 +667,7 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     _overview = startOf(parsed, slot);
     if (_hud.load(_files, hudRaceOf(text::toLower(parsed.race))))
         _hud = Hud{};
+    _mapIcons = mapIconsOf(parsed, loaderOf(_files.files()));
     _resources.reset();
     _starbases = 0;
     _held.clear();
@@ -650,6 +704,7 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
                  shroud && !mine.empty() ? _scene.sightsOf(parsed, mine, -1) : std::vector<MapScene::Sight>{});
     _overview = startOf(parsed, slot);
     _slot = slot;
+    _mapIcons = mapIconsOf(parsed, loaderOf(_files.files()));
     std::map<std::string, std::optional<Movement::Physics>> physics;
     const Odf::Loader loader = loaderOf(_files.files());
     for (const MapScene::Unit &u : _scene.units()) {
@@ -667,6 +722,21 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
         ship.at = u.at;
         ship.heading = u.heading;
         _ships.push_back(ship);
+    }
+    // What a station can't be placed on: the standing units (stations have
+    // footprintBuffer 80, from station.odf), and the map's objects to keep
+    // clear of (avoidMe: the dilithium moons), with 10, which gives the
+    // original's moon its 3 x 3 cells (inferred).
+    _footprints.clear();
+    for (size_t i = 0; i < _scene.units().size(); ++i)
+        if (!_moves[i])
+            if (auto f = footprintOf(_scene.units()[i].odf, _scene.units()[i].at, 0))
+                _footprints.push_back(*f);
+    for (const BznMap::Object &o : parsed.objects) {
+        Odf def;
+        if (!def.load(o.odf + ".odf", loader) && def.number("avoidMe") > 0)
+            if (auto f = footprintOf(o.odf, o.position, 10))
+                _footprints.push_back(*f);
     }
     std::vector<std::string> myUnits;
     std::string myRace = "fed";
@@ -788,20 +858,27 @@ void MissionView::makeCells() {
     if (!_renderer || _cellMesh)
         return;
     // The program makes its cells' texture itself; these are like its
-    // frames: a taken cell's outline in yellow, a free one's in green over
-    // a dimmer green, added on.
+    // frames: a taken cell's outline in yellow; a station's square as a
+    // thick frame broken in the middle of each side, green where it can go
+    // and red where it can't; added on.
     constexpr int kTexels = 32;
     std::vector<uint8_t> taken(size_t(kTexels * kTexels) * 4, 0);
     std::vector<uint8_t> open(size_t(kTexels * kTexels) * 4, 0);
+    std::vector<uint8_t> shut(size_t(kTexels * kTexels) * 4, 0);
     for (int y = 0; y < kTexels; ++y)
         for (int x = 0; x < kTexels; ++x) {
             const bool edge = x == 0 || y == 0 || x == kTexels - 1 || y == kTexels - 1;
+            const int in = std::min(std::min(x, y), std::min(kTexels - 1 - x, kTexels - 1 - y));
+            const bool middle = std::abs(x - kTexels / 2) < 2 || std::abs(y - kTexels / 2) < 2;
+            const bool frame = in < 3 && !middle;
             uint8_t *t = &taken[size_t(y * kTexels + x) * 4];
             uint8_t *f = &open[size_t(y * kTexels + x) * 4];
+            uint8_t *b = &shut[size_t(y * kTexels + x) * 4];
             if (edge)
                 t[0] = 230, t[1] = 180, t[2] = 40;
-            f[1] = edge ? 255 : 90;
-            t[3] = f[3] = 255;
+            if (frame)
+                f[1] = 230, b[0] = 230;
+            t[3] = f[3] = b[3] = 255;
         }
     gfx::TextureParams params;
     params.clamp = true;
@@ -809,6 +886,8 @@ void MissionView::makeCells() {
         _cellTaken = 0;
     if (_renderer->createTexture(kTexels, kTexels, open.data(), params, _cellFree))
         _cellFree = 0;
+    if (_renderer->createTexture(kTexels, kTexels, shut.data(), params, _cellBlocked))
+        _cellBlocked = 0;
     // A cell: the unit square from its corner, on the plane.
     std::vector<gfx::Vertex> corners(4);
     const float xs[4] = {0, 1, 1, 0};
@@ -836,14 +915,14 @@ void MissionView::drawPlacement(const MapScene::Camera &view) {
     makeCells();
     if (!_cellMesh || !_cellTaken || !_cellFree)
         return;
-    const auto taken = takenCellsOf(_scene.units(), _moves);
-    const std::pair<int, int> here{int(std::floor((*at)[0] / 50)), int(std::floor((*at)[2] / 50))};
-    auto cell = [this](const std::pair<int, int> &c, gfx::TextureId texture) {
+    const auto taken = takenCellsOf(_footprints);
+    const auto site = siteCellsOf(*at, _placingFootprint);
+    auto cell = [this](const std::pair<int, int> &c, int across, gfx::TextureId texture) {
         gfx::DrawCall d;
         d.mesh = _cellMesh;
         d.indexCount = 6;
         d.model = gfx::identity();
-        d.model[0] = d.model[10] = 50;
+        d.model[0] = d.model[10] = 50.0f * float(across);
         d.model[12] = float(c.first) * 50, d.model[14] = float(c.second) * 50;
         d.texture = texture;
         d.state.cull = gfx::Cull::kNone;
@@ -854,16 +933,18 @@ void MissionView::drawPlacement(const MapScene::Camera &view) {
     };
     // On the plane y = 0, as the original's.
     for (const auto &c : taken)
-        cell(c, _cellTaken);
-    if (!taken.count(here))
-        cell(here, _cellFree);
+        cell(c, 1, _cellTaken);
+    // The station's own cells, one frame over them all: green where it can
+    // go, red where it can't.
+    const int across = int(std::lround(std::sqrt(double(site.size()))));
+    cell(site.front(), across, placeable(*at) ? _cellFree : _cellBlocked);
 }
 
 void MissionView::stop() {
     if (_renderer) {
         if (_cellMesh)
             _renderer->destroyMesh(_cellMesh);
-        for (const gfx::TextureId t : {_cellTaken, _cellFree})
+        for (const gfx::TextureId t : {_cellTaken, _cellFree, _cellBlocked})
             if (t)
                 _renderer->destroyTexture(t);
         if (_ringMesh)
@@ -874,13 +955,14 @@ void MissionView::stop() {
     _ringMesh = 0;
     _ringTexture = 0;
     _cellMesh = 0;
-    _cellTaken = _cellFree = 0;
+    _cellTaken = _cellFree = _cellBlocked = 0;
     _selection.clear();
     _displayed.clear();
     _queues.clear();
     _building = false;
     _placing.reset();
     _sites.clear();
+    _footprints.clear();
     _moves.clear();
     _physics.clear();
     _ships.clear();
@@ -897,6 +979,14 @@ void MissionView::handleEvent(const Event &ev) {
         _mouseY = ev.mouseY;
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && _hud.covers(ev.mouseX, ev.mouseY)) {
+        // On the minimap, the camera goes there; on the control panel, its
+        // button.
+        const BznMap &map = _scene.map();
+        if (auto at = _hud.minimapPointAt(ev.mouseX, ev.mouseY, map.area[0], map.area[1], map.area[4], map.area[5])) {
+            _overview.target[0] = (*at)[0];
+            _overview.target[2] = (*at)[1];
+            return;
+        }
         pressControl(_hud.controlAt(ev.mouseX, ev.mouseY));
         return;
     }
@@ -1028,8 +1118,9 @@ void MissionView::draw(uint64_t millis) {
     }
     if (_dragging)
         Hud::drawBox(_overlay, _pressX, _pressY, _mouseX, _mouseY);
-    _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value(),
-              minimapOf(_scene.map(), units, _moves, view, _overview.target[1]));
+    Hud::Minimap minimap = minimapOf(_scene.map(), units, _moves, view, _overview.target[1]);
+    minimap.icons = _mapIcons;
+    _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value(), minimap);
     if (_displayed != _selection) {
         _display.clear();
         // The game picks a name at random; any one of them will do.

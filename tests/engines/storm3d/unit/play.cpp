@@ -403,21 +403,32 @@ void testOrders() {
     CHECK(std::abs(to[0] - 546.6f) < 0.1f && std::abs(to[1] - 53.5f) < 0.1f && std::abs(to[2] - 392.8f) < 0.1f);
 }
 
-// Placing a station: the starbase's cells and a cell round them taken,
-// the construction ship waiting 53 from the site on its side; the
+// Placing a station: the cells the starbase's footprint takes and those a
+// station would, the construction ship waiting 53 from the site; the
 // construction ship's later items dark until what they need is built.
 void testPlacing() {
     using reluva::storm3d::MapScene;
-    MapScene::Unit base;
-    base.at = {677.6f, 38.5f, 502.8f};
-    base.lo = {639.5f, 9.5f, 466.9f};
-    base.hi = {714.8f, 101.8f, 540.1f};
-    MapScene::Unit ship;
-    ship.lo = {562.5f, 36, 517.5f};
-    ship.hi = {577.5f, 46, 568.5f};
-    const auto taken = MissionView::takenCellsOf({base, ship}, {false, true});
-    CHECK(taken.count({11, 8}) && taken.count({15, 12}) && taken.count({13, 10}));
-    CHECK(!taken.count({10, 8}) && !taken.count({16, 10}));
+    // The starbase's box and 80 give the original's yellow block.
+    MissionView::Footprint base;
+    base.x = 677.6f + (-38.106f + 37.195f) / 2;
+    base.z = 502.8f + (-35.862f + 37.323f) / 2;
+    base.halfX = (37.195f + 38.106f) / 2;
+    base.halfZ = (37.323f + 35.862f) / 2;
+    base.buffer = 80;
+    const auto taken = MissionView::takenCellsOf({base});
+    CHECK(taken.size() == 30 && taken.count({11, 7}) && taken.count({15, 12}));
+    CHECK(!taken.count({10, 8}) && !taken.count({16, 10}) && !taken.count({13, 13}));
+    // The cannon takes its cell; the mining station five by five about it.
+    MissionView::Footprint cannon;
+    cannon.halfX = cannon.halfZ = 12.3f;
+    cannon.buffer = 10;
+    CHECK((MissionView::siteCellsOf({514.6f, 38.5f, 434.4f}, cannon) == std::vector<std::pair<int, int>>{{10, 8}}));
+    MissionView::Footprint mining;
+    mining.halfX = 45.1f;
+    mining.halfZ = 43.2f;
+    mining.buffer = 80;
+    const auto cells = MissionView::siteCellsOf({1025, 38.5f, 578}, mining);
+    CHECK(cells.size() == 25 && cells.front() == std::make_pair(18, 9) && cells.back() == std::make_pair(22, 13));
     const auto stand = MissionView::standOffOf({514.6f, 38.5f, 434.4f}, {624, 38.5f, 548});
     CHECK(std::abs(std::hypot(stand[0] - 514.6f, stand[2] - 434.4f) - 53) < 0.01f && stand[0] > 514.6f);
 
@@ -435,6 +446,29 @@ void testPlacing() {
     const auto menu = MissionView::buildMenuOf({"fturret", "fyard2"}, loader, {"fbase"});
     CHECK(menu.controls[0].enabled && !menu.controls[1].enabled);
     CHECK(MissionView::buildMenuOf({"fturret", "fyard2"}, loader, {"fbase", "fyard"}).controls[1].enabled);
+}
+
+// The map's objects with a mark on the minimap: a dilithium moon's.
+void testMapIcons() {
+    const std::map<std::string, std::string> files = {
+        {"mdmoon.odf", "[GameObjectClass]\nmapIcon = \"map_dmoon\"\n"},
+        {"mnebula3.odf", "[GameObjectClass]\n"},
+    };
+    const reluva::storm3d::Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    reluva::storm3d::BznMap map;
+    map.objects.resize(3);
+    map.objects[0].odf = "mdmoon";
+    map.objects[0].position = {1118.5f, -50, 577};
+    map.objects[1].odf = "mnebula3";
+    map.objects[2].odf = "MDMOON";
+    const auto icons = MissionView::mapIconsOf(map, loader);
+    CHECK(icons.size() == 2 && icons[0].sprite == "map_dmoon" && icons[0].x == 1118.5f && icons[0].z == 577);
 }
 
 } // namespace
@@ -459,4 +493,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
                                             {"orders", [](const std::filesystem::path &) { testOrders(); }},
                                             {"placing", [](const std::filesystem::path &) { testPlacing(); }},
+                                            {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                         });

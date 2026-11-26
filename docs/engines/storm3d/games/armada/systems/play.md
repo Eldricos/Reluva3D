@@ -152,8 +152,10 @@ ship's orders, but with build dark; the rail had the tractor beam once.
 
 Over the map's picture (`minimapBackgroundSprite`), the original's
 draws put, in turn: a 128 × 128 layer added on, with the units in it;
-a 5 × 5 sprite, blue, near the starting units (a map object's mark,
-not yet known which); the fog and the shroud; and four lines, added on
+a 5 × 5 sprite, blue, near the starting units: the dilithium moon's
+mark, its definition's `mapIcon` (`map_dmoon`, of `gui_map.spr`), about
+its place, added on, though the frame has it a row lower than the
+draw's corners; the fog and the shroud; and four lines, added on
 in (128, 128, 128), round where the camera looks.
 
 - **The units** are in their player's colour: the player's, white,
@@ -171,6 +173,10 @@ in (128, 128, 128), round where the camera looks.
 
 A grey pixel (123, 125, 123) under the starbase's mark isn't
 accounted for.
+
+A left click on the minimap moves the camera there: clicked at about
+(925, 575), the original's target was (845, 595) after, within the
+pointer's error of a pixel or two on the minimap.
 
 ### The cinematic view
 
@@ -307,7 +313,7 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
 - How Random sides and Random Placement choose.
-- The minimap's blue sprite, its grey pixel, and how the view's bottom
+- The minimap's grey pixel, and how the view's bottom
   edge is made.
 - The cinematic view's director: what it shows when, its shots and
   cuts, and the starbase's own shot.

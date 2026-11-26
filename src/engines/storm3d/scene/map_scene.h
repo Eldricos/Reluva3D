@@ -170,6 +170,8 @@ public:
      * @return false if its model isn't there
      */
     bool addUnit(const StartUnit &unit, float heading);
+    /** A definition's model's box, scaled, about its own origin; none if it has no model. */
+    std::optional<std::pair<gfx::Vec3, gfx::Vec3>> boxOf(const std::string &odf);
     /**
      * Draws a unit's model at a place, facing +z, after draw, without
      * adding it: a station being placed.
@@ -222,6 +224,7 @@ private:
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
     std::vector<Unit> _units;
+    gfx::MeshId _insetMesh = 0; // drawInset's black square
     // Each unit's draw, in _placed, and its model's box, scaled, about it.
     struct UnitModel {
         size_t placed = 0;

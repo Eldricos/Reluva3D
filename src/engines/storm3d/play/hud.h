@@ -12,6 +12,7 @@
 
 #include <array>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -64,6 +65,13 @@ public:
     };
     /** Draws the box a drag selects with: white lines from a pixel up and left of its top left to its bottom right. */
     static void drawBox(Surface &screen, int x0, int y0, int x1, int y1);
+    /**
+     * The point of the map (x and z) under a point of the screen on the
+     * minimap, for a map whose area spans `left` to `right` and `near` to
+     * `far`; none off the minimap.
+     */
+    std::optional<std::array<float, 2>> minimapPointAt(int x, int y, float left, float right, float near,
+                                                       float far) const;
     /** The control panel's button (1 to 12, controlButton<n>) under a point of the screen; 0 for none. */
     int controlAt(int x, int y) const;
     /** The cinematic view's display on the screen: x, y, width and height. */
@@ -109,6 +117,13 @@ public:
             bool station = false;
         };
         std::vector<Mark> marks;
+        /** A map object's own mark: its definition's mapIcon sprite, where it is. */
+        struct Icon {
+            float x = 0;
+            float z = 0;
+            std::string sprite;
+        };
+        std::vector<Icon> icons;
         std::vector<std::array<float, 2>> view; // where the screen's corners fall on the plane, x and z, in turn
     };
     /**

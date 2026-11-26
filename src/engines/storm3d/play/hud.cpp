@@ -101,8 +101,9 @@ Error Hud::load(const GameFiles &files, const std::string &race) {
         return Error::success();
     };
     auto table = kTables.find(race);
-    for (const std::string &name : {table == kTables.end() ? std::string("gui_federation.spr") : table->second,
-                                    std::string("gui_global.spr"), std::string("cursor.spr")})
+    for (const std::string &name :
+         {table == kTables.end() ? std::string("gui_federation.spr") : table->second, std::string("gui_global.spr"),
+          std::string("cursor.spr"), std::string("gui_map.spr")})
         if (Error err = _tables.emplace_back().load(name, loader))
             return err;
     if (_font.load(files))
@@ -223,6 +224,19 @@ void Hud::drawBox(Surface &screen, int x0, int y0, int x1, int y1) {
         plot(left, y);
         plot(right, y);
     }
+}
+
+std::optional<std::array<float, 2>> Hud::minimapPointAt(int x, int y, float left, float right, float near,
+                                                        float far) const {
+    const std::array<int, 4> panel = _layout.area("minimapPanelArea");
+    const std::array<int, 4> display = _layout.area("minimapDisplayArea");
+    const int mx = panel[0] + display[0];
+    const int my = panel[1] + display[1];
+    if (x < mx || y < my || x >= mx + display[2] || y >= my + display[3] || display[2] <= 0 || display[3] <= 0)
+        return std::nullopt;
+    // A pixel's middle, the far edge at the top, as the marks are drawn.
+    return std::array<float, 2>{left + (float(x - mx) + 0.5f) * (right - left) / float(display[2]),
+                                far - (float(y - my) + 0.5f) * (far - near) / float(display[3])};
 }
 
 int Hud::controlAt(int x, int y) const {
@@ -542,6 +556,16 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
             for (int dy = -1; dy <= last; ++dy)
                 for (int dx = -1; dx <= last; ++dx)
                     plot(px + dx, py + dy, m.colour);
+        }
+    // The map's objects with a mark of their own (their definitions'
+    // mapIcon: a dilithium moon's map_dmoon), 5 x 5 about their place,
+    // added on; the original's frame has it a row lower than its draw's
+    // corners would.
+    if (across > 0 && down > 0)
+        for (const Minimap::Icon &icon : map.icons) {
+            const auto at = onMinimap(icon.x, icon.z);
+            drawSprite(screen, icon.sprite, int(std::lround(at[0] - 2.5f)), int(std::lround(at[1] - 1.5f)), 5, 5,
+                       {255, 255, 255}, true);
         }
     if (seen.size() == size_t(kMinimapCells * kMinimapCells)) {
         Surface shroud;

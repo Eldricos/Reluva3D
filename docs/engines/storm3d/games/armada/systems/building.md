@@ -65,12 +65,10 @@ Cannon (`fturret`, 250 dilithium, 2 officers, 25 seconds):
   map the station's model follows the pointer on the plane its builder
   is on, where it will stand: not moved to a cell's middle. Under it, on
   the plane y = 0, the placement grid's cells (`RTS_CFG.h`'s
-  `STATION_PLACEMENT_GRID_SIZE`, 50): the cells round the starbase in
-  yellow outlines, its own in green. The cells' texture is the
+  `STATION_PLACEMENT_GRID_SIZE`, 50): the cells taken in yellow
+  outlines, the station's own in green. The cells' texture is the
   program's, made in memory; Reluva draws its like them
-  *(guessed)*. The yellow block spans the starbase's ring's square and
-  a cell round it, across x; along z, a cell more than that, not
-  accounted for.
+  *(guessed)*.
 - **Sent:** a click there placed it, and the ship flew to 53 from the
   site, on its side, and stopped. Nothing was paid yet: dilithium was
   3000 until between 58 and 59 seconds, when the ship had got there, and
@@ -78,6 +76,28 @@ Cannon (`fturret`, 250 dilithium, 2 officers, 25 seconds):
 - **Built:** worker bees flew round the site, the station's model came
   bit by bit, and it was whole by 88 seconds, 25 after it was paid for.
   All the menu's items were dark meanwhile, and cancel lit.
+
+### Which cells are taken
+
+From three more placements, of a Mining Station (`fmining`), near the
+first dilithium moon:
+
+- **A standing unit's:** the cells under its model's box, widened each
+  way by its definition's `footprintBuffer` (80 for every station, from
+  `station.odf`). The starbase's box, 37.7 and 36.6 each way from its
+  middle, gives cells 11 to 15 by 7 to 12, its yellow block to the cell.
+- **The map's objects to keep clear of** (`avoidMe`, the dilithium
+  moons): the moon's 3 × 3 block, which its box gives widened by 10
+  *(inferred)*.
+- **A station's own,** placed: an odd square of cells about its site's
+  cell, as many across as its box widened by its buffer is, in whole
+  cells. The Pulse Cannon's (12.3 and 10) is the one cell; the Mining
+  Station's (45.1 and 80), five by five, drawn as one frame 250 across,
+  broken in the middle of each side, red over a site that can't take
+  it, the station's model red with the `c_nobuild` sign on it.
+- **Refused:** a site whose square overlaps a taken cell. Clicked, the
+  original writes "Can not build at specified location." at the top
+  left, in green, and the ship stays.
 
 ## In Reluva
 
@@ -91,8 +111,8 @@ flies to `launchPointOf` by the movement rules
 first. Cancel takes off the last ordered and pays it back *(guessed)*.
 
 A ship that moves places a station instead: the station's model at the
-pointer with the cells (`takenCellsOf`; a click on a taken cell does
-nothing), then the ship flies to `standOffOf` the site, pays as it gets
+pointer with the cells (`takenCellsOf`, `siteCellsOf`; a click on a
+site that overlaps a taken cell does nothing, and nothing's written), then the ship flies to `standOffOf` the site, pays as it gets
 there, and the station is added when its `buildTime` has passed. Its
 cancel gives the site up, paid back if paid. The worker bees and the
 station's model coming bit by bit aren't drawn yet.
@@ -118,4 +138,5 @@ station's model coming bit by bit aren't drawn yet.
 - The rail's wipe's angle, a few degrees from the bar's share.
 - What makes the construction ship's last four items dark, and the
   other races' equivalents.
-- Which cells a unit takes, along z, and whether ships take any.
+- Whether a mining station must be near a moon, and whether ships take
+  cells.

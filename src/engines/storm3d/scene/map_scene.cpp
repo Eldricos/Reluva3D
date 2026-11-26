@@ -381,6 +381,9 @@ void MapScene::attach(gfx::Renderer3D *renderer) {
 
 void MapScene::clear() {
     freeGrid();
+    if (_renderer && _insetMesh)
+        _renderer->destroyMesh(_insetMesh);
+    _insetMesh = 0;
     _meshes.clear();
     _placed.clear();
     _teams.clear();
@@ -464,6 +467,19 @@ float MapScene::Unit::radius() const {
     const float dy = (hi[1] - lo[1]) / 2;
     const float dz = (hi[2] - lo[2]) / 2;
     return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+std::optional<std::pair<gfx::Vec3, gfx::Vec3>> MapScene::boxOf(const std::string &odf) {
+    const Look &look = lookFor(odf);
+    const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);
+    if (!built)
+        return std::nullopt;
+    std::pair<gfx::Vec3, gfx::Vec3> box;
+    for (size_t k = 0; k < 3; ++k) {
+        box.first[k] = built->lo[k] * look.scale;
+        box.second[k] = built->hi[k] * look.scale;
+    }
+    return box;
 }
 
 void MapScene::drawModelAt(const std::string &odf, const gfx::Vec3 &at) {
@@ -579,6 +595,31 @@ void MapScene::drawInset(const Camera &camera, double seconds, float range, int 
     _renderer->setViewport(int(std::lround(x * sx)), int(std::lround(y * sy)), int(std::lround(w * sx)),
                            int(std::lround(h * sy)));
     _renderer->clearDepth();
+    // Black first, over what the main view drew there, as a view of its
+    // own: a square over all of clip space.
+    if (!_insetMesh) {
+        std::vector<gfx::Vertex> corners(4);
+        const float xs[4] = {-1, 1, 1, -1};
+        const float ys[4] = {-1, -1, 1, 1};
+        for (size_t i = 0; i < 4; ++i) {
+            corners[i] = gfx::Vertex{};
+            corners[i].pos[0] = xs[i], corners[i].pos[1] = ys[i], corners[i].pos[2] = 0.999f;
+            std::fill(std::begin(corners[i].color), std::end(corners[i].color), uint8_t(255));
+        }
+        if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _insetMesh))
+            _insetMesh = 0;
+    }
+    if (_insetMesh) {
+        _renderer->setView(gfx::identity(), camera.eye);
+        gfx::DrawCall black;
+        black.mesh = _insetMesh;
+        black.indexCount = 6;
+        black.model = gfx::identity();
+        black.color = {0, 0, 0, 1};
+        black.state.cull = gfx::Cull::kNone;
+        black.state.depthWrite = false;
+        _renderer->draw(black);
+    }
     _renderer->setView(viewProjOf(camera, range, float(w) / float(h)), camera.eye);
     drawContents(camera, seconds, false, false);
     _renderer->setViewport(0, 0, 0, 0);

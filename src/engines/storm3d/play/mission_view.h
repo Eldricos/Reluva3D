@@ -93,6 +93,8 @@ public:
      */
     static Hud::Minimap minimapOf(const BznMap &map, const std::vector<MapScene::Unit> &units,
                                   const std::vector<bool> &moves, const MapScene::Camera &camera, float plane);
+    /** The map's objects that have a mark on the minimap: their definitions' mapIcon. */
+    static std::vector<Hud::Minimap::Icon> mapIconsOf(const BznMap &map, const Odf::Loader &loader);
     /** The interface's layout's name for a race's definition ("fed" for "fed", "kli" for "kling"). */
     static std::string hudRaceOf(const std::string &race);
     /**
@@ -183,13 +185,25 @@ public:
     };
     /** Where a builder waits while it builds at `site`: 53 short of it, on the side of `from`. */
     static gfx::Vec3 standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from);
+    /** What a station or an object to keep clear of takes: its box's middle and half sides on the plane, and its definition's footprintBuffer. */
+    struct Footprint {
+        float x = 0;
+        float z = 0;
+        float halfX = 0;
+        float halfZ = 0;
+        float buffer = 0;
+    };
     /**
      * The placement grid's cells (RTS_CFG.h's STATION_PLACEMENT_GRID_SIZE,
-     * 50) taken: each unit's that doesn't move, its ring's square and a
-     * cell round it.
+     * 50) these take: those under each one's box widened by its buffer.
      */
-    static std::set<std::pair<int, int>> takenCellsOf(const std::vector<MapScene::Unit> &units,
-                                                      const std::vector<bool> &moves);
+    static std::set<std::pair<int, int>> takenCellsOf(const std::vector<Footprint> &footprints);
+    /**
+     * The cells a station being placed at `site` would take: an odd square
+     * about the site's cell, as many across as its box widened by its
+     * buffer, in whole cells (the cannon one, the mining station five).
+     */
+    static std::vector<std::pair<int, int>> siteCellsOf(const gfx::Vec3 &site, const Footprint &station);
     /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
     static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
     static float ringHalfOf(const MapScene::Unit &unit);
@@ -223,7 +237,8 @@ private:
     // By unit, those that move: how they fly, and where they are.
     std::vector<std::optional<Movement::Physics>> _physics;
     std::vector<Movement::Ship> _ships;
-    std::vector<int> _displayed; // the units _display is of
+    std::vector<Hud::Minimap::Icon> _mapIcons; // the map's objects with a mapIcon
+    std::vector<int> _displayed;               // the units _display is of
     std::vector<Hud::Unit> _display;
     Hud::Unit _orders;
     bool _building = false; // the build menu open, in place of the orders
@@ -231,10 +246,13 @@ private:
     Hud::Unit _buildMenu;                         // buildMenuOf's, made as it opens
     std::map<size_t, std::vector<Order>> _queues; // by builder: what it's building, first first
     std::optional<std::string> _placing;          // a station being placed, from the build menu
+    Footprint _placingFootprint;                  // its, about its site
+    std::vector<Footprint> _footprints;           // the stations' and the map's objects to keep clear of
     std::vector<Site> _sites;
     gfx::MeshId _cellMesh = 0;
     gfx::TextureId _cellTaken = 0;
     gfx::TextureId _cellFree = 0;
+    gfx::TextureId _cellBlocked = 0;
     gfx::MeshId _ringMesh = 0;
     gfx::TextureId _ringTexture = 0;
     MapScene::Camera camera() const;
@@ -244,6 +262,8 @@ private:
     void place(int x, int y);                             // the station being placed, at a point of the screen
     void raise(const Site &site);                         // a station built
     void makeCells();
+    std::optional<Footprint> footprintOf(const std::string &odf, const gfx::Vec3 &at, float fallback);
+    bool placeable(const gfx::Vec3 &site) const;
     void drawPlacement(const MapScene::Camera &view);
     std::vector<std::string> ownedOdfs() const; // the player's units' definitions
     void makeRing();
