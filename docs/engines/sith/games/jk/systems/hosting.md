@@ -285,8 +285,8 @@ Windows does when it fails, and dialog boxes are made but not drawn
     (`reluva-tool sith host -gpu`), at 640 by 480 on Mesa's software
     Vulkan (llvmpipe), into Nar Shaddaa: of 440 scenes, where each
     scene's triangles fall, 0.0001% of pixels differ by more than one
-    step of the game's 16-bit colours, the most in a scene 11 pixels,
-    along one row where two triangles meet; the rest within a step,
+    step of the game's 16-bit colours, the most in a scene 11 pixels;
+    the rest within a step,
     from the GPU's own rounding and filtering. Drawn as play draws it
     (`-gpuplay`), the gauges lie over the level as in software. Drawn at
     twice the size (`-gpuscale 2`) and each 2x2 averaged back to one
@@ -297,6 +297,20 @@ Windows does when it fails, and dialog boxes are made but not drawn
     pixel (`-gpuaa 4`) at 640 by 480, 349 scenes differ by more than a
     step at 2.1% of their pixels, along the polygons' edges, which are
     smoothed; within them the pictures agree as without.
+
+    The pixels more than a step apart were found, by the triangles under
+    each (logged for a run of 223 scenes, 33 pixels), on the vertices and
+    edges where triangles meet at the same depth: two triangles of a draw
+    along an edge both have, or several triangles at a corner. The depth
+    test (greater) keeps the first, unless the second's depth there comes
+    out a little nearer, and that comes down to the last bits of each
+    renderer's interpolation. The game asks for the deepest Z-buffer the
+    emulator offers, 32 bits (of 16, 24 and 32), and its software
+    rasterizer compares the depths as floats; the GPU's are its own. A
+    16-bit depth buffer on the GPU, as cards of the time had, which would
+    make such depths equal, doesn't fit: the game's depths aren't 16-bit
+    here. Only interpolating as the rasterizer does, to the bit, would
+    take them away.
 22. **Timing** *(confirmed)*. The
     game's clock is `timeGetTime`. Its world moves in steps (`0x4c4c00`): the step's
     count kept at `0x8ee640`, the clock read (`0x4dd640`), then input,
@@ -358,8 +372,10 @@ Pentiums of 1997 the program was written for.
 The game is played from the launcher: the engine (`src/engines/sith/sith.cpp`)
 runs `JK.EXE` on a thread of its own (`host/player.h`), shows each frame
 it presents in the window (with its scene drawn on the GPU under it,
-when *3D drawing* is on the graphics card: step 21), and passes the
-keyboard and mouse on. A frame
+when *3D drawing* is on the graphics card: step 21) as soon as the game
+shows it, waiting for it between looks at the window's events, at most
+5 ms apart (`Player::waitForFrame`), and passes the keyboard and mouse
+on. A frame
 it draws windowed through GDI is shown the same way, and the pointer put
 where the player points on it, within the game's window
 ([windows.md](../../../../../common/x86/windows.md)); `commandline` in

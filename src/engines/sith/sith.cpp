@@ -16,6 +16,7 @@
 #include "graphics/gfx3d.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -188,8 +189,9 @@ public:
             std::string error;
             if (player.finished(ended, error))
                 return error.empty() ? Error::success() : Error::fail(_target.description + " stopped: " + error);
-            // Soon enough not to miss a frame at the rate set.
-            _sys.delayMillis(framesPerSecond > 60 ? 1 : 5);
+            // Until the game's next frame, shown as soon as it comes; the
+            // window's events are looked at between, at most 5 ms apart.
+            player.waitForFrame(std::chrono::milliseconds(5));
         }
     }
 

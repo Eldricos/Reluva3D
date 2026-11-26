@@ -77,6 +77,11 @@ bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height,
     return true;
 }
 
+bool Player::waitForFrame(std::chrono::milliseconds most) {
+    std::unique_lock<std::mutex> lock(_mutex);
+    return _frameReady.wait_for(lock, most, [this] { return _frameNumber != _frameTaken || _finished; });
+}
+
 uint64_t Player::framesShown() {
     std::lock_guard<std::mutex> lock(_mutex);
     return _frameNumber;
@@ -143,6 +148,7 @@ void Player::work() {
             _height = f.height;
             ++_frameNumber;
         }
+        _frameReady.notify_all();
         drain();
     };
     // While every thread waits, the network is still answered.
@@ -177,12 +183,15 @@ void Player::work() {
         game.saveSettings();
     if (_mixer)
         _mixer->stop(sound);
-    std::lock_guard<std::mutex> lock(_mutex);
-    _game = nullptr;
-    _finished = true;
-    _ended = !e || process.exited.has_value();
-    if (e && !_ended && !_stopping)
-        _error = e.message;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _game = nullptr;
+        _finished = true;
+        _ended = !e || process.exited.has_value();
+        if (e && !_ended && !_stopping)
+            _error = e.message;
+    }
+    _frameReady.notify_all();
 }
 
 void Player::gamepad(int index, const GamepadState *pad) {

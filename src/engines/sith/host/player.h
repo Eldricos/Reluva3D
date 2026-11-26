@@ -11,6 +11,7 @@
 
 #include <array>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -96,6 +97,12 @@ public:
      */
     bool frame(std::vector<uint32_t> &pixels, int &width, int &height,
                std::shared_ptr<const x86::DirectX::Scene> &scene);
+    /**
+     * Waits until the game shows a frame not yet taken (frame()) or ends,
+     * for at most `most`.
+     * @return Whether one is waiting (or the game has ended).
+     */
+    bool waitForFrame(std::chrono::milliseconds most);
     /** How many frames the game has shown so far. */
     uint64_t framesShown();
     /** Whether the game shows the mouse pointer: the menus do, play doesn't. */
@@ -131,6 +138,7 @@ private:
     int _width = 0;
     int _height = 0;
     uint64_t _frameNumber = 0;
+    std::condition_variable _frameReady; // a frame shown, or the game ended
     // Where the frame shown is on the program's screen (the game thread's):
     // the pointer, given on the frame, is moved there.
     int _frameX = 0;
