@@ -352,6 +352,57 @@ void testCloseUp() {
     CHECK(turned.eye[0] < middle[0] && turned.eye[2] > middle[2]);
 }
 
+// The starbase's build menu: its ships, not the officers' upgrades; the
+// freighter dark until there's a mining station; the back button last.
+void testBuildMenu() {
+    const std::map<std::string, std::string> files = {
+        {"fbase.odf", "[S]\nbuildItem0 = \"fconst\"\nbuildItem1 = \"ffreight\"\nbuildItem2 = \"fedoff\"\n"},
+        {"fconst.odf", "[S]\nclassLabel = \"constructionrig\"\n"},
+        {"ffreight.odf", "[S]\nclassLabel = \"freighter\"\n"},
+        {"fedoff.odf", "[S]\nclassLabel = \"upgrade\"\n"},
+        {"fmining.odf", "[S]\nclassLabel = \"mining\"\n"},
+    };
+    const reluva::storm3d::Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    const std::vector<std::string> items = MissionView::buildListOf("fbase", loader);
+    CHECK((items == std::vector<std::string>{"fconst", "ffreight"}));
+    const Hud::Unit menu = MissionView::buildMenuOf(items, loader, {"fbase", "fconst"});
+    CHECK(menu.controls.size() == 3 && menu.controls[0].sprite == "b_fconst" && menu.controls[0].enabled);
+    CHECK(menu.controls[0].border == "bb_build" && !menu.controls[1].enabled);
+    CHECK(menu.controls[2].slot == 12 && menu.controls[2].sprite == "b_back");
+    CHECK(MissionView::buildMenuOf(items, loader, {"fbase", "fmining"}).controls[1].enabled);
+}
+
+// A construction ship's order, as the original took it: 500 dilithium
+// and 500 crew at once, 2 officers on the count, 50 seconds.
+void testOrders() {
+    const std::map<std::string, std::string> files = {
+        {"fconst.odf", "[S]\nbuildTime = 50.0\ndilithiumCost = 500\ncrewCost = 500\nofficerCost = 2\n"},
+    };
+    const reluva::storm3d::Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    const MissionView::Order o = MissionView::orderOf("fconst", loader);
+    CHECK(o.time == 50 && o.dilithium == 500 && o.crew == 500 && o.officers == 2);
+    Hud::Resources r{3000, 3586, 4, 120};
+    CHECK(MissionView::pay(r, o) && r.dilithium == 2500 && r.crew == 3086 && r.officers == 6);
+    Hud::Resources poor{400, 3586, 4, 120};
+    CHECK(!MissionView::pay(poor, o) && poor.dilithium == 400 && poor.crew == 3586);
+    Hud::Resources full{3000, 3586, 119, 120};
+    CHECK(!MissionView::pay(full, o));
+    const auto to = MissionView::launchPointOf({677.6f, 38.5f, 502.8f});
+    CHECK(std::abs(to[0] - 546.6f) < 0.1f && std::abs(to[1] - 53.5f) < 0.1f && std::abs(to[2] - 392.8f) < 0.1f);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -371,4 +422,6 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"crew", [](const std::filesystem::path &) { testCrew(); }},
                                             {"minimap", [](const std::filesystem::path &) { testMinimap(); }},
                                             {"close-up", [](const std::filesystem::path &) { testCloseUp(); }},
+                                            {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
+                                            {"orders", [](const std::filesystem::path &) { testOrders(); }},
                                         });

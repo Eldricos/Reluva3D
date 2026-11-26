@@ -270,6 +270,8 @@ before and after each ([camera.md](camera.md#the-overview)):
   its health bar; units a box selected don't.
 - **Moving:** the right button sends the ships selected to a point, as
   [movement.md](movement.md) has it.
+- **Building:** the build button opens a unit's build menu, as
+  [building.md](building.md) has it.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race (one left Random takes the
   races in turn by its slot *(guessed)*), their colour, and slot *n* on

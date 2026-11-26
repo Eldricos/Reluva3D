@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <numbers>
 
 namespace reluva::storm3d {
 
@@ -31,6 +32,9 @@ constexpr std::array<uint8_t, 3> kDisabled = {77, 77, 77};
 constexpr std::array<uint8_t, 3> kConstruction = {255, 153, 51};
 constexpr std::array<uint8_t, 3> kSystemOff = {51, 51, 51};
 constexpr std::array<uint8_t, 3> kOff = {26, 31, 28};
+// An item being built: its button in orange.
+constexpr std::array<uint8_t, 3> kActiveIcon = {214, 174, 131};
+constexpr std::array<uint8_t, 3> kActiveBorder = {254, 235, 142};
 // The wireframe's squares, in its texture's texels at 128, as drawn.
 constexpr int kWireframeTile = 40;
 constexpr std::pair<int, int> kWireframeTiles[] = {{40, 0}, {0, 40}, {40, 40}, {80, 0}, {0, 0}};
@@ -221,6 +225,19 @@ void Hud::drawBox(Surface &screen, int x0, int y0, int x1, int y1) {
     }
 }
 
+int Hud::controlAt(int x, int y) const {
+    const std::array<int, 4> panel = _layout.area("controlPanelArea");
+    for (int slot = 1; slot <= 12; ++slot) {
+        const std::string name = "controlButton" + std::to_string(slot);
+        if (!_layout.find(name))
+            continue;
+        const std::array<int, 4> a = _layout.area(name);
+        if (x >= panel[0] + a[0] && x < panel[0] + a[0] + a[2] && y >= panel[1] + a[1] && y < panel[1] + a[1] + a[3])
+            return slot;
+    }
+    return 0;
+}
+
 std::array<int, 4> Hud::cinematicArea() const {
     const std::array<int, 4> panel = _layout.area("cinematicPanelArea");
     std::array<int, 4> display = _layout.area("cinematicDisplayArea");
@@ -339,9 +356,10 @@ void Hud::drawOrders(Surface &screen, const Unit &unit) {
     const std::array<int, 4> control = _layout.area("controlPanelArea");
     for (const Unit::Button &b : unit.controls) {
         const std::array<int, 4> a = _layout.area("controlButton" + std::to_string(b.slot));
-        drawSprite(screen, b.sprite, control[0] + a[0], control[1] + a[1], a[2], a[3], b.enabled ? kButtonTint : kOff);
-        drawSprite(screen, b.border, control[0] + a[0], control[1] + a[1], a[2], a[3], b.enabled ? kBorderTint : kOff,
-                   true);
+        const auto &icon = b.active ? kActiveIcon : b.enabled ? kButtonTint : kOff;
+        const auto &edge = b.active ? kActiveBorder : b.enabled ? kBorderTint : kOff;
+        drawSprite(screen, b.sprite, control[0] + a[0], control[1] + a[1], a[2], a[3], icon);
+        drawSprite(screen, b.border, control[0] + a[0], control[1] + a[1], a[2], a[3], edge, true);
     }
     // The rail over the display: the unit's special weapons, a button each
     // from the left, then past the five places for them the separator and
@@ -353,6 +371,30 @@ void Hud::drawOrders(Surface &screen, const Unit &unit) {
         const int x = rail[0] + slot[0] + int(i) * step;
         drawSprite(screen, unit.specials[i], x, rail[1] + slot[1], slot[2], slot[3], kButtonTint);
         drawSprite(screen, "bb_dweapon", x, rail[1] + slot[1], slot[2], slot[3], kBorderTint, true);
+    }
+    // Then what it's building, the first with its progress wiped round
+    // clockwise from twelve o'clock in orange, the icon drawn again.
+    for (size_t i = 0; i < unit.queue.size() && unit.specials.size() + i < kRailSlots; ++i) {
+        const int x = rail[0] + slot[0] + int(unit.specials.size() + i) * step;
+        const int y = rail[1] + slot[1];
+        drawSprite(screen, unit.queue[i], x, y, slot[2], slot[3], kButtonTint);
+        if (i == 0) {
+            Surface wipe;
+            wipe.create(slot[2], slot[3], PixelFormat::kRGBA32);
+            drawSprite(wipe, unit.queue[i], 0, 0, slot[2], slot[3], kConstruction);
+            const double reach = std::clamp(double(unit.progress), 0.0, 1.0) * 2 * std::numbers::pi;
+            for (int py = 0; py < slot[3]; ++py)
+                for (int px = 0; px < slot[2]; ++px) {
+                    // Clockwise from up, about the icon's middle.
+                    double angle = std::atan2(px + 0.5 - slot[2] / 2.0, slot[3] / 2.0 - (py + 0.5));
+                    if (angle < 0)
+                        angle += 2 * std::numbers::pi;
+                    const uint8_t *from = wipe.row(py) + size_t(px) * 4;
+                    if (angle <= reach && from[3] && x + px < screen.w && y + py < screen.h)
+                        std::copy_n(from, 4, screen.row(y + py) + size_t(x + px) * 4);
+                }
+        }
+        drawSprite(screen, "bb_build", x, y, slot[2], slot[3], kBorderTint, true);
     }
     const std::array<int, 4> separator = _layout.area("speedSeparatorArea");
     const int sepX = rail[0] + slot[0] + int(kRailSlots) * step;

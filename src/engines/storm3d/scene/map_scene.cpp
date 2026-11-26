@@ -441,31 +441,9 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         ++_drawn;
     }
     _starting = 0;
-    for (const StartUnit &unit : units) {
-        const Look &look = lookFor(unit.odf);
-        const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);
-        if (!built || shrouded(unit.at))
-            continue;
-        _teams.resize(_placed.size());
-        _placed.push_back({built, gfx::identity()});
-        _teams.push_back(unit.colour);
-        Unit u;
-        u.odf = unit.odf;
-        u.slot = unit.slot;
-        u.colour = unit.colour;
-        _units.push_back(u);
-        UnitModel m;
-        m.placed = _placed.size() - 1;
-        m.scale = look.scale;
-        for (size_t k = 0; k < 3; ++k) {
-            m.lo[k] = built->lo[k] * look.scale;
-            m.hi[k] = built->hi[k] * look.scale;
-        }
-        _unitModels.push_back(m);
-        // Facing +z, as the game makes them.
-        moveUnit(_units.size() - 1, unit.at, 0);
-        ++_starting;
-    }
+    for (const StartUnit &unit : units)
+        if (!shrouded(unit.at) && addUnit(unit, 0))
+            ++_starting;
     // The team parts in the chosen race's colour, or the map's race's: the
     // game's frames show the Federation's grey on the player's ships.
     _meshes.setTeamColour(teamColourOf(teamColour.empty() ? _map.race : teamColour, _files.files()));
@@ -486,6 +464,31 @@ float MapScene::Unit::radius() const {
     const float dy = (hi[1] - lo[1]) / 2;
     const float dz = (hi[2] - lo[2]) / 2;
     return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+bool MapScene::addUnit(const StartUnit &unit, float heading) {
+    const Look &look = lookFor(unit.odf);
+    const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);
+    if (!built)
+        return false;
+    _teams.resize(_placed.size());
+    _placed.push_back({built, gfx::identity()});
+    _teams.push_back(unit.colour);
+    Unit u;
+    u.odf = unit.odf;
+    u.slot = unit.slot;
+    u.colour = unit.colour;
+    _units.push_back(u);
+    UnitModel m;
+    m.placed = _placed.size() - 1;
+    m.scale = look.scale;
+    for (size_t k = 0; k < 3; ++k) {
+        m.lo[k] = built->lo[k] * look.scale;
+        m.hi[k] = built->hi[k] * look.scale;
+    }
+    _unitModels.push_back(m);
+    moveUnit(_units.size() - 1, unit.at, heading);
+    return true;
 }
 
 void MapScene::moveUnit(size_t unit, const gfx::Vec3 &at, float heading) {

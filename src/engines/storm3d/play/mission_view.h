@@ -15,6 +15,7 @@
 
 #include <cstdint>
 #include <array>
+#include <map>
 #include <optional>
 #include <set>
 #include <string>
@@ -140,6 +141,39 @@ public:
      * of a construction ship.
      */
     static MapScene::Camera closeUpOf(const MapScene::Unit &unit);
+    /**
+     * What a unit can build, by its definition's buildItem0, buildItem1
+     * and on: the ships and stations, not the officers' upgrades (class
+     * "upgrade"), which have a button of their own.
+     */
+    static std::vector<std::string> buildListOf(const std::string &odf, const Odf::Loader &loader);
+    /**
+     * The control panel while a unit's build menu is open: its items, a
+     * button each from the first place on, its icon b_<item> in the build
+     * border, dark where the player can't yet (a freighter without a
+     * mining station); the back button in the last place.
+     */
+    static Hud::Unit buildMenuOf(const std::vector<std::string> &items, const Odf::Loader &loader,
+                                 const std::vector<std::string> &owned);
+    /** An item a unit builds: what, how long it takes, and what it costs. */
+    struct Order {
+        std::string item;
+        double time = 0;    // buildTime, seconds
+        double elapsed = 0; // seconds built so far
+        int dilithium = 0;
+        int crew = 0;
+        int officers = 0;
+    };
+    /** An item's order, from its definition's buildTime and costs. */
+    static Order orderOf(const std::string &item, const Odf::Loader &loader);
+    /**
+     * Pays for an order out of `resources`, as the original took it at
+     * once: its dilithium and crew, and the officers it needs on the
+     * count; false, and nothing taken, if there isn't enough.
+     */
+    static bool pay(Hud::Resources &resources, const Order &order);
+    /** Where a ship built by a unit at `builder` flies to: out to its lower left, above the plane. */
+    static gfx::Vec3 launchPointOf(const gfx::Vec3 &builder);
     /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
     static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
     static float ringHalfOf(const MapScene::Unit &unit);
@@ -176,9 +210,17 @@ private:
     std::vector<int> _displayed; // the units _display is of
     std::vector<Hud::Unit> _display;
     Hud::Unit _orders;
+    bool _building = false; // the build menu open, in place of the orders
+    std::vector<std::string> _buildItems;
+    Hud::Unit _buildMenu;                         // buildMenuOf's, made as it opens
+    std::map<size_t, std::vector<Order>> _queues; // by builder: what it's building, first first
     gfx::MeshId _ringMesh = 0;
     gfx::TextureId _ringTexture = 0;
     MapScene::Camera camera() const;
+    void pressControl(int slot);                          // a control panel's button pressed
+    void build(double seconds);                           // the builders' queues on by `seconds`
+    void launch(size_t builder, const std::string &item); // a unit built
+    std::vector<std::string> ownedOdfs() const;           // the player's units' definitions
     void makeRing();
     uint64_t _last = 0;
 };

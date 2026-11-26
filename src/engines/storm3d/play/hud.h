@@ -54,12 +54,17 @@ public:
             std::string sprite;
             std::string border;
             bool enabled = true;
+            bool active = false; // being built: in orange
         };
         std::vector<Button> controls;
         std::vector<std::string> specials; // its special weapons' buttons' sprites: "b_gtracbm"
+        std::vector<std::string> queue;    // what it's building, first first: its buttons' sprites
+        float progress = 0;                // the first's, 0 to 1
     };
     /** Draws the box a drag selects with: white lines from a pixel up and left of its top left to its bottom right. */
     static void drawBox(Surface &screen, int x0, int y0, int x1, int y1);
+    /** The control panel's button (1 to 12, controlButton<n>) under a point of the screen; 0 for none. */
+    int controlAt(int x, int y) const;
     /** The cinematic view's display on the screen: x, y, width and height. */
     std::array<int, 4> cinematicArea() const;
     /** Whether the cinematic view shows a view of its own, which the panel's picture then leaves clear. */

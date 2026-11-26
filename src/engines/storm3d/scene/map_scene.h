@@ -164,6 +164,12 @@ public:
     };
     /** The starting units drawn, in build's order. */
     const std::vector<Unit> &units() const { return _units; }
+    /**
+     * Adds a unit to the scene, after build, turned to `heading` (0 faces
+     * +z, as the game makes its starting units): one built in play.
+     * @return false if its model isn't there
+     */
+    bool addUnit(const StartUnit &unit, float heading);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
     void moveUnit(size_t unit, const gfx::Vec3 &at, float heading);
     /**

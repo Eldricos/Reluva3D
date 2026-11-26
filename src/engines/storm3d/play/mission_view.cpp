@@ -270,6 +270,74 @@ MapScene::Camera MissionView::closeUpOf(const MapScene::Unit &unit) {
     return cam;
 }
 
+std::vector<std::string> MissionView::buildListOf(const std::string &odf, const Odf::Loader &loader) {
+    std::vector<std::string> items;
+    Odf unit;
+    if (unit.load(odf + ".odf", loader))
+        return items;
+    for (int i = 0;; ++i) {
+        const std::string item = unit.string("buildItem" + std::to_string(i));
+        if (item.empty())
+            break;
+        Odf what;
+        if (!what.load(item + ".odf", loader) && !text::equalsIgnoreCase(what.string("classLabel"), "upgrade"))
+            items.push_back(item);
+    }
+    return items;
+}
+
+Hud::Unit MissionView::buildMenuOf(const std::vector<std::string> &items, const Odf::Loader &loader,
+                                   const std::vector<std::string> &owned) {
+    // A freighter has nothing to carry without a mining station: the
+    // original's was dark with none, and the computer player builds one
+    // first *(inferred)*.
+    bool mining = false;
+    for (const std::string &o : owned) {
+        Odf unit;
+        mining =
+            mining || (!unit.load(o + ".odf", loader) && text::equalsIgnoreCase(unit.string("classLabel"), "mining"));
+    }
+    Hud::Unit menu;
+    for (size_t i = 0; i < items.size() && i < 11; ++i) {
+        Odf item;
+        const bool freighter =
+            !item.load(items[i] + ".odf", loader) && text::equalsIgnoreCase(item.string("classLabel"), "freighter");
+        menu.controls.push_back({int(i) + 1, "b_" + text::toLower(items[i]), "bb_build", !freighter || mining});
+    }
+    menu.controls.push_back({12, "b_back", "bb_standard", true});
+    return menu;
+}
+
+MissionView::Order MissionView::orderOf(const std::string &item, const Odf::Loader &loader) {
+    Order o;
+    o.item = item;
+    Odf odf;
+    if (odf.load(item + ".odf", loader))
+        return o;
+    o.time = odf.number("buildTime");
+    o.dilithium = int(odf.number("dilithiumCost"));
+    o.crew = int(odf.number("crewCost"));
+    o.officers = int(odf.number("officerCost"));
+    return o;
+}
+
+bool MissionView::pay(Hud::Resources &resources, const Order &order) {
+    if (resources.dilithium < order.dilithium || resources.crew < order.crew ||
+        resources.officers + order.officers > resources.maxOfficers)
+        return false;
+    resources.dilithium -= order.dilithium;
+    resources.crew -= order.crew;
+    resources.officers += order.officers;
+    return true;
+}
+
+gfx::Vec3 MissionView::launchPointOf(const gfx::Vec3 &builder) {
+    // The original's construction ship, built at the starbase, flew out to
+    // 131 to the -x and 110 to the -z of it, 15 above, and stopped there
+    // (one build).
+    return {builder[0] - 131, builder[1] + 15, builder[2] - 110};
+}
+
 int MissionView::grownCrew(int crew, double &carry, int starbases, double seconds) {
     // 3.5 a second with one starbase: the original's counter went from
     // 3502 to 3607 in 30 seconds, steadily; per starbase is a guess.
@@ -279,6 +347,94 @@ int MissionView::grownCrew(int crew, double &carry, int starbases, double second
     const double whole = std::floor(carry);
     carry -= whole;
     return int(std::min<double>(kMaxCrew, crew + whole));
+}
+
+void MissionView::pressControl(int slot) {
+    if (slot == 0 || _selection.size() != 1)
+        return;
+    if (!_building) {
+        // The build button opens the unit's menu.
+        for (const Hud::Unit::Button &b : _orders.controls)
+            if (b.slot == slot && b.sprite == "b_build" && b.enabled) {
+                _buildItems = buildListOf(_scene.units()[size_t(_selection.front())].odf, loaderOf(_files.files()));
+                _buildMenu = buildMenuOf(_buildItems, loaderOf(_files.files()), ownedOdfs());
+                _building = true;
+            }
+        return;
+    }
+    const size_t builder = size_t(_selection.front());
+    if (slot == 12) {
+        _building = false;
+    } else if (slot == 11 && !_queues[builder].empty()) {
+        // Cancelled, the last ordered goes, paid back *(guessed)*.
+        const Order o = _queues[builder].back();
+        _queues[builder].pop_back();
+        if (_resources) {
+            _resources->dilithium += o.dilithium;
+            _resources->crew += o.crew;
+            _resources->officers -= o.officers;
+        }
+    } else if (slot >= 1 && size_t(slot) <= _buildItems.size()) {
+        for (const Hud::Unit::Button &b : _buildMenu.controls)
+            if (b.slot == slot && b.enabled && _resources) {
+                const Order o = orderOf(_buildItems[size_t(slot) - 1], loaderOf(_files.files()));
+                if (pay(*_resources, o))
+                    _queues[builder].push_back(o);
+            }
+    }
+}
+
+void MissionView::build(double seconds) {
+    std::vector<std::pair<size_t, std::string>> done;
+    for (auto &[builder, queue] : _queues) {
+        if (queue.empty())
+            continue;
+        queue.front().elapsed += seconds;
+        if (queue.front().elapsed >= queue.front().time) {
+            done.emplace_back(builder, queue.front().item);
+            queue.erase(queue.begin());
+        }
+    }
+    for (const auto &[builder, item] : done)
+        launch(builder, item);
+}
+
+void MissionView::launch(size_t builder, const std::string &item) {
+    if (builder >= _scene.units().size())
+        return;
+    const MapScene::Unit from = _scene.units()[builder];
+    MapScene::StartUnit unit;
+    unit.odf = item;
+    unit.at = from.middle();
+    unit.slot = from.slot;
+    unit.colour = from.colour;
+    const gfx::Vec3 to = launchPointOf(from.at);
+    unit.at[1] = to[1];
+    const float heading = std::atan2(to[0] - unit.at[0], to[2] - unit.at[2]);
+    if (!_scene.addUnit(unit, heading))
+        return;
+    Odf odf;
+    const Odf::Loader loader = loaderOf(_files.files());
+    std::optional<Movement::Physics> physics;
+    if (!odf.load(item + ".odf", loader) && odf.number("enginesHitPoints") > 0)
+        physics = Movement::physicsOf(odf, loader);
+    _moves.push_back(physics.has_value());
+    _physics.push_back(physics);
+    Movement::Ship ship;
+    ship.at = unit.at;
+    ship.heading = heading;
+    // It flies out of the builder, through it.
+    if (physics)
+        ship.goal = to;
+    _ships.push_back(ship);
+}
+
+std::vector<std::string> MissionView::ownedOdfs() const {
+    std::vector<std::string> owned;
+    for (const MapScene::Unit &u : _scene.units())
+        if (u.slot == _slot)
+            owned.push_back(u.odf);
+    return owned;
 }
 
 Hud::Minimap MissionView::minimapOf(const BznMap &map, const std::vector<MapScene::Unit> &units,
@@ -524,6 +680,8 @@ void MissionView::stop() {
     _ringTexture = 0;
     _selection.clear();
     _displayed.clear();
+    _queues.clear();
+    _building = false;
     _moves.clear();
     _physics.clear();
     _ships.clear();
@@ -538,6 +696,10 @@ void MissionView::handleEvent(const Event &ev) {
     if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
         _mouseX = ev.mouseX;
         _mouseY = ev.mouseY;
+    }
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && _hud.covers(ev.mouseX, ev.mouseY)) {
+        pressControl(_hud.controlAt(ev.mouseX, ev.mouseY));
+        return;
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && !_hud.covers(ev.mouseX, ev.mouseY)) {
         _pressX = ev.mouseX;
@@ -592,6 +754,7 @@ void MissionView::draw(uint64_t millis) {
     _last = millis;
     if (_resources)
         _resources->crew = grownCrew(_resources->crew, _crewCarry, _starbases, seconds);
+    build(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
     for (size_t i = 0; i < _ships.size(); ++i) {
@@ -666,8 +829,30 @@ void MissionView::draw(uint64_t millis) {
             _display.push_back(displayOf(units[size_t(i)].odf, loaderOf(_files.files()), _hud, size_t(i)));
         _orders = ordersOf(_display);
         _displayed = _selection;
+        _building = false;
     }
-    _hud.drawSelection(_overlay, _display, _orders);
+    Hud::Unit orders = _orders;
+    if (_building)
+        orders.controls = _buildMenu.controls;
+    // What the one unit selected is building: on the rail, its button in
+    // orange, its construction bar.
+    if (_selection.size() == 1 && !_display.empty()) {
+        const auto queue = _queues.find(size_t(_selection.front()));
+        _display.front().construction = 0;
+        if (queue != _queues.end() && !queue->second.empty()) {
+            const Order &first = queue->second.front();
+            const float progress = first.time > 0 ? float(first.elapsed / first.time) : 1;
+            _display.front().construction = progress;
+            orders.progress = progress;
+            for (const Order &o : queue->second)
+                orders.queue.push_back("b_" + text::toLower(o.item));
+            for (Hud::Unit::Button &b : orders.controls)
+                b.active = _building && b.sprite == "b_" + text::toLower(first.item);
+            if (_building)
+                orders.controls.push_back({11, "b_cancel", "bb_standard", true});
+        }
+    }
+    _hud.drawSelection(_overlay, _display, orders);
     // Over a unit, the select cursor; over the map with ships selected,
     // the move cursor (the original's, with a construction ship).
     bool sending = false;

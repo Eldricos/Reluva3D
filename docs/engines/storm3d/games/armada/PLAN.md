@@ -109,7 +109,8 @@ these phases start from, is in [formats/install.md](formats/install.md).
    orders and special weapons; selecting with a box, a group's display;
    ships sent with the right button, flying as the original's
    ([systems/movement.md](systems/movement.md)); the crew's growth; the minimap's units and view; the cinematic view's
-   close-up of a unit.
+   close-up of a unit; the build menu, and ships built
+   ([systems/building.md](systems/building.md)).
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.
