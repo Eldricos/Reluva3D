@@ -466,6 +466,17 @@ float MapScene::Unit::radius() const {
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+void MapScene::drawModelAt(const std::string &odf, const gfx::Vec3 &at) {
+    const Look &look = lookFor(odf);
+    const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);
+    if (!_renderer || !built)
+        return;
+    gfx::Mat4 place = gfx::identity();
+    place[0] = place[5] = place[10] = look.scale;
+    place[12] = at[0], place[13] = at[1], place[14] = at[2];
+    _meshes.draw(*built, place, false);
+}
+
 bool MapScene::addUnit(const StartUnit &unit, float heading) {
     const Look &look = lookFor(unit.odf);
     const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);

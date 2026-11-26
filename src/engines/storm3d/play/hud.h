@@ -54,7 +54,8 @@ public:
             std::string sprite;
             std::string border;
             bool enabled = true;
-            bool active = false; // being built: in orange
+            bool active = false;  // being built: in orange
+            bool placing = false; // its station being placed: in pale yellow
         };
         std::vector<Button> controls;
         std::vector<std::string> specials; // its special weapons' buttons' sprites: "b_gtracbm"

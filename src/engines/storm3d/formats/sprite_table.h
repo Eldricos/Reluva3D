@@ -104,7 +104,7 @@ public:
     /** Lines of no known form, with their file and line number. */
     const std::vector<std::string> &problems() const { return _problems; }
 
-    /** The first sprite of that name, or nullptr. */
+    /** The sprite of that name, the later if it's given twice; nullptr if none. */
     const Sprite *sprite(std::string_view name) const;
     /** The animation of that name, or nullptr. */
     const Animation *animation(std::string_view name) const;

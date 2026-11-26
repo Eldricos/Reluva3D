@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 
 namespace reluva::storm3d {
 
@@ -288,21 +289,29 @@ std::vector<std::string> MissionView::buildListOf(const std::string &odf, const 
 
 Hud::Unit MissionView::buildMenuOf(const std::vector<std::string> &items, const Odf::Loader &loader,
                                    const std::vector<std::string> &owned) {
-    // A freighter has nothing to carry without a mining station: the
-    // original's was dark with none, and the computer player builds one
-    // first *(inferred)*.
-    bool mining = false;
+    // What an item needs the player to have, by class. A freighter has
+    // nothing to carry without a mining station: the original's was dark
+    // with none, and the computer player builds one first (inferred). The
+    // construction ship's last four were dark with the starting units;
+    // what each needs is a guess.
+    static const std::map<std::string, std::string> kNeeds = {
+        {"fresear2", "research"}, {"fyard2", "shipyard"}, {"fturret2", "research"}, {"fsuperbl", "research"}};
+    std::set<std::string> classes;
     for (const std::string &o : owned) {
         Odf unit;
-        mining =
-            mining || (!unit.load(o + ".odf", loader) && text::equalsIgnoreCase(unit.string("classLabel"), "mining"));
+        if (!unit.load(o + ".odf", loader))
+            classes.insert(text::toLower(unit.string("classLabel")));
     }
+    const bool mining = classes.count("mining") > 0;
     Hud::Unit menu;
     for (size_t i = 0; i < items.size() && i < 11; ++i) {
         Odf item;
         const bool freighter =
             !item.load(items[i] + ".odf", loader) && text::equalsIgnoreCase(item.string("classLabel"), "freighter");
-        menu.controls.push_back({int(i) + 1, "b_" + text::toLower(items[i]), "bb_build", !freighter || mining});
+        auto need = kNeeds.find(text::toLower(items[i]));
+        const bool needs = need != kNeeds.end() && !classes.count(need->second);
+        menu.controls.push_back(
+            {int(i) + 1, "b_" + text::toLower(items[i]), "bb_build", (!freighter || mining) && !needs});
     }
     menu.controls.push_back({12, "b_back", "bb_standard", true});
     return menu;
@@ -338,6 +347,38 @@ gfx::Vec3 MissionView::launchPointOf(const gfx::Vec3 &builder) {
     return {builder[0] - 131, builder[1] + 15, builder[2] - 110};
 }
 
+gfx::Vec3 MissionView::standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from) {
+    // The original's construction ship stopped 53 from its pulse cannon's
+    // site while it built (one build).
+    constexpr float kStandOff = 53;
+    const float dx = from[0] - site[0];
+    const float dz = from[2] - site[2];
+    const float length = std::hypot(dx, dz);
+    if (length < 1e-3f)
+        return {site[0], from[1], site[2] + kStandOff};
+    return {site[0] + dx / length * kStandOff, from[1], site[2] + dz / length * kStandOff};
+}
+
+std::set<std::pair<int, int>> MissionView::takenCellsOf(const std::vector<MapScene::Unit> &units,
+                                                        const std::vector<bool> &moves) {
+    constexpr float kCell = 50; // STATION_PLACEMENT_GRID_SIZE
+    std::set<std::pair<int, int>> taken;
+    for (size_t i = 0; i < units.size(); ++i) {
+        if (i < moves.size() && moves[i])
+            continue;
+        const gfx::Vec3 middle = ringMiddleOf(units[i]);
+        const float half = ringHalfOf(units[i]);
+        const int x0 = int(std::floor((middle[0] - half) / kCell)) - 1;
+        const int x1 = int(std::floor((middle[0] + half) / kCell)) + 1;
+        const int z0 = int(std::floor((middle[2] - half) / kCell)) - 1;
+        const int z1 = int(std::floor((middle[2] + half) / kCell)) + 1;
+        for (int x = x0; x <= x1; ++x)
+            for (int z = z0; z <= z1; ++z)
+                taken.insert({x, z});
+    }
+    return taken;
+}
+
 int MissionView::grownCrew(int crew, double &carry, int starbases, double seconds) {
     // 3.5 a second with one starbase: the original's counter went from
     // 3502 to 3607 in 30 seconds, steadily; per starbase is a guess.
@@ -363,8 +404,21 @@ void MissionView::pressControl(int slot) {
         return;
     }
     const size_t builder = size_t(_selection.front());
+    const auto site =
+        std::find_if(_sites.begin(), _sites.end(), [builder](const Site &x) { return x.builder == builder; });
     if (slot == 12) {
         _building = false;
+    } else if (site != _sites.end()) {
+        // Busy building a station: cancel gives it up, paid back if it was
+        // paid for *(guessed)*.
+        if (slot == 11) {
+            if (site->started && _resources) {
+                _resources->dilithium += site->order.dilithium;
+                _resources->crew += site->order.crew;
+                _resources->officers -= site->order.officers;
+            }
+            _sites.erase(site);
+        }
     } else if (slot == 11 && !_queues[builder].empty()) {
         // Cancelled, the last ordered goes, paid back *(guessed)*.
         const Order o = _queues[builder].back();
@@ -376,7 +430,11 @@ void MissionView::pressControl(int slot) {
         }
     } else if (slot >= 1 && size_t(slot) <= _buildItems.size()) {
         for (const Hud::Unit::Button &b : _buildMenu.controls)
-            if (b.slot == slot && b.enabled && _resources) {
+            if (b.slot == slot && b.enabled && builder < _moves.size() && _moves[builder]) {
+                // A ship builds a station where it's placed, and pays as it
+                // starts.
+                _placing = _buildItems[size_t(slot) - 1];
+            } else if (b.slot == slot && b.enabled && _resources) {
                 const Order o = orderOf(_buildItems[size_t(slot) - 1], loaderOf(_files.files()));
                 if (pay(*_resources, o))
                     _queues[builder].push_back(o);
@@ -384,7 +442,64 @@ void MissionView::pressControl(int slot) {
     }
 }
 
+void MissionView::place(int x, int y) {
+    if (!_placing || _selection.size() != 1)
+        return;
+    const size_t builder = size_t(_selection.front());
+    if (builder >= _ships.size())
+        return;
+    const auto at = MapScene::pointOn(camera(), _ships[builder].at[1], x, y);
+    if (!at)
+        return;
+    const auto taken = takenCellsOf(_scene.units(), _moves);
+    if (taken.count({int(std::floor((*at)[0] / 50)), int(std::floor((*at)[2] / 50))}))
+        return;
+    Site site;
+    site.builder = builder;
+    site.at = *at;
+    site.order = orderOf(*_placing, loaderOf(_files.files()));
+    _sites.push_back(site);
+    _ships[builder].goal = standOffOf(*at, _ships[builder].at);
+    _ships[builder].route.clear();
+    _ships[builder].waiting = Movement::kSetOff;
+    _placing.reset();
+}
+
+void MissionView::raise(const Site &site) {
+    if (site.builder >= _scene.units().size())
+        return;
+    const MapScene::Unit &from = _scene.units()[site.builder];
+    MapScene::StartUnit unit;
+    unit.odf = site.order.item;
+    unit.at = site.at;
+    unit.slot = from.slot;
+    unit.colour = from.colour;
+    if (!_scene.addUnit(unit, 0))
+        return;
+    _moves.push_back(false);
+    _physics.emplace_back();
+    Movement::Ship standing;
+    standing.at = site.at;
+    _ships.push_back(standing);
+}
+
 void MissionView::build(double seconds) {
+    // The stations: begun, and paid for, when the builder has got there.
+    for (size_t i = 0; i < _sites.size();) {
+        Site &site = _sites[i];
+        const Movement::Ship &ship = _ships[site.builder];
+        if (!site.started && !ship.goal && _resources && pay(*_resources, site.order))
+            site.started = true;
+        if (site.started)
+            site.order.elapsed += seconds;
+        if (site.started && site.order.elapsed >= site.order.time) {
+            const Site done = site;
+            _sites.erase(_sites.begin() + std::ptrdiff_t(i));
+            raise(done);
+            continue;
+        }
+        ++i;
+    }
     std::vector<std::pair<size_t, std::string>> done;
     for (auto &[builder, queue] : _queues) {
         if (queue.empty())
@@ -669,8 +784,88 @@ void MissionView::makeRing() {
         _ringMesh = 0;
 }
 
+void MissionView::makeCells() {
+    if (!_renderer || _cellMesh)
+        return;
+    // The program makes its cells' texture itself; these are like its
+    // frames: a taken cell's outline in yellow, a free one's in green over
+    // a dimmer green, added on.
+    constexpr int kTexels = 32;
+    std::vector<uint8_t> taken(size_t(kTexels * kTexels) * 4, 0);
+    std::vector<uint8_t> open(size_t(kTexels * kTexels) * 4, 0);
+    for (int y = 0; y < kTexels; ++y)
+        for (int x = 0; x < kTexels; ++x) {
+            const bool edge = x == 0 || y == 0 || x == kTexels - 1 || y == kTexels - 1;
+            uint8_t *t = &taken[size_t(y * kTexels + x) * 4];
+            uint8_t *f = &open[size_t(y * kTexels + x) * 4];
+            if (edge)
+                t[0] = 230, t[1] = 180, t[2] = 40;
+            f[1] = edge ? 255 : 90;
+            t[3] = f[3] = 255;
+        }
+    gfx::TextureParams params;
+    params.clamp = true;
+    if (_renderer->createTexture(kTexels, kTexels, taken.data(), params, _cellTaken))
+        _cellTaken = 0;
+    if (_renderer->createTexture(kTexels, kTexels, open.data(), params, _cellFree))
+        _cellFree = 0;
+    // A cell: the unit square from its corner, on the plane.
+    std::vector<gfx::Vertex> corners(4);
+    const float xs[4] = {0, 1, 1, 0};
+    const float zs[4] = {0, 0, 1, 1};
+    for (size_t i = 0; i < 4; ++i) {
+        gfx::Vertex &v = corners[i];
+        v = gfx::Vertex{};
+        v.pos[0] = xs[i], v.pos[2] = zs[i];
+        v.normal[1] = 1;
+        v.uv[0] = xs[i], v.uv[1] = zs[i];
+        std::fill(std::begin(v.color), std::end(v.color), uint8_t(255));
+    }
+    if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _cellMesh))
+        _cellMesh = 0;
+}
+
+void MissionView::drawPlacement(const MapScene::Camera &view) {
+    if (!_placing || _selection.size() != 1 || size_t(_selection.front()) >= _ships.size() ||
+        _hud.covers(_mouseX, _mouseY))
+        return;
+    const auto at = MapScene::pointOn(view, _ships[size_t(_selection.front())].at[1], _mouseX, _mouseY);
+    if (!at)
+        return;
+    _scene.drawModelAt(*_placing, *at);
+    makeCells();
+    if (!_cellMesh || !_cellTaken || !_cellFree)
+        return;
+    const auto taken = takenCellsOf(_scene.units(), _moves);
+    const std::pair<int, int> here{int(std::floor((*at)[0] / 50)), int(std::floor((*at)[2] / 50))};
+    auto cell = [this](const std::pair<int, int> &c, gfx::TextureId texture) {
+        gfx::DrawCall d;
+        d.mesh = _cellMesh;
+        d.indexCount = 6;
+        d.model = gfx::identity();
+        d.model[0] = d.model[10] = 50;
+        d.model[12] = float(c.first) * 50, d.model[14] = float(c.second) * 50;
+        d.texture = texture;
+        d.state.cull = gfx::Cull::kNone;
+        d.state.src = gfx::Blend::kOne;
+        d.state.dst = gfx::Blend::kOne;
+        d.state.depthWrite = false;
+        _renderer->draw(d);
+    };
+    // On the plane y = 0, as the original's.
+    for (const auto &c : taken)
+        cell(c, _cellTaken);
+    if (!taken.count(here))
+        cell(here, _cellFree);
+}
+
 void MissionView::stop() {
     if (_renderer) {
+        if (_cellMesh)
+            _renderer->destroyMesh(_cellMesh);
+        for (const gfx::TextureId t : {_cellTaken, _cellFree})
+            if (t)
+                _renderer->destroyTexture(t);
         if (_ringMesh)
             _renderer->destroyMesh(_ringMesh);
         if (_ringTexture)
@@ -678,10 +873,14 @@ void MissionView::stop() {
     }
     _ringMesh = 0;
     _ringTexture = 0;
+    _cellMesh = 0;
+    _cellTaken = _cellFree = 0;
     _selection.clear();
     _displayed.clear();
     _queues.clear();
     _building = false;
+    _placing.reset();
+    _sites.clear();
     _moves.clear();
     _physics.clear();
     _ships.clear();
@@ -699,6 +898,14 @@ void MissionView::handleEvent(const Event &ev) {
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && _hud.covers(ev.mouseX, ev.mouseY)) {
         pressControl(_hud.controlAt(ev.mouseX, ev.mouseY));
+        return;
+    }
+    if (_placing && ev.type == EventType::kMouseDown && !_hud.covers(ev.mouseX, ev.mouseY)) {
+        // Placed with the left button, given up with the right.
+        if (ev.button == MouseButton::kLeft)
+            place(ev.mouseX, ev.mouseY);
+        else
+            _placing.reset();
         return;
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && !_hud.covers(ev.mouseX, ev.mouseY)) {
@@ -796,6 +1003,7 @@ void MissionView::draw(uint64_t millis) {
         ring.state.depthWrite = false;
         _renderer->draw(ring);
     }
+    drawPlacement(view);
     // The cinematic view: the unit selected first, or the player's first
     // that moves, close up.
     int shown = _selection.empty() ? -1 : _selection.front();
@@ -830,15 +1038,32 @@ void MissionView::draw(uint64_t millis) {
         _orders = ordersOf(_display);
         _displayed = _selection;
         _building = false;
+        _placing.reset();
     }
     Hud::Unit orders = _orders;
-    if (_building)
+    if (_building) {
         orders.controls = _buildMenu.controls;
+        // The item being placed in orange; all dark while the ship builds,
+        // with cancel lit.
+        bool busy = false;
+        for (const Site &site : _sites)
+            busy = busy || (_selection.size() == 1 && site.builder == size_t(_selection.front()));
+        for (Hud::Unit::Button &b : orders.controls) {
+            b.placing = b.active = _placing && b.sprite == "b_" + text::toLower(*_placing);
+            if (busy && b.slot != 12)
+                b.enabled = false;
+        }
+        if (busy)
+            orders.controls.push_back({11, "b_cancel", "bb_standard", true});
+    }
     // What the one unit selected is building: on the rail, its button in
     // orange, its construction bar.
     if (_selection.size() == 1 && !_display.empty()) {
         const auto queue = _queues.find(size_t(_selection.front()));
         _display.front().construction = 0;
+        for (const Site &site : _sites)
+            if (site.started && site.builder == size_t(_selection.front()) && site.order.time > 0)
+                _display.front().construction = float(site.order.elapsed / site.order.time);
         if (queue != _queues.end() && !queue->second.empty()) {
             const Order &first = queue->second.front();
             const float progress = first.time > 0 ? float(first.elapsed / first.time) : 1;

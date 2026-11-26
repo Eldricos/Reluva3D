@@ -356,7 +356,7 @@ void Hud::drawOrders(Surface &screen, const Unit &unit) {
     const std::array<int, 4> control = _layout.area("controlPanelArea");
     for (const Unit::Button &b : unit.controls) {
         const std::array<int, 4> a = _layout.area("controlButton" + std::to_string(b.slot));
-        const auto &icon = b.active ? kActiveIcon : b.enabled ? kButtonTint : kOff;
+        const auto &icon = b.placing ? kActiveBorder : b.active ? kActiveIcon : b.enabled ? kButtonTint : kOff;
         const auto &edge = b.active ? kActiveBorder : b.enabled ? kBorderTint : kOff;
         drawSprite(screen, b.sprite, control[0] + a[0], control[1] + a[1], a[2], a[3], icon);
         drawSprite(screen, b.border, control[0] + a[0], control[1] + a[1], a[2], a[3], edge, true);

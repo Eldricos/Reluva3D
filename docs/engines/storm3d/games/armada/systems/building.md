@@ -49,6 +49,36 @@ The construction ship's button pressed at 46.0 seconds:
   plane, where it stopped: placed back in the world from the main view's
   draws at 99, 101 and 103 seconds, from one build *(inferred)*.
 
+### A station built by a construction ship
+
+From the original's frames every second and its draws at 46, 48, 50,
+55, 62, 70, 80 and 88 seconds, a construction ship building a Pulse
+Cannon (`fturret`, 250 dilithium, 2 officers, 25 seconds):
+
+- **Its menu:** the construction ship's ten items, the first six lit
+  (Starbase, Shipyard, Sensor Array, Pulse Cannon, Mining Station,
+  Research Facility), the last four dark (Science Station, Advanced
+  Shipyard, Torpedo Turret, Temporal Research). Their definitions don't
+  say why: what each needs is *(guessed)*, a research facility, and a
+  shipyard for the advanced one.
+- **Placing:** the item pressed is drawn in (254, 235, 142), and over the
+  map the station's model follows the pointer on the plane its builder
+  is on, where it will stand: not moved to a cell's middle. Under it, on
+  the plane y = 0, the placement grid's cells (`RTS_CFG.h`'s
+  `STATION_PLACEMENT_GRID_SIZE`, 50): the cells round the starbase in
+  yellow outlines, its own in green. The cells' texture is the
+  program's, made in memory; Reluva draws its like them
+  *(guessed)*. The yellow block spans the starbase's ring's square and
+  a cell round it, across x; along z, a cell more than that, not
+  accounted for.
+- **Sent:** a click there placed it, and the ship flew to 53 from the
+  site, on its side, and stopped. Nothing was paid yet: dilithium was
+  3000 until between 58 and 59 seconds, when the ship had got there, and
+  2750 after; officers 4 to 6.
+- **Built:** worker bees flew round the site, the station's model came
+  bit by bit, and it was whole by 88 seconds, 25 after it was paid for.
+  All the menu's items were dark meanwhile, and cancel lit.
+
 ## In Reluva
 
 `MissionView` opens the menu from the build button (`Hud::controlAt`
@@ -59,6 +89,13 @@ when it's done, `MapScene::addUnit` adds the unit at its builder, which
 flies to `launchPointOf` by the movement rules
 ([movement.md](movement.md)). A second item pressed is queued after the
 first. Cancel takes off the last ordered and pays it back *(guessed)*.
+
+A ship that moves places a station instead: the station's model at the
+pointer with the cells (`takenCellsOf`; a click on a taken cell does
+nothing), then the ship flies to `standOffOf` the site, pays as it gets
+there, and the station is added when its `buildTime` has passed. Its
+cancel gives the site up, paid back if paid. The worker bees and the
+station's model coming bit by bit aren't drawn yet.
 
 ## Sources and checks
 
@@ -79,3 +116,6 @@ first. Cancel takes off the last ordered and pays it back *(guessed)*.
   its first.
 - Where other builders' units come out, and what the tooltips say.
 - The rail's wipe's angle, a few degrees from the bar's share.
+- What makes the construction ship's last four items dark, and the
+  other races' equivalents.
+- Which cells a unit takes, along z, and whether ships take any.

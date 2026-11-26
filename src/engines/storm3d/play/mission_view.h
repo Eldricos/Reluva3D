@@ -174,6 +174,22 @@ public:
     static bool pay(Hud::Resources &resources, const Order &order);
     /** Where a ship built by a unit at `builder` flies to: out to its lower left, above the plane. */
     static gfx::Vec3 launchPointOf(const gfx::Vec3 &builder);
+    /** A station a construction ship was sent to build: its builder, where, what; whether it's paid and begun. */
+    struct Site {
+        size_t builder = 0;
+        gfx::Vec3 at{};
+        Order order;
+        bool started = false;
+    };
+    /** Where a builder waits while it builds at `site`: 53 short of it, on the side of `from`. */
+    static gfx::Vec3 standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from);
+    /**
+     * The placement grid's cells (RTS_CFG.h's STATION_PLACEMENT_GRID_SIZE,
+     * 50) taken: each unit's that doesn't move, its ring's square and a
+     * cell round it.
+     */
+    static std::set<std::pair<int, int>> takenCellsOf(const std::vector<MapScene::Unit> &units,
+                                                      const std::vector<bool> &moves);
     /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
     static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
     static float ringHalfOf(const MapScene::Unit &unit);
@@ -214,13 +230,22 @@ private:
     std::vector<std::string> _buildItems;
     Hud::Unit _buildMenu;                         // buildMenuOf's, made as it opens
     std::map<size_t, std::vector<Order>> _queues; // by builder: what it's building, first first
+    std::optional<std::string> _placing;          // a station being placed, from the build menu
+    std::vector<Site> _sites;
+    gfx::MeshId _cellMesh = 0;
+    gfx::TextureId _cellTaken = 0;
+    gfx::TextureId _cellFree = 0;
     gfx::MeshId _ringMesh = 0;
     gfx::TextureId _ringTexture = 0;
     MapScene::Camera camera() const;
     void pressControl(int slot);                          // a control panel's button pressed
     void build(double seconds);                           // the builders' queues on by `seconds`
     void launch(size_t builder, const std::string &item); // a unit built
-    std::vector<std::string> ownedOdfs() const;           // the player's units' definitions
+    void place(int x, int y);                             // the station being placed, at a point of the screen
+    void raise(const Site &site);                         // a station built
+    void makeCells();
+    void drawPlacement(const MapScene::Camera &view);
+    std::vector<std::string> ownedOdfs() const; // the player's units' definitions
     void makeRing();
     uint64_t _last = 0;
 };

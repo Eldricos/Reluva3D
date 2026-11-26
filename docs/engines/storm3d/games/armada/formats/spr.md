@@ -141,6 +141,10 @@ spelt differently, so it has none *(inferred)*.
 Three lines have slips the reader allows for: a bracket closed twice
 (two) or left open (one).
 
+One name is given twice: `gui_global.spr`'s `b_cancel`, from a 128
+texture and then a 64 one. The original's draw of its cancel button
+used the 64 one, so a name given twice is the later's *(inferred)*.
+
 ### Fonts
 
 A font is one sprite, `char`, whose texture is a sheet of characters:

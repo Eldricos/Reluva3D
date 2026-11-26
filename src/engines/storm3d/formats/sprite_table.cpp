@@ -216,9 +216,11 @@ Error SpriteTable::parse(std::string_view name, const Loader &loader, int depth)
 }
 
 const SpriteTable::Sprite *SpriteTable::sprite(std::string_view name) const {
-    for (const Sprite &s : _sprites)
-        if (s.name == name)
-            return &s;
+    // A name given twice is the later's: gui_global.spr's b_cancel, whose
+    // second the original draws.
+    for (auto s = _sprites.rbegin(); s != _sprites.rend(); ++s)
+        if (s->name == name)
+            return &*s;
     return nullptr;
 }
 

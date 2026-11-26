@@ -403,6 +403,40 @@ void testOrders() {
     CHECK(std::abs(to[0] - 546.6f) < 0.1f && std::abs(to[1] - 53.5f) < 0.1f && std::abs(to[2] - 392.8f) < 0.1f);
 }
 
+// Placing a station: the starbase's cells and a cell round them taken,
+// the construction ship waiting 53 from the site on its side; the
+// construction ship's later items dark until what they need is built.
+void testPlacing() {
+    using reluva::storm3d::MapScene;
+    MapScene::Unit base;
+    base.at = {677.6f, 38.5f, 502.8f};
+    base.lo = {639.5f, 9.5f, 466.9f};
+    base.hi = {714.8f, 101.8f, 540.1f};
+    MapScene::Unit ship;
+    ship.lo = {562.5f, 36, 517.5f};
+    ship.hi = {577.5f, 46, 568.5f};
+    const auto taken = MissionView::takenCellsOf({base, ship}, {false, true});
+    CHECK(taken.count({11, 8}) && taken.count({15, 12}) && taken.count({13, 10}));
+    CHECK(!taken.count({10, 8}) && !taken.count({16, 10}));
+    const auto stand = MissionView::standOffOf({514.6f, 38.5f, 434.4f}, {624, 38.5f, 548});
+    CHECK(std::abs(std::hypot(stand[0] - 514.6f, stand[2] - 434.4f) - 53) < 0.01f && stand[0] > 514.6f);
+
+    const std::map<std::string, std::string> files = {{"fturret.odf", "[S]\nclassLabel = \"sensor\"\n"},
+                                                      {"fyard2.odf", "[S]\nclassLabel = \"shipyard\"\n"},
+                                                      {"fyard.odf", "[S]\nclassLabel = \"shipyard\"\n"},
+                                                      {"fbase.odf", "[S]\nclassLabel = \"starbase\"\n"}};
+    const reluva::storm3d::Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    const auto menu = MissionView::buildMenuOf({"fturret", "fyard2"}, loader, {"fbase"});
+    CHECK(menu.controls[0].enabled && !menu.controls[1].enabled);
+    CHECK(MissionView::buildMenuOf({"fturret", "fyard2"}, loader, {"fbase", "fyard"}).controls[1].enabled);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -424,4 +458,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"close-up", [](const std::filesystem::path &) { testCloseUp(); }},
                                             {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
                                             {"orders", [](const std::filesystem::path &) { testOrders(); }},
+                                            {"placing", [](const std::filesystem::path &) { testPlacing(); }},
                                         });
