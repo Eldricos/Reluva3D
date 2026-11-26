@@ -76,13 +76,22 @@ protocol: not Microsoft's, so not with DirectPlay on Windows.
   data every player sees changed (`DPSYS_SETPLAYERORGROUPDATA`, 0x102),
   each to the session's other local players; and from other programs,
   as well, the session's description changed (`DPSYS_SETSESSIONDESC`,
-  0x104, the description after the type) and the session lost
-  (`DPSYS_SESSIONLOST`, 0x31, the type alone) when the host goes.
+  0x104, the description after the type), a player renamed
+  (`DPSYS_SETPLAYERORGROUPNAME`, 0x106, its `DPNAME`), this program made
+  the host (`DPSYS_HOST`, 0x101, the type alone) and the session lost
+  (`DPSYS_SESSIONLOST`, 0x31, the type alone).
+- **Players renamed:** `SetPlayerName` for a player of this program's,
+  for the others.
+- **A new host:** a session opened with `DPSESSION_MIGRATEHOST` (4), as
+  Starfleet Command II's are, goes on when its host goes: the program
+  that joined first hosts it, its players told (`DPSYS_HOST`; `GetCaps`
+  says `DPCAPS_ISHOST` from then on), the host's players destroyed for
+  everyone. Without the flag, the session's lost.
 - Other methods are listed, with their arguments, and not answered: a
   program calling one stops, naming it.
 
-Not there yet: groups, a new host when the host goes (the session's
-lost), players' names changed, chat, and
+Not there yet: groups, `SendChatMessage` (a game's chat may go as its
+own messages, as Starfleet Command II's does), and
 the message saying an asynchronous send is done (`SendEx` without
 `DPSEND_NOSENDCOMPLETE` stops); launching or being launched by a lobby.
 
@@ -109,8 +118,20 @@ as its size (32 bits) then its bytes.
   `DPERR_NOSESSIONS` for another instance). Then, either way: a player
   *added* (3: ID, flags, short and long name, the data every player sees),
   *removed* (4: ID), its *data* changed (5: ID, data), a *message* (6:
-  from, to, 0 for every player but the sender, the bytes); and from the
-  host, the *session*'s description changed (7).
+  from, to, 0 for every player but the sender, the bytes), its *name*
+  changed (8: ID, short and long name); and from the host, the
+  *session*'s description changed (7), and *next*, the program that
+  would take over (9: its address as the host sees it, the port, the
+  first ID of its block), sent as programs join and leave.
+- **A new host:** with `DPSESSION_MIGRATEHOST`, when the host's
+  connection closes, each program drops the host's players (the first
+  block). The one *next* named listens on the port and hosts; the others
+  connect to it, trying for five seconds, and send *rejoin* (10: the
+  instance, their block's first ID), their players known already by
+  their IDs. Every program keeps the session's players for this. A
+  program the host saw on its own machine is named by 127.0.0.1, so a
+  takeover across machines needs the first to join on another machine
+  than the host *(inferred)*.
 - **The host passes things on:** each program speaks only to the host,
   which tells the others of what one's players do, and passes a message
   to the program whose player it's for, or to every other one. The host
@@ -155,6 +176,9 @@ as its size (32 bits) then its bytes.
   message, its player destroyed, its session closed), the host told it
   had left, winning, and closing its own
   ([hosting.md](../../engines/sfc/games/sfc2/systems/hosting.md#its-multiplayer)).
+  The host leaving instead: the joining copy took the session over and
+  won ("You are the winner!"); and its lobby's chat, typed in one copy,
+  shown in both.
   The same between two Linux network namespaces joined by a virtual
   link, each with an address of its own: the session found by
   broadcast, as on a network between machines.
@@ -173,7 +197,10 @@ as its size (32 bits) then its bytes.
   players and their data, messages to one player and to every one passed
   through the host, the host's change to its session, one program's
   leaving (its player removed for the others) and the host's (the
-  session lost).
+  session lost). Its second case, `host migration`: a session with
+  `DPSESSION_MIGRATEHOST` and three programs, the host gone, the first
+  to join hosting and the other rejoining it, then a message between
+  them and a player renamed.
 - **Confidence:** published unless marked; the network is Reluva's own.
 
 ## Used by

@@ -487,6 +487,14 @@ the host's clock, not the game's, so on a busy machine the session came
 too late for a click at frame 6,000, and the host started alone,
 "winning" at 0:04; clicks from frame 9,000 found it.
 
+The game opens its sessions with `DPSESSION_MIGRATEHOST`, keep-alives
+and DirectPlay's own protocol (flags 0x2044), and its lobby names its
+player (`SetPlayerName`) as it opens. Its chat goes as its own messages
+(`Send`): a line typed in the joining copy's lobby ("hello") showed in
+both, "Player : hello". The host forfeiting a battle, the joining copy
+took the session over and won: "Congratulations! You are the winner!",
+the enemy fleet's losses 40; before, the session was lost to it.
+
 ### Its mouse and keys
 
 The game asks where the pointer is with `GetCursorPos` (and

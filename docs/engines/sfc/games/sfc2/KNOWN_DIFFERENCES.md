@@ -55,9 +55,9 @@ None yet.
   been won, and the Command 190 tutorial passed; the other tutorials
 haven't been passed, and the Film Room's playback hasn't been
   tried (its list was empty: the recordings it lists aren't known yet) ([systems/hosting.md](systems/hosting.md)).
-- **Multiplayer sessions don't pass on to a new host.** When the host
-  leaves, the others' session is lost, where DirectPlay could make
-  another player the host; groups and chat messages aren't there
+- **Multiplayer's groups aren't there,** nor DirectPlay's own chat
+  messages, which the game doesn't use; a new host, across machines,
+  needs the first to join to be on another machine than the host
   ([dplay.md](../../../../common/x86/dplay.md)).
 - **A loaded campaign stops starting missions.** Once a mission has been
   played in a campaign that was loaded, no later mission starts; whether
