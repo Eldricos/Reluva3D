@@ -41,7 +41,7 @@ struct Animation {
     std::vector<Cut> cuts;
     int rotations = 1; // directions, the first facing 0 and the rest turning round evenly
     // A rotation sequence's frames' movement: a direction's first frame its
-    // whole cycle's, each other how far into it that frame is (inferred).
+    // whole cycle's, each other how far into it that frame is (0x5511d0).
     std::vector<std::array<int32_t, 2>> moves;
     /** A noise made as a frame shows: a footstep's (its sequence's Trigger). */
     struct Noise {
@@ -75,8 +75,26 @@ struct Animation {
     int direction(float radians) const;
     /** How far a cycle of direction `direction` goes, in pixels; 0 if it doesn't move. */
     float cycleDistance(int direction) const;
+    /**
+     * Where in direction `direction`'s cycle (in frames, 0 to its count)
+     * one is `distance` pixels into it (0 to cycleDistance()): the frames'
+     * movement read backwards, interpolated between frames.
+     */
+    float frameAt(int direction, float distance) const;
+    /**
+     * Walks `seconds` on in direction `direction`, its frames shown at
+     * `rate` a second, `travelled` (pixels into the cycle) moved on: the
+     * frames' own movement between the old place in the cycle and the new
+     * (0x5512e0, 0x44a044), but no further than `limit`. Returns how far
+     * it went, `used` set to the seconds that took; -1 for a sequence that
+     * doesn't move.
+     */
+    float walk(int direction, float &travelled, float seconds, float rate, float limit, float &used) const;
 
 private:
+    // How far into the cycle frame `frame` (0 to per, fractions between)
+    // is, the frames' movement interpolated (0x5511d0).
+    float distanceAt(int direction, float frame) const;
     Error loadFrom(const Archive &data, const std::string &path, const std::string &sequence);
 };
 

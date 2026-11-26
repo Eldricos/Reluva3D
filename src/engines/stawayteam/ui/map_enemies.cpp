@@ -161,17 +161,20 @@ bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds, b
     e.angle = angleOf(dx, dy);
     const Animation &walking = animation(_map.parts[e.part].model, running ? "Run" : "Walk");
     const int direction = walking.direction(e.angle);
-    const float cycle = walking.cycleDistance(direction);
-    const int per = walking.perDirection();
-    float speed = cycle > 0.0f && per > 0 && walking.fps > 0.0f ? cycle * walking.fps / float(per) : kDefaultWalk;
-    speed *= ratio > 0.0f ? ratio : 1.0f;
-    const float step = std::min(distance, speed * seconds);
+    // As far as its frames go in the time, shown at their rate times its
+    // play ratio (the entity's play speed, 0x449fb9).
+    const float play = ratio > 0.0f ? ratio : 1.0f;
+    float used = seconds;
+    float step = walking.walk(direction, e.travelled, seconds, walking.fps * play, distance, used);
+    if (step < 0.0f) {
+        step = std::min(distance, kDefaultWalk * play * seconds);
+        e.travelled = 0.0f;
+    }
     // Through anyone in its way, as the officers go (0x497c60).
     e.x += dx / distance * step;
     e.y += dy / distance * step;
     e.walking = true;
     e.running = running;
-    e.travelled = cycle > 0.0f ? std::fmod(e.travelled + step / (ratio > 0.0f ? ratio : 1.0f), cycle) : 0.0f;
     return step >= distance;
 }
 

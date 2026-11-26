@@ -47,7 +47,7 @@ None now.
   drawing order's ties, the water's clock stopping while
   paused, enemies not seeing past what stands between; the path
   finding by A*, the mouse's buttons, the info bar rising under the
-  mouse, a walk's pace from its frames, the move button's order, the
+  mouse, the move button's order, the
   view held
   by the camera's scripts, a line's time and the beaming in's look; the
   triggers' and the enemies' rules, read from the maps' fields; choosing

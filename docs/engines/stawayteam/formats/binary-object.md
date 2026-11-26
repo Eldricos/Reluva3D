@@ -85,9 +85,13 @@ have one in these files:
   read for a direction from its first frame's (`0x55134d`, as whole
   numbers). In each direction, the first frame holds the whole cycle's
   distance, across and down, and each other frame how far into it that
-  frame is *(inferred: the Generic Male Body's `Walk` going left is 26,
-  0, then 3, 5, 8 ... 23; facing the viewer 0, 19; a standing `Idle`'s
-  are all 0)*.
+  frame is (`0x5511d0` takes frame 0 as 0 into the cycle and adds the
+  first frame's for each whole cycle; the Generic Male Body's `Walk`
+  going left is 26, 0, then 3, 5, 8 ... 23; facing the viewer 0, 19; a
+  standing `Idle`'s are all 0). The game moves whoever plays the
+  sequence by it ([maps.md](../systems/maps.md#in-reluva)): the
+  distance between two times, interpolated between frames
+  (`0x5512e0`).
 - **`CModel`** (`0x50f6e0`): a count, a string, then that many entries:
   a byte, 1 if there's a sequence; if there is, its name, a 0 byte and a
   `CRotationSequence`.
@@ -160,7 +164,6 @@ disruptor where it fell.
 
 ## Open questions
 
-- **How the game uses a rotation sequence's frames' movement.**
 - **Five properties** of the table aren't identified, nor two arrays'
   items (`unknown` in [research/classes.txt](../research/classes.txt));
   none of them is in the game's binary files.

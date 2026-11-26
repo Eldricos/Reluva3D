@@ -50,7 +50,8 @@ None yet.
   picked by their distance from the pointer, not their shapes; a
   radius's action reaches only the officers and enemies in its
   categories, not other parts; the maps' first song starts without its
-  0.2-second fade
+  0.2-second fade; a walker goes straight along its way, not the way its
+  direction's frames move
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from

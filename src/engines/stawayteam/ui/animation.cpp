@@ -111,6 +111,61 @@ float Animation::cycleDistance(int direction) const {
     return std::hypot(float(m[0]), float(m[1]));
 }
 
+float Animation::distanceAt(int direction, float frame) const {
+    const int per = perDirection();
+    const int d = ((direction % rotations) + rotations) % rotations;
+    const auto along = [&](int k) {
+        if (k <= 0)
+            return 0.0f;
+        if (k >= per)
+            return cycleDistance(direction);
+        const auto &m = moves[size_t(d * per + k)];
+        return std::hypot(float(m[0]), float(m[1]));
+    };
+    const int k = std::clamp(int(frame), 0, per - 1);
+    const float t = std::clamp(frame - float(k), 0.0f, 1.0f);
+    return along(k) + (along(k + 1) - along(k)) * t;
+}
+
+float Animation::frameAt(int direction, float distance) const {
+    const int per = perDirection();
+    if (per == 0 || cycleDistance(direction) <= 0.0f)
+        return 0.0f;
+    for (int k = 0; k < per; ++k) {
+        const float a = distanceAt(direction, float(k));
+        const float b = distanceAt(direction, float(k + 1));
+        if (distance < b || k == per - 1)
+            return float(k) + (b > a ? std::clamp((distance - a) / (b - a), 0.0f, 1.0f) : 0.0f);
+    }
+    return 0.0f;
+}
+
+float Animation::walk(int direction, float &travelled, float seconds, float rate, float limit, float &used) const {
+    const float cycle = cycleDistance(direction);
+    const int per = perDirection();
+    if (cycle <= 0.0f || per == 0 || rate <= 0.0f)
+        return -1.0f;
+    // Whole cycles count the cycle's distance each (0x5511d0).
+    const auto total = [&](float frame) {
+        const float cycles = std::floor(frame / float(per));
+        return cycles * cycle + distanceAt(direction, frame - cycles * float(per));
+    };
+    const float from = frameAt(direction, travelled);
+    const float start = total(from);
+    float gone = total(from + seconds * rate) - start;
+    used = seconds;
+    if (gone > limit) {
+        // As far as the limit: the frame it's reached at, and the time.
+        gone = limit;
+        const float at = start + limit;
+        const float cycles = std::floor(at / cycle);
+        const float frame = cycles * float(per) + frameAt(direction, at - cycles * cycle);
+        used = std::clamp((frame - from) / rate, 0.0f, seconds);
+    }
+    travelled = std::fmod(travelled + gone, cycle);
+    return gone;
+}
+
 int Animation::direction(float radians) const {
     const float turn = 6.28318531f;
     float a = std::fmod(radians, turn);

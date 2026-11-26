@@ -986,7 +986,18 @@ the place and the rest about it a figure's width apart *(inferred: the
 game's mouse and grouping aren't traced)*, each by the waypoints (`loadWayPoints`, the
 shortest way along their lines by A*, then straight to the place
 *(inferred)*), facing the way they go, at their walk's own pace, its
-frames by how far into its cycle they are *(inferred)*. The keys bound to
+frames by how far into its cycle they are. In the game a moving
+sequence moves whoever plays it: each update its time goes on by the
+update's seconds times its frame rate times the entity's play speed
+(`+0xd4`, 1 unless an action sets it, `0x449fb9`), and the frames'
+movement between the old time and the new (`0x5512e0`: the cumulative
+distance at each, interpolated between frames, whole cycles counted by
+the first frame's distance, `0x5511d0`) is added to their place
+(`0x44a044`), so they go the way their direction's frames go, at each
+frame's own pace. Reluva's walkers (`Animation::walk`) go as far as
+their frames do in the time, enemies' at their Play Ratio as their play
+speed, but straight along their way rather than their direction's
+frames' way. The keys bound to
 Walk, Run, Crouch and Cycle Movement, and the move button, set how the
 ones chosen move, the button going walk, run, crouch *(inferred for its
 order)*, and the button shows it.
@@ -1301,8 +1312,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Choosing:** the game's mouse for a box and Shift, and where officers
   sent together stand.
 - **The team:** the game's path
-  finding, its mouse (which button chooses and which sends), the info
-  bar's rising, and the frames' movement as a walk's pace.
+  finding, its mouse (which button chooses and which sends), and the
+  info bar's rising.
 - **The buttons:** whether orders can be given with time stopped, what
   CANCEL ORDERS drops, how an enemy's sight is chosen and drawn, and
   whether the escape menu holds the game.

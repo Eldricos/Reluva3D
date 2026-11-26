@@ -569,15 +569,19 @@ void MapScreen::walk(Officer &o, float seconds) {
             o.path.erase(o.path.begin());
             continue;
         }
-        // Facing the way they go; at the walk's own pace, a cycle's
-        // distance in a cycle's frames (inferred).
+        // Facing the way they go; as far as their walk's frames go in the
+        // time, each frame's own movement (0x44a03f), straight along the
+        // way.
         const float angle = std::atan2(dy, dx);
         o.direction = ((6 - int(std::lround(angle / (3.14159265f / 6.0f)))) % kDirections + kDirections) % kDirections;
-        const float cycle = walking.cycleDistance(o.direction);
         const int per = walking.perDirection();
-        const float speed =
-            cycle > 0.0f && per > 0 && walking.fps > 0.0f ? cycle * walking.fps / float(per) : kDefaultWalk;
-        const float step = std::min(distance, speed * left);
+        const float before = walking.frameAt(o.direction, o.travelled);
+        float used = left;
+        float step = walking.walk(o.direction, o.travelled, left, walking.fps, distance, used);
+        if (step < 0.0f) {
+            step = std::min(distance, kDefaultWalk * left);
+            used = step / kDefaultWalk;
+        }
         // Through anyone in the way: the move ignores one character meeting
         // another (0x497c60), and an officer's doesn't collide at all, its
         // Tries To Collide off (0x497c0f).
@@ -585,9 +589,9 @@ void MapScreen::walk(Officer &o, float seconds) {
         o.y += dy / distance * step;
         // The footsteps its frames passed make their noise (the
         // sequence's Trigger, 0x518100).
-        if (cycle > 0.0f && per > 0) {
-            const int from = int(o.travelled / cycle * float(per));
-            const int to = int((o.travelled + step) / cycle * float(per));
+        if (per > 0 && walking.fps > 0.0f) {
+            const int from = int(before);
+            const int to = int(before + used * walking.fps);
             for (int f = from + 1; f <= to; ++f)
                 for (const Animation::Noise &n : walking.noises)
                     if (n.frame == f % per) {
@@ -600,8 +604,7 @@ void MapScreen::walk(Officer &o, float seconds) {
                                 _mixer->play(sound, audio::SoundType::kEffects);
                     }
         }
-        o.travelled = cycle > 0.0f ? std::fmod(o.travelled + step, cycle) : 0.0f;
-        left -= step / speed;
+        left -= std::max(used, 1e-6f);
     }
 }
 
@@ -841,8 +844,8 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
     // (its model's Overlay Model).
     int frame = !fighting.empty() ? fought : int(double(now) * double(body.fps) / 1000.0) % 100000;
     if (walking) {
-        const float cycle = body.cycleDistance(o.direction);
-        frame = cycle > 0.0f ? int(o.travelled / cycle * float(body.perDirection())) : frame;
+        if (body.cycleDistance(o.direction) > 0.0f)
+            frame = int(body.frameAt(o.direction, o.travelled));
     }
     const int x = int(std::lround(o.x)) - left;
     const int y = int(std::lround(o.y)) - top;
@@ -1238,9 +1241,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         if (e && !e->onceSequence.empty())
             look.frame = std::min(int(e->onceTime * body.fps), std::max(0, body.perDirection() - 1));
         if (e && e->walking && fighting.empty()) {
-            const float cycle = body.cycleDistance(look.direction);
-            if (cycle > 0.0f)
-                look.frame = int(e->travelled / cycle * float(body.perDirection()));
+            if (body.cycleDistance(look.direction) > 0.0f)
+                look.frame = int(body.frameAt(look.direction, e->travelled));
         }
         const float standY = e ? e->y : p.y;
         look.x = int(std::lround(e ? e->x : p.x)) - left;

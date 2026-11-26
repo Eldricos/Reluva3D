@@ -9,6 +9,7 @@
 #include "engines/stawayteam/game/ground_fractal.h"
 #include "engines/stawayteam/game/map.h"
 #include "engines/stawayteam/game/water_warp.h"
+#include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include "tests/engines/stawayteam/support.h"
@@ -91,6 +92,33 @@ void testGround() {
     CHECK(screen.cameraX() == 96.0f && screen.cameraY() == 32.0f);
     screen.moveCamera(-50.0f, 70.0f);
     CHECK(screen.cameraX() == 32.0f && screen.cameraY() == 70.0f);
+}
+
+void testWalkFrames() {
+    // A walk of 4 frames, 12 pixels a cycle, its frames 0, 2, 6 and 9 into
+    // it, shown 10 a second: each step goes as far as its frames do in the
+    // time, interpolated between them, round the cycle, no further than
+    // asked (0x5512e0).
+    Animation walk;
+    walk.frames.resize(4);
+    walk.fps = 10.0f;
+    walk.moves = {{12, 0}, {2, 0}, {6, 0}, {9, 0}};
+    float travelled = 0.0f;
+    float used = 0.0f;
+    CHECK(std::abs(walk.walk(0, travelled, 0.1f, walk.fps, 100.0f, used) - 2.0f) < 0.001f && used == 0.1f);
+    CHECK(std::abs(walk.walk(0, travelled, 0.15f, walk.fps, 100.0f, used) - 5.5f) < 0.001f);
+    CHECK(std::abs(travelled - 7.5f) < 0.001f && std::abs(walk.frameAt(0, travelled) - 2.5f) < 0.001f);
+    CHECK(std::abs(walk.walk(0, travelled, 1.0f, walk.fps, 1.0f, used) - 1.0f) < 0.001f &&
+          std::abs(used - 1.0f / 30.0f) < 0.001f);
+    travelled = 11.0f;
+    CHECK(std::abs(walk.walk(0, travelled, 0.1f, walk.fps, 100.0f, used) - 7.0f / 3.0f) < 0.001f);
+    CHECK(std::abs(travelled - 4.0f / 3.0f) < 0.001f);
+    // Standing frames don't move: the caller's own pace.
+    Animation still;
+    still.frames.resize(2);
+    still.fps = 10.0f;
+    still.moves = {{0, 0}, {0, 0}};
+    CHECK(still.walk(0, travelled, 0.1f, 10.0f, 100.0f, used) < 0.0f);
 }
 
 void testPaths() {
@@ -2872,6 +2900,7 @@ static const reluva::test::Suite
                {"closest", [](const std::filesystem::path &) { testClosest(); }},
                {"foes", [](const std::filesystem::path &) { testFoes(); }},
                {"hostage", [](const std::filesystem::path &) { testHostage(); }},
+               {"walk frames", [](const std::filesystem::path &) { testWalkFrames(); }},
                {"spawn points", [](const std::filesystem::path &) { testSpawnPoints(); }},
                {"pause when hit", [](const std::filesystem::path &) { testPauseWhenHit(); }},
                {"projectiles", [](const std::filesystem::path &) { testProjectiles(); }},
