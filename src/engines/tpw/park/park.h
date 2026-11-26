@@ -112,6 +112,19 @@ public:
     Error load(const SearchSet &files, const std::string &folder, int mission);
 
     const std::string &folder() const { return _folder; }
+    /**
+     * What play has changed of the park, written out: its money, its
+     * objects and paths, its staff and visitors, its research, its
+     * missions and challenges, its date. The rest is its settings', which
+     * load() reads. See docs/engines/tpw/games/simcoaster/formats/reluva-saves.md.
+     */
+    std::vector<uint8_t> saveState() const;
+    /**
+     * Puts back a state saveState() wrote, over a park just loaded of the
+     * same world. Fails, the park as it was or partly changed, on a state
+     * of another version or world, or one cut short.
+     */
+    Error restoreState(const std::vector<uint8_t> &data);
     const FixedItems &fixedItems() const { return _fixed; }
     /** The mission played here: the current objective, if it's in this world; else one numbered −1. */
     const Mission &mission() const { return _mission; }
@@ -1034,6 +1047,9 @@ private:
     void loadChallenges(const SearchSet &files, const SamFile &general, const SamFile *world);
     void loadAwards(const SamFile &general);
     void loadLand(const SearchSet &files);
+    // The state saveState() writes and restoreState() reads, field by field.
+    template<class A>
+    void ioState(A &a);
     /** Adds the land inside a mission's fence (Mission::boundary). */
     void growLand(const std::vector<Cell> &clicks);
     void challengeDay();

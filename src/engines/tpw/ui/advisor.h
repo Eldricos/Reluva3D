@@ -15,6 +15,7 @@
 #include <deque>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::tpw {
@@ -53,6 +54,9 @@ public:
     void draw(Surface &screen) const;
     /** The lines he has begun, by their numbers in the speech category, in order. */
     const std::vector<uint32_t> &said() const { return _said; }
+    /** The cues he's had, and so won't say again; set as a saved game left them. */
+    const std::set<Cue> &cued() const { return _cued; }
+    void setCued(std::set<Cue> cued) { _cued = std::move(cued); }
     /** The line a cue says. */
     static uint32_t lineOf(Cue cue);
 

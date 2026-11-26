@@ -60,7 +60,8 @@
 #            park-run); and the world's signs lettered, their fonts and
 #            lines, with a checksum of them drawn (tpw sign-shot); the
 #            fly-in at its frame 330, its camera and a checksum of the
-#            frame (tpw flyin-shot)
+#            frame (tpw flyin-shot); a park saved and loaded back, the
+#            same then and a minute on (tpw save-check)
 #   viewer   the data viewer, headless: every page, a few keys on each,
 #            then Esc; a checksum of every screen shown, and its titles
 #            (tpw viewer-run)
@@ -134,6 +135,7 @@ elseif(STEP STREQUAL "park")
     record_run(signs "signs lettered" tpw sign-shot "${game_dir}" levels/science "${OUTPUT}/park/signs.png")
     record_file(signs.png "${OUTPUT}/park/signs.png")
     record_run(flyin "frame" tpw flyin-shot "${game_dir}" levels/science "${OUTPUT}/park/flyin.png" 330)
+    record_run(saving "saved:" tpw save-check "${game_dir}" levels/science 60)
     record_file(flyin.png "${OUTPUT}/park/flyin.png")
 elseif(STEP STREQUAL "viewer")
     record_run(viewer "left by:" tpw viewer-run "${game_dir}")

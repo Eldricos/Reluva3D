@@ -21,8 +21,10 @@ reluva_add_engine(tpw
         park/special_rides.cpp
         park/awards.cpp
         park/land.cpp
+        park/saving.cpp
         park/research.cpp
         players.cpp
+        saves.cpp
         sound_effects.cpp
         textures.cpp
         script/machine.cpp

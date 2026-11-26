@@ -29,6 +29,8 @@
 #include "image/image.h"
 
 #include "tests/engines/tpw/fixtures.h"
+
+#include <cstring>
 #include "tests/support/ea_movie_writer.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
@@ -594,11 +596,16 @@ void testParkWindows() {
     CHECK(message.handle(at(EventType::kMouseDown, message.okRect())) == tpw::WindowResult::kClosed &&
           !message.isOpen());
 
-    // The game's menu: only resuming and quitting answer; Esc resumes.
+    // The game's menu: loading, saving, resuming and quitting answer; the
+    // rest don't; Esc resumes.
     tpw::GameMenu game;
     game.open();
-    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(0))) == tpw::GameMenu::Choice::kNone &&
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(2))) == tpw::GameMenu::Choice::kNone &&
           game.isOpen());
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(0))) == tpw::GameMenu::Choice::kLoad);
+    game.open();
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(1))) == tpw::GameMenu::Choice::kSave);
+    game.open();
     CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(6))) == tpw::GameMenu::Choice::kResume &&
           !game.isOpen());
     game.open();
@@ -645,6 +652,35 @@ void testParkWindows() {
     CHECK(advisor.said() == (std::vector<uint32_t>{380, 376}));
     advisor.advance(6000);
     CHECK(!advisor.talking());
+
+    // Saving: New Save, then its name typed; an old save once it's said
+    // to replace it. Loading: a save chosen, then the tick.
+    using SaveLoad = tpw::SaveLoadWindow;
+    const auto click = [&](SaveLoad &w, SaveLoad::Control c, size_t i = 0) {
+        return w.handle(at(EventType::kMouseDown, SaveLoad::placeOf(c, i)));
+    };
+    SaveLoad saving;
+    saving.open(SaveLoad::Mode::kSave, {{"Old", "1.Jan.00"}});
+    click(saving, SaveLoad::Control::kRow, 0);
+    CHECK(click(saving, SaveLoad::Control::kOk) == tpw::WindowResult::kNone && saving.naming());
+    CHECK(click(saving, SaveLoad::Control::kOk) == tpw::WindowResult::kNone && saving.isOpen());
+    Event name{};
+    name.type = EventType::kTextInput;
+    std::strcpy(name.text, "Mine");
+    saving.handle(name);
+    CHECK(click(saving, SaveLoad::Control::kOk) == tpw::WindowResult::kChose && saving.chosen() == -1 &&
+          saving.typed() == "Mine");
+    saving.open(SaveLoad::Mode::kSave, {{"Old", "1.Jan.00"}});
+    click(saving, SaveLoad::Control::kRow, 1);
+    CHECK(click(saving, SaveLoad::Control::kOk) == tpw::WindowResult::kNone && !saving.naming());
+    CHECK(click(saving, SaveLoad::Control::kOk) == tpw::WindowResult::kChose && saving.chosen() == 0);
+    SaveLoad loading;
+    loading.open(SaveLoad::Mode::kLoad, {{"Old", "1.Jan.00"}});
+    CHECK(click(loading, SaveLoad::Control::kOk) == tpw::WindowResult::kNone);
+    click(loading, SaveLoad::Control::kRow, 0);
+    CHECK(click(loading, SaveLoad::Control::kOk) == tpw::WindowResult::kChose && loading.chosen() == 0);
+    loading.open(SaveLoad::Mode::kLoad, {});
+    CHECK(click(loading, SaveLoad::Control::kCancel) == tpw::WindowResult::kClosed);
 
     // The Overview Map goes to another open world, not a closed one or
     // the park's own.

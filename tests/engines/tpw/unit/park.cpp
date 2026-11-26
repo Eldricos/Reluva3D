@@ -8,6 +8,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/park/attractions.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/saves.h"
 #include "engines/tpw/park/path_tiles.h"
 
 #include "tests/engines/tpw/fixtures.h"
@@ -1430,6 +1431,85 @@ void testLand(const std::filesystem::path &tmp) {
     CHECK(later.owns({7, 0}) && later.owns({0, 0}));
 }
 
+void testSaving(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "100 200 " +
+                 std::to_string(i / 8) + "\r\n";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 1000\r\nCosts.QueueCell 10\r\nArrival.MinPeople 3\r\n"
+              "Arrival.TimeBetweenArrivals 1\r\nArrival.FixedRate 3\r\nArrival.PointsPerVisitor 1\r\n"
+              "PeepInfo.PercentageOfKids 100\r\nStaffPoolInfo.BeginningNumberOfHandymen 2\r\n"
+              "StaffPoolInfo.AvgExperienceOfHandymen 20000\r\nStaffPoolInfo.AvgWageDifference 0\r\n"
+              "StaffAgencies[0].InitialWageModifier 10\r\nStaffAgencies[0].InitialExperienceModifier 0\r\n" +
+                  types);
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nInfo.AttractionValue 3\r\n");
+    writeText(world / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nUsageInfo.InitPricePerUse 10\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+
+    // A park played a while: a ride and its queue, a janitor, visitors.
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    const int q = park.place(1101, 0, {"2N"}, true, {2, 2}, 0);
+    CHECK(q >= 0 && park.layQueue(q, Park::pathRun({2, 2}, {2, 4})) == 1);
+    CHECK(park.hire(Park::StaffKind::kJanitor, 0) == Park::Hiring::kHired);
+    park.rename(0, "Big Bot");
+    for (int t = 0; t < 300; ++t)
+        park.advance(100);
+    CHECK(park.visitors() > 0 && !park.objects().empty());
+    const std::vector<uint8_t> saved = park.saveState();
+
+    // Put back over a new park of the world, it's the same, and plays on
+    // the same.
+    Park again;
+    CHECK(!again.load(files, "levels/science", 0));
+    CHECK(!again.restoreState(saved));
+    CHECK(again.saveState() == saved);
+    CHECK(again.objects().size() == 1 && again.objects()[0].name == "Big Bot" && again.staff().size() == 1);
+    CHECK(again.cash() == park.cash() && again.day() == park.day() && again.visitors() == park.visitors());
+    for (int t = 0; t < 300; ++t) {
+        park.advance(100);
+        again.advance(100);
+    }
+    CHECK(again.saveState() == park.saveState());
+
+    // Through a file: listed by its player, read back whole.
+    const std::filesystem::path folder = tpw::savesFolder(tmp / "saves");
+    const std::filesystem::path file = tpw::newSaveFile(folder);
+    CHECK(file.filename() == "save1.rsv");
+    CHECK(!tpw::writeSave(file, {"Robot park", "Tester", "levels/science", 0, park.day(), saved, {1, 2}}));
+    CHECK(tpw::newSaveFile(folder).filename() == "save2.rsv");
+    const std::vector<tpw::SaveSlot> slots = tpw::listSaves(folder, "Tester");
+    CHECK(slots.size() == 1 && slots[0].name == "Robot park" && tpw::listSaves(folder, "Someone").empty());
+    tpw::SavedGame read;
+    CHECK(!tpw::readSave(file, read) && read.park == saved && read.world == "levels/science" &&
+          (read.screen == std::vector<uint8_t>{1, 2}));
+    std::filesystem::resize_file(file, std::filesystem::file_size(file) - 1);
+    CHECK(tpw::readSave(file, read));
+
+    // Cut short, or another version, it's refused.
+    Park broken;
+    CHECK(!broken.load(files, "levels/science", 0));
+    CHECK(broken.restoreState(std::vector<uint8_t>(saved.begin(), saved.end() - 3)));
+    std::vector<uint8_t> other = saved;
+    other[0] = 99;
+    CHECK(broken.restoreState(other));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -1452,4 +1532,5 @@ static const reluva::test::Suite
                                 {"special-rides", [](const std::filesystem::path &tmp) { testSpecialRides(tmp); }},
                                 {"awards", [](const std::filesystem::path &tmp) { testAwards(tmp); }},
                                 {"land", [](const std::filesystem::path &tmp) { testLand(tmp); }},
+                                {"saving", [](const std::filesystem::path &tmp) { testSaving(tmp); }},
                             });

@@ -16,7 +16,9 @@ What the game keeps of a player, as the Personnel File shows it: their
 name, rank, golden tickets, shares owned and the share price, each
 world's challenges won and whether it's open, and their current
 objective (none until their first game). It must keep their parks too,
-for "Load A Game" and "Resume this game"; how isn't known.
+for "Load A Game" and "Resume this game"; how isn't known. Reluva keeps
+a player's saved games in files of its own, by their name
+([saving.md](saving.md)).
 
 Neither the installed game nor its CD has a player's file to read: the
 install's `Data` holds no file written by the game (`PreBuilt/prebuilt.TPWS`

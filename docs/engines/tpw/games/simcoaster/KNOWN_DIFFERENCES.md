@@ -28,8 +28,8 @@ None yet.
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
   bottom buttons' menus open, and all their items do something, the Overview
-  Map and Visitor Opinion by guess; the game's menu resumes
-  and quits, nothing else; attractions', staff's and the gates' windows
+  Map and Visitor Opinion by guess; the game's menu loads, saves,
+  resumes and quits, nothing else; attractions', staff's and the gates' windows
   and menus have only some of their controls, and the windows the
   recording doesn't show are laid out by guess
   ([park-windows.md](systems/park-windows.md)); a new park has the prebuilt park's
@@ -77,10 +77,15 @@ None yet.
   place; its music turns between its groups by values Reluva sets to
   match the recording, and the advisor says his lines at the
   recording's times ([front-end.md](systems/front-end.md#the-music-and-the-speech)).
+- **Saved games** are files of Reluva's own (`saves/save1.rsv` in the
+  game's save folder), as the game's `.TPWS` can't be written; their
+  windows are laid out by guess, a loaded game opens without the fly-in
+  or briefing, its riders let off, and saves can't be deleted yet
+  ([saving.md](systems/saving.md), [reluva-saves.md](formats/reluva-saves.md)).
 - **The Personnel File** keeps its players in a file of Reluva's own,
   `players.txt` in the game's save folder, as the game's own aren't
-  known ([players.md](systems/players.md)); "Load A Game" is always
-  disabled and the Coaster Design Kit does nothing; there are no
+  known ([players.md](systems/players.md)); the Coaster Design Kit does
+  nothing; there are no
   tooltips; the portrait always shows; its blue buttons are lighter than
   the game's ([personnel-file.md](systems/personnel-file.md#in-reluva)).
 - **On the globe**, a world under the pointer shows nothing, and the

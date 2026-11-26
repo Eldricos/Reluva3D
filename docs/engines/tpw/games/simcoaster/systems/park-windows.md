@@ -127,8 +127,9 @@ Esc, at 4:20: the park darkened, and in `MENUBIG`, centred, 46 pixels
 apart from y 66, cyan and white under the mouse: "Load Game", "Save
 Game", "Select A New Player", "Go Online", "Options", "Go to Coaster
 Design Kit", "Resume Game", "Quit Game" (768, 769, 774, 766, 770, 50, 771,
-772). The park's clock stops meanwhile. Only "Resume Game" (or Esc) and
-"Quit Game" do anything yet; the others are grey.
+772). The park's clock stops meanwhile. "Load Game" and "Save Game"
+open their windows ([saving.md](saving.md)), "Resume Game" (or Esc)
+and "Quit Game" do as they say; the others are grey.
 
 ## In Reluva
 

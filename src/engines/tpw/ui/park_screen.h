@@ -26,6 +26,7 @@
 #include <array>
 #include <functional>
 #include <deque>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
@@ -146,6 +147,20 @@ public:
     GameMenu &gameMenu() { return _gameMenu; }
     ParkMapWindow &parkMap() { return _parkMap; }
     OverviewMapWindow &overviewMap() { return _overviewMap; }
+    SaveLoadWindow &saveLoad() { return _saveLoad; }
+    /** Where the player's games are saved, and whose; an empty folder saves nothing. */
+    void setSaves(std::filesystem::path folder, std::string player) {
+        _savesFolder = std::move(folder);
+        _saver = std::move(player);
+    }
+    /** Opens Save Game or Load Game on the player's saves. */
+    void openSaveLoad(SaveLoadWindow::Mode mode);
+    /** Writes the game as the Save Game window chose: over an old save, or a new one. */
+    Error saveChosen(const Park &park);
+    /** Takes the save the Load Game window chose. */
+    void takeLoadChosen() { _loadRequest = _slotFiles[size_t(_saveLoad.chosen())]; }
+    /** The save to load in this park's place; empty for none. */
+    const std::filesystem::path &loadRequest() const { return _loadRequest; }
     Advisor &advisor() { return _advisor; }
     const Advisor &advisor() const { return _advisor; }
     ActivateRideWindow &activateRide() { return _activateRide; }
@@ -174,6 +189,14 @@ public:
      * world always.
      */
     std::vector<OverviewMapWindow::World> worlds(const Park &park) const;
+    /**
+     * What a saved game keeps of the screen: the Message Center's
+     * messages, and the advisor's lines said. See
+     * docs/engines/tpw/games/simcoaster/formats/reluva-saves.md.
+     */
+    std::vector<uint8_t> saveState() const;
+    /** Puts it back; fails on a state cut short or of another version. */
+    Error restoreState(const std::vector<uint8_t> &data);
     /** The world the Overview Map chose to go to, as Park numbers themes; −1 for none. */
     int travel() const { return _travel; }
     void setTravel(int theme) { _travel = theme; }
@@ -245,6 +268,7 @@ private:
     std::vector<std::unique_ptr<RideRun>> _runs;      // by the park's objects: their scripts, those that have one
     std::vector<int> _runIds;                         // the objects they're of
     std::vector<std::unique_ptr<RideRun>> _fixedRuns; // by Park::fixedObjects()
+    bool _lettingOff = true;                          // the park's riders, as it's first run
     uint64_t _ranTo = 0;                              // the park's time they're run to
     // Attractions without a script, by their queues: whom they have, and till when (the park's time).
     std::map<int, std::vector<std::pair<int, uint64_t>>> _unscripted;
@@ -285,6 +309,11 @@ private:
     GameMenu _gameMenu;
     ParkMapWindow _parkMap;
     OverviewMapWindow _overviewMap;
+    SaveLoadWindow _saveLoad;
+    std::filesystem::path _savesFolder;
+    std::string _saver;
+    std::vector<std::filesystem::path> _slotFiles; // the Save and Load windows' rows' files
+    std::filesystem::path _loadRequest;
     Advisor _advisor;
     std::array<bool, 3> _worldOpen{};
     std::array<int, 3> _worldChallenges{10, 10, 10}; // ChallengesInThisLevel's ten each

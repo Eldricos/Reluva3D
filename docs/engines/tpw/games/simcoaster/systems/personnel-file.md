@@ -131,10 +131,11 @@ name (as much as fits on a tab, backspace taking off) and its tick, or
 Enter, makes the player; "Delete Player" asks, and its tick empties the
 slot (Esc, the cross or the close button don't); "Enter Game" goes on to
 choosing a world with the player shown, giving them the first mission
-if they had none; "Quit Game" leaves. Not yet
+if they had none; "Load A Game", lit once they have a game saved, lists
+their saves and goes on into the one chosen ([saving.md](saving.md));
+"Quit Game" leaves. Not yet
 ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)):
-"Load A Game" is always disabled, as there are no saved games; the
-Coaster Design Kit does nothing; there are no tooltips.
+the Coaster Design Kit does nothing; there are no tooltips.
 
 `reluva-tool tpw personnel-shot <game folder> <out.png> [name
 [-delete]]` draws it over the front end's globe: an empty slot, a new
@@ -160,7 +161,7 @@ control is where it says, and clickable only when its state shows it.
 - Where the game keeps its players ([players.md](players.md)), and what
   a played player's file shows (golden tickets, promotions, the share
   price as it moves).
-- What "Load A Game" shows; the Coaster Design Kit.
+- What "Load A Game" shows in the game; the Coaster Design Kit.
 - When the portrait shows: it's there at 1:06 and gone from 1:14.
 - How long a name can be.
 - Why the values' rows sit differently against their labels; the blue

@@ -9,6 +9,9 @@
 #include "common/events.h"
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/saves.h"
+#include "engines/tpw/ui/info_windows.h"
+#include "engines/tpw/ui/park_windows.h"
 #include "engines/tpw/ui/text.h"
 
 #include <algorithm>
@@ -336,7 +339,7 @@ void PersonnelFile::draw(Surface &screen, const PlayerSlots &players, const View
                                                                  {Control::kLoadGame, kLoadText},
                                                                  {Control::kDeletePlayer, kDeleteText}}};
         for (size_t i = 0; i < buttons.size(); ++i) {
-            const bool enabled = buttons[i].first != Control::kLoadGame;
+            const bool enabled = buttons[i].first != Control::kLoadGame || view.canLoad;
             drawUiMesh(screen, _button,
                        !enabled                           ? kDisabledMesh
                        : view.hovered == buttons[i].first ? kButtonLitMesh
@@ -403,6 +406,8 @@ PersonnelFile::Control PersonnelFile::controlAt(int x, int y, const PlayerSlots 
         live = {Control::kTab0, Control::kTab1, Control::kTab2, Control::kTab3, Control::kQuitGame};
         if (player)
             live.insert(live.end(), {Control::kEnterGame, Control::kDeletePlayer, Control::kCoasterKit});
+        if (player && view.canLoad)
+            live.push_back(Control::kLoadGame);
         else if (!view.placeholder && !view.typed.empty())
             live.push_back(Control::kNameDone);
     }
@@ -436,7 +441,7 @@ void PersonnelFile::type(std::string &name, const std::string &utf8) const {
 }
 
 bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder,
-                  const Backdrop &backdrop, PlayerFile &chosen) {
+                  const Backdrop &backdrop, PlayerFile &chosen, std::filesystem::path *loadSave) {
     using Control = PersonnelFile::Control;
     PersonnelFile file;
     if (file.load(files)) {
@@ -450,11 +455,15 @@ bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::pa
             (void)writePlayers(saveFolder, players);
     };
     PersonnelFile::View view;
+    auto savesOf = [&](const PlayerFile &p) {
+        return saveFolder.empty() || !p.exists() ? std::vector<SaveSlot>{} : listSaves(savesFolder(saveFolder), p.name);
+    };
     auto show = [&](int slot) {
         view.selected = slot;
         view.typed.clear();
         view.placeholder = true;
         view.confirmingDelete = false;
+        view.canLoad = loadSave && !savesOf(players[size_t(slot)]).empty();
     };
     auto makePlayer = [&] {
         if (view.placeholder || view.typed.empty())
@@ -471,6 +480,37 @@ bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::pa
     } typing(sys);
     Surface screen;
     screen.create(kScreenWidth, kScreenHeight, PixelFormat::kRGBA32);
+    show(0);
+    // "Load A Game": the player's saves in Load Game over the file, till
+    // one's chosen or the window's crossed.
+    auto chooseSave = [&](const PlayerFile &p) {
+        WindowKit kit;
+        if (kit.load(files))
+            return std::filesystem::path();
+        const std::vector<SaveSlot> slots = savesOf(p);
+        std::vector<SaveLoadWindow::Row> rows;
+        for (const SaveSlot &s : slots)
+            rows.push_back({s.name, kit.date(s.day)});
+        SaveLoadWindow window;
+        window.open(SaveLoadWindow::Mode::kLoad, std::move(rows));
+        for (;;) {
+            Event ev;
+            while (sys.pollEvent(ev)) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
+                    return std::filesystem::path();
+                const WindowResult result = window.handle(ev);
+                if (result == WindowResult::kChose)
+                    return slots[size_t(window.chosen())].file;
+                if (result == WindowResult::kClosed || (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
+                    return std::filesystem::path();
+            }
+            backdrop(screen);
+            file.draw(screen, players, view);
+            window.draw(screen, kit);
+            sys.updateScreen(screen);
+            sys.delayMillis(kFrameMillis);
+        }
+    };
     for (;;) {
         Event ev;
         while (sys.pollEvent(ev)) {
@@ -497,6 +537,12 @@ bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::pa
                     }
                     chosen = shown;
                     return true;
+                } else if (c == Control::kLoadGame && loadSave) {
+                    if (std::filesystem::path save = chooseSave(shown); !save.empty()) {
+                        *loadSave = std::move(save);
+                        chosen = shown;
+                        return true;
+                    }
                 } else if (c == Control::kQuitGame) {
                     return false;
                 } else if (c == Control::kNameDone) {

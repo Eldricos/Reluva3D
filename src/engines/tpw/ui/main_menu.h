@@ -24,10 +24,13 @@ namespace reluva::tpw {
  *     an empty path.
  * @param mixer Where the script's sound effects play; nullptr for silence.
  * @param chosen Given the player chosen, if not nullptr.
- * @return The world chosen, by Globe::worlds()' order; −1 if the player
+ * @param loadSave Given the saved game the player chose to load from the
+ *     Personnel File, if not nullptr; the globe's then passed by.
+ * @return The world chosen, by Globe::worlds()' order (0 for a saved
+ *     game, whose world is its own); −1 if the player
  *     quit, or the window was closed (or the launcher asked for).
  */
 int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder,
-                audio::Mixer *mixer = nullptr, PlayerFile *chosen = nullptr);
+                audio::Mixer *mixer = nullptr, PlayerFile *chosen = nullptr, std::filesystem::path *loadSave = nullptr);
 
 } // namespace reluva::tpw

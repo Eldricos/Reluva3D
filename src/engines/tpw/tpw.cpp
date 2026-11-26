@@ -14,6 +14,7 @@
 #include "engines/tpw/games.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/players.h"
+#include "engines/tpw/saves.h"
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/fly_in.h"
 #include "engines/tpw/ui/globe.h"
@@ -25,6 +26,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
+#include <utility>
 
 namespace reluva::tpw {
 
@@ -63,13 +66,15 @@ public:
         // After the movie, which plays as music, at its own full level.
         setTypeVolumes(files, mixer);
         PlayerFile player;
-        const int world = runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr, &player);
+        std::filesystem::path save;
+        const int world = runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr, &player, &save);
         if (world < 0)
             return Error::success();
 
         // Each world's park in turn, as the Overview Map moves between them.
         _mixer = audioOut ? &mixer : nullptr;
-        for (int next = world; next >= 0;)
+        Next next{save.empty() ? world : -1, save};
+        while (next.world >= 0 || !next.save.empty())
             if (Error err = playWorld(files, next, player))
                 return err;
         _mixer = nullptr;
@@ -77,15 +82,26 @@ public:
     }
 
 private:
+    /** The park to play next: a world's (by Globe::worlds()' order), or a saved game. */
+    struct Next {
+        int world = -1;
+        std::filesystem::path save;
+    };
+
     /**
-     * The loading screen while a world's park loads (by Globe::worlds()'
-     * order), then the park, set up as the player's missions done leave
-     * it, with their objective if it's in this world; what it did kept in
+     * The loading screen while a world's park loads, then the park, set up
+     * as the player's missions done leave it, with their objective if
+     * it's in this world, or as a saved game left it; what it did kept in
      * the player's file.
-     * @param world In, the world; out, the one the Overview Map chose
-     *     next, −1 when the player quits or closes the window.
+     * @param next In, the park; out, the one the Overview Map or Load Game
+     *     chose next, neither when the player quits or closes the window.
      */
-    Error playWorld(const SearchSet &files, int &world, PlayerFile &player) {
+    Error playWorld(const SearchSet &files, Next &next, PlayerFile &player) {
+        const Next now = std::exchange(next, Next{});
+        SavedGame saved;
+        if (!now.save.empty())
+            if (Error err = readSave(now.save, saved))
+                return err;
         Surface screen;
         screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
         image::Image loading;
@@ -95,47 +111,65 @@ private:
         _sys.updateScreen(screen);
         Park park;
         ParkScreen parkScreen;
-        const std::string folder = Globe::worlds()[size_t(world)].folder;
-        if (Error err = park.load(files, folder.substr(0, folder.size() - 1), std::max(0, player.objective)))
+        const bool loaded = !now.save.empty();
+        const std::string folder =
+            loaded ? saved.world + "/" : std::string(Globe::worlds()[size_t(std::max(0, now.world))].folder);
+        if (Error err = park.load(files, folder.substr(0, folder.size() - 1),
+                                  loaded ? saved.mission : std::max(0, player.objective)))
             return err;
+        // A saved park's state goes in before the screen sees it, so its
+        // objects stand built.
+        if (loaded)
+            if (Error err = park.restoreState(saved.park))
+                return err;
         if (Error err = parkScreen.load(files, park))
             return err;
+        if (loaded)
+            if (Error err = parkScreen.restoreState(saved.screen))
+                return err;
+        if (!_target.savePath.empty())
+            parkScreen.setSaves(savesFolder(_target.savePath), player.name);
         // The player's shares are the company's they hold, as their file keeps them.
-        parkScreen.setPlayer(player.name, player.rank);
+        parkScreen.setPlayer(player.name, loaded ? park.rank() : player.rank);
         parkScreen.advisor().setMixer(_mixer);
         for (const PlayerFile::World &w : player.worlds)
             for (int theme = 0; theme < 3; ++theme)
                 if (Park::themeName(theme) == w.theme)
                     parkScreen.setWorld(theme, w.open, w.challenges);
-        if (player.sharesIssued > 0)
-            park.setShares({player.sharesIssued, player.sharesOwned, player.sharePrice});
-        park.setPlayer(player.goldenTickets, player.rank);
-        park.setChallengeRecord(player.challengesWon, player.challengesFailed);
-        park.setRidesActivated(player.ridesActivated);
-        // The fly-in along the road to the gates, then the mission's
-        // briefing over the park as it opens.
-        FlyIn flyIn;
-        if (!flyIn.load(files, folder.substr(0, folder.size() - 1)) && !playFlyIn(_sys, flyIn, parkScreen, park)) {
-            world = -1;
-            return Error::success();
+        // A saved game keeps the player's standing as it was; a new park
+        // takes it from their file.
+        if (!loaded) {
+            if (player.sharesIssued > 0)
+                park.setShares({player.sharesIssued, player.sharesOwned, player.sharePrice});
+            park.setPlayer(player.goldenTickets, player.rank);
+            park.setChallengeRecord(player.challengesWon, player.challengesFailed);
+            park.setRidesActivated(player.ridesActivated);
         }
+        // The fly-in along the road to the gates, then the mission's
+        // briefing over the park as it opens; a saved game opens straight
+        // on its park (guessed).
         Briefing briefing;
-        soft3d::Rasterizer rasterizer;
-        const ParkScreen::Camera start = parkScreen.startCamera(park);
-        if (!briefing.load(files) && !showBriefing(_sys, briefing, park, player.name,
-                                                   [&](Surface &s) { parkScreen.draw(s, rasterizer, park, start); })) {
-            world = -1;
-            return Error::success();
+        const bool briefed = !briefing.load(files);
+        if (!loaded) {
+            FlyIn flyIn;
+            if (!flyIn.load(files, folder.substr(0, folder.size() - 1)) && !playFlyIn(_sys, flyIn, parkScreen, park))
+                return Error::success();
+            soft3d::Rasterizer rasterizer;
+            const ParkScreen::Camera start = parkScreen.startCamera(park);
+            if (briefed && !showBriefing(_sys, briefing, park, player.name,
+                                         [&](Surface &s) { parkScreen.draw(s, rasterizer, park, start); }))
+                return Error::success();
         }
         const bool left =
             playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark, bool challenges) {
                 return showBriefing(_sys, briefing, park, player.name, drawPark, challenges);
             });
-        world = -1;
-        if (left && parkScreen.travel() >= 0)
+        if (left && !parkScreen.loadRequest().empty())
+            next.save = parkScreen.loadRequest();
+        else if (left && parkScreen.travel() >= 0)
             for (size_t i = 0; i < Globe::worlds().size(); ++i)
                 if (Globe::worlds()[i].theme == Park::themeName(parkScreen.travel()))
-                    world = int(i);
+                    next.world = int(i);
         // What the park did stays with the player, in their file too.
         keep(player, park);
         if (_target.savePath.empty() || !player.exists())

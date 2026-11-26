@@ -141,8 +141,14 @@ constexpr std::array<uint32_t, 8> kGameMenuItems{768, 769, 774, 766, 770, 50, 77
 constexpr int kGameMenuTop = 66;
 constexpr int kGameMenuStep = 46;
 constexpr int kGameMenuHeight = 36;
+constexpr size_t kLoadItem = 0;
+constexpr size_t kSaveItem = 1;
 constexpr size_t kResumeItem = 6;
 constexpr size_t kQuitItem = 7;
+
+bool works(size_t item) {
+    return item == kLoadItem || item == kSaveItem || item == kResumeItem || item == kQuitItem;
+}
 constexpr Color kMenuCyan{96, 200, 216};
 constexpr Color kMenuGrey{96, 120, 128};
 
@@ -1117,10 +1123,13 @@ GameMenu::Choice GameMenu::handle(const Event &ev) {
     for (size_t i = 0; i < kGameMenuItems.size(); ++i)
         if (itemRect(i).contains(ev.mouseX, ev.mouseY))
             _over = int(i);
-    if (!WindowKit::isClick(ev) || (_over != int(kResumeItem) && _over != int(kQuitItem)))
+    if (!WindowKit::isClick(ev) || _over < 0 || !works(size_t(_over)))
         return Choice::kNone;
     _open = false;
-    return _over == int(kResumeItem) ? Choice::kResume : Choice::kQuit;
+    return _over == int(kResumeItem) ? Choice::kResume
+           : _over == int(kQuitItem) ? Choice::kQuit
+           : _over == int(kLoadItem) ? Choice::kLoad
+                                     : Choice::kSave;
 }
 
 // The park darkened beneath it, as the recording's is.
@@ -1135,13 +1144,131 @@ void GameMenu::draw(Surface &screen, const WindowKit &kit) const {
     }
     for (size_t i = 0; i < kGameMenuItems.size(); ++i) {
         const std::string label = kit.ui(kGameMenuItems[i]);
-        const bool works = i == kResumeItem || i == kQuitItem;
+        const bool working = works(i);
         const ScreenRect r = itemRect(i);
         kit.menuText(screen, r.x + (r.w - kit.menuTextWidth(label)) / 2, r.y, label,
-                     !works            ? kMenuGrey
+                     !working          ? kMenuGrey
                      : _over == int(i) ? kWhite
                                        : kMenuCyan);
     }
+}
+
+// Save Game and Load Game.
+
+namespace {
+
+constexpr uint32_t kSaveGameText = 777;
+constexpr uint32_t kLoadGameText = 778;
+constexpr uint32_t kSaveNameText = 779;
+constexpr uint32_t kSaveDateText = 780;
+constexpr uint32_t kFileExistsText = 781;
+constexpr uint32_t kNewSaveText = 782;
+constexpr ScreenRect kSaveWindow{120, 70, 400, 330};
+constexpr std::array<ScreenRect, 2> kSaveHeaders{{{135, 106, 250, 22}, {387, 106, 118, 22}}};
+constexpr ScreenRect kSaveList{135, 130, 370, 180};
+constexpr int kSaveRow = 16;
+constexpr ScreenRect kSaveField{135, 318, 300, 30};
+constexpr ScreenRect kSaveOk{448, 360, 28, 28};
+constexpr ScreenRect kSaveCancel{482, 362, 26, 26};
+constexpr size_t kLongestSaveName = 30;
+constexpr size_t kSaveRowsShown = size_t(kSaveList.h / kSaveRow);
+
+} // namespace
+
+ScreenRect SaveLoadWindow::placeOf(Control control, size_t index) {
+    switch (control) {
+    case Control::kRow:
+        return {kSaveList.x + 4, kSaveList.y + 4 + int(index) * kSaveRow, kSaveList.w - 8, kSaveRow};
+    case Control::kOk:
+        return kSaveOk;
+    case Control::kCancel:
+        return kSaveCancel;
+    case Control::kNone:
+        break;
+    }
+    return {};
+}
+
+WindowResult SaveLoadWindow::handle(const Event &ev) {
+    if (!_open)
+        return WindowResult::kNone;
+    if (_naming && ev.type == EventType::kTextInput) {
+        for (char c : std::string_view(ev.text))
+            if (_typed.size() < kLongestSaveName && static_cast<unsigned char>(c) >= ' ')
+                _typed.push_back(c);
+        return WindowResult::kNone;
+    }
+    if (_naming && ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
+        while (!_typed.empty() && (static_cast<unsigned char>(_typed.back()) & 0xC0) == 0x80)
+            _typed.pop_back();
+        if (!_typed.empty())
+            _typed.pop_back();
+        return WindowResult::kNone;
+    }
+    const bool ok = (ev.type == EventType::kKeyDown && ev.key == key::kReturn) ||
+                    (WindowKit::isClick(ev) && kSaveOk.contains(ev.mouseX, ev.mouseY));
+    if (WindowKit::isClick(ev) && kSaveCancel.contains(ev.mouseX, ev.mouseY)) {
+        // Out of naming or confirming, else out of the window.
+        if (_naming || _confirming) {
+            _naming = _confirming = false;
+            return WindowResult::kNone;
+        }
+        _open = false;
+        return WindowResult::kClosed;
+    }
+    if (ok) {
+        const bool chose = _mode == Mode::kLoad ? _picked && _chosen >= 0 : _naming ? !_typed.empty() : _confirming;
+        if (chose) {
+            _open = false;
+            return WindowResult::kChose;
+        }
+        // Saving: New Save goes on to its name, an old one to "replace it?".
+        if (_mode == Mode::kSave && _picked) {
+            _naming = _chosen < 0;
+            _confirming = _chosen >= 0;
+        }
+        return WindowResult::kNone;
+    }
+    if (!WindowKit::isClick(ev) || _naming || _confirming)
+        return WindowResult::kNone;
+    const size_t first = _mode == Mode::kSave ? 1 : 0;
+    for (size_t i = 0; i < std::min(_rows.size() + first, kSaveRowsShown); ++i)
+        if (placeOf(Control::kRow, i).contains(ev.mouseX, ev.mouseY)) {
+            _chosen = int(i) - int(first);
+            _picked = true;
+        }
+    return WindowResult::kNone;
+}
+
+void SaveLoadWindow::draw(Surface &screen, const WindowKit &kit) const {
+    if (!_open)
+        return;
+    kit.window(screen, kSaveWindow, kit.ui(_mode == Mode::kSave ? kSaveGameText : kLoadGameText));
+    kit.header(screen, kSaveHeaders[0], kit.ui(kSaveNameText));
+    kit.header(screen, kSaveHeaders[1], kit.ui(kSaveDateText));
+    kit.frame(screen, kSaveList);
+    const size_t first = _mode == Mode::kSave ? 1 : 0;
+    for (size_t i = 0; i < std::min(_rows.size() + first, kSaveRowsShown); ++i) {
+        const ScreenRect r = placeOf(Control::kRow, i);
+        if (_picked && int(i) - int(first) == _chosen)
+            WindowKit::fill(screen, r, WindowKit::kChosenRow);
+        if (i < first) {
+            kit.text(screen, r.x + 4, r.y + 2, kit.ui(kNewSaveText));
+            continue;
+        }
+        const Row &row = _rows[i - first];
+        kit.text(screen, r.x + 4, r.y + 2, row.name);
+        kit.text(screen, kSaveHeaders[1].x + 2, r.y + 2, row.date);
+    }
+    if (_naming) {
+        kit.frame(screen, kSaveField);
+        kit.text(screen, kSaveField.x + 6, kSaveField.y + 9, _typed + "_");
+    } else if (_confirming && _chosen >= 0) {
+        kit.paragraph(screen, kSaveField.x, kSaveField.y - 4, kSaveField.w,
+                      kit.ui(kFileExistsText, {{31, _rows[size_t(_chosen)].name}}));
+    }
+    kit.button(screen, Button::kOk, kSaveOk, WindowKit::kPlain);
+    kit.button(screen, Button::kCancel, kSaveCancel, WindowKit::kPlain);
 }
 
 } // namespace reluva::tpw

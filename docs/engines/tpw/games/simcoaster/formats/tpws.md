@@ -146,6 +146,9 @@ the objects. `Park` lays the prebuilt park's path, queue and objects
 over a new park of the world it matches
 ([paths.md](../systems/paths.md)), and `ParkScreen` draws them.
 
+Reluva's own saved games aren't `.TPWS`: this format can't be written
+while most of it is unknown ([reluva-saves.md](reluva-saves.md)).
+
 `reluva-tool tpw tpws-check <game folder> [save] [-objects]` reads the
 prebuilt park, or another save, and says what's in its grid, how many
 objects it has (and, with `-objects`, lists them) and which world's it

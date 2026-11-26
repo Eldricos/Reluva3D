@@ -300,14 +300,68 @@ private:
 };
 
 /**
+ * Save Game and Load Game (UITEXT 777, 778): the player's saves by name
+ * and date (779, 780), "New Save" (782) first when saving; a new save
+ * named by typing, an old one replaced once the player says yes ("FILE
+ * ALREADY EXISTS", 781). Laid out by guess: the recording opens neither.
+ * See docs/engines/tpw/games/simcoaster/systems/saving.md.
+ */
+class SaveLoadWindow {
+public:
+    enum class Mode { kSave, kLoad };
+    /** A save as listed: its name, and its date's text. */
+    struct Row {
+        std::string name;
+        std::string date;
+    };
+    enum class Control { kNone, kRow, kOk, kCancel };
+    void open(Mode mode, std::vector<Row> rows) {
+        _open = true;
+        _mode = mode;
+        _rows = std::move(rows);
+        _chosen = -1;
+        _naming = false;
+        _confirming = false;
+        _typed.clear();
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    Mode mode() const { return _mode; }
+    /** Whether a new save's name is being typed. */
+    bool naming() const { return _naming; }
+    /**
+     * Takes clicks and typing: kChose once a save's to be written (to
+     * chosen(), or a new one, chosen() −1, named typed()) or loaded
+     * (chosen()); kClosed on the cross.
+     */
+    WindowResult handle(const Event &ev);
+    /** The save chosen, in the rows; −1 for a new one. */
+    int chosen() const { return _chosen; }
+    const std::string &typed() const { return _typed; }
+    void draw(Surface &screen, const WindowKit &kit) const;
+    /** Where a control is: a list row by its place, New Save first when saving. */
+    static ScreenRect placeOf(Control control, size_t index = 0);
+
+private:
+    bool _open = false;
+    Mode _mode = Mode::kSave;
+    std::vector<Row> _rows;
+    int _chosen = -1; // in _rows; −1 New Save, or none chosen when loading
+    bool _picked = false;
+    bool _naming = false;
+    bool _confirming = false;
+    std::string _typed;
+};
+
+/**
  * The game's menu, over the park on Esc, as the recording shows it at
  * 4:20: Load Game, Save Game, Select A New Player, Go Online, Options,
- * Go to Coaster Design Kit, Resume Game, Quit Game. Only resuming and
- * quitting do anything yet.
+ * Go to Coaster Design Kit, Resume Game, Quit Game. Loading, saving,
+ * resuming and quitting work; the rest are grey.
  */
 class GameMenu {
 public:
-    enum class Choice { kNone, kResume, kQuit };
+    enum class Choice { kNone, kResume, kQuit, kLoad, kSave };
     void open() {
         _open = true;
         _over = -1;

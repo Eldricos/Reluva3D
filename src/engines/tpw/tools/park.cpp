@@ -11,6 +11,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/park/attractions.h"
+#include "engines/tpw/saves.h"
 #include "engines/tpw/ui/briefing.h"
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
@@ -674,7 +675,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|activate> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|save|load|activate> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -791,6 +792,14 @@ int cmdWindowShot(int argc, char **argv) {
         // As a player who's opened Polar Zone, too, would see it.
         screen.setWorld(2, true, 10);
         screen.overviewMap().open(screen.worlds(park), park.theme());
+    } else if (which == "save" || which == "load") {
+        // As a player with two saves would see it, the first chosen.
+        screen.saveLoad().open(which == "save" ? reluva::tpw::SaveLoadWindow::Mode::kSave
+                                               : reluva::tpw::SaveLoadWindow::Mode::kLoad,
+                               {{"Expanding", screen.dateText(40)}, {"Before the lake", screen.dateText(12)}});
+        const reluva::tpw::ScreenRect row =
+            reluva::tpw::SaveLoadWindow::placeOf(reluva::tpw::SaveLoadWindow::Control::kRow, 1);
+        screen.saveLoad().handle(clickOn(row));
     } else if (which == "advisor") {
         screen.advisor().cue(reluva::tpw::Advisor::Cue::kPathTool);
         screen.advisor().advance(500);
@@ -851,6 +860,65 @@ int cmdFlyinShot(int argc, char **argv) {
     return 0;
 }
 
+// A park played on, saved to a file, and loaded again over a new park of
+// its world: the same state, and the same as both play on.
+int cmdSaveCheck(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool tpw save-check <game folder> <world folder> [seconds]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    reluva::tpw::Park park;
+    reluva::tpw::ParkScreen screen;
+    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+        return 1;
+    const uint32_t runMs = argc > 4 ? uint32_t(std::strtof(argv[4], nullptr) * 1000) : 60000;
+    for (uint32_t t = 0; t < runMs; t += 50) {
+        park.advance(50);
+        screen.advance(park);
+        screen.takeMessages(park);
+    }
+    reluva::tpw::SavedGame save;
+    save.name = "Check";
+    save.player = "Tester";
+    save.world = park.folder();
+    save.mission = park.progress();
+    save.day = park.day();
+    save.park = park.saveState();
+    save.screen = screen.saveState();
+    const std::filesystem::path file = std::filesystem::temp_directory_path() / "reluva-save-check.rsv";
+    reluva::tpw::SavedGame read;
+    if (reluva::Error err = reluva::tpw::writeSave(file, save); err || (err = reluva::tpw::readSave(file, read))) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    std::error_code ec;
+    std::filesystem::remove(file, ec);
+    reluva::tpw::Park again;
+    reluva::tpw::ParkScreen againScreen;
+    if (reluva::Error err = again.load(files, read.world, read.mission);
+        err || (err = again.restoreState(read.park)) || (err = againScreen.load(files, again)) ||
+        (err = againScreen.restoreState(read.screen))) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    const bool same = again.saveState() == park.saveState() && againScreen.saveState() == screen.saveState();
+    for (uint32_t t = 0; t < runMs; t += 50) {
+        park.advance(50);
+        again.advance(50);
+    }
+    const bool still = again.saveState() == park.saveState();
+    reluva::Md5 md5;
+    md5.update(save.park.data(), save.park.size());
+    const std::string digest = md5.hexDigest();
+    std::printf("saved: %s, day %u, %zu bytes of park, %zu of screen; %s as saved, %s %.0f s on; %d visitors, %zu "
+                "objects, cash %d; md5 %s\n",
+                read.world.c_str(), read.day, read.park.size(), read.screen.size(), same ? "the same" : "different",
+                still ? "the same" : "different", double(runMs) / 1000, again.visitors(), again.objects().size(),
+                again.cash(), digest.c_str());
+    return same && still ? 0 : 1;
+}
+
 const Commands kCommands(
     "tpw",
     {
@@ -860,7 +928,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|activate> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|save|load|activate> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
@@ -880,6 +948,10 @@ const Commands kCommands(
          "draw the mission's briefing over a new park, the player's campaign at a -mission, to a PNG", cmdBriefingShot},
         {"flyin-shot", "<game folder> <world folder> <out.png> [frame]",
          "draw the fly-in along the road into a new park at a frame of its camera's path, to a PNG", cmdFlyinShot},
+        {"save-check", "<game folder> <world folder> [seconds]",
+         "play a new park on, save it to a file and load it back over a new park: the same, then and as both "
+         "play on",
+         cmdSaveCheck},
         {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",
          "play a new park headless: its briefing, path laid, the Park menu's Objectives, the camera moved "
          "by keys and the compass, a tool chosen, a menu, a visitor, Esc; -shots writes the screen at those "

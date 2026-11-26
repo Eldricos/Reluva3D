@@ -53,6 +53,7 @@ public:
         std::string typed;
         bool placeholder = true;
         bool confirmingDelete = false; // asking whether to delete the player shown
+        bool canLoad = false;          // the player shown has games saved
     };
 
     /** Reads what it draws with, and the settings a new player starts from. Fails on the first piece missing. */
@@ -118,14 +119,17 @@ using Backdrop = std::function<void(Surface &screen)>;
  * the save folder (none kept without one): the mouse lights the buttons,
  * a tab shows its slot; an empty slot's name box takes a name and its
  * tick makes the player; "Delete Player" asks, then empties the slot;
- * "Enter Game" goes on with the player shown, whose first objective is
- * set if it had none; "Quit Game" leaves. Without its pieces, goes on at
+  * "Enter Game" goes on with the player shown, whose first objective is
+ * set if it had none; "Load A Game", once they have games saved, lists
+ * them and goes on with the one chosen; "Quit Game" leaves. Without its pieces, goes on at
  * once with a new player as the settings give it, or an empty one.
- * @param chosen Gets the player shown when "Enter Game" is clicked.
+  * @param chosen Gets the player shown when "Enter Game" is clicked, or a
+ *     game of theirs is loaded.
+ * @param loadSave Gets the saved game chosen to load; left alone otherwise.
  * @return True to go on into the game; false to leave it, or if the
  *     window was closed (or the launcher asked for).
  */
 bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder,
-                  const Backdrop &backdrop, PlayerFile &chosen);
+                  const Backdrop &backdrop, PlayerFile &chosen, std::filesystem::path *loadSave = nullptr);
 
 } // namespace reluva::tpw

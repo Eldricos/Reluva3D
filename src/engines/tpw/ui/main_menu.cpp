@@ -57,7 +57,7 @@ bool watchGlobe(System &sys, const Globe &globe, uint64_t &start, uint32_t pathM
 } // namespace
 
 int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder, audio::Mixer *mixer,
-                PlayerFile *chosen) {
+                PlayerFile *chosen, std::filesystem::path *loadSave) {
     FrontEndScene scene;
     Globe globe;
     const bool drawn = !scene.load(files) && !globe.load(scene);
@@ -113,10 +113,16 @@ int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path
             std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
     };
     PlayerFile player;
-    if (!choosePlayer(sys, files, saveFolder, backdrop, player))
+    std::filesystem::path save;
+    if (!choosePlayer(sys, files, saveFolder, backdrop, player, loadSave ? &save : nullptr))
         return -1;
     if (chosen)
         *chosen = player;
+    // A saved game chosen: its world's its own, without the globe.
+    if (!save.empty()) {
+        *loadSave = std::move(save);
+        return 0;
+    }
 
     std::array<bool, Globe::kWorlds> open{};
     for (size_t i = 0; i < open.size(); ++i)

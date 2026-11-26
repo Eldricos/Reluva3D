@@ -8,6 +8,8 @@
 
 #include "engines/tpw/formats/sam.h"
 #include "engines/tpw/game_files.h"
+#include "engines/tpw/park/state_io.h"
+#include "engines/tpw/saves.h"
 #include "engines/tpw/textures.h"
 #include "engines/tpw/ui/opening.h"
 #include "engines/tpw/ui/text.h"
@@ -354,6 +356,7 @@ Error ParkScreen::load(const SearchSet &files, const Park &park) {
     loadObjects(files, park);
     _runs.clear();
     _fixedRuns.clear();
+    _lettingOff = true;
     _runIds.clear();
     _ranTo = park.millis();
     _unscripted.clear();
@@ -522,6 +525,12 @@ void ParkScreen::advance(Park &park) {
     _advisor.advance(ms);
     for (const auto &[object, queue] : park.takeRemovals())
         removed(object, queue);
+    // A saved park's riders: their rides' scripts start afresh, without
+    // them, so they're let off.
+    if (std::exchange(_lettingOff, false))
+        for (const Park::Visitor &v : std::vector<Park::Visitor>(park.visitorsAbout()))
+            if (v.doing == Park::Doing::kRiding && v.queue >= 0)
+                park.letOff(v.queue, v.id);
     auto runOf = [&](size_t i) {
         std::unique_ptr<RideRun> run;
         const int id = park.objects()[i].id;
@@ -1205,6 +1214,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
                       {int(std::floor(camera.target[0] / Park::kCellUnits)),
                        int(std::floor(camera.target[2] / Park::kCellUnits))});
         _overviewMap.draw(screen, _kit);
+        _saveLoad.draw(screen, _kit);
         _messageCenter.draw(screen, _kit, _inbox, _playerName, [&](uint32_t day) { return dateText(day); });
         _messageWindow.draw(screen, _kit);
         _wageDemand.draw(screen, _kit, park, _hire);
@@ -1240,6 +1250,87 @@ void ParkScreen::drawScene(Surface &screen, soft3d::Rasterizer &rasterizer, cons
     drawWeather(screen, park);
 }
 
+namespace {
+
+// The screen's state's own version.
+constexpr uint32_t kScreenStateVersion = 1;
+
+template<class A>
+void ioReceived(A &a, MessageCenterWindow::Received &r) {
+    stateio::io(a, r.message);
+    stateio::io(a, r.day);
+    stateio::io(a, r.read);
+}
+
+template<class A>
+void ioScreen(A &a, std::vector<MessageCenterWindow::Received> &inbox, std::vector<int> &cued) {
+    const size_t n = a.count(inbox.size());
+    if constexpr (A::kReading)
+        inbox.assign(n, {});
+    for (MessageCenterWindow::Received &r : inbox)
+        ioReceived(a, r);
+    stateio::io(a, cued);
+}
+
+} // namespace
+
+void ParkScreen::openSaveLoad(SaveLoadWindow::Mode mode) {
+    _slotFiles.clear();
+    std::vector<SaveLoadWindow::Row> rows;
+    if (!_savesFolder.empty())
+        for (const SaveSlot &slot : listSaves(_savesFolder, _saver)) {
+            _slotFiles.push_back(slot.file);
+            rows.push_back({slot.name, dateText(slot.day)});
+        }
+    _saveLoad.open(mode, std::move(rows));
+}
+
+Error ParkScreen::saveChosen(const Park &park) {
+    if (_savesFolder.empty())
+        return Error::fail("no folder to save in");
+    const int chosen = _saveLoad.chosen();
+    SavedGame save;
+    save.name = chosen >= 0 ? listSaves(_savesFolder, _saver)[size_t(chosen)].name : _saveLoad.typed();
+    save.player = _saver;
+    save.world = park.folder();
+    save.mission = park.progress();
+    save.day = park.day();
+    save.park = park.saveState();
+    save.screen = saveState();
+    return writeSave(chosen >= 0 ? _slotFiles[size_t(chosen)] : newSaveFile(_savesFolder), save);
+}
+
+std::vector<uint8_t> ParkScreen::saveState() const {
+    std::vector<uint8_t> out;
+    stateio::Writer w(out);
+    uint32_t version = kScreenStateVersion;
+    stateio::io(w, version);
+    std::vector<MessageCenterWindow::Received> inbox = _inbox;
+    std::vector<int> cued;
+    for (const Advisor::Cue c : _advisor.cued())
+        cued.push_back(int(c));
+    ioScreen(w, inbox, cued);
+    return out;
+}
+
+Error ParkScreen::restoreState(const std::vector<uint8_t> &data) {
+    stateio::Reader r(data.data(), data.size());
+    uint32_t version = 0;
+    stateio::io(r, version);
+    std::vector<MessageCenterWindow::Received> inbox;
+    std::vector<int> cued;
+    if (r.ok() && version == kScreenStateVersion)
+        ioScreen(r, inbox, cued);
+    if (!r.ok() || version != kScreenStateVersion || !r.atEnd())
+        return Error::fail("a saved screen of another version, or cut short");
+    _inbox = std::move(inbox);
+    std::set<Advisor::Cue> cues;
+    for (const int c : cued)
+        cues.insert(Advisor::Cue(c));
+    _advisor.setCued(std::move(cues));
+    return Error::success();
+}
+
 bool ParkScreen::windowOpen() const {
     return _popup.isOpen() || _attractionWindow.isOpen() || _gateWindow.isOpen() || _staffWindow.isOpen() ||
            _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen() ||
@@ -1248,7 +1339,7 @@ bool ParkScreen::windowOpen() const {
            _attractionFinance.isOpen() || _messageWindow.isOpen() || _visitorStats.isOpen() ||
            _visitorWindow.isOpen() || _visitorList.isOpen() || _attractionList.isOpen() || _parkStats.isOpen() ||
            _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() || _parkMap.isOpen() ||
-           _overviewMap.isOpen() || _activateRide.isOpen();
+           _overviewMap.isOpen() || _activateRide.isOpen() || _saveLoad.isOpen();
 }
 
 // Every message goes to the Message Center, unread; the president's
@@ -1442,8 +1533,25 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             // Esc, while open: the uppermost first.
             if (screen.windowOpen()) {
                 if (screen.gameMenu().isOpen()) {
-                    if (screen.gameMenu().handle(ev) == GameMenu::Choice::kQuit)
+                    const GameMenu::Choice choice = screen.gameMenu().handle(ev);
+                    if (choice == GameMenu::Choice::kQuit)
                         return true;
+                    if (choice == GameMenu::Choice::kSave || choice == GameMenu::Choice::kLoad) {
+                        screen.openSaveLoad(choice == GameMenu::Choice::kSave ? SaveLoadWindow::Mode::kSave
+                                                                              : SaveLoadWindow::Mode::kLoad);
+                    }
+                } else if (screen.saveLoad().isOpen()) {
+                    // Saved, the game goes on; loaded, this park's left for the save's.
+                    const WindowResult result = screen.saveLoad().handle(ev);
+                    sys.setTextInput(screen.saveLoad().naming());
+                    if (result == WindowResult::kChose && screen.saveLoad().mode() == SaveLoadWindow::Mode::kLoad) {
+                        screen.takeLoadChosen();
+                        return true;
+                    }
+                    if (result == WindowResult::kChose)
+                        screen.saveChosen(park);
+                    if (!screen.saveLoad().isOpen())
+                        sys.setTextInput(false);
                 } else if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
                     screen.visitorStats().close();
                     screen.visitorWindow().close();
@@ -1927,8 +2035,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 camera.target = {in[locatedVisitor]->x, 0, in[locatedVisitor]->z};
             }
         }
-        // The game's menu stops the park's clock while it's open.
-        park.setPaused(screen.gameMenu().isOpen());
+        // The game's menu, and saving and loading from it, stop the park's clock.
+        park.setPaused(screen.gameMenu().isOpen() || screen.saveLoad().isOpen());
         if (choice == kLocateStaffItem && !park.staff().empty()) {
             located = (located + 1) % park.staff().size();
             const Park::StaffMember &m = park.staff()[located];
