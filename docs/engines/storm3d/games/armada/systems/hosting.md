@@ -60,7 +60,10 @@ so they're added in the order the program needs them.
   the files it reads from inside its ZFS archives (`assets.zfs >
   fed.odf`), which it reads itself: each archive entry a read reaches,
   found from where the read was in the archive.
-- **The frames it shows**, written as PNG.
+- **The frames it shows**, written as PNG. With `-every-ms`, while a
+  dialog of the program's is up (its in-game menu) and nothing is
+  presented, the screen as it is is written once a whole period has gone
+  by without a frame.
 - **Where it stops, and why.**
 - **A frame's draws**, with `-draws <frame> <file>`: each Direct3D draw
   that makes it, with its texture (where its pixels are, and its size),

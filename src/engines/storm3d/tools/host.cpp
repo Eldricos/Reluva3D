@@ -609,6 +609,15 @@ int cmdHost(int argc, char **argv) {
     };
     process.onSlice = [&](x86::Cpu &) {
         deliverDue();
+        // While a dialog of the program's is up (its in-game menu), nothing
+        // is presented: what's on the screen is written all the same, once
+        // a whole period has gone by without a frame.
+        if (!o.framesDir.empty() && o.everyMs && directX.frame().width > 0 &&
+            process.now() >= nextFrameAt + o.everyMs) {
+            const uint64_t now = process.now();
+            writeFrame(directX.frame(), o.framesDir / text::format("ms%06llu.png", (unsigned long long)now));
+            nextFrameAt = (now / o.everyMs + 1) * o.everyMs;
+        }
         if (process.now() >= o.limitMs)
             process.requestExit();
     };
