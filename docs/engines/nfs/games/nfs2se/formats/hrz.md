@@ -29,7 +29,13 @@ psx-spx description of its GPU). Their wording is in neither program
 nor the other text files, and they're only beside the tracks rebuilt for
 the SE. So another renderer's template *(inferred)*, the PlayStation's
 *(guessed)*: a `.lgt` beside a PlayStation release's tracks would settle
-it.
+it. The only track names either program makes with a varying extension
+are the computer cars' speed files' (`%sTr%02d%s.%s`, 0x4b8e84, the
+extensions kept a byte less, `por` for `qps`, and put right by
+0x44f480), and no form of the name shifted by up to 3 is in either.
+No public listing of another release's files showing a `.lgt` was found
+(late November 2026; D. Auroux's NFS II track notes name only the
+`.trk`, `.qfs`, `.col` and `.hrz`).
 
 ## Layout
 
