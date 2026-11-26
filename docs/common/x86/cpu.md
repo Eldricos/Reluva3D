@@ -160,7 +160,9 @@ epoch is back at the stamp the first was checked at, and calls it both
 from the host and from made code: without each part of the renewal, one
 of them runs the old code. With the mark at 2^20 (a renewal about every
 second), Jedi Knight played into Nar Shaddaa and on for half a minute,
-its threads, natives and every-frame updates as ever.
+its threads, natives and every-frame updates as ever, and was skimmed
+through all 21 of the light side's levels to its ending and out, some
+1,500 renewals.
 
 Whether an address is in memory (`Cpu::valid`, asked by every load and
 store) is one compare with the size less the first page kept by itself:
