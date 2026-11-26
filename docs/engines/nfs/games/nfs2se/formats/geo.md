@@ -19,7 +19,7 @@ The unit looks like a metre: the F355's body is 2.0 wide and 4.4 long
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | u32 | 2 in 40 (every car and traffic model, and the props `SOU2`, `SOU3`, `WAGO`, `sm45`, `sm46`, `sm48`), 1 in 7, 0 in 6 (props of one part); neither program reads it: the loader starts at 4 (0x459dc3) and nothing else touches it *(inferred)* |
+| 0 | u32 | 2 in 40 (every car and traffic model, and the props `SOU2`, `SOU3`, `WAGO`, `sm45`, `sm46`, `sm48`), 1 in 7, 0 in 6 (props of one part): 2 in every model of more than one part but `TANK`, which has 1, and nothing in a one-part model's contents tells its 1 or 0. Neither program reads it: the loader starts at 4 (0x459dc3) and nothing else touches it *(inferred)* |
 | 4 | 32 × u32 | room for the parts' addresses, which the loader writes (0x459dc3); the files hold their maker's (rising by 0x40 in 52 of the 53) |
 | 132 | u32 | room for the model's first entry in the program's table of texture corners (0x461dd4) |
 | 136 | u32 | room for its picture bank's handle (0x461da4) |
@@ -71,16 +71,20 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   Which picture is shown is the polygon's byte 1, which the program
   rewrites before it draws each car (0x45a220; read at 0x46da64): see
   The frames.
-- **Texture corners.** A polygon's vertices 0, 1, 2 and 3 take the
-  texels (0, 0), (w−1, 0), (w−1, h−1) and (0, h−1) (0x4736a0, 0x46f841).
-  Shown as the hosted game shows a world, they come out as the decoded
-  picture's bottom right, bottom left, top left and top right: turned
-  half round from that, where a track's pictures aren't
-  ([col.md](col.md), Textures) *(inferred)*: so laid, the beer crate
-  stands upright, its slot and bottles at the top, and its original
-  side's lettering reads (its left side, a mirror copy, the 0x04
-  polygons, reads backwards in the model itself). What turns them
-  wasn't found.
+- **Texture corners.** The program builds each polygon's corners from
+  the plain order, vertices 0 to 3 taking the texels (0, 0), (w−1, 0),
+  (w−1, h−1) and (0, h−1) (0x4736a0, 0x46f841), then reorders them
+  (0x461d80, by 0x4734f4's table): as a track's quads are drawn, 1, 0,
+  3, 2 (0x461ffa), and then turned half round (0x462015), which a
+  track's aren't. So vertices 0 to 3 take the picture's bottom left,
+  bottom right, top right and top left, the first row the top; a 0x04
+  polygon or a triangle, its order reversed with its drawing (0x461fd5,
+  0x461f1c), the same. The 3dfx program alike (`NFS2SEA.EXE` 0x4756b3,
+  0x4756cb). Seen on the F355: its side panels' pictures have the wheel
+  arches cut into them at one end, and so laid each arch is over its
+  wheel. (The Cars page had them the other way across, its arches at
+  the panels' wrong ends, until late November 2026: the beer crate it
+  was judged by reads backwards on one side either way.)
 - **The paint.** Every entry of the car's palette with red and blue under
   0x56 and green from 0x80 is the paint's: the program recolours it as it
   sets up the car's palette (0x444f80), its shade from the green
@@ -133,7 +137,16 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   inside it, front and rear; moved, the two are 8/256 apart, which is
   why its front faces are moved too *(inferred)*. Every other car's
   front faces lie flush with their treads, as their rear ones do: why
-  only the rear ones are moved isn't known.
+  only the rear ones are moved isn't known. In the software program the
+  move can't show: a car's parts go into layers by a table of the
+  program's (0x4c5884, 24 bytes a part, 0x459d00), the faces last, and
+  are drawn in that order without sorting (0x46d9b0, 0x460250). The
+  3dfx program moves them too (`NFS2SEA.EXE` 0x46c84a), and draws the
+  race with a depth buffer (0x42e858: w-buffered, nearer or equal
+  passing), where a face flush with its tyre's disc would come and go
+  with it pixel by pixel: the move is for that *(inferred)*. The front
+  wheels turn with the steering (0x459f70) and the rear ones don't
+  (0x45a080, only a jitter by speed).
   `MUSC` has no number: the game never loads it *(inferred)*.
 - **The colours' files.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
   table's first 24 colours, the same four numbers each, as commented text.
@@ -182,8 +195,8 @@ The wheels' faces are moved out as the game's loader moves them.
 ## Open questions
 
 - What the header's first word meant to its maker.
-- Why every car's rear wheels' faces are moved out, and not the front
-  ones: with the move skipped in the hosted game (its branch at
-  0x459e4e made a jump), the chase view shows no difference to see, the
-  rear faces nearly edge on from behind.
-- Where a car's pictures are turned half round from a track's.
+- Why only the rear wheels' faces are moved out, but the Indigo's: the
+  front ones lie as close to their tyres. Seen edge on from behind in the
+  chase view, the rear ones would show the depth buffer's fighting most
+  *(guessed)*; the 3dfx program drawn with and without the move would
+  show it.

@@ -71,9 +71,11 @@ None yet.
   track's quads, drawn 1, 0, 3, 2 and turned by their texture's record,
   take their pictures so ([col.md](formats/col.md), Textures), a car's
   turned half round from that ([geo.md](formats/geo.md), Texture
-  corners), and what turns them wasn't found. The Tracks page so shows
+  corners; the turn found later at 0x462015). The Tracks page so shows
   `TR00`'s *SLOW* sign reading and its trees standing, and the Cars page
-  the beer crate upright, its original side reading.
+  the F355's wheel arches over its wheels (until late November 2026 it
+  had the car's pictures mirrored, judged by the beer crate, which reads
+  backwards on one side either way).
 - **The pages show the world as the hosted game does** (late November
   2026): mirrored left to right from how the renderer would draw the
   files' numbers, the game's world being left-handed. Earlier the pages

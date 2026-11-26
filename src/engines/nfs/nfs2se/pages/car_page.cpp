@@ -220,10 +220,11 @@ void CarPage::build() {
                 for (int c = 0; c < 3; ++c)
                     corners[size_t(k)][size_t(c)] =
                         part.vertices[poly.vertices[size_t(k)]][size_t(c)] + part.position[size_t(c)];
-            // In turn as the program lays a car's pictures (0x4736a0,
-            // 0x46f841), from its texel (0, 0) on; a car's pictures come out
-            // turned half round from a track's, so from the bottom right.
-            quads.add(texture, corners, {2, 3, 0, 1});
+            // As the program lays a car's pictures: its corner order put as
+            // a track's (0x461ffa), then turned half round (0x462015), the
+            // picture's bottom left on the first vertex. The F355's side
+            // panels so take their wheel arches over the wheels.
+            quads.add(texture, corners, {3, 2, 1, 0});
         }
     }
     _quads = quads.quads();
