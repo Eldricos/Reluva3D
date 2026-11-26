@@ -4,6 +4,7 @@
 #include "engines/boggle/frontend/layout.h"
 #include "engines/boggle/classic/round.h"
 #include "common/font.h"
+#include "engines/boggle/frontend/appearance.h"
 #include <algorithm>
 namespace reluva::boggle {
 namespace {
@@ -67,22 +68,26 @@ bool DictionaryEditor::event(const Event& e){
 void DictionaryEditor::draw(Surface& s) const {
     if(s.format!=PixelFormat::RGBA32||s.w!=640||s.h!=480||s.pitch<2560||size_t(s.pitch)>s.pixels.size()/480)return;
     auto box=[&](SelectionRect b,Color c){for(int y=b.y;y<b.y+b.h;++y)for(int x=b.x;x<b.x+b.w;++x){auto*p=s.row(y)+x*4;p[0]=c.r;p[1]=c.g;p[2]=c.b;p[3]=255;}};
-    const Color white{245,245,255},muted{170,181,205};box({0,0,640,480},{17,15,35});
-    font::drawText(s,40,30,"PERSONAL DICTIONARY",white,2);font::drawText(s,40,64,"Edit your added words. The main game dictionary stays unchanged.",muted);
-    font::drawText(s,40,82,std::to_string(rows_.size())+(rows_.size()==1?" word / ":" words / ")+"Up-Down, PgUp-PgDn, wheel or type a prefix",muted);
-    for(size_t i=0;i<visible&&scroll_+i<rows_.size();++i){if(scroll_+i==selected_)box({40,100+int(i)*16,560,16},{43,83,112});font::drawText(s,48,104+int(i)*16,rows_[scroll_+i],white);}
-    if(rows_.empty())font::drawText(s,48,108,"No personal words yet.",muted);
-    box({40,326,560,36},{43,83,112});font::drawText(s,48,338,input_.size()>64?input_.substr(input_.size()-64):input_,white);
+    ui::Paper paper(ui::active());
+    const Color white{245,245,255},muted{170,181,205};box({0,0,640,480},ui::active()?Color{192,192,192}:Color{17,15,35});
+    if(ui::active())box({40,100,560,int(visible)*16},{255,255,255});
+    ui::text(s,40,30,"PERSONAL DICTIONARY",white,2);ui::text(s,40,64,"Edit your added words. The main game dictionary stays unchanged.",muted);
+    ui::text(s,40,82,std::to_string(rows_.size())+(rows_.size()==1?" word / ":" words / ")+"Up-Down, PgUp-PgDn, wheel or type a prefix",muted);
+    for(size_t i=0;i<visible&&scroll_+i<rows_.size();++i){if(scroll_+i==selected_)box({40,100+int(i)*16,560,16},{43,83,112});{ui::Paper rowPaper(ui::active() && scroll_+i!=selected_);ui::text(s,48,(ui::active()?102:104)+int(i)*16,rows_[scroll_+i],white);}}
+    if(rows_.empty())ui::text(s,48,108,"No personal words yet.",muted);
+    if(ui::active())ui::field(s,{40,326,560,36},input_,0,replace_?input_.size():0,input_.size(),6);
+    else {box({40,326,560,36},{43,83,112});ui::text(s,48,338,input_,white);}
     const SelectionRect buttons[]={add,remove,done,cancel};const char* labels[]={"ADD (ENTER)","REMOVE (DEL)","DONE (F2)","CANCEL (ESC)"};
-    for(size_t i=0;i<4;++i){box(buttons[i],{48,64,88});font::drawText(s,buttons[i].x+8,buttons[i].y+14,labels[i],white);}
-    font::drawText(s,40,438,"Done saves. Cancel discards all changes.",muted);
-    box(clear,{48,64,88});font::drawText(s,clear.x+8,clear.y+9,"CLEAR (F4)",white);
+    for(size_t i=0;i<4;++i){if(ui::active()){ui::button(s,buttons[i],labels[i]);continue;}box(buttons[i],{48,64,88});ui::text(s,buttons[i].x+8,buttons[i].y+14,labels[i],white);}
+    ui::text(s,40,438,"Done saves. Cancel discards all changes.",muted);
+    if(ui::active())ui::button(s,clear,"Clear (F4)");else {box(clear,{48,64,88});ui::text(s,clear.x+8,clear.y+9,"CLEAR (F4)",white);}
     if(clearPrompt_){
-        box({120,180,400,130},{35,45,65});font::drawText(s,144,206,"Clear every personal word?",white,2);
-        font::drawText(s,144,232,"The draft is saved only when you choose Done.",muted);
-        box(yesClear,{48,64,88});box(noClear,{48,64,88});
-        font::drawText(s,172,266,"YES (ENTER / Y)",white);font::drawText(s,352,266,"NO (ESC / N)",white);
+        box({120,180,400,130},{35,45,65});ui::panel(s,{120,180,400,130});ui::text(s,144,206,"Clear every personal word?",white,2);
+        ui::text(s,144,232,"The draft is saved only when you choose Done.",muted);
+        if(ui::active()){ui::button(s,yesClear,"Yes (Enter / Y)");ui::button(s,noClear,"No (Esc / N)");}
+        else {box(yesClear,{48,64,88});box(noClear,{48,64,88});
+        ui::text(s,172,266,"YES (ENTER / Y)",white);ui::text(s,352,266,"NO (ESC / N)",white);}
     }
-    if(!error_.empty())font::drawText(s,40,460,error_.substr(0,90),{255,150,130});
+    if(!error_.empty())ui::text(s,40,460,error_.substr(0,90),{255,150,130});
 }
 }

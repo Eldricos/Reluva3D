@@ -16,6 +16,8 @@ public:
     void draw(Surface& screen,const ClassicOptions& options,bool backgroundAllowed,bool cursorAllowed) const;
 private:
     bool installed_=false;
+    std::array<std::string,Count> labels_{};
+    std::vector<std::pair<SelectionRect,std::string>> groups_;
     SelectionRect bounds_{};
     std::array<SelectionRect,Count> controls_{};
 };

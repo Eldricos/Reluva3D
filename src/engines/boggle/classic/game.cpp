@@ -23,6 +23,7 @@
 #include "engines/boggle/classic/user_dictionary.h"
 #include "engines/boggle/resources.h"
 #include "common/font.h"
+#include "engines/boggle/frontend/appearance.h"
 #include "common/fs.h"
 #include <algorithm>
 #include <cstdio>
@@ -203,13 +204,15 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
         const auto b=artwork.active()?allWordsArtwork:allWordsPrototype;
         rect(screen,b.x,b.y,b.w,b.h,{48,88,120});
         label(screen,b.x+8,b.y+8,results.allWords()?"COUNTED WORDS (A)":"ALL WORDS (A)");
+        ui::button(screen,{b.x,b.y,b.w,b.h},results.allWords()?"Counted words (A)":"All words (A)");
         const auto h=artwork.active()?scoresArtwork:scoresPrototype;
-        rect(screen,h.x,h.y,h.w,h.h,{48,88,120});label(screen,h.x+8,h.y+8,"HIGH SCORES (H)");
+        rect(screen,h.x,h.y,h.w,h.h,{48,88,120});label(screen,h.x+8,h.y+8,"HIGH SCORES (H)");ui::button(screen,{h.x,h.y,h.w,h.h},"High scores (H)");
     }
     const auto detail=message.empty() && results.allWords()?"Blue: missed words / potential points. Final score unchanged.":message;
     label(screen, 24, 535, reviewing ? (playing?"Choose Yes or No.":"Choose one of the four dictionary options.") : detail.empty() ? (ready ? "Press Enter when ready. The timer starts with the board." : playing ? "Enter: submit   Backspace: undo   Right click: clear" : results.words().empty()?"No words counted. Enter: replay   F2: new board":"Click a word or use Up/Down to review its path and points.") : detail, muted);
     if (!reviewing) { rect(screen, 24, 557, 180, 29, {48, 88, 120}); label(screen, 35, 566, playing ? (chess?"END PLAYER (F1)":"END ROUND (F1)") : ready ? "START / REPLAY (ENTER)" : "REPLAY (ENTER)"); }
-    if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
+    if (!reviewing)ui::button(screen,{24,557,180,29},playing?(chess?"End player (F1)":"End round (F1)"):ready?"Start / Replay (Enter)":"Replay (Enter)");
+    if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)");ui::button(screen,{216,557,158,29},"New board (F2)"); }
     label(screen, artwork.active()?450:610, 566, fromMenu ? "MENU (F3)" : "ESC: LAUNCHER", muted);
     if (const auto* word = round.candidate()) {
         if(reviewDialog.installed())reviewDialog.draw(screen,word->entry.word,message,!playing);
@@ -252,6 +255,7 @@ Error ClassicGame::run() {
     const bool computerCursor=options.cursor && hasComputer && !background;
     const size_t foregroundCount=background?humans:names.size();
     auto foreground=[&](size_t i){return !background || kinds[i]==ComputerLevel::Human;};
+    ui::Appearance appearance;ui::Scope appearanceScope(appearance);
     Resources resources;
     if (auto err = resources.open(target_.path)) return err;
     Dictionary dictionary,computerDictionary; DiceSet dice; Palette palette;
@@ -283,6 +287,7 @@ Error ClassicGame::run() {
     ClassicHandoffDialog handoffDialog;
     if((options.artwork || computerCursor) && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto error=resources.language("Language/English.dll",language))return error;
+        appearance.enable(options.artwork&&findPeResource(language.resources,5,10813,0x0409)&&findPeResource(language.resources,5,10000,0x0409)&&findPeResource(language.resources,5,16007,0x0409));
         if(auto error=cursorArtwork.read(language.resources))return error;
         if(options.artwork) {
             if(auto error=reviewDialog.read(language.resources))return error;
@@ -587,6 +592,7 @@ Error ClassicGame::run() {
         if (auto err = advance()) return err;
         Event event;bool scoreDismissed=false;
         while (sys_.pollEvent(event)) {
+            appearance.event(event);
             if (auto err = advance()) return err;
             if (event.type == EventType::Quit || event.type == EventType::ReturnToLauncher ||
                 (event.type == EventType::KeyDown && event.key == key::Escape && !event.repeat && !fromMenu_ && !minimumNotice && !scoreOpen && !matchOpen && !definitionOpen && !scoreDismissed)) {
@@ -839,7 +845,7 @@ Error ClassicGame::run() {
             artwork.drawTransition(screen,round().board(),frameIndex,letters,qu,seed);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,pauseFrame?(pauseLid.state()==ClassicPauseLid::State::Opening?"Opening the lid...":"Closing the lid..."):"Rolling dice and opening the lid...");
-        } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess,gameplayClock.manual(),reviewDialog);
+        } else {artwork.player(competition.ready()?reviewPlayer:turn);draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess,gameplayClock.manual(),reviewDialog);}
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background,matchDialog);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message,scoresDialog);

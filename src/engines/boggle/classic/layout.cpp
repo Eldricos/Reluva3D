@@ -115,6 +115,8 @@ Error ClassicArtwork::open(const Resources& resources,const std::filesystem::pat
         if(still.frames.size()!=55)return Error::fail("Unsupported Classic scene length");
         open_=std::move(still.frames[43]);closed_=std::move(still.frames[54]);
     }
+    if(options.handwriting && fs::findFile(root,"Fonts/NELSON.TTF"))
+        if(auto error=resources.font("Fonts/NELSON.TTF",18,nelson_))return error;
     if(options.handwriting && fs::findFile(root,"Fonts/KPSI.TTF"))
         if(auto error=resources.font("Fonts/KPSI.TTF",18,handwriting_))return error;
     const std::string_view selected=options.cubeStyle==ClassicCubeStyle::Rounded?classicCubeMeshPaths[0]:
@@ -244,14 +246,15 @@ void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now
             box(screen,630,58+int(i-begin)*17,164,17,{225,226,173});
         auto shown=word.entry.word;if(shown.size()>19)shown=shown.substr(0,16)+"...";
         const auto color=word.state==WordState::Pending ? Color{180,0,0} : review && review->shared(word.entry.word)?Color{105,105,105} : all && review->missed(word.entry.word)?Color{25,65,135}:black;
-        if(handwriting_.loaded()) {
+        const auto& handwriting=(player_%2==0 && nelson_.loaded())?nelson_:handwriting_;
+        if(handwriting.loaded()) {
             shown=word.entry.word;
-            if(handwriting_.measure(shown)>132) {
-                while(!shown.empty() && handwriting_.measure(shown+"...")>132)shown.pop_back();
+            if(handwriting.measure(shown)>132) {
+                while(!shown.empty() && handwriting.measure(shown+"...")>132)shown.pop_back();
                 shown+="...";
             }
-            handwriting_.draw(screen,633,72+int(i-begin)*17,shown,color,132);
-            handwriting_.draw(screen,772,72+int(i-begin)*17,std::to_string(word.entry.points),color,24);
+            handwriting.draw(screen,633,72+int(i-begin)*17,shown,color,132);
+            handwriting.draw(screen,772,72+int(i-begin)*17,std::to_string(word.entry.points),color,24);
         } else {
             font::drawText(screen,633,58+int(i-begin)*17,shown,color);
             font::drawText(screen,774,58+int(i-begin)*17,std::to_string(word.entry.points),color);

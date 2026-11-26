@@ -14,6 +14,7 @@ public:
     void draw(Surface& screen,const NameEdit& edit,std::string_view error) const;
 private:
     bool installed_=false;
+    std::string captionText_,saveText_;
     SelectionRect bounds_{},caption_{},field_{88,188,464,42},save_{88,296,210,40},cancel_{318,296,210,40};
 };
 } // namespace reluva::boggle

@@ -49,6 +49,9 @@ Error classicImportPlan(const std::filesystem::path& root, const DetectedGame& g
     for (const auto* name : classicMusicFiles) add(std::string("Waves/")+name+".wav");
     if (fs::findFile(root,"Dicts/AI.dic")) add("Dicts/AI.dic");
     if (fs::findFile(root,"Dicts/R016E613.DAT")) add("Dicts/R016E613.DAT");
+    for(const char* name:{"GameSel","ClsRoll","BrkRoll","BatRoll","SpcRoll","TetRoll"}){
+        const auto path=std::string("Waves/")+name+".wav";if(fs::findFile(root,path))add(path);
+    }
     if (fs::findFile(root,"Fonts/KPSI.TTF")) add("Fonts/KPSI.TTF");
     if (fs::findFile(root,"Bitmaps/Select1.bmp")) add("Bitmaps/Select1.bmp");
     if (fs::findFile(root,"Bitmaps/GS1CS.bmp")) add("Bitmaps/GS1CS.bmp");

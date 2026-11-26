@@ -607,3 +607,102 @@ enter Original/Master rounds and restore text input on exit. The owner confirmed
 the preceding version background; Windows checks of this batch remain pending.
 The original mode hover/sound triggers are still being verified and are not
 changed by this batch.
+
+## Completed Classic appearance implementation
+
+The installed U.S. English frontend now uses an independently drawn Classic
+control theme: raised/recessed grey controls, disabled/pressed/default states,
+white combo/edit faces, radio buttons, checks and etched option groups. PN/NP
+panels use transparent glass buttons with light/dark borders and white text;
+version choices use transparent white text, turning red under the pointer.
+Dialog captions, option/group labels and review-button labels are read from the
+owner's language resource at runtime. No retail caption text is embedded in new
+fixtures. Personal dictionary and definition navigation retain their native
+layout and use the same button theme. Native keyboard hints, selection underline,
+launcher controls, Players summary and extra profile/score explanations remain
+intentional conveniences.
+
+`ui::Scope` confines the theme to an engine invocation, including nested
+frontend/Classic transitions. Full supported language templates plus installed
+artwork enable it; artwork opt-out or incomplete synthetic/older templates keep
+the preceding native fallback. Pointer state is discarded on focus/leave and
+round launch. Name fields measure proportional advances for caret picking,
+selection, clipping and horizontal scroll; the 18-character storage limit and
+all editing/Cancel behavior remain unchanged.
+
+The supported theme maps dialog units using a 6x13 base at 640x480 (MulDiv-style
+rounding), then scales to the 800x600 Classic canvas. The high-score template's
+rounding is bounded to that canvas so its High1 background remains visible.
+Body text uses 11-pixel sans at 640, captions 16 pixels and version choices 18;
+the high-score view and selection captions use a serif role. Locally installed
+Arial/Times or compatible Liberation/DejaVu fonts are read through our bounded
+TrueType rasterizer, with the bitmap font as fallback. No fonts are bundled and
+no Windows hint instructions execute. Participant word/point handwriting uses
+optional Nelson for slots 1/3 and KPSI for 2/4, falling back to the existing KPSI
+or bitmap rendering when unavailable; handwriting opt-out still applies.
+
+Read-only interoperability evidence from the supplied executable:
+
+- Version initialization `0x427d4d`–`0x427de6` selects white prompt/choice text,
+  16/18-pixel height and normal weight. `0x465e70` requests a default Swiss
+  variable-pitch face; `0x465f20` draws transparent text, using the rollover
+  colour. This replaces the earlier inferred Nelson role for installed panel
+  captions. The earlier Nelson-20 native title fallback remains for old layouts.
+- Glass construction `0x466d70` sets dark/light borders (64/192), white text,
+  and `0x466dd0` draws borders and centred transparent text, offset when pressed.
+  Ordinal bitmap 105 is a logo, not a button skin.
+- Player font selection `0x4197d0`–`0x41980c` and
+  `0x419b66`–`0x419ba2` alternates Nelson/KPSI through `0x44a290`.
+- The language templates specify MS Sans Serif 8 for most Classic dialogs and
+  MS Serif 8 for selection/highscores. Native compatible TrueType rendering
+  does **not** assert identical Win95 bitmap-font metrics, GDI hinting or pixels.
+
+### Selection clips and sound
+
+The five mode clips now hold when idle, reset on pointer entry, loop during
+hover, and hold the current frame on leaving. Their intervals are Classic 90 ms,
+Breakaway/Battle/Space 100 ms and In Your Face 66 ms. Battle first plays frames
+0–20 on menu entry, then follows ordinary hover behavior. The full movie frame
+is visible; native availability labels sit below it. Unimplemented modes remain
+unavailable for play.
+
+Optional `Waves/GameSel.wav` plays once on selection entry. ClsRoll/BatRoll are
+one-shot cues restarted with their clip cycle; BrkRoll/SpcRoll/TetRoll loop during
+hover. Leaving a button stops its cue. Native focus loss holds animation time,
+pauses the entry cue and stops hover audio. Selection exit releases the audio
+output before Classic starts; re-entry resets the movies and entry sound. Audio
+opt-out, missing sounds and unavailable audio devices remain supported.
+
+The original menu setup `0x43af26` / `0x43af41` and
+`0x43b1de`–`0x43b4d4` assigns clip flags, timing and sound paths. Button defaults
+are at `0x433b73`; the cursor/timer handler `0x433e00`–`0x43411c` establishes
+entry/reset, leave/hold, looping, Battle startup and cue start/stop behavior.
+These are independently implemented state transitions; no original instructions
+or executable code are used at engine runtime. The optional VM question remains
+additional corroboration, not an implementation dependency.
+
+Imports now include all six optional menu WAV paths when present. Older imports
+still work; re-import into a new external library directory to include them.
+The locally restored English subset contains GameSel but not the five rollover
+WAVs: its recorded import is 64 files / 30,247,764 bytes (66 original files
+restored; the two research DLLs are excluded from copying). Rollover playback
+is covered using independently generated PCM. The supplied entry sound and all
+five supplied clips also run through the SDL frontend. The committed import
+record describes this restoration, not a claim of a complete CD restoration.
+
+Synthetic tests cover scoped fallback, controls/transparent interiors, dialog
+units and captions, proportional edits, font alternation, hover resets/holds,
+Battle startup, focus, loop boundaries, clock limits, sound opt-out/device
+failure, output cleanup and optional import copying. External renders inspect
+all eight installed dialog layouts; Original/Master SDL runs exercise version
+selection, Players, rounds and re-entry. Originals, captures, probes and raw
+output remain outside Git. Owner Windows validation of this implementation is
+pending. Exact GDI/rasterization and device-latency comparison remains the
+separate presentation-comparison milestone.
+
+Validation for this pass: the ordinary full run passed 52 tests (28 optional
+data checks skipped); all 45 applicable Boggle checks passed with the restored
+English subset. The broad data run omits the two full multilingual surveys.
+The five final focused checks and seven ASan/UBSan checks passed (leak detection
+disabled for the execution tracer). Original/Master and hover/focus/re-entry SDL
+flows passed. All 66 restored originals match their manifest SHA-256.

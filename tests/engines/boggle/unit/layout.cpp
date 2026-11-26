@@ -260,6 +260,18 @@ void handwriting(const std::filesystem::path& tmp) {
     CHECK(!artwork.open(resources,tmp,options,{}));const auto fallback=capture();
     fixtures::write(tmp / "Fonts/KPSI.TTF",test::fixtures::asciiTrueType());CHECK(!resources.open(tmp));
     CHECK(!artwork.open(resources,tmp,options,{}));const auto installed=capture();CHECK(installed!=fallback);
+    // Two independently generated fonts with different advance widths prove
+    // that player roles alternate without changing word/scoring state.
+    auto nelson=test::fixtures::asciiTrueType();
+    for(size_t table=12;table+16<=nelson.size();table+=16){
+        if(std::string(nelson.begin()+table,nelson.begin()+table+4)!="hmtx")continue;
+        const size_t offset=(size_t(nelson[table+8])<<24)|(size_t(nelson[table+9])<<16)|(size_t(nelson[table+10])<<8)|nelson[table+11];
+        for(size_t i=0;i<5;++i)test::fixtures::tt16(nelson,offset+i*4,650);
+        break;
+    }
+    fixtures::write(tmp/"Fonts/NELSON.TTF",nelson);CHECK(!resources.open(tmp));CHECK(!artwork.open(resources,tmp,options,{}));
+    artwork.player(0);const auto first=capture();CHECK(first!=installed);
+    artwork.player(1);CHECK(capture()==installed);artwork.player(2);CHECK(capture()==first);artwork.player(3);CHECK(capture()==installed);
     options.handwriting=false;CHECK(!artwork.open(resources,tmp,options,{}));CHECK(capture()==fallback);
     fixtures::write(tmp / "Fonts/KPSI.TTF","malformed");CHECK(!resources.open(tmp));options.handwriting=true;
     CHECK(bool(artwork.open(resources,tmp,options,{})));CHECK(!artwork.active());

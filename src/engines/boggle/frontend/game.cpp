@@ -12,6 +12,7 @@
 #include "engines/boggle/resources.h"
 #include "common/fs.h"
 #include "common/font.h"
+#include "engines/boggle/frontend/appearance.h"
 #include <algorithm>
 
 namespace reluva::boggle {
@@ -35,8 +36,9 @@ void fill(Surface& s,Box b,Color c) {
             auto* p=s.row(y)+x*4; p[0]=c.r;p[1]=c.g;p[2]=c.b;p[3]=255;
         }
 }
-void text(Surface& s,int x,int y,std::string_view value,Color c=white,int scale=1) { font::drawText(s,x,y,value,c,scale); }
+void text(Surface& s,int x,int y,std::string_view value,Color c=white,int scale=1) { ui::text(s,x,y,value,c,scale); }
 void button(Surface& s,Box box,std::string_view title,bool selected=false,bool enabled=true) {
+    if(ui::active()){ui::button(s,box,title,selected,enabled);return;}
     fill(s,box,selected?gold:Color{88,81,105});
     fill(s,{box.x+2,box.y+2,box.w-4,box.h-4},enabled?Color{41,34,64}:Color{23,23,31});
     const int scale=enabled && title.size()*12<=size_t(box.w-20) && box.h>=36 ? 2 : 1;
@@ -47,20 +49,30 @@ std::string duration(uint64_t ms) {
     return std::to_string(seconds/60)+":"+(seconds%60 ? "30" : "00");
 }
 void selection(Surface& s,const image::Image& background,const FrontendMedia& media,uint64_t elapsed,const FrontendSelectionLayout& layout) {
+    ui::Serif serif(ui::active());
     fill(s,{0,0,640,480},dark);
     if(!background.rgba.empty()) image::blit(s,background,0,0);
     else { text(s,56,70,"BOGGLE",white,5); text(s,56,142,"CHOOSE A GAME",muted,2); }
     if(layout.installed()) {
         const char* titles[]={"CLASSIC","BREAKAWAY","BATTLE","SPACE","IN YOUR FACE"};
         for(size_t i=0;i<layout.modes().size();++i){
-            const auto b=layout.modes()[i];button(s,b,"",i==0,i==0);
+            const auto b=layout.modes()[i];
+            if(ui::active()){
+                if(!media.buttonFit(s,i,b,elapsed))button(s,b,"",i==0,i==0);
+                const int top=b.y+b.h+3;
+                text(s,b.x+(b.w-ui::measure(titles[i]))/2,top,titles[i],i?muted:white);
+                continue;
+            }
+            button(s,b,"",i==0,i==0);
             media.buttonFit(s,i,{b.x+2,b.y+2,b.w-4,b.h-4},elapsed);
             const int rows=i?2:1,top=b.y+b.h-rows*12-3;
             fill(s,{b.x+2,top,b.w-4,rows*12+1},dark);
             text(s,b.x+(b.w-int(std::char_traits<char>::length(titles[i]))*6)/2,top+2,titles[i],i?muted:white);
             if(i)text(s,b.x+(b.w-66)/2,top+14,"Unavailable",muted);
         }
-        text(s,40,425,"Enter: Classic",white,2);button(s,exit,"LAUNCHER (L)");return;
+        text(s,40,425,"Enter: Classic",white,2);button(s,exit,"LAUNCHER (L)");
+        if(ui::active())text(s,40,459,"Other modes are unavailable.",muted);
+        return;
     }
     button(s,classic,"CLASSIC",true);
     if(media.button(s,0,classic.x+6,classic.y+4,elapsed)) {
@@ -83,13 +95,16 @@ void setup(Surface& s,const ClassicOptions& options,const FrontendVersionLayout&
     if(layout.installed()) {
         const auto b=layout.bounds(),p=layout.prompt();
         if(!layout.drawBackground(s)){fill(s,b,gold);fill(s,{b.x+2,b.y+2,b.w-4,b.h-4},dark);}
-        text(s,p.x,p.y,"CHOOSE A GAME",gold,2);
+        text(s,p.x,p.y,ui::active()?layout.caption():"CHOOSE A GAME",ui::active()?white:gold,2);
     } else {text(s,48,91,"1-4 players  |  U.S. English",muted);text(s,48,129,"CHOOSE YOUR BOARD",gold);}
     const auto original=layout.modes()[0],master=layout.modes()[1];
-    button(s,original,"ORIGINAL (1)",options.variant==ClassicVariant::Original);
-    button(s,master,"MASTER (2)",options.variant==ClassicVariant::Master);
-    text(s,layout.installed()?original.x:64,layout.installed()?original.y+original.h+3:230,"4 x 4 / minimum 3 letters",muted);
-    text(s,layout.installed()?master.x:356,layout.installed()?master.y+master.h+3:230,"5 x 5 / minimum 4 letters",muted);
+    if(ui::active()&&layout.installed()){
+        ui::rollover(s,original,layout.label(0),options.variant==ClassicVariant::Original);
+        ui::rollover(s,master,layout.label(1),options.variant==ClassicVariant::Master);
+    }else{button(s,original,"ORIGINAL (1)",options.variant==ClassicVariant::Original);button(s,master,"MASTER (2)",options.variant==ClassicVariant::Master);}
+    if(!ui::active() || !layout.installed()){text(s,layout.installed()?original.x:64,layout.installed()?original.y+original.h+3:230,"4 x 4 / minimum 3 letters",muted);
+    text(s,layout.installed()?master.x:356,layout.installed()?master.y+master.h+3:230,"5 x 5 / minimum 4 letters",muted);}
+    else text(s,48,105,options.variant==ClassicVariant::Master?"5 x 5 / minimum 4 letters":"4 x 4 / minimum 3 letters",muted);
     button(s,layout.less(),"-",false,options.duration!=0);button(s,layout.more(),"+",false,options.duration!=0);
     text(s,252,layout.installed()?356:270,options.duration ? duration(options.duration) : "NOT TIMED",white,2);
     button(s,layout.untimed(),"NO TIMER (T)",options.duration==0);
@@ -125,11 +140,13 @@ void rosterScreen(Surface& s,const std::array<std::string,4>& roster,const std::
 }
 void nameDropdown(Surface& s,const std::vector<std::string>& names,size_t selected,size_t scroll,const std::string& error,bool computers) {
     fill(s,nameList,gold);fill(s,{50,206,540,224},dark);
+    if(ui::active()){ui::panel(s,nameList);ui::fill(s,{nameList.x+2,nameList.y+2,nameList.w-4,nameList.h-4},{255,255,255});}
+    ui::Paper paper(ui::active());
     text(s,60,214,computers?"HUMAN NAMES / COMPUTER OPPONENTS":"PREVIOUS HUMAN NAMES",gold);
     for(size_t row=0;row<nameRows && scroll+row<names.size();++row) {
         const auto index=scroll+row;const int y=234+int(row)*20;
         if(index==selected)fill(s,{56,y,528,20},{43,83,112});
-        text(s,64,y+5,names[index]);
+        {ui::Paper rowPaper(ui::active()&&index!=selected);text(s,64,y+(ui::active()?2:5),names[index]);}
     }
     text(s,60,400,"Up/Down: choose   Enter/click: select   Esc: cancel",muted);
     if(!error.empty())text(s,60,416,error.substr(0,84),{255,150,130});
@@ -153,6 +170,7 @@ Error FrontendGame::run() {
     if(auto error=profile.load(target_.savePath,target_.path))return error;
     struct TextCleanup {System& system;~TextCleanup(){system.setTextInput(false);}} cleanup{system_};
     options.music = chooseClassicMusic(options.music,uint32_t(system_.getMillis()));
+    ui::Appearance appearance;ui::Scope appearanceScope(appearance);
     Resources resources; image::Image background;
     if(auto err=resources.open(target_.path)) return err;
     // Existing 39-file Classic imports remain playable without the new artwork.
@@ -167,6 +185,7 @@ Error FrontendGame::run() {
     FrontendOptionsDialog optionsDialog;
     if(options.artwork && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto err=resources.language("Language/English.dll",language))return err;
+        appearance.enable(findPeResource(language.resources,5,10813,0x0409)&&findPeResource(language.resources,5,10000,0x0409)&&findPeResource(language.resources,5,16007,0x0409));
         if(auto err=selectionLayout.read(language.resources))return err;
         if(auto err=versionLayout.read(language.resources))return err;
         if(auto err=versionLayout.readBackground(resources,target_.path))return err;
@@ -188,7 +207,9 @@ Error FrontendGame::run() {
         if(auto err=FrontendMedia::intro(system_,resources,target_.path,quit))return err;
         if(quit)return Error::success();
     }
+    MenuAudio menuAudio(system_);if(auto error=menuAudio.open(resources,target_.path,options.sound))return error;
     uint64_t menuStarted=system_.getMillis();
+    media.activate(menuStarted);menuAudio.enter();bool menuActive=true;int menuPointer=-1;
     Surface screen;screen.create(640,480,PixelFormat::RGBA32);
     Page page=Page::Selection;
     bool editingName=false,selectingName=false,rosterOpen=false,fromRoster=false;
@@ -218,6 +239,11 @@ Error FrontendGame::run() {
         bool launch=false, changed=false;
         Event event;
         while(system_.pollEvent(event)) {
+            appearance.event(event);
+            if(event.type==EventType::MouseMove || event.type==EventType::MouseDown){
+                menuPointer=-1;for(size_t i=0;i<5;++i)if(selectionLayout.modes()[i].contains(event.mouseX,event.mouseY))menuPointer=int(i);
+            }
+            if(event.type==EventType::MouseLeave || event.type==EventType::FocusLost)menuPointer=-1;
             if(event.type==EventType::Quit || event.type==EventType::ReturnToLauncher) return Error::success();
             // Releases and focus changes must end a drag even after another
             // action consumed this event batch. Motion/release samples may be
@@ -402,6 +428,8 @@ Error FrontendGame::run() {
             }
         }
         if(launch) {
+            menuAudio.stop();menuActive=false;
+            appearance.reset();
             system_.setTextInput(false);
             GameTarget selected=target_;
             selected.settings["classic_word_policy"]=wordPolicyKeys[int(options.wordPolicy)];
@@ -425,6 +453,13 @@ Error FrontendGame::run() {
                 if(event.type==EventType::Quit || event.type==EventType::ReturnToLauncher) return Error::success();
             page=Page::Selection;menuStarted=system_.getMillis();
         }
+        const bool onMenu=page==Page::Selection;
+        if(onMenu!=menuActive){
+            if(onMenu){media.activate(system_.getMillis());menuAudio.enter();menuPointer=-1;}
+            else menuAudio.stop();
+            menuActive=onMenu;
+        }
+        if(onMenu){media.motion().update(system_.getMillis(),menuPointer,menuFocused);menuAudio.update(media.motion());}
         if(page==Page::Version) setup(screen,options,versionLayout);
         else if(page==Page::Players) {
             players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable(),optionsDialog.installed());

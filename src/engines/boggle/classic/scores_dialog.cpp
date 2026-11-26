@@ -3,6 +3,7 @@
 #include "engines/boggle/classic/scores_dialog.h"
 #include "engines/boggle/formats/dialog.h"
 #include "common/font.h"
+#include "engines/boggle/frontend/appearance.h"
 #include <algorithm>
 namespace reluva::boggle {
 Error ClassicScoresDialog::read(const std::vector<PeResource>& resources,uint16_t language){
@@ -14,7 +15,7 @@ Error ClassicScoresDialog::read(const std::vector<PeResource>& resources,uint16_
     // large templates inside an 800x600 viewport with a surrounding margin.
     const int scale=std::min({131072,768*65536/dialog.rect.w,552*65536/dialog.rect.h});
     auto scaled=[&](int n){return (n*scale+32768)/65536;};
-    ClassicScoresDialog result;result.bounds_={(800-scaled(dialog.rect.w))/2,(600-scaled(dialog.rect.h))/2,scaled(dialog.rect.w),scaled(dialog.rect.h)};
+    ClassicScoresDialog result;result.bounds_={(800-(ui::active()?std::min(800,ui::dx(dialog.rect.w,800)):scaled(dialog.rect.w)))/2,(600-(ui::active()?std::min(600,ui::dy(dialog.rect.h,600)):scaled(dialog.rect.h)))/2,(ui::active()?std::min(800,ui::dx(dialog.rect.w,800)):scaled(dialog.rect.w)),(ui::active()?std::min(600,ui::dy(dialog.rect.h,600)):scaled(dialog.rect.h))};
     if(result.bounds_.w<360 || result.bounds_.h<240)return fail();
     auto control=[&](uint32_t id,uint16_t klass)->const DialogControl* {
         const DialogControl* found=nullptr;
@@ -23,7 +24,7 @@ Error ClassicScoresDialog::read(const std::vector<PeResource>& resources,uint16_
         const auto r=found->rect;if(r.x<0 || r.y<0 || r.w<=0 || r.h<=0 || r.x+r.w>dialog.rect.w || r.y+r.h>dialog.rect.h)return nullptr;
         return found;
     };
-    auto placed=[&](DialogRect r){const int x=scaled(r.x),y=scaled(r.y);return HistoryButton{result.bounds_.x+x,result.bounds_.y+y,scaled(r.x+r.w)-x,scaled(r.y+r.h)-y};};
+    auto placed=[&](DialogRect r){const int x=(ui::active()?(r.x*result.bounds_.w/dialog.rect.w):scaled(r.x)),y=(ui::active()?(r.y*result.bounds_.h/dialog.rect.h):scaled(r.y));return HistoryButton{result.bounds_.x+x,result.bounds_.y+y,(ui::active()?((r.x+r.w)*result.bounds_.w/dialog.rect.w):scaled(r.x+r.w))-x,(ui::active()?((r.y+r.h)*result.bounds_.h/dialog.rect.h):scaled(r.y+r.h))-y};};
     const auto* close=control(1,0x80);if(!close)return fail();result.close_=placed(close->rect);
     if(result.close_.w<48 || result.close_.h<20)return fail();
     for(size_t row=0;row<10;++row)for(size_t column=0;column<3;++column){
@@ -47,27 +48,30 @@ Error ClassicScoresDialog::read(const std::vector<PeResource>& resources,uint16_
 void ClassicScoresDialog::draw(Surface& screen,const HighScores& scores,std::string_view error) const {
     if(!installed_ || screen.format!=PixelFormat::RGBA32 || screen.w!=800 || screen.h!=600 || screen.pitch<3200 || screen.pixels.size()<size_t(screen.pitch)*600)return;
     auto box=[&](HistoryButton b,Color color){for(int y=std::max(0,b.y);y<std::min(screen.h,b.y+b.h);++y)for(int x=std::max(0,b.x);x<std::min(screen.w,b.x+b.w);++x){auto* p=screen.row(y)+x*4;p[0]=color.r;p[1]=color.g;p[2]=color.b;p[3]=255;}};
+    ui::Serif serif(ui::active());
     const Color white{240,240,255},muted{180,195,210};
     box(bounds_,{50,78,108});box({bounds_.x+3,bounds_.y+3,bounds_.w-6,bounds_.h-6},{22,40,60});
-    art_.draw(screen,bounds_.x,bounds_.y,bounds_.w,bounds_.h);
+    const bool background=art_.draw(screen,bounds_.x,bounds_.y,bounds_.w,bounds_.h);
+    ui::Paper paper(ui::active()&&!background);
+    if(!background)ui::panel(screen,{bounds_.x,bounds_.y,bounds_.w,bounds_.h});
     const int x=bounds_.x+16,y=bounds_.y;
     art_.title(screen,x,y+16,"HIGH SCORES",white,bounds_.w-32);
-    font::drawText(screen,x,y+48,"CLASSIC / ALL VERSIONS AND ROUND LENGTHS",muted);
-    font::drawText(screen,x,y+68,"Top ten Classic scores; player names may repeat.",muted);
-    font::drawText(screen,x,y+88,error.empty()?(scores.persistent()?"Saved in your launcher profile.":"Session only; no save directory configured."):"Scores unavailable until a successful retry.",muted);
-    if(!error.empty())font::drawText(screen,x,y+110,std::string(error.substr(0,size_t((bounds_.w-32)/6))),{255,116,116});
+    ui::text(screen,x,y+48,"CLASSIC / ALL VERSIONS AND ROUND LENGTHS",muted);
+    ui::text(screen,x,y+68,"Top ten Classic scores; player names may repeat.",muted);
+    ui::text(screen,x,y+88,error.empty()?(scores.persistent()?"Saved in your launcher profile.":"Session only; no save directory configured."):"Scores unavailable until a successful retry.",muted);
+    if(!error.empty())ui::text(screen,x,y+110,std::string(error.substr(0,size_t((bounds_.w-32)/6))),{255,116,116});
     const int heading=rows_[0][0].y-20;
-    font::drawText(screen,rows_[0][0].x-36,heading,"RANK",white);
-    const char* headings[]={"NAME","SCORE","VERSION"};for(size_t col=0;col<3;++col)font::drawText(screen,rows_[0][col].x,heading,headings[col],white);
+    ui::text(screen,rows_[0][0].x-(ui::active()?ui::measure("RANK",1,800)+12:36),heading,"RANK",white);
+    const char* headings[]={"NAME","SCORE","VERSION"};for(size_t col=0;col<3;++col)ui::text(screen,rows_[0][col].x,heading,headings[col],white);
     const auto scoresRows=scores.table();
     for(size_t i=0;i<scoresRows.size() && i<10;++i){
-        const auto& row=scoresRows[i];const auto& cells=rows_[i];font::drawText(screen,cells[0].x-36,cells[0].y,std::to_string(i+1),white);
+        const auto& row=scoresRows[i];const auto& cells=rows_[i];ui::text(screen,cells[0].x-36,cells[0].y,std::to_string(i+1),white);
         auto name=row.name;const size_t columns=size_t(cells[0].w/6);if(name.size()>columns)name=name.substr(0,columns-3)+"...";
-        font::drawText(screen,cells[0].x,cells[0].y,name,white);font::drawText(screen,cells[1].x,cells[1].y,std::to_string(row.score),white);
-        font::drawText(screen,cells[2].x,cells[2].y,row.variant==ClassicVariant::Master?"MASTER":"ORIGINAL",white);
+        ui::text(screen,cells[0].x,cells[0].y,name,white);ui::text(screen,cells[1].x,cells[1].y,std::to_string(row.score),white);
+        ui::text(screen,cells[2].x,cells[2].y,row.variant==ClassicVariant::Master?"MASTER":"ORIGINAL",white);
     }
-    if(scoresRows.empty())font::drawText(screen,rows_[0][0].x,rows_[0][0].y,error.empty()?"No scores yet.":"Table unavailable.",muted);
-    auto button=[&](HistoryButton b,const char* text){box(b,{48,88,120});font::drawText(screen,b.x+(b.w-int(std::char_traits<char>::length(text))*6)/2,b.y+(b.h-8)/2,text,white);};
+    if(scoresRows.empty())ui::text(screen,rows_[0][0].x,rows_[0][0].y,error.empty()?"No scores yet.":"Table unavailable.",muted);
+    auto button=[&](HistoryButton b,const char* text){if(ui::active()){ui::button(screen,{b.x,b.y,b.w,b.h},text);return;}box(b,{48,88,120});ui::text(screen,b.x+(b.w-int(std::char_traits<char>::length(text))*6)/2,b.y+(b.h-8)/2,text,white);};
     button(close_,"CLOSE");if(!error.empty())button(retry_,"RETRY (R)");
 }
 } // namespace reluva::boggle

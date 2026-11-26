@@ -29,6 +29,8 @@ public:
     bool installed() const {return installed_;}
     const std::array<SelectionRect,2>& modes() const {return modes_;}
     const SelectionRect& bounds() const {return bounds_;}
+    const std::string& label(size_t i) const {return labels_[i];}
+    const std::string& caption() const {return caption_;}
     const SelectionRect& prompt() const {return prompt_;}
     SelectionRect less() const {return {174,installed_?344:258,48,36};}
     SelectionRect more() const {return {418,installed_?344:258,48,36};}
@@ -37,6 +39,7 @@ private:
     bool installed_=false;
     SelectionRect bounds_{},prompt_{};
     image::Image background_;
+    std::array<std::string,2> labels_{};std::string caption_;
     std::array<SelectionRect,2> modes_{{{48,155,252,65},{340,155,252,65}}};
 };
 } // namespace reluva::boggle

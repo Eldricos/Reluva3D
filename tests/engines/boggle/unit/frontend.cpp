@@ -161,7 +161,7 @@ void movies(const std::filesystem::path& tmp) {
     auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run());CHECK(sys.frame==5);
     CHECK(sys.audioStarted && sys.audioStopped && !sys.audioCallback && !sys.textEnabled);
     if(sys.hashes.size()==5) {
-        CHECK(sys.hashes[2]!=sys.hashes[3] && sys.hashes[2]==sys.hashes[4]);
+        CHECK(sys.hashes[2]==sys.hashes[3] && sys.hashes[2]==sys.hashes[4]); // idle clip holds frame zero
         test::Record record;
         for(size_t i=0;i<sys.hashes.size();++i)record.add("movie."+std::to_string(i),sys.hashes[i]);
         record.check(std::filesystem::path(RELUVA_SOURCE_DIR)/"tests/engines/boggle/data/movie-frontend-record.txt",

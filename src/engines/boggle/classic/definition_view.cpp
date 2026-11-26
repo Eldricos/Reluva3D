@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/definition_view.h"
 #include "common/font.h"
+#include "engines/boggle/frontend/appearance.h"
 #include "common/font_truetype.h"
 #include <filesystem>
 #include <fstream>
@@ -161,7 +162,7 @@ void DefinitionView::draw(Surface& s) const {
         else font::drawText(s,44+g.x,y-9,std::string(1,g.cp<127?char(g.cp):'?'),color);
     }
     font::drawText(s,44,500,"References: click or Tab, Enter. Backspace: return.",muted);
-    auto button=[&](int x,const char* text){box(x,530,156,38,{48,64,88});font::drawText(s,x+10,544,text,white);};
+    auto button=[&](int x,const char* text){if(ui::active()){ui::button(s,{x,530,156,38},text);return;}box(x,530,156,38,{48,64,88});font::drawText(s,x+10,544,text,white);};
     button(44,"PREVIOUS (LEFT)");button(216,"NEXT (RIGHT)");button(388,"BACK (BKSP)");button(600,"CLOSE (ENTER)");
 }
 }

@@ -74,6 +74,10 @@ void selection(const std::filesystem::path& tmp) {
     for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(std::count_if(meshes.files.begin(),meshes.files.end(),[&](const auto& f){return f.to==path;})==1);
     CHECK(!runImport(meshes,tmp/"with-meshes",{}));
     for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(fs::md5File(root/path,0)==fs::md5File(tmp/"with-meshes"/path,0));
+    for(const auto* name:{"GameSel","ClsRoll","BrkRoll","BatRoll","SpcRoll","TetRoll"})fixtures::write(root/"wAvEs"/(std::string(name)+".wav"),fixtures::wave());
+    ImportPlan menu;CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},menu));CHECK(menu.files.size()==definitions.files.size()+6);
+    CHECK(!runImport(menu,tmp/"with-menu-sounds",{}));
+    for(const auto* name:{"GameSel","ClsRoll","BrkRoll","BatRoll","SpcRoll","TetRoll"})CHECK(fs::md5File(root/"wAvEs"/(std::string(name)+".wav"),0)==fs::md5File(tmp/"with-menu-sounds/Waves"/(std::string(name)+".wav"),0));
     uint64_t last=0;
     CHECK(!runImport(plan,dest,[&](uint64_t done,uint64_t expected){CHECK(done>=last && done<=expected);last=done;return true;}));
     CHECK(last==total);

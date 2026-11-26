@@ -6,6 +6,58 @@
 #include "common/fs.h"
 #include <algorithm>
 namespace reluva::boggle {
+void MenuMotion::activate(uint64_t now){frames_={};cycles_={};carry_={};last_=now;hovered_=-1;intro_=counts_[2]>1;focused_=true;}
+void MenuMotion::update(uint64_t now,int hovered,bool focused){
+    const auto elapsed=now>=last_?now-last_:0;last_=now;
+    constexpr uint64_t intervals[]={90,100,100,100,66};
+    for(size_t i=0;i<5;++i)if(playing(i) && counts_[i]){
+        // Bound arithmetic even for an arbitrarily large host-clock jump.
+        const auto steps=elapsed/intervals[i]+(elapsed%intervals[i]+carry_[i])/intervals[i];
+        carry_[i]=(elapsed%intervals[i]+carry_[i])%intervals[i];
+        if(i==2 && intro_){
+            const auto end=std::min<size_t>(20,counts_[i]-1);
+            if(steps>=end-std::min(frames_[i],end)){frames_[i]=end;intro_=false;carry_[i]=0;}
+            else frames_[i]+=size_t(steps);
+        }else{
+            cycles_[i]+=steps/counts_[i]+(frames_[i]+steps%counts_[i])/counts_[i];
+            frames_[i]=(frames_[i]+steps%counts_[i])%counts_[i];
+        }
+    }
+    if(hovered<0 || hovered>=5)hovered=-1;
+    if(hovered!=hovered_ && hovered>=0 && !(hovered==2 && intro_)){
+        frames_[size_t(hovered)]=0;carry_[size_t(hovered)]=0;++cycles_[size_t(hovered)];
+    }
+    hovered_=hovered;focused_=focused;
+}
+Error MenuAudio::open(const Resources& resources,const std::filesystem::path& root,bool enabled){
+    stop();sounds_={};if(!enabled)return Error::success();
+    const char* names[]={"GameSel","ClsRoll","BrkRoll","BatRoll","SpcRoll","TetRoll"};
+    for(size_t i=0;i<6;++i){const auto path=std::string("Waves/")+names[i]+".wav";
+        if(!fs::findFile(root,path))continue;
+        auto sound=std::make_shared<audio::Sound>();if(auto error=resources.sound(path,*sound))return error;sounds_[i]=std::move(sound);
+    }return Error::success();
+}
+void MenuAudio::enter(){
+    stop();if(std::none_of(sounds_.begin(),sounds_.end(),[](const auto& s){return bool(s);}))return;
+    active_=!audio::startMixerOutput(system_,mixer_);if(!active_){system_.stopAudio();return;}
+    if(sounds_[0])entry_=mixer_.play(sounds_[0],audio::SoundType::Effects);
+}
+void MenuAudio::stop(){if(active_)system_.stopAudio();active_=false;mixer_.stopAll();handles_={};entry_=0;playing_={};cycles_={};}
+void MenuAudio::update(const MenuMotion& motion){
+    if(!active_)return;
+    mixer_.setPaused(entry_,!motion.focused());
+    for(size_t i=0;i<5;++i){const bool play=motion.playing(i);
+        if(!play || (!playing_[i] || cycles_[i]!=motion.cycle(i))){
+            mixer_.stop(handles_[i]);handles_[i]=0;
+            if(play && sounds_[i+1])handles_[i]=mixer_.play(sounds_[i+1],audio::SoundType::Effects,audio::kMaxVolume,0,i==1||i==3||i==4);
+        }
+        playing_[i]=play;cycles_[i]=motion.cycle(i);
+    }
+}
+void FrontendMedia::activate(uint64_t now){
+    std::array<size_t,5> counts{};for(size_t i=0;i<5;++i)counts[i]=buttons_[i].frames.size();
+    motion_.counts(counts);motion_.activate(now);controlled_=true;
+}
 namespace {
 class MovieOutput {
 public:
@@ -22,7 +74,7 @@ private:
 };
 }
 Error FrontendMedia::open(const Resources& resources,const std::filesystem::path& root,bool enabled) {
-    buttons_={};if(!enabled)return Error::success();
+    buttons_={};motion_={};controlled_=false;if(!enabled)return Error::success();
     for(size_t i=0;i<menuMovieNames.size();++i) {
         const auto path=std::string("Anims/")+menuMovieNames[i]+".avi";
         if(!fs::findFile(root,path))continue;
@@ -35,13 +87,13 @@ Error FrontendMedia::open(const Resources& resources,const std::filesystem::path
 }
 bool FrontendMedia::button(Surface& screen,size_t index,int x,int y,uint64_t elapsed) const {
     if(index>=buttons_.size() || buttons_[index].frames.empty())return false;
-    const auto& movie=buttons_[index];image::blit(screen,movie.frames[movie.frameAt(elapsed,true)],x,y);return true;
+    const auto& movie=buttons_[index];image::blit(screen,movie.frames[controlled_?motion_.frame(index):movie.frameAt(elapsed,true)],x,y);return true;
 }
 bool FrontendMedia::buttonFit(Surface& screen,size_t index,SelectionRect bounds,uint64_t elapsed) const {
     if(index>=buttons_.size() || buttons_[index].frames.empty())return false;
     if(bounds.w<=0 || bounds.h<=0 || screen.format!=PixelFormat::RGBA32 || screen.w<=0 || screen.h<=0 ||
        screen.w>8192 || screen.h>8192 || screen.pitch<screen.w*4 || screen.pixels.size()<size_t(screen.pitch)*screen.h)return false;
-    const auto& movie=buttons_[index];const auto& frame=movie.frames[movie.frameAt(elapsed,true)];
+    const auto& movie=buttons_[index];const auto& frame=movie.frames[controlled_?motion_.frame(index):movie.frameAt(elapsed,true)];
     // The supported clips are square. Fit without painting outside the target,
     // including when a caller supplies a partly off-screen rectangle.
     const int side=std::min({bounds.w,bounds.h,8192});const int64_t left=int64_t(bounds.x)+(int64_t(bounds.w)-side)/2,top=int64_t(bounds.y)+(int64_t(bounds.h)-side)/2;

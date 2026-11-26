@@ -22,6 +22,7 @@ class ClassicArtwork {
 public:
     Error open(const Resources& resources,const std::filesystem::path& root,const ClassicOptions& options,
                const video::AviVideo1& prepared);
+    void player(size_t index){player_=index;}
     bool active() const { return active_; }
     bool usesCubeMesh() const {return cubes_.active();}
     void draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
@@ -42,6 +43,7 @@ private:
     bool active_=false,master_=false,autoOrient_=true;
     image::Image open_,closed_,words_,names_;
     video::AviVideo1 timer_;
-    font::TrueTypeAscii handwriting_;
+    font::TrueTypeAscii handwriting_,nelson_;
+    size_t player_=0;
 };
 } // namespace reluva::boggle

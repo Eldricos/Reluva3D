@@ -19,6 +19,7 @@ public:
 private:
     bool installed_=false;
     PanelArt art_;
+    std::string captionText_,doneText_,cancelText_;
     SelectionRect bounds_{},message_{},done_{340,388,252,48},cancel_{48,388,252,48};
     bool portraits_=false;
     std::array<SelectionRect,4> portraitsRects_{};

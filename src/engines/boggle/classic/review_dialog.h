@@ -15,6 +15,7 @@ public:
     void draw(Surface& screen,std::string_view word,std::string_view message,bool all=true) const;
 private:
     bool installed_=false;
+    std::array<std::string,4> labels_{};
     HistoryButton bounds_{};
     ClassicPoint message_;
     std::array<HistoryButton,4> buttons_={{{40,352,168,40},{224,352,168,40},{408,352,168,40},{592,352,168,40}}};

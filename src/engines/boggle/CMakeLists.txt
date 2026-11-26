@@ -9,6 +9,7 @@ reluva_add_engine(boggle
         boggle.cpp
         frontend/name_edit.cpp
         frontend/panel_art.cpp
+        frontend/appearance.cpp
         frontend/dictionary_editor.cpp
         frontend/options_dialog.cpp
         frontend/roster_dialog.cpp
@@ -100,6 +101,7 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/detection.cpp
         ${tests}/unit/import.cpp
         ${tests}/unit/frontend.cpp
+        ${tests}/unit/appearance.cpp
         ${tests}/unit/resources.cpp
         ${tests}/unit/dictionary.cpp
         ${tests}/unit/definitions.cpp
@@ -109,7 +111,7 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/user_dictionary.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.bitmap unit.dialog unit.cube_renderer unit.cursor unit.background unit.computer unit.chess unit.traditional unit.competition unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.definitions unit.classic unit.options unit.presentation unit.user_dictionary engine)
+        unit.bitmap unit.dialog unit.cube_renderer unit.cursor unit.background unit.computer unit.chess unit.traditional unit.competition unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.appearance unit.frontend unit.import unit.resources unit.dictionary unit.definitions unit.classic unit.options unit.presentation unit.user_dictionary engine)
 
 # Optional tests with the owner's data; raw output stays outside Git.
 reluva_add_gamedata_test(boggle

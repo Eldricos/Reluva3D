@@ -3,6 +3,7 @@
 #include "engines/boggle/frontend/panel_art.h"
 #include "common/fs.h"
 #include "common/font.h"
+#include "engines/boggle/frontend/appearance.h"
 #include <algorithm>
 namespace reluva::boggle {
 Error PanelArt::open(const Resources& resources,const std::filesystem::path& root,std::string_view path,int w,int h){
@@ -22,7 +23,8 @@ bool PanelArt::draw(Surface& s,int x,int y,int w,int h) const {
     return true;
 }
 void PanelArt::title(Surface& s,int x,int y,std::string_view text,Color color,int width) const {
+    if(ui::active()){ui::text(s,x,y,text,color,2);return;}
     if(font_.loaded())font_.draw(s,x,y+20,text,color,width);
-    else font::drawText(s,x,y,text,color,2);
+    else ui::text(s,x,y,text,color,2);
 }
 }
