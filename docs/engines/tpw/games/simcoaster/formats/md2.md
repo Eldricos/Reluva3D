@@ -166,7 +166,6 @@ words, not read.
 
 ### A mesh
 
-
 After its 0x50 bytes of node, a mesh has, from the node's start:
 
 | Offset | Size | Field |
