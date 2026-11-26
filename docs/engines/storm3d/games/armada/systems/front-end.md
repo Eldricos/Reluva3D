@@ -211,7 +211,13 @@ pixels, from (64, 6); its headings ("Player Name", "Side", "Teams",
   for the game's type, its most players, the ping filter, the starting
   dilithium, crew and officers ("Dilithium:   3000", three spaces),
   the units, the technology, what the map shows and the shroud and fog;
-  toggles (`mps111tg`, `mps128tg`) for the rest and SELECT MAP. A few
+  toggles (`mps111tg`, `mps128tg`) for the rest and SELECT MAP. A list opens as it's pressed, upwards from its
+  control, and takes the item the button is let go on: its values in
+  turn, the first nearest the control, each 20 high and the control's
+  width less two, grey (132, 134, 132) with a light left edge (181, 178,
+  181), black right and bottom ones and black words, as the original's
+  shroud list held open; let go off them, it stays as it was. A toggle
+  turns to its next value on a click. A few
   of `label.map`'s keys name the other state: `ferengi_off` says
   "Ferengi On".
 - **The bottom bar,** a pixel right and down of the other screens' (its

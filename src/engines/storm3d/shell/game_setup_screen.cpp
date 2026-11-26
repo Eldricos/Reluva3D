@@ -42,6 +42,22 @@ constexpr Color kBlack{0, 0, 0};
 constexpr Color kYellow{255, 190, 0};
 constexpr Color kWhite{255, 255, 255};
 constexpr Color kPlayerColour{255, 0, 0}; // the player's own name
+// An open list's items: 20 high, grey with a light left edge, as the
+// original's frame has them.
+constexpr int kItemHeight = 20;
+constexpr Color kItemFill{132, 134, 132};
+constexpr Color kItemLight{181, 178, 181};
+
+void fillRect(Surface &screen, int x, int y, int w, int h, Color c) {
+    if (w <= 0 || h <= 0)
+        return;
+    std::vector<uint8_t> rgba(size_t(w) * size_t(h) * 4);
+    for (size_t i = 0; i < rgba.size(); i += 4) {
+        rgba[i] = c.r, rgba[i + 1] = c.g, rgba[i + 2] = c.b;
+        rgba[i + 3] = 255;
+    }
+    drawPixels(screen, rgba.data(), w, h, x, y, false);
+}
 // teamcolor.odf's colours a player can take, in the swatches' order.
 constexpr const char *kColourNames[] = {"empty", "white", "red", "blue", "green", "yellow", "purple", "cyan", "brown"};
 
@@ -248,11 +264,44 @@ bool GameSetupScreen::pointerAt(int x, int y) {
 
 void GameSetupScreen::press(int x, int y) {
     _pressed = targetAt(x, y);
+    // A list opens as it's pressed, and stays open while the button's held.
+    if (_pressed >= 1000 && _pressed < 2000 && isList(options()[size_t(_pressed - 1000)]))
+        _open = _pressed - 1000;
+}
+
+int GameSetupScreen::widthOf(Option::Look look) {
+    return look == Option::kList58 ? 58 : look == Option::kList128 || look == Option::kToggle128 ? 128 : 111;
+}
+
+bool GameSetupScreen::isList(const Option &option) {
+    return option.look == Option::kList111 || option.look == Option::kList128 || option.look == Option::kList58;
+}
+
+int GameSetupScreen::itemAt(int x, int y) const {
+    if (_open < 0)
+        return -1;
+    const Option &o = options()[size_t(_open)];
+    const int w = widthOf(o.look) - 2;
+    // Upwards from the control, the first value nearest it, 20 each.
+    for (size_t v = 0; v < o.values.size(); ++v) {
+        const int bottom = o.y - int(v) * kItemHeight;
+        if (x >= o.x && x < o.x + w && y > bottom - kItemHeight && y <= bottom)
+            return int(v);
+    }
+    return -1;
 }
 
 SetupChoice GameSetupScreen::release(int x, int y) {
     const int pressed = _pressed;
     _pressed = -1;
+    // An open list takes the item it's let go on, or stays as it was.
+    if (_open >= 0) {
+        const int item = itemAt(x, y);
+        if (item >= 0)
+            _values[size_t(_open)] = item;
+        _open = -1;
+        return SetupChoice::kNone;
+    }
     const int at = targetAt(x, y);
     if (at != pressed || at < 0)
         return SetupChoice::kNone;
@@ -262,7 +311,7 @@ SetupChoice GameSetupScreen::release(int x, int y) {
         return SetupChoice::kLaunch;
     if (at == 2002)
         return SetupChoice::kMainMenu;
-    // The lists turn to their next value: none was seen open.
+    // A toggle turns to its next value.
     if (at >= 1000) {
         const Option &o = options()[size_t(at - 1000)];
         _values[size_t(at - 1000)] = (_values[size_t(at - 1000)] + 1) % int(o.values.size());
@@ -366,6 +415,27 @@ void GameSetupScreen::draw(Surface &screen) {
     }
     _bar.draw(screen, _font, _text.text(kSection, "previous_menu"), _hover == 2000, _pressed == 2000,
               _text.text(kSection, "launch"), _text.text(kSection, "main_menu"));
+    // An open list over everything: its items upwards from the control,
+    // grey with a light left edge and black right and bottom ones, their
+    // words black, as the original's shroud list held open.
+    if (_open >= 0) {
+        const Option &o = options()[size_t(_open)];
+        const int w = widthOf(o.look) - 2;
+        for (size_t v = 0; v < o.values.size(); ++v) {
+            const int bottom = o.y - int(v) * kItemHeight;
+            const int top = bottom - kItemHeight + 1;
+            fillRect(screen, o.x, top, w, kItemHeight, kItemFill);
+            fillRect(screen, o.x, top, 1, kItemHeight, kItemLight);
+            fillRect(screen, o.x + w - 1, top, 1, kItemHeight, kBlack);
+            fillRect(screen, o.x, bottom, w, 1, kBlack);
+            std::string value = o.values[v];
+            const size_t bar = value.find('|');
+            const std::string words = bar == std::string::npos ? _text.text(kSection, value)
+                                                               : _text.text(kSection, value.substr(0, bar)) + ":   " +
+                                                                     _text.text(kSection, value.substr(bar + 1));
+            _font.drawCentred(screen, o.x, top, w, kItemHeight - 1, words, kText, kBlack);
+        }
+    }
 }
 
 } // namespace reluva::storm3d

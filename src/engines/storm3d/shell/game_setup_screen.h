@@ -52,6 +52,10 @@ public:
     static const std::vector<Option> &options();
     /** The sides a slot can take, as label.map's keys: random first. */
     static const std::vector<const char *> &sides();
+    /** An option's control's width, by its look. */
+    static int widthOf(Option::Look look);
+    /** Whether an option is a list, which opens upwards while pressed, rather than a toggle. */
+    static bool isList(const Option &option);
     /** The control under a point: a slot's part (0 who, 1 side, 2 team) as 100 x slot + part, an option as 1000 + its index, the bottom bar's as 2000 to 2002; -1 if none. */
     static int targetAt(int x, int y);
     /** A colour's name in teamcolor.odf, by its swatch ("white" for 1). */
@@ -111,6 +115,9 @@ private:
     std::string _name;
     int _hover = -1;
     int _pressed = -1;
+    int _open = -1; // the option whose list is open, while the button is held
+    // An open list's item under a point: its value; -1 if none.
+    int itemAt(int x, int y) const;
 };
 
 } // namespace reluva::storm3d
