@@ -4,8 +4,8 @@
 
 The US retail release played from its own files: the 21 single-player
 levels with their cut scenes, the menus, saves, multiplayer and Capture
-the Flag. Then Mysteries of the Sith on the same engine, once a copy is
-available.
+the Flag. Then Mysteries of the Sith on the same engine
+([../mots/PLAN.md](../mots/PLAN.md)).
 
 The copy studied, and what each file holds, is in the
 [README](README.md#the-install-and-the-cds).
@@ -106,7 +106,8 @@ reaches its menus; then DirectSound; then a level.
    144), the world moved at each, by lowering the game's 10 ms floor on
    a step, once 100 has been tried on a display faster than that and
    more is wanted ([systems/hosting.md](systems/hosting.md), step 22).
-7. **Mysteries of the Sith.**
+7. **Mysteries of the Sith**, its own plan:
+   [../mots/PLAN.md](../mots/PLAN.md).
 
 ## Decisions
 

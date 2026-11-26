@@ -3,13 +3,14 @@
 Engine id `sith`, in `src/engines/sith/`. It's meant for the family of
 LucasArts games on the Sith engine, which share Jedi Knight's files (GOB
 archives, text levels and models, COG scripts), starting with Jedi Knight:
-Dark Forces II; its expansion, Mysteries of the Sith, would be the next.
+Dark Forces II, then its expansion, Mysteries of the Sith.
 
 ## Games
 
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
-| [Jedi Knight: Dark Forces II](games/jk/README.md) | `jk` | LucasArts, 1997 | Windows | US retail, two CDs, unpatched | Recognised and imported from its CDs; nothing of the game runs yet |
+| [Jedi Knight: Dark Forces II](games/jk/README.md) | `jk` | LucasArts, 1997 | Windows | US retail, two CDs, unpatched | Played: the retail program hosted, imported from its CDs |
+| [Jedi Knight: Mysteries of the Sith](games/mots/README.md) | `mots` (to be) | LucasArts, 1998 | Windows | None yet (US retail studied) | Its program reaches its first level in a trial; to be recognised and imported ([PLAN.md](games/mots/PLAN.md)) |
 
 ## Where it stands
 
@@ -33,6 +34,7 @@ from its CDs (*Import Game...*), and play it from there. The data viewer is `rel
 |---|---|
 | This page | The engine, its games |
 | [games/jk/](games/jk/README.md) | Jedi Knight: its formats, plan, tests and how it was worked out |
+| [games/mots/](games/mots/README.md) | Mysteries of the Sith: its release, how it differs, its plan |
 
 What every game would share stays with Jedi Knight's pages until a second
 game is found to share it (docs/DOCUMENTATION_STANDARD.md).
