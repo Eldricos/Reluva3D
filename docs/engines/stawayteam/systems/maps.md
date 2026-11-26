@@ -981,9 +981,12 @@ officer, or their slot on the team bar, chooses them alone, with Shift
 adds them or takes them away, a double click on the slot shows them; a
 box dragged on the map chooses those in it (with Shift, as well); Select
 Entire Team's key (A) and the select-all button choose everyone; a click
-elsewhere on the map sends those chosen walking there, the first onto
-the place and the rest about it a figure's width apart *(inferred: the
-game's mouse and grouping aren't traced)*, each by the waypoints (`loadWayPoints`, the
+elsewhere on the map sends those chosen walking there, every one to
+the place itself: the game cancels their orders (`0x5b80e0`), gives
+each the point (`0x5bfcdb`, by `0x5c78a0`) and starts each moving to the
+first one's point (`0x5b8050`, `0x5b7e50`), and a place with only a
+character on it is walked onto, so they end up together on it *(the
+game's mouse buttons aren't traced)*, each by the waypoints (`loadWayPoints`, the
 shortest way along their lines by A*, then straight to the place
 *(inferred)*), facing the way they go, at their walk's own pace, its
 frames by how far into its cycle they are. In the game a moving
@@ -1309,8 +1312,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   out of its way, how long a beam's shown and how high it ends,
   where on a character the
   flashes go, stunning, death, and the mouse for attacking.
-- **Choosing:** the game's mouse for a box and Shift, and where officers
-  sent together stand.
+- **Choosing:** the game's mouse for a box and Shift.
 - **The team:** the game's path
   finding, its mouse (which button chooses and which sends), and the
   info bar's rising.

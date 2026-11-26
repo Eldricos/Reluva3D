@@ -51,7 +51,7 @@ None now.
   view held
   by the camera's scripts, a line's time and the beaming in's look; the
   triggers' and the enemies' rules, read from the maps' fields; choosing
-  by box and Shift, and where officers sent together stand; fighting:
+  by box and Shift; fighting:
   sight blocked by the models' `Bounds Poly`, a shot meeting those on its
   line at once, stunning, the health bar's cut, and a
   click on an enemy to attack it; noise: going to look, and the rings'

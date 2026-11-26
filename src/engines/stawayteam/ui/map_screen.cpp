@@ -49,8 +49,6 @@ constexpr float kDialogWithoutVoice = 4.0f;
 // A walk's speed for a model without one: the retail bodies' sideways,
 // 26 pixels in 10 frames at 14 a second.
 constexpr float kDefaultWalk = 36.4f;
-// How far apart officers sent together stand (inferred).
-constexpr float kSpacing = 24.0f;
 // How far the mouse goes, held, before it's dragging a box (inferred).
 constexpr int kDrag = 4;
 // Too near a waypoint to walk any further to it.
@@ -532,19 +530,14 @@ void MapScreen::chooseAll() {
 }
 
 void MapScreen::order(float x, float y) {
-    // Side by side about the place, the first chosen on it, the rest round
-    // them a figure's width apart (inferred: the game's grouping isn't
-    // traced).
-    int k = 0;
+    // Every one chosen to the place itself: the game gives each the first
+    // one's point (0x5bfcdb, 0x5b8050, 0x5b7e50), and a place with only a
+    // character on it is walked onto (0x449481).
     for (Officer &o : _officers) {
         if (!o.chosen)
             continue;
-        const float angle = float(k - 1) * 1.5707963f;
-        const float tx = k == 0 ? x : x + kSpacing * std::cos(angle);
-        const float ty = k == 0 ? y : y + kSpacing * 0.7f * std::sin(angle);
-        o.path = route(o, tx, ty);
+        o.path = route(o, x, y);
         o.attacking = -1;
-        ++k;
     }
 }
 

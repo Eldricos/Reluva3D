@@ -2809,12 +2809,12 @@ void testChoosing() {
     CHECK(!screen.officers()[0].chosen && screen.selected() == 1);
     screen.chooseIn(10, 30, 30, 50);
     CHECK(screen.officers()[0].chosen && !screen.officers()[1].chosen && screen.selected() == 0);
-    // Sent together: side by side, the first on the place.
+    // Sent together: each to the place itself (0x5b8050).
     screen.chooseAll();
     screen.order(60.0f, 60.0f);
     screen.update(10000);
     CHECK(screen.officers()[0].x == 60.0f && screen.officers()[0].y == 60.0f);
-    CHECK(std::abs(screen.officers()[1].x - 60.0f) > 1.0f || std::abs(screen.officers()[1].y - 60.0f) > 1.0f);
+    CHECK(std::abs(screen.officers()[1].x - 60.0f) < 1.0f && std::abs(screen.officers()[1].y - 60.0f) < 1.0f);
     // How they move, all at once.
     screen.setMove(1);
     CHECK(screen.officers()[0].move == 1 && screen.officers()[1].move == 1);
