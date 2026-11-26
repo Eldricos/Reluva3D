@@ -40,10 +40,9 @@ constexpr int kWireframeTile = 40;
 constexpr std::pair<int, int> kWireframeTiles[] = {{40, 0}, {0, 40}, {40, 40}, {80, 0}, {0, 0}};
 // Places for special weapons on the rail before its separator.
 constexpr size_t kRailSlots = 5;
-// The health bar over a unit: 4 high, dark grey under green (the draws').
+// The bar over a unit: 4 high, its shields over dark grey (the draws').
 constexpr int kHealthBarHeight = 4;
 constexpr std::array<uint8_t, 3> kHealthBack = {51, 51, 51};
-constexpr std::array<uint8_t, 3> kHealthFront = {0, 128, 0};
 // The minimap's view lines' grey, added on.
 constexpr int kViewLine = 128;
 // The minimap: a texel a cell, 128 across.
@@ -103,7 +102,7 @@ Error Hud::load(const GameFiles &files, const std::string &race) {
     auto table = kTables.find(race);
     for (const std::string &name :
          {table == kTables.end() ? std::string("gui_federation.spr") : table->second, std::string("gui_global.spr"),
-          std::string("cursor.spr"), std::string("gui_map.spr")})
+          std::string("cursor.spr"), std::string("gui_map.spr"), std::string("weapon.spr")})
         if (Error err = _tables.emplace_back().load(name, loader))
             return err;
     if (_font.load(files))
@@ -348,7 +347,10 @@ void Hud::drawInfo(Surface &screen, const Unit &unit) {
     }
     sprite(_layout.text("infoSingleCrewDot"), "infoSingleCrewDotArea", kGreen);
     sprite(_layout.text("infoSingleShieldBar"), "infoSingleShieldBarArea", kDisabled);
-    sprite(_layout.text("infoSingleShieldBar"), "infoSingleShieldBarArea", kGreen, false, unit.shields);
+    // Green full, red empty, as the original's (255, 0, 0) for none.
+    const float f = std::clamp(unit.shields, 0.0f, 1.0f);
+    sprite(_layout.text("infoSingleShieldBar"), "infoSingleShieldBarArea",
+           {uint8_t(std::lround(255 * (1 - f))), uint8_t(std::lround(255 * f)), 0}, false, f);
     sprite(_layout.text("infoSingleConstructionBar"), "infoSingleConstructionBarArea", kDisabled);
     sprite(_layout.text("infoSingleConstructionBar"), "infoSingleConstructionBarArea", kConstruction, false,
            unit.construction);
@@ -429,7 +431,11 @@ bool Hud::covers(int x, int y) const {
 
 void Hud::drawHealthBar(Surface &screen, int left, int top, int width, float health) {
     drawSprite(screen, "large_shield_bar", left, top, width, kHealthBarHeight, kHealthBack);
-    drawSprite(screen, "large_shield_bar", left, top, width, kHealthBarHeight, kHealthFront, false, health);
+    // From (0, 128, 0) full to (128, 0, 0) empty, as the original's shot
+    // construction ship's: (31, 96, 0) at three quarters.
+    const float f = std::clamp(health, 0.0f, 1.0f);
+    const std::array<uint8_t, 3> front = {uint8_t(std::lround(128 * (1 - f))), uint8_t(std::lround(128 * f)), 0};
+    drawSprite(screen, "large_shield_bar", left, top, width, kHealthBarHeight, front, false, f);
 }
 
 void Hud::drawCursor(Surface &screen, int x, int y, double seconds, const std::string &name) {

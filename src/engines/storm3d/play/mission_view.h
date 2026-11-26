@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/play/combat.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/movement.h"
 #include "engines/storm3d/scene/map_scene.h"
@@ -274,6 +275,15 @@ private:
     std::vector<Footprint> _footprints;           // the stations' and the map's objects to keep clear of
     std::vector<gfx::Vec3> _moons;                // the dilithium moons
     std::vector<Freighter> _freighters;
+    // By unit: its shields and hull, its weapons, what it attacks (-1:
+    // nothing), and whether it's been destroyed.
+    std::vector<Combat::Vitals> _vitals;
+    std::vector<std::vector<Combat::Weapon>> _weapons;
+    std::vector<int> _targets;
+    std::vector<bool> _dead;
+    std::vector<Combat::Shot> _shots;
+    bool _targeting = false; // the attack button pressed: the next click picks the target
+    uint32_t _roll = 12345;  // the shots' damage rolls
     std::vector<Site> _sites;
     gfx::MeshId _cellMesh = 0;
     gfx::TextureId _cellTaken = 0;
@@ -287,9 +297,17 @@ private:
     void launch(size_t builder, const std::string &item); // a unit built
     void place(int x, int y);                             // the station being placed, at a point of the screen
     void raise(const Site &site);                         // a station built
+    void addFighter(const std::string &odf);
+    void fight(double seconds);
+    int liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const; // unitAt's, but not a destroyed one
+    void destroy(size_t unit);
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                   const MapScene::Unit &owner);
     void makeCells();
+    void drawShots(const MapScene::Camera &view);
+    gfx::MeshId _shotMesh = 0;
+    // By sprite: its texture, and its rectangle in it (u0, v0, u1, v1).
+    std::map<std::string, std::pair<gfx::TextureId, std::array<float, 4>>> _shotLooks;
     std::optional<Footprint> footprintOf(const std::string &odf, const gfx::Vec3 &at, float fallback);
     bool placeable(const gfx::Vec3 &site) const;
     void drawPlacement(const MapScene::Camera &view);

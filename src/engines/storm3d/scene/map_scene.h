@@ -177,6 +177,8 @@ public:
      * adding it: a station being placed.
      */
     void drawModelAt(const std::string &odf, const gfx::Vec3 &at);
+    /** Stops drawing a unit: one destroyed. */
+    void hideUnit(size_t unit);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
     void moveUnit(size_t unit, const gfx::Vec3 &at, float heading);
     /**

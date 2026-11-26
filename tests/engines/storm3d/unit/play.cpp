@@ -5,6 +5,7 @@
 // the keys as the camera in the game's memory moved (camera.md).
 
 #include "engines/storm3d/formats/gui_config.h"
+#include "engines/storm3d/play/combat.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/mission_view.h"
 #include "engines/storm3d/play/movement.h"
@@ -505,6 +506,55 @@ void testFreighter() {
     }
 }
 
+// The starbase's eight pulses at a construction ship, as the original's:
+// three quarters of its shields after the first volley, none after the
+// fifth, and it's gone at the seventh, 27 seconds in.
+void testCombat() {
+    using reluva::storm3d::Combat;
+    const std::map<std::string, std::string> files = {
+        {"fbase.odf", "[S]\nweapon1 = \"fbpulse\"\nweapon2 = \"fbpulse\"\nweapon3 = \"gtracbm\"\n"},
+        {"fbpulse.odf", "[W]\nordName = \"fbpulseo\"\nshotDelay = 4.5\nrange = 400.0f\n"},
+        {"fbpulseo.odf", "[O]\ndamageBase = 22\ndamageVariance = 2\nshotSpeed = 300\nSprite = \"pphaser\"\n"},
+        {"gtracbm.odf", "[W]\nordName = \"tracbm\"\nspecial = 1\n"},
+        {"fconst.odf", "[S]\nmaxHealth = 700\nshieldRate = 3.5\n"},
+    };
+    const reluva::storm3d::Odf::Loader loader = [&files](std::string_view name, std::string &text) {
+        auto it = files.find(std::string(name));
+        if (it == files.end())
+            return reluva::Error::fail("not found");
+        text = it->second;
+        return reluva::Error::success();
+    };
+    reluva::storm3d::Odf base;
+    reluva::storm3d::Odf ship;
+    CHECK(!base.load("fbase.odf", loader) && !ship.load("fconst.odf", loader));
+    const auto weapons = Combat::weaponsOf(base, loader);
+    CHECK(weapons.size() == 2 && weapons[0].range == 400 && weapons[0].delay == 4.5 && weapons[0].damage == 22);
+    CHECK(weapons[0].variance == 2 && weapons[0].speed == 300 && weapons[0].sprite == "pphaser");
+    CHECK(Combat::damageOf(weapons[0], 0) == 20 && Combat::damageOf(weapons[0], 1) == 24);
+
+    Combat::Vitals v = Combat::vitalsOf(ship);
+    CHECK(v.shields == 700 && v.hull == 700 && v.shieldRate == 3.5f);
+    int volleys = 0;
+    double died = -1;
+    for (int i = 0; i <= 4000 && died < 0; ++i) {
+        const double t = i * 0.01;
+        if (i % 450 == 0) {
+            ++volleys;
+            for (int shot = 0; shot < 8; ++shot)
+                Combat::hit(v, 22);
+            if (volleys == 1)
+                CHECK(std::abs(v.shields / v.maxShields - 0.753f) < 0.01f);
+            if (volleys == 5)
+                CHECK(v.shields == 0 && v.alive());
+            if (!v.alive())
+                died = t;
+        }
+        Combat::regenerate(v, 0.01);
+    }
+    CHECK(volleys == 7 && std::abs(died - 27) < 0.01);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -529,4 +579,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"placing", [](const std::filesystem::path &) { testPlacing(); }},
                                             {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                             {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
+                                            {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                         });

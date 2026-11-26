@@ -518,6 +518,16 @@ bool MapScene::addUnit(const StartUnit &unit, float heading) {
     return true;
 }
 
+void MapScene::hideUnit(size_t unit) {
+    // Its draw scaled to nothing: its place in the lists stays, as the
+    // play's own lists go by it.
+    if (unit < _unitModels.size())
+        _placed[_unitModels[unit].placed].second = gfx::Mat4{};
+    // And its box far below the map, where nothing picks it.
+    if (unit < _units.size())
+        _units[unit].lo = _units[unit].hi = _units[unit].at = {0, -1e6f, 0};
+}
+
 void MapScene::moveUnit(size_t unit, const gfx::Vec3 &at, float heading) {
     if (unit >= _units.size())
         return;

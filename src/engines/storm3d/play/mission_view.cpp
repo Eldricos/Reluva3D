@@ -497,6 +497,10 @@ void MissionView::pressControl(int slot) {
     if (slot == 0 || _selection.size() != 1)
         return;
     if (!_building) {
+        // The attack button: the next click on a unit is the target.
+        for (const Hud::Unit::Button &b : _orders.controls)
+            if (b.slot == slot && b.sprite == "b_attack" && b.enabled)
+                _targeting = true;
         // The build button opens the unit's menu.
         for (const Hud::Unit::Button &b : _orders.controls)
             if (b.slot == slot && b.sprite == "b_build" && b.enabled) {
@@ -581,6 +585,7 @@ void MissionView::raise(const Site &site) {
         return;
     _moves.push_back(false);
     _physics.emplace_back();
+    addFighter(site.order.item);
     if (auto f = footprintOf(site.order.item, site.at, 0))
         _footprints.push_back(*f);
     Movement::Ship standing;
@@ -599,6 +604,103 @@ void MissionView::raise(const Site &site) {
         _freighters.push_back({*unit, station});
 }
 
+void MissionView::addFighter(const std::string &odf) {
+    Odf def;
+    const Odf::Loader loader = loaderOf(_files.files());
+    const bool read = !def.load(odf + ".odf", loader);
+    _vitals.push_back(read ? Combat::vitalsOf(def) : Combat::Vitals{});
+    _weapons.push_back(read ? Combat::weaponsOf(def, loader) : std::vector<Combat::Weapon>{});
+    _targets.push_back(-1);
+    _dead.push_back(false);
+}
+
+int MissionView::liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const {
+    const int unit = unitAt(_scene.units(), viewProj, camera(), x, y);
+    return unit >= 0 && size_t(unit) < _dead.size() && _dead[size_t(unit)] ? -1 : unit;
+}
+
+void MissionView::fight(double seconds) {
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    const size_t count = std::min({units.size(), _vitals.size(), _weapons.size(), _targets.size(), _dead.size()});
+    for (size_t i = 0; i < count; ++i)
+        if (!_dead[i])
+            Combat::regenerate(_vitals[i], seconds);
+    // Each weapon fires at its unit's target when it's ready and the target
+    // is in its range: the starbase's eight all at once, every 4.5 seconds.
+    for (size_t i = 0; i < count; ++i) {
+        const int t = _targets[i];
+        if (t < 0)
+            continue;
+        if (_dead[i] || size_t(t) >= count || _dead[size_t(t)]) {
+            _targets[i] = -1;
+            continue;
+        }
+        const gfx::Vec3 from = units[i].middle();
+        const gfx::Vec3 to = units[size_t(t)].middle();
+        const float distance = std::hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+        for (Combat::Weapon &w : _weapons[i]) {
+            w.ready = std::max(0.0, w.ready - seconds);
+            if (w.ready > 0 || distance > w.range)
+                continue;
+            // A roll from a little generator of our own, the same each game.
+            _roll = _roll * 1664525u + 1013904223u;
+            const float roll = float(_roll >> 8) / float(1u << 24);
+            _shots.push_back({size_t(t), from, w.speed, Combat::damageOf(w, roll), w.sprite});
+            w.ready = w.delay;
+        }
+    }
+    // The shots fly to their targets' middles, and hit there.
+    std::vector<size_t> killed;
+    for (size_t s = 0; s < _shots.size();) {
+        Combat::Shot &shot = _shots[s];
+        if (shot.target >= count || _dead[shot.target]) {
+            _shots.erase(_shots.begin() + std::ptrdiff_t(s));
+            continue;
+        }
+        const gfx::Vec3 to = units[shot.target].middle();
+        const float dx = to[0] - shot.at[0];
+        const float dy = to[1] - shot.at[1];
+        const float dz = to[2] - shot.at[2];
+        const float left = std::hypot(dx, dy, dz);
+        const float step = float(shot.speed * seconds);
+        if (left <= step || shot.speed <= 0) {
+            Combat::hit(_vitals[shot.target], shot.damage);
+            if (!_vitals[shot.target].alive())
+                killed.push_back(shot.target);
+            _shots.erase(_shots.begin() + std::ptrdiff_t(s));
+            continue;
+        }
+        shot.at = {shot.at[0] + dx / left * step, shot.at[1] + dy / left * step, shot.at[2] + dz / left * step};
+        ++s;
+    }
+    for (size_t k : killed)
+        if (!_dead[k])
+            destroy(k);
+}
+
+void MissionView::destroy(size_t unit) {
+    _dead[unit] = true;
+    _scene.hideUnit(unit);
+    // Its officers go back to the count: the original's 4 of 120 became 2
+    // as its construction ship went.
+    const MapScene::Unit &u = _scene.units()[unit];
+    if (u.slot == _slot && _resources) {
+        Odf def;
+        if (!def.load(u.odf + ".odf", loaderOf(_files.files())))
+            _resources->officers = std::max(0, _resources->officers - int(def.number("officerCost")));
+    }
+    std::erase(_selection, int(unit));
+    for (int &t : _targets)
+        if (t == int(unit))
+            t = -1;
+    if (unit < _ships.size()) {
+        _ships[unit].goal.reset();
+        _ships[unit].speed = 0;
+    }
+    std::erase_if(_freighters, [unit](const Freighter &f) { return f.unit == unit || f.station == unit; });
+    std::erase_if(_sites, [unit](const Site &s) { return s.builder == unit; });
+}
+
 std::optional<size_t> MissionView::addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                            const MapScene::Unit &owner) {
     MapScene::StartUnit unit;
@@ -615,6 +717,7 @@ std::optional<size_t> MissionView::addShip(const std::string &odf, const gfx::Ve
         physics = Movement::physicsOf(def, loader);
     _moves.push_back(physics.has_value());
     _physics.push_back(physics);
+    addFighter(odf);
     Movement::Ship ship;
     ship.at = at;
     ship.heading = heading;
@@ -669,30 +772,13 @@ void MissionView::launch(size_t builder, const std::string &item) {
     if (builder >= _scene.units().size())
         return;
     const MapScene::Unit from = _scene.units()[builder];
-    MapScene::StartUnit unit;
-    unit.odf = item;
-    unit.at = from.middle();
-    unit.slot = from.slot;
-    unit.colour = from.colour;
     const gfx::Vec3 to = launchPointOf(from.at);
-    unit.at[1] = to[1];
-    const float heading = std::atan2(to[0] - unit.at[0], to[2] - unit.at[2]);
-    if (!_scene.addUnit(unit, heading))
-        return;
-    Odf odf;
-    const Odf::Loader loader = loaderOf(_files.files());
-    std::optional<Movement::Physics> physics;
-    if (!odf.load(item + ".odf", loader) && odf.number("enginesHitPoints") > 0)
-        physics = Movement::physicsOf(odf, loader);
-    _moves.push_back(physics.has_value());
-    _physics.push_back(physics);
-    Movement::Ship ship;
-    ship.at = unit.at;
-    ship.heading = heading;
+    gfx::Vec3 at = from.middle();
+    at[1] = to[1];
+    const float heading = std::atan2(to[0] - at[0], to[2] - at[2]);
     // It flies out of the builder, through it.
-    if (physics)
-        ship.goal = to;
-    _ships.push_back(ship);
+    if (auto unit = addShip(item, at, heading, from); unit && _physics[*unit])
+        _ships[*unit].goal = to;
 }
 
 std::vector<std::string> MissionView::ownedOdfs() const {
@@ -832,6 +918,7 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
         }
         _moves.push_back(it->second.has_value());
         _physics.push_back(it->second);
+        addFighter(u.odf);
         Movement::Ship ship;
         ship.at = u.at;
         ship.heading = u.heading;
@@ -974,6 +1061,87 @@ void MissionView::makeRing() {
         _ringMesh = 0;
 }
 
+void MissionView::drawShots(const MapScene::Camera &view) {
+    if (!_renderer || _shots.empty())
+        return;
+    if (!_shotMesh) {
+        // A strip along +x, from -1 at its tail to 0 at its head, a unit
+        // either side along +y.
+        std::vector<gfx::Vertex> corners(4);
+        const float xs[4] = {-1, 0, 0, -1};
+        const float ys[4] = {-1, -1, 1, 1};
+        const float us[4] = {0, 1, 1, 0};
+        const float vs[4] = {0, 0, 1, 1};
+        for (size_t i = 0; i < 4; ++i) {
+            corners[i] = gfx::Vertex{};
+            corners[i].pos[0] = xs[i], corners[i].pos[1] = ys[i];
+            corners[i].uv[0] = us[i], corners[i].uv[1] = vs[i];
+            std::fill(std::begin(corners[i].color), std::end(corners[i].color), uint8_t(255));
+        }
+        if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _shotMesh))
+            _shotMesh = 0;
+    }
+    if (!_shotMesh)
+        return;
+    // The ordnance's Length and Radius: the starbase's pulses' 50 and 8.
+    constexpr float kLength = 50;
+    constexpr float kRadius = 8;
+    for (const Combat::Shot &shot : _shots) {
+        auto look = _shotLooks.find(shot.sprite);
+        if (look == _shotLooks.end()) {
+            gfx::TextureId texture = 0;
+            std::array<float, 4> rect{0, 0, 1, 1};
+            if (const SpriteTable::Sprite *s = _hud.findSprite(shot.sprite)) {
+                image::Image picture;
+                std::vector<uint8_t> data;
+                if (!_files.read("Textures/RGB/" + s->texture + ".tga", data) && !image::decode(data, picture) &&
+                    picture.w > 0) {
+                    gfx::TextureParams params;
+                    params.clamp = true;
+                    if (_renderer->createTexture(picture.w, picture.h, picture.rgba.data(), params, texture))
+                        texture = 0;
+                    const double rw = s->referenceWidth > 0 ? s->referenceWidth : picture.w;
+                    const double rh = s->referenceHeight > 0 ? s->referenceHeight : picture.h;
+                    rect = {float(s->u / rw), float(s->v / rh), float((s->u + s->w) / rw), float((s->v + s->h) / rh)};
+                }
+            }
+            look = _shotLooks.emplace(shot.sprite, std::pair{texture, rect}).first;
+        }
+        if (!look->second.first || shot.target >= _scene.units().size())
+            continue;
+        // Along its way, turned to face the camera.
+        const gfx::Vec3 to = _scene.units()[shot.target].middle();
+        gfx::Vec3 d{to[0] - shot.at[0], to[1] - shot.at[1], to[2] - shot.at[2]};
+        const float dl = std::max(1e-3f, std::hypot(d[0], d[1], d[2]));
+        for (float &c : d)
+            c /= dl;
+        const gfx::Vec3 v{view.eye[0] - shot.at[0], view.eye[1] - shot.at[1], view.eye[2] - shot.at[2]};
+        gfx::Vec3 side{d[1] * v[2] - d[2] * v[1], d[2] * v[0] - d[0] * v[2], d[0] * v[1] - d[1] * v[0]};
+        const float sl = std::max(1e-3f, std::hypot(side[0], side[1], side[2]));
+        for (float &c : side)
+            c /= sl;
+        gfx::DrawCall call;
+        call.mesh = _shotMesh;
+        call.indexCount = 6;
+        call.model = gfx::identity();
+        for (size_t k = 0; k < 3; ++k) {
+            call.model[k] = d[k] * kLength;
+            call.model[4 + k] = side[k] * kRadius;
+            call.model[12 + k] = shot.at[k];
+        }
+        call.texture = look->second.first;
+        // The sprite's rectangle of its texture: u0 + u (u1 - u0), and v so.
+        const std::array<float, 4> &r = look->second.second;
+        call.preRow0 = {r[2] - r[0], 0, r[0]};
+        call.preRow1 = {0, r[3] - r[1], r[1]};
+        call.state.cull = gfx::Cull::kNone;
+        call.state.src = gfx::Blend::kOne;
+        call.state.dst = gfx::Blend::kOne;
+        call.state.depthWrite = false;
+        _renderer->draw(call);
+    }
+}
+
 void MissionView::makeCells() {
     if (!_renderer || _cellMesh)
         return;
@@ -1022,6 +1190,8 @@ void MissionView::makeCells() {
     }
     if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _cellMesh))
         _cellMesh = 0;
+    _shotMesh = 0;
+    _shotLooks.clear();
 }
 
 void MissionView::drawPlacement(const MapScene::Camera &view) {
@@ -1064,6 +1234,11 @@ void MissionView::stop() {
     if (_renderer) {
         if (_cellMesh)
             _renderer->destroyMesh(_cellMesh);
+        if (_shotMesh)
+            _renderer->destroyMesh(_shotMesh);
+        for (const auto &[name, look] : _shotLooks)
+            if (look.first)
+                _renderer->destroyTexture(look.first);
         for (const gfx::TextureId t : {_cellTaken, _cellFree, _cellBlocked})
             if (t)
                 _renderer->destroyTexture(t);
@@ -1088,6 +1263,12 @@ void MissionView::stop() {
     _moves.clear();
     _physics.clear();
     _ships.clear();
+    _vitals.clear();
+    _weapons.clear();
+    _targets.clear();
+    _dead.clear();
+    _shots.clear();
+    _targeting = false;
     _slot = -1;
     _dragging = false;
     _hover = -1;
@@ -1110,6 +1291,19 @@ void MissionView::handleEvent(const Event &ev) {
             return;
         }
         pressControl(_hud.controlAt(ev.mouseX, ev.mouseY));
+        return;
+    }
+    if (_targeting && ev.type == EventType::kMouseDown && !_hud.covers(ev.mouseX, ev.mouseY)) {
+        // The unit clicked on is what the selected units attack; the right
+        // button gives up.
+        _targeting = false;
+        if (ev.button == MouseButton::kLeft) {
+            const int t = liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY);
+            if (t >= 0 && size_t(t) < _dead.size() && !_dead[size_t(t)])
+                for (int i : _selection)
+                    if (i != t && size_t(i) < _targets.size() && !_weapons[size_t(i)].empty())
+                        _targets[size_t(i)] = t;
+        }
         return;
     }
     if (_placing && ev.type == EventType::kMouseDown && !_hud.covers(ev.mouseX, ev.mouseY)) {
@@ -1140,12 +1334,14 @@ void MissionView::handleEvent(const Event &ev) {
         if (std::abs(ev.mouseX - _pressX) + std::abs(ev.mouseY - _pressY) > kClickSlop)
             _dragging = true;
         const gfx::Mat4 viewProj = MapScene::viewProjOf(camera(), kRange);
-        if (_dragging)
+        if (_dragging) {
             _selection = boxed(_scene.units(), _moves, viewProj, _slot, _pressX, _pressY, ev.mouseX, ev.mouseY);
+            std::erase_if(_selection, [this](int i) { return size_t(i) < _dead.size() && _dead[size_t(i)]; });
+        }
         if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
             if (!_dragging) {
                 // A click: the unit under it, or none.
-                const int unit = unitAt(_scene.units(), viewProj, camera(), ev.mouseX, ev.mouseY);
+                const int unit = liveUnitAt(viewProj, ev.mouseX, ev.mouseY);
                 _selection = unit < 0 ? std::vector<int>{} : std::vector<int>{unit};
             }
             _clicked = !_dragging;
@@ -1174,6 +1370,7 @@ void MissionView::draw(uint64_t millis) {
     if (_resources)
         _resources->crew = grownCrew(_resources->crew, _crewCarry, _starbases, seconds);
     build(seconds);
+    fight(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
     for (size_t i = 0; i < _ships.size(); ++i) {
@@ -1189,7 +1386,7 @@ void MissionView::draw(uint64_t millis) {
     _scene.draw(view, double(millis) / 1000, kRange, kClear, true);
     const gfx::Mat4 viewProj = MapScene::viewProjOf(view, kRange);
     const std::vector<MapScene::Unit> &units = _scene.units();
-    _hover = _hud.covers(_mouseX, _mouseY) ? -1 : unitAt(units, viewProj, view, _mouseX, _mouseY);
+    _hover = _hud.covers(_mouseX, _mouseY) ? -1 : liveUnitAt(viewProj, _mouseX, _mouseY);
     std::vector<const MapScene::Unit *> chosen;
     for (int i : _selection)
         if (i >= 0 && size_t(i) < units.size())
@@ -1215,12 +1412,13 @@ void MissionView::draw(uint64_t millis) {
         ring.state.depthWrite = false;
         _renderer->draw(ring);
     }
+    drawShots(view);
     drawPlacement(view);
     // The cinematic view: the unit selected first, or the player's first
     // that moves, close up.
     int shown = _selection.empty() ? -1 : _selection.front();
     for (size_t i = 0; shown < 0 && i < units.size(); ++i)
-        if (i < _moves.size() && _moves[i] && units[i].slot == _slot)
+        if (i < _moves.size() && _moves[i] && units[i].slot == _slot && !_dead[i])
             shown = int(i);
     _hud.setCinematicShown(shown >= 0);
     if (shown >= 0) {
@@ -1231,16 +1429,29 @@ void MissionView::draw(uint64_t millis) {
     if (_overlay.w != 640)
         _overlay.create(640, 480, PixelFormat::kRGBA32);
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
-    // A unit clicked on has its bar; the original drew none over units a
-    // box selected.
-    if (_clicked && chosen.size() == 1) {
-        const std::array<int, 3> bar = healthBarOf(*chosen.front(), viewProj);
+    // A unit clicked on has its bar, and so has one under attack; the
+    // original drew none over units a box selected. The bar is its
+    // shields'.
+    std::set<int> barred;
+    if (_clicked && _selection.size() == 1)
+        barred.insert(_selection.front());
+    for (size_t i = 0; i < _targets.size(); ++i)
+        if (_targets[i] >= 0 && !_dead[i])
+            barred.insert(_targets[i]);
+    for (int b : barred) {
+        if (b < 0 || size_t(b) >= units.size() || _dead[size_t(b)])
+            continue;
+        const std::array<int, 3> bar = healthBarOf(units[size_t(b)], viewProj);
+        const Combat::Vitals &v = _vitals[size_t(b)];
         if (bar[2] > 0)
-            _hud.drawHealthBar(_overlay, bar[0], bar[1], bar[2], 1);
+            _hud.drawHealthBar(_overlay, bar[0], bar[1], bar[2], v.maxShields > 0 ? v.shields / v.maxShields : 1);
     }
     if (_dragging)
         Hud::drawBox(_overlay, _pressX, _pressY, _mouseX, _mouseY);
     Hud::Minimap minimap = minimapOf(_scene.map(), units, _moves, view, _overview.target[1]);
+    for (size_t i = minimap.marks.size(); i-- > 0;)
+        if (i < _dead.size() && _dead[i])
+            minimap.marks.erase(minimap.marks.begin() + std::ptrdiff_t(i));
     minimap.icons = _mapIcons;
     _hud.draw(_overlay, _resources.value_or(Hud::Resources{}), _scene.seen(), _resources.has_value(), minimap);
     if (_displayed != _selection) {
@@ -1252,6 +1463,12 @@ void MissionView::draw(uint64_t millis) {
         _displayed = _selection;
         _building = false;
         _placing.reset();
+    }
+    // Their shields, as they are now.
+    for (size_t k = 0; k < _display.size() && k < _selection.size(); ++k) {
+        const size_t i = size_t(_selection[k]);
+        if (i < _vitals.size() && _vitals[i].maxShields > 0)
+            _display[k].shields = _vitals[i].shields / _vitals[i].maxShields;
     }
     Hud::Unit orders = _orders;
     if (_building) {
@@ -1296,7 +1513,11 @@ void MissionView::draw(uint64_t millis) {
     bool sending = false;
     for (int i : _selection)
         sending = sending || (size_t(i) < _moves.size() && _moves[size_t(i)]);
-    const char *cursor = _hover >= 0 ? "c_select" : sending && !_hud.covers(_mouseX, _mouseY) ? "c_move" : "c_arrow";
+    const bool onMap = !_hud.covers(_mouseX, _mouseY);
+    const char *cursor = _targeting && onMap ? "c_attack"
+                         : _hover >= 0       ? "c_select"
+                         : sending && onMap  ? "c_move"
+                                             : "c_arrow";
     _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, cursor);
     _renderer->endFrame(&_overlay);
 }

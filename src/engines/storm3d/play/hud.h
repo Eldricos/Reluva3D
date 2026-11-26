@@ -78,6 +78,8 @@ public:
     std::array<int, 4> cinematicArea() const;
     /** Whether the cinematic view shows a view of its own, which the panel's picture then leaves clear. */
     void setCinematicShown(bool shown) { _cinematicShown = shown; }
+    /** A sprite of the interface's tables and weapon.spr's (a shot's), by name; nullptr if none. */
+    const SpriteTable::Sprite *findSprite(const std::string &name) const { return sprite(name); }
     /** Whether the interface's sprite tables have a sprite of this name. */
     bool hasSprite(const std::string &name) const;
     /**
