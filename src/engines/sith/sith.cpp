@@ -3,7 +3,7 @@
 
 // Sith: the engine's MetaEngine (its name, the releases it recognises,
 // making an Engine to run one) and its Engine, which plays the retail
-// JK.EXE in the x86 emulator (host/player.h).
+// program (JK.EXE, JKM.EXE) in the x86 emulator (host/player.h).
 
 #include "audio/mixer.h"
 #include "common/settings.h"
@@ -28,7 +28,7 @@ namespace reluva::sith {
 namespace {
 
 /**
- * The game running: JK.EXE on a thread of its own, its frames shown in the
+ * The game running: its program on a thread of its own, its frames shown in the
  * window and the player's input passed on, until it ends or the player
  * leaves. What it writes goes to the target's save folder.
  */
@@ -49,7 +49,7 @@ public:
                     sys.stopAudio();
             }
         } audioStop{_sys, audioOut};
-        // `commandline` (reluva.ini): what follows JK.EXE, as a shortcut on
+        // `commandline` (reluva.ini): what follows the program's name, as a shortcut on
         // Windows would give it (-windowGUI, -devMode...).
         const auto commandLine = _target.settings.find("commandline");
         Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr,

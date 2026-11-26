@@ -17,8 +17,6 @@ namespace reluva::sith {
 
 namespace {
 
-constexpr const char *kRegistryKey = "HKEY_LOCAL_MACHINE\\Software\\LucasArts Entertainment Company\\JediKnight\\v1.0";
-
 // What a machine of the time without the device answers: no waveOut
 // device. The program learns it has none, as it would there. (DirectPlay's
 // lobby is DirectPlay's own: it tells the game no lobby started it.)
@@ -39,13 +37,15 @@ void addAbsentDevices(x86::Win32Process &process) {
 
 GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path &saveFolder,
                          const std::string &commandLine)
-    : _folders(folders), _cpu(std::make_unique<x86::Cpu>(256u << 20)) {
+    : _folders(folders), _game(folders.game ? *folders.game : games().front()),
+      _registryKey(std::string("HKEY_LOCAL_MACHINE\\") + _game.registryKey),
+      _cpu(std::make_unique<x86::Cpu>(256u << 20)) {
     std::error_code ec;
     std::filesystem::create_directories(saveFolder, ec);
-    _process = std::make_unique<x86::Win32Process>(*_cpu, "JK.EXE", true, true);
+    _process = std::make_unique<x86::Win32Process>(*_cpu, _game.program, true, true);
     x86::Win32Process &p = *_process;
-    p.setProgram("JK.EXE", "C:\\");
-    p.setCommandLine("JK.EXE" + std::string(commandLine.empty() ? "" : " ") + commandLine);
+    p.setProgram(_game.program, "C:\\");
+    p.setCommandLine(_game.program + std::string(commandLine.empty() ? "" : " ") + commandLine);
     p.addDrive({'C', folders.install, saveFolder, 3, "JEDI", 0x12345678});
     insertCd(1);
     // The settings the game keeps in the registry (its display, its last
@@ -53,10 +53,10 @@ GameProcess::GameProcess(const GameFolders &folders, const std::filesystem::path
     // installer would have them.
     _registryFile = saveFolder / "registry.txt";
     loadRegistry();
-    p.setRegistryString(kRegistryKey, "CD Path", "D:\\");
-    p.setRegistryString(kRegistryKey, "Install Path", "C:\\");
+    p.setRegistryString(_registryKey, "CD Path", "D:\\");
+    p.setRegistryString(_registryKey, "Install Path", "C:\\");
     p.registryWritten = [this](const std::string &key, const std::string &name) {
-        if (fs::toLower(key) != fs::toLower(kRegistryKey))
+        if (fs::toLower(key) != fs::toLower(_registryKey))
             return;
         if (std::find(_registryNames.begin(), _registryNames.end(), name) == _registryNames.end())
             _registryNames.push_back(name);
@@ -105,13 +105,14 @@ Error GameProcess::load() {
         if (Error e = _process->load("SMACKW32.DLL", file, smack))
             return Error::fail("SMACKW32.DLL: " + e.message);
     }
-    const auto exePath = fs::findFile(_folders.install, "JK.EXE");
+    const auto exePath = fs::findFile(_folders.install, _game.program);
     if (!exePath)
-        return Error::fail("Jedi Knight's program, JK.EXE, isn't in " + _folders.install.string());
+        return Error::fail(std::string("The game's program, ") + _game.program + ", isn't in " +
+                           _folders.install.string());
     if (!readFile(*exePath, file))
         return Error::fail("can't read " + exePath->string());
-    if (Error e = _process->load("JK.EXE", file, _exe))
-        return Error::fail("JK.EXE: " + e.message);
+    if (Error e = _process->load(_game.program, file, _exe))
+        return Error::fail(std::string(_game.program) + ": " + e.message);
     hookCdCheck();
     if (smack)
         if (Error e = _process->attach(*smack))
@@ -136,7 +137,7 @@ void GameProcess::loadRegistry() {
         for (size_t i = 0; i + 1 < hex.size(); i += 2)
             data.push_back(uint8_t(std::strtoul(hex.substr(i, 2).c_str(), nullptr, 16)));
         _registryNames.push_back(name);
-        _process->setRegistryValue(kRegistryKey, name, type, std::move(data));
+        _process->setRegistryValue(_registryKey, name, type, std::move(data));
     }
 }
 
@@ -144,7 +145,7 @@ void GameProcess::saveRegistry() {
     std::ofstream f(_registryFile);
     for (const std::string &name : _registryNames) {
         uint32_t type = 0;
-        const auto value = _process->registryValue(kRegistryKey, name, &type);
+        const auto value = _process->registryValue(_registryKey, name, &type);
         if (!value || name == "CD Path" || name == "Install Path")
             continue;
         f << name << '\t' << type << '\t';
@@ -164,7 +165,7 @@ bool GameProcess::insertCd(int number) {
                         _folders.cds[size_t(number - 1)],
                         {},
                         5,
-                        "JEDI_KNIGHT_" + std::to_string(number),
+                        _game.cdLabels[size_t(number - 1)],
                         0x0ced0u + uint32_t(number)});
     _cdInDrive = number;
     if (_cdAudio)
@@ -172,12 +173,6 @@ bool GameProcess::insertCd(int number) {
     return true;
 }
 
-// JK.EXE checks for the CD a step of its episode is on with the function
-// at 0x40ebb0, its argument the CD's number (0 for either): it reads
-// gamedata\resource\jk_.cd from the CD and, if it isn't that CD's, asks
-// for it and waits (docs/engines/sith/games/jk/systems/hosting.md). Here a
-// trampoline at its start puts that CD in drive D first, as a player would
-// have, then runs the instruction it replaced and goes on.
 bool GameProcess::saveSettings() {
     constexpr uint32_t kSave = 0x4148f0;
     // mov eax, [0x556588]; push eax: the US release's.
@@ -203,16 +198,16 @@ bool GameProcess::saveSettings() {
 
 bool GameProcess::useDirect3D() {
     x86::Win32Process &p = *_process;
-    const auto on = p.registryValue(kRegistryKey, "b3DAccel");
+    const auto on = p.registryValue(_registryKey, "b3DAccel");
     if (on && on->size() >= 4 && (*on)[0] != 0)
         return false;
     // REG_BINARY, as the game keeps them all.
     constexpr uint32_t kBinary = 3;
-    p.setRegistryValue(kRegistryKey, "b3DAccel", kBinary, {1, 0, 0, 0});
-    p.setRegistryValue(kRegistryKey, "displayDeviceGUID", kBinary, std::vector<uint8_t>(16, 0)); // the primary
-    p.setRegistryValue(kRegistryKey, "displayMode", kBinary, {3, 0, 0, 0}); // of the modes it lists: 640x480, 16-bit
+    p.setRegistryValue(_registryKey, "b3DAccel", kBinary, {1, 0, 0, 0});
+    p.setRegistryValue(_registryKey, "displayDeviceGUID", kBinary, std::vector<uint8_t>(16, 0)); // the primary
+    p.setRegistryValue(_registryKey, "displayMode", kBinary, {3, 0, 0, 0}); // of the modes it lists: 640x480, 16-bit
     // IID_IDirect3DHALDevice, {84e63de0-46aa-11cf-816f-0000c020156e}
-    p.setRegistryValue(kRegistryKey, "3DDeviceGUID", kBinary,
+    p.setRegistryValue(_registryKey, "3DDeviceGUID", kBinary,
                        {0xe0, 0x3d, 0xe6, 0x84, 0xaa, 0x46, 0xcf, 0x11, 0x81, 0x6f, 0, 0, 0xc0, 0x20, 0x15, 0x6e});
     return true;
 }
@@ -232,36 +227,80 @@ bool GameProcess::updateEveryFrame() {
     return true;
 }
 
+namespace {
+
+// Each program's CD check, as the US releases have it: where it starts,
+// its first instructions (the first six a sub esp, which the trampoline
+// runs in its place), and what its first argument asks for.
+struct CdCheck {
+    const char *program;
+    uint32_t at;
+    uint8_t start[8];
+    // The CD to put in the drive for the argument; 0 for none.
+    int (*cdFor)(uint32_t argument);
+    // Where the check's second argument is the drive to search after
+    // (Mysteries of the Sith's): searched from the first instead.
+    bool fromFirstDrive;
+};
+
+constexpr CdCheck kCdChecks[] = {
+    // 0x40ebb0: the CD a step of the episode is on, 0 for either; it reads
+    // gamedata\resource\jk_.cd from each CD drive and, if it isn't that
+    // CD's, asks for it and waits (docs/engines/sith/games/jk/systems/hosting.md).
+    // sub esp, 0x18c; push ebx; push ebp
+    {"JK.EXE", 0x40ebb0, {0x81, 0xec, 0x8c, 0x01, 0x00, 0x00, 0x53, 0x55}, [](uint32_t a) { return int(a); }, false},
+    // 0x410db0: 2 for Jedi Knight's CD 2, which it asks for once, 0x13 for
+    // its own (docs/engines/sith/games/mots/README.md). It looks from the
+    // drive after its second argument's letter, so right after finding
+    // Jedi Knight's CD it would miss its own in the same drive.
+    // sub esp, 0x25c; push ebx; mov ebx, [esp + 0x264]
+    {"JKM.EXE",
+     0x410db0,
+     {0x81, 0xec, 0x5c, 0x02, 0x00, 0x00, 0x53, 0x8b},
+     [](uint32_t a) { return a == 2 ? 2 : 1; },
+     true},
+};
+
+} // namespace
+
+// A trampoline at the CD check's start puts the CD it asks for in drive D
+// first, as a player would have, then runs the instruction it replaced
+// and goes on.
 void GameProcess::hookCdCheck() {
-    constexpr uint32_t kCheck = 0x40ebb0;
-    // sub esp, 0x18c; push ebx; push ebp: the US release's.
-    const uint8_t expected[] = {0x81, 0xec, 0x8c, 0x01, 0x00, 0x00, 0x53, 0x55};
+    const CdCheck *check = nullptr;
+    for (const CdCheck &c : kCdChecks)
+        if (fs::toLower(c.program) == fs::toLower(_game.program))
+            check = &c;
+    if (!check)
+        return;
     x86::Cpu &c = *_cpu;
-    for (uint32_t i = 0; i < sizeof expected; ++i)
-        if (!c.valid(kCheck + i, 1) || c.read8(kCheck + i) != expected[i])
+    for (uint32_t i = 0; i < sizeof check->start; ++i)
+        if (!c.valid(check->at + i, 1) || c.read8(check->at + i) != check->start[i])
             return;
     // cdecl, called from the trampoline: its return address, the check's
-    // caller's, then the CD's number.
-    const uint32_t native = c.addNative("JK.EXE CD check", [this](x86::Cpu &cpu) {
-        insertCd(int(cpu.arg(1)));
+    // caller's, then the check's arguments.
+    const uint32_t native = c.addNative("CD check", [this, check](x86::Cpu &cpu) {
+        insertCd(check->cdFor(cpu.arg(1)));
+        if (check->fromFirstDrive && cpu.valid(cpu.arg(2), 1))
+            cpu.write8(cpu.arg(2), 0);
         return 0u;
     });
     const uint32_t trampoline = _process->memory().alloc(16);
     if (!native || !trampoline)
         return;
-    const uint8_t code[16] = {0xe8, 0, 0, 0, 0, 0x81, 0xec, 0x8c, 0x01, 0x00, 0x00, 0xe9, 0, 0, 0, 0};
+    const uint8_t code[16] = {0xe8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xe9, 0, 0, 0, 0};
     for (uint32_t i = 0; i < 16; ++i)
-        c.write8(trampoline + i, code[i]);
-    c.write32(trampoline + 1, native - (trampoline + 5));         // call the native
-    c.write32(trampoline + 12, (kCheck + 6) - (trampoline + 16)); // jmp back after sub esp
-    c.write8(kCheck, 0xe9);                                       // jmp trampoline
-    c.write32(kCheck + 1, trampoline - (kCheck + 5));
-    c.write8(kCheck + 5, 0x90);
+        c.write8(trampoline + i, i >= 5 && i < 11 ? check->start[i - 5] : code[i]);
+    c.write32(trampoline + 1, native - (trampoline + 5));            // call the native
+    c.write32(trampoline + 12, (check->at + 6) - (trampoline + 16)); // jmp back after sub esp
+    c.write8(check->at, 0xe9);                                       // jmp trampoline
+    c.write32(check->at + 1, trampoline - (check->at + 5));
+    c.write8(check->at + 5, 0x90);
 }
 
 Error GameProcess::run(uint32_t &exitCode) {
     if (!_exe)
-        return Error::fail("JK.EXE isn't loaded");
+        return Error::fail(std::string(_game.program) + " isn't loaded");
     return _process->run(*_exe, exitCode);
 }
 

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Sith's unit tests: recognising Jedi Knight's install.
+// Sith's unit tests: recognising Jedi Knight's and Mysteries of the Sith's
+// installs.
 //
 //   reluva-tests sith.unit.detection
 
@@ -21,7 +22,8 @@ void testRegistered() {
     const MetaEngine *engine = findEngine("sith");
     CHECK(engine != nullptr);
     CHECK(findGame("jk") != nullptr);
-    CHECK(findGame("mots") == nullptr);
+    const GameInfo *mots = findGame("mots");
+    CHECK(mots && std::string(mots->program) == "JKM.EXE");
 }
 
 // A folder with none of a release's files isn't recognised.
@@ -43,6 +45,17 @@ void testUnknownRelease(const stdfs::path &tmp) {
         CHECK(found[0].gameId == "jk");
         CHECK(found[0].description == "Jedi Knight: Dark Forces II (unknown release)");
     }
+}
+
+// Mysteries of the Sith by its own program and archives.
+void testMots(const stdfs::path &tmp) {
+    const stdfs::path install = tmp / "Mysteries of the Sith";
+    makeMotsInstall(install);
+    const std::vector<DetectedGame> found = sith::detectGames(install);
+    CHECK(found.size() == 1 && found[0].gameId == "mots" &&
+          found[0].description == "Jedi Knight: Mysteries of the Sith (unknown release)");
+    CHECK(gameInstalled(install) == findGame("mots"));
+    CHECK(gameInstalled(tmp) == nullptr);
 }
 
 // Names are matched whatever their case, as on Windows.
@@ -79,5 +92,6 @@ static const reluva::test::Suite
                {"empty folder", [](const std::filesystem::path &tmp) { testEmptyFolder(tmp); }},
                {"unknown release", [](const std::filesystem::path &tmp) { testUnknownRelease(tmp); }},
                {"names' case", [](const std::filesystem::path &tmp) { testNamesCase(tmp); }},
+               {"Mysteries of the Sith", [](const std::filesystem::path &tmp) { testMots(tmp); }},
                {"not the game", [](const std::filesystem::path &tmp) { testNotTheGame(tmp); }},
            });

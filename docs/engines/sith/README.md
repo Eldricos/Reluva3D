@@ -10,7 +10,7 @@ Dark Forces II, then its expansion, Mysteries of the Sith.
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
 | [Jedi Knight: Dark Forces II](games/jk/README.md) | `jk` | LucasArts, 1997 | Windows | US retail, two CDs, unpatched | Played: the retail program hosted, imported from its CDs |
-| [Jedi Knight: Mysteries of the Sith](games/mots/README.md) | `mots` (to be) | LucasArts, 1998 | Windows | None yet (US retail studied) | Its program reaches its first level in a trial; to be recognised and imported ([PLAN.md](games/mots/PLAN.md)) |
+| [Jedi Knight: Mysteries of the Sith](games/mots/README.md) | `mots` | LucasArts, 1998 | Windows | US retail, one CD | Played: the retail program hosted, imported from its CD or its image with Jedi Knight's CD 2 |
 
 ## Where it stands
 
@@ -22,11 +22,20 @@ scenes decoded, all shown or played by the data viewer
 emulator, in Reluva's window, with its sound and the CDs' music. See the game's [README](games/jk/README.md) and
 [PLAN.md](games/jk/PLAN.md).
 
+Mysteries of the Sith is recognised, imported from its CD or its image
+(with Jedi Knight's CD 2, which it asks for once), and played the same
+way, its `JKM.EXE` in the emulator; its files aren't in the data viewer
+yet. See its [README](games/mots/README.md) and
+[PLAN.md](games/mots/PLAN.md).
+
 ## Using it
 
-Add Jedi Knight's install in the launcher (*Add Game...*), or import it
-from its CDs (*Import Game...*), and play it from there. The data viewer is `reluva-viewer`. The game's
-[README](games/jk/README.md#using-it) says where it looks for the CDs.
+Add a game's install in the launcher (*Add Game...*), or import it from
+its CDs or their images (*Import Game...*), and play it from there. The
+data viewer is `reluva-viewer`. Each game's README says where it looks
+for the CDs ([Jedi Knight](games/jk/README.md#using-it), [Mysteries of
+the Sith](games/mots/README.md#using-it), which needs Jedi Knight's CD 2
+linked with *Add other disc...* as it's imported).
 
 ## This folder
 
@@ -44,10 +53,10 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | Path | What |
 |---|---|
 | `sith.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: the game in the window |
-| `host/` | `JK.EXE` run in the x86 emulator: the process and its devices (`game_process.cpp`), and the game's own thread, its frames and input (`player.cpp`) |
-| `games.cpp` | The games and their releases |
+| `host/` | The game's program (`JK.EXE`, `JKM.EXE`) run in the x86 emulator: the process and its devices (`game_process.cpp`), and the game's own thread, its frames and input (`player.cpp`) |
+| `games.cpp` | The games, their programs and CDs, and their releases |
 | `folders.cpp` | Telling the CDs apart, finding them for an install, and their cut scenes |
-| `import.cpp` | Making an install from the CDs (*Import Game...*) |
+| `import.cpp` | Making an install from the CDs, copies of them or their images (*Import Game...*) |
 | `game_files.cpp` | The install's archives, as one set |
 | `formats/` | The games' files: `.gob`, `.cmp`, `.bm`, `.mat`, `.sft`, `.uni`, `.snd`, `episode.jk`, `.3do`, `.key`, `.pup`, `.spr`, `.par`, `.jkl` |
 | `render/` | Drawing models and levels in software through a colormap, for the data viewer |

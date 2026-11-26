@@ -260,4 +260,18 @@ inline void makeCd(const stdfs::path &dir, int number) {
     touch(dir / "GAMEDATA/RESOURCE/VIDEO" / (number == 1 ? "01-02A.SMK" : "23A.SMK"));
 }
 
+/** An install of Mysteries of the Sith: its program and archives, empty. */
+inline void makeMotsInstall(const stdfs::path &dir) {
+    touch(dir / "JKM.EXE");
+    touch(dir / "Resource/JKMRES.GOO");
+    touch(dir / "Resource/JKMsndLO.goo");
+    touch(dir / "Episode/JKM.GOO");
+}
+
+/** Mysteries of the Sith's CD, with its marker file and a cut scene. */
+inline void makeMotsCd(const stdfs::path &dir) {
+    writeBytes(dir / "GAMEDATA/RESOURCE/JK_.CD", {0x29, 0x69, 0x42, 0x3b});
+    touch(dir / "GAMEDATA/RESOURCE/VIDEO/S1L1ECS.SAN");
+}
+
 } // namespace reluva::sith::testing

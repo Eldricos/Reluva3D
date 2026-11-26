@@ -1,14 +1,15 @@
 # Jedi Knight: Mysteries of the Sith
 
-Game id `mots` (to be), on the [Sith engine](../../README.md), Jedi
-Knight's expansion; its code will be in `src/engines/sith/`, with
+Game id `mots`, on the [Sith engine](../../README.md), Jedi Knight's
+expansion; its code is in `src/engines/sith/`, with
 [Jedi Knight's](../jk/README.md).
 
 ## Releases
 
 | Release | Recognised by | State |
 |---|---|---|
-| US retail, one CD (English, Windows); `JKM.EXE` linked 16 January 1998 | Not yet; to be `JKM.EXE`, `Resource/JKMRES.GOO` and `Episode/JKM.GOO` | Run by hand in the emulator ([Where it stands](#where-it-stands)) |
+| US retail, one CD (English, Windows); `JKM.EXE` linked 16 January 1998 | `JKM.EXE`, `Resource/JKMRES.GOO` and `Episode/JKM.GOO` (`detectionTable`, `src/engines/sith/games.cpp`) | Recognised, imported from its CD or its image with Jedi Knight's CD 2; plays from the import ([Where it stands](#where-it-stands)) |
+| Other releases | The same three files present (`fallbackTable`): "unknown release" | Not checked |
 
 Signatures, for detection (MD5 of the first 5000 bytes, size):
 
@@ -58,25 +59,61 @@ so the check passes only with Mysteries of the Sith's CD, once Jedi
 Knight's has been shown.
 
 The installer writes no `InstallData` (none in its script); the game
-does. Its check looks for a CD from the drive after the last one it
-found, so the first time, right after Jedi Knight's CD 2, it asks for
-its own CD, and finds it once *Ok* is pressed *(confirmed)*.
+does. Its check looks for a CD from the drive after the letter it's
+given, the last drive it found one in, so the first time, right after
+Jedi Knight's CD 2, it asks for its own CD, and finds it once *Ok* is
+pressed *(confirmed)*.
+
+In Reluva, Jedi Knight's CD 2 is linked when the game is imported, with
+*Add other disc...* ([Using it](#using-it)): its marker is kept as the
+install's `cd2`, and the CD check (hooked at `0x410db0`) puts it in
+drive D when the game asks for it, and the game's own CD the rest of the
+time; it also has each search start from the first drive, so the game
+finds its own CD straight after Jedi Knight's, without asking *(confirmed)*.
+The game keeps `InstallData` in its registry (the save folder's
+`registry.txt`), so it doesn't ask again.
 
 ## Where it stands
 
-- **Detection, import, the viewer:** none yet ([PLAN.md](PLAN.md)).
-- **The game:** a trial, with Jedi Knight's host changed by hand for
-  `JKM.EXE` (its name, its registry key, and the CD check at
-  `0x410db0` putting Jedi Knight's CD 2 in the drive for argument 2 and
-  its own CD for the rest), ran it in Reluva's x86 emulator with nothing
-  new in the emulator *(confirmed)*: the CD checks above, the opening
-  (`jkmintro.san`, picture and sound), the menus, and the first level
-  (`s1l1_rebelbase.jkl`) starting with its scene in the rebels' base,
-  drawn through Direct3D, at 200 to 250 million instructions a second.
+- **Detection:** the US release is recognised from its install; other
+  releases by their files' names.
+- **Import:** *Import Game...* makes an install from the CD, a copy of
+  its files, or its image (the files taken off the image's data track),
+  with its cut scenes and music; Jedi Knight's CD 2 is added with *Add
+  other disc...* for the game's check of it.
+- **The game:** the retail `JKM.EXE` runs in Reluva's x86 emulator, as
+  Jedi Knight's does, with nothing new in the emulator: imported from
+  the CD's image, its first start checks Jedi Knight's CD 2 and its own,
+  plays the opening (`jkmintro.san`, picture and sound), the menus, and
+  a new game's cut scene and first level (`s1l1_rebelbase.jkl`), its
+  music asked of the CD *(confirmed)*. The engine's *Frame rate* setting
+  and its saving of *Setup*'s settings when Reluva is closed don't reach
+  `JKM.EXE` yet ([PLAN.md](PLAN.md), phase 3).
+- **The data viewer:** not yet for this game.
 
 ## Using it
 
-Not yet: the game isn't recognised or imported ([PLAN.md](PLAN.md)).
+Make the install from the CD with *Import Game...*: choose the CD, a
+folder with a copy of its files, or a folder holding its image (the
+cue sheet with its `.bin` files, or an `.iso`). The files the installer
+copies are taken off it, its cut scenes go to `cd1`, and, from an image,
+its music (the cue sheet and the audio tracks' `.bin` files, not the
+data track's) goes with them.
+
+Then **link Jedi Knight's CD 2 with *Add other disc...*** before
+importing: the CD, a copy of its files, or its image. Mysteries of the
+Sith is an expansion, and asks once, on its first start, for *your
+original Jedi Knight CD number 2* ([Proof of owning Jedi
+Knight](#proof-of-owning-jedi-knight)). Only that CD's marker
+(`GAMEDATA/RESOURCE/JK_.CD`) is copied, to `cd2`; the import's note
+says when it's missing. Without it the game asks for the CD and can
+only be cancelled. `reluva-tool import <the CD's folder> <folder> -patch
+<Jedi Knight's CD 2>` does the same.
+
+As for Jedi Knight, the CDs are found in the install or beside it, or
+where the `cd1path` and `cd2path` settings say
+([../jk/README.md](../jk/README.md#using-it)); here `cd2path` names Jedi
+Knight's CD 2. `reluva-tool sith folders <install>` shows what's found.
 
 ## This folder
 

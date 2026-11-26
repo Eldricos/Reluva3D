@@ -23,10 +23,10 @@
 namespace reluva::sith {
 
 /**
- * The retail JK.EXE run in the x86 emulator
- * (docs/engines/sith/games/jk/systems/hosting.md): the install as drive C,
- * what the game writes going to a save folder, CD 1's copy as drive D, and
- * SMACKW32.DLL as it shipped. Windows, DirectDraw, DirectInput, DirectPlay,
+ * A game's retail program (JK.EXE, JKM.EXE: GameFolders::game) run in the
+ * x86 emulator (docs/engines/sith/games/jk/systems/hosting.md): the
+ * install as drive C, what the game writes going to a save folder, CD 1's
+ * copy as drive D, and Jedi Knight's SMACKW32.DLL as it shipped. Windows, DirectDraw, DirectInput, DirectPlay,
  * DirectSound, the joysticks and the CD's audio are the emulator's
  * stand-ins; there's no waveOut device, and the game finds none.
  */
@@ -38,16 +38,16 @@ public:
      * @param saveFolder Where what the game writes goes, and is read back from
      *        first; the settings it keeps in the registry are kept there too
      *        (registry.txt).
-     * @param commandLine Its arguments after "JK.EXE", if any.
+     * @param commandLine Its arguments after the program's name, if any.
      */
     GameProcess(const GameFolders &folders, const std::filesystem::path &saveFolder,
                 const std::string &commandLine = {});
     ~GameProcess();
 
     /**
-     * Loads SMACKW32.DLL and JK.EXE from the install, and runs the DLL's
-     * start-up. Where JK.EXE is the US release's, its CD check puts the CD
-     * it asks for in drive D (insertCd).
+     * Loads SMACKW32.DLL, if there is one, and the program from the
+     * install, and runs the DLL's start-up. Where the program is a US
+     * release's, its CD check puts the CD it asks for in drive D (insertCd).
      */
     Error load();
     /**
@@ -67,7 +67,10 @@ public:
      * @return Whether it was off.
      */
     bool useDirect3D();
-    /** Puts CD `number` (1 or 2) in drive D, if it was found; false if it wasn't. */
+    /**
+     * Puts the game's CD `number` (1 or 2: GameInfo::cdMarks) in drive D,
+     * if it was found; false if it wasn't.
+     */
     bool insertCd(int number);
     /**
      * After the program has been stopped rather than ending by itself: runs
@@ -105,6 +108,8 @@ public:
 
 private:
     GameFolders _folders;
+    const GameInfo &_game;
+    std::string _registryKey; // its full name
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     std::unique_ptr<x86::DirectX> _directX;

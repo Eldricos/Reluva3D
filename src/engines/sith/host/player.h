@@ -30,7 +30,7 @@ namespace reluva::sith {
 class GameProcess;
 
 /**
- * Jedi Knight played: JK.EXE (GameProcess) run on a thread of its own,
+ * A game played: its program (GameProcess) run on a thread of its own,
  * since its main loop never hands back control. The engine's thread passes
  * it events and takes its frames; every call here is for the engine's
  * thread.
@@ -41,7 +41,7 @@ public:
      * What the game writes (its players, saves and settings) goes to
      * `saveFolder`; its sound card plays through `mixer`, if there's one,
      * which must outlive the player; its multiplayer sessions over
-     * `network`, if it has one. `commandLine` follows "JK.EXE" in its
+     * `network`, if it has one. `commandLine` follows the program's name in its
      * command line (`-windowGUI`, say).
      */
     Player(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer = nullptr,

@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include "engines/sith/games.h"
+
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -11,20 +14,23 @@
 
 namespace reluva::sith {
 
-/** Jedi Knight came on two CDs; the install holds neither CD's cut scenes. */
-constexpr int kCdCount = 2;
-
 /**
- * Which of Jedi Knight's CDs `dir` is, or a copy of: 1 or 2, by its
- * `GAMEDATA/RESOURCE/JK_.CD`; 0 when it's neither.
+ * Which of `game`'s CDs `dir` is, or a copy of: 1 or 2, by its
+ * `GAMEDATA/RESOURCE/JK_.CD`; 0 when it's none of them.
  */
-int cdNumber(const std::filesystem::path &dir);
+int cdNumber(const GameInfo &game, const std::filesystem::path &dir);
+
+/** The same, from the marker's bytes (all of them: 4 to be one). */
+int cdNumber(const GameInfo &game, const std::vector<uint8_t> &mark);
 
 /**
  * Where the game's files are: the install, and each CD's files where
- * they were found (empty when not).
+ * they were found (empty when not). The install doesn't hold the CDs'
+ * cut scenes.
  */
 struct GameFolders {
+    /** The game whose program is in the install; Jedi Knight's where none is. */
+    const GameInfo *game = nullptr;
     std::filesystem::path install;
     std::array<std::filesystem::path, kCdCount> cds;
     // How each CD was found, for messages.
@@ -52,7 +58,8 @@ struct CutScene {
 };
 
 /**
- * Every cut scene (.smk) in the CDs' GAMEDATA/RESOURCE/VIDEO folders, CD 1's
+ * Every Smacker cut scene (.smk, Jedi Knight's) in the CDs'
+ * GAMEDATA/RESOURCE/VIDEO folders, CD 1's
  * then CD 2's, each sorted by name.
  */
 std::vector<CutScene> findCutScenes(const GameFolders &folders);

@@ -16,14 +16,6 @@ namespace {
 
 namespace stdfs = std::filesystem;
 
-// JK_.CD's four bytes on each CD of the US release. What they mean isn't
-// known; they only tell the CDs apart
-// (docs/engines/sith/games/jk/formats/jk-cd.md).
-constexpr std::array<std::array<uint8_t, 4>, kCdCount> kCdMarks = {{
-    {0xc4, 0x32, 0x92, 0x69},
-    {0x84, 0x33, 0x92, 0x69},
-}};
-
 // The folders in `dir`, sorted, so the first match is the same everywhere.
 std::vector<stdfs::path> subfolders(const stdfs::path &dir) {
     std::vector<stdfs::path> out;
@@ -39,24 +31,33 @@ std::vector<stdfs::path> subfolders(const stdfs::path &dir) {
 
 } // namespace
 
-int cdNumber(const stdfs::path &dir) {
-    const auto mark = fs::findFile(dir, "GAMEDATA/RESOURCE/JK_.CD");
-    if (!mark)
-        return 0;
-    std::ifstream in(*mark, std::ios::binary);
-    std::array<uint8_t, 5> bytes{};
-    in.read(reinterpret_cast<char *>(bytes.data()), bytes.size());
-    if (in.gcount() != 4)
+int cdNumber(const GameInfo &game, const std::vector<uint8_t> &mark) {
+    if (mark.size() != 4)
         return 0;
     for (int i = 0; i < kCdCount; ++i)
-        if (std::equal(kCdMarks[i].begin(), kCdMarks[i].end(), bytes.begin()))
+        if (std::equal(game.cdMarks[size_t(i)].begin(), game.cdMarks[size_t(i)].end(), mark.begin()))
             return i + 1;
     return 0;
 }
 
+int cdNumber(const GameInfo &game, const stdfs::path &dir) {
+    const auto mark = fs::findFile(dir, "GAMEDATA/RESOURCE/JK_.CD");
+    if (!mark)
+        return 0;
+    std::ifstream in(*mark, std::ios::binary);
+    std::vector<uint8_t> bytes(5);
+    in.read(reinterpret_cast<char *>(bytes.data()), std::streamsize(bytes.size()));
+    bytes.resize(size_t(in.gcount()));
+    return cdNumber(game, bytes);
+}
+
 GameFolders findFolders(const stdfs::path &install, const std::map<std::string, std::string> &settings) {
     GameFolders out;
+    out.game = gameInstalled(install);
+    if (!out.game)
+        out.game = &games().front();
     out.install = install;
+    const GameInfo &game = *out.game;
 
     std::array<bool, kCdCount> settled{};
     for (int i = 0; i < kCdCount; ++i) {
@@ -69,14 +70,14 @@ GameFolders findFolders(const stdfs::path &install, const std::map<std::string, 
         // A setting naming something else isn't used, but neither is a
         // folder found otherwise: the user asked for that one.
         settled[i] = true;
-        if (cdNumber(cd) == i + 1) {
+        if (cdNumber(game, cd) == i + 1) {
             out.cds[i] = cd;
             out.cdSources[i] = "cd" + std::to_string(i + 1) + "path setting";
         }
     }
 
     auto consider = [&](const stdfs::path &dir, const char *source) {
-        const int n = cdNumber(dir);
+        const int n = cdNumber(game, dir);
         if (n == 0 || settled[n - 1])
             return;
         out.cds[n - 1] = dir;

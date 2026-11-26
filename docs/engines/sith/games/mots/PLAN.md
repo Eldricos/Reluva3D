@@ -23,21 +23,24 @@ reaches into the program.
 
 ## Phases
 
-1. **The game known to Reluva.** Game id `mots`; its release recognised
+1. **The game known to Reluva** (done). Game id `mots`; its release recognised
    by `JKM.EXE` and two archives, others by the names alone; the host
    made one for both games, each game's program, registry key and CDs
    given with it rather than Jedi Knight's written in: its CD check hooked
    at `0x410db0` to put the CD asked for in the drive, as Jedi Knight's
    is; its own CD told by its marker.
-2. **Import from the CD or its image.** *Import Game...* from the CD, a
-   copy of its files, or its image (a cue sheet and its tracks): the
-   files the installer copies, the cut scenes and the marker kept under
-   `cd1/`, and the music, as for Jedi Knight. Reading an image's data
-   track (ISO 9660) is new shared code, of use to any game imported
-   from an image. Jedi Knight's CD 2 for the game's one check of it
+2. **Import from the CD or its image** (done). *Import Game...* from the
+   CD, a copy of its files, or its image (a cue sheet and its tracks):
+   the files the installer copies, the cut scenes and the marker kept
+   under `cd1/`, and the music, as for Jedi Knight. Reading an image's
+   data track (ISO 9660, `src/common/iso9660.h`) is new shared code;
+   Jedi Knight's CDs can be imported from their images with it too.
+   Jedi Knight's CD 2 for the game's one check of it
    ([README](README.md#proof-of-owning-jedi-knight)): its marker taken
-   from *Add other disc...* (the CD, a copy or an image), or from a Jedi
-   Knight already in Reluva's list with its CD 2.
+   from *Add other disc...* (the CD, a copy or an image)
+   ([README](README.md#using-it)). Imported from the CD's image, the
+   game started, checked both CDs, and reached its first level with its
+   music.
 3. **Play.** The trial made the game: its window, sound, music, the
    pointer and mouse, the joysticks, saves in the save folder, the
    registry kept; the engine's options carried over where `JKM.EXE` has
@@ -58,4 +61,7 @@ reaches into the program.
 |---|---|---|
 | November 2026 | Game id `mots`, on the `sith` engine beside `jk` | The same engine and files, an expansion of Jedi Knight's |
 | November 2026 | Hosted, as Jedi Knight | Jedi Knight's gate chose it for the engine; `JKM.EXE` reached its first level on the emulator as it is |
-| November 2026 | The game's check of Jedi Knight's CD 2 answered with that CD's own marker, given by the person importing or found with their Jedi Knight; never by writing `InstallData` for it | The check is the game's proof that its owner has Jedi Knight; answering it with the CD is what a player did |
+| November 2026 | The game's check of Jedi Knight's CD 2 answered with that CD's own marker, linked with *Add other disc...* when the game is imported, as its `cd2`; never by writing `InstallData` for it | The check is the game's proof that its owner has Jedi Knight; answering it with the CD is what a player did. The import is where the person has their CDs to hand, and the game needs it on its first start |
+| November 2026 | Only Jedi Knight's CD 2's marker is copied for Mysteries of the Sith, not its cut scenes or music | The game reads nothing else from it |
+| November 2026 | The CD check made to search from the first drive each time | Right after Jedi Knight's CD 2 it searches from the drive after it, so with Reluva's one drive it would ask for its own CD once more; a player swapping CDs pressed *Ok* there for the same result |
+| November 2026 | Disc images read by Reluva itself (ISO 9660 on a cue sheet's data track or an `.iso`), for importing | Players keep their CDs as images; the cut scenes are on the CD only, and an image holds its music too |

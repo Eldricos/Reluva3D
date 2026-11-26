@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool's Sith command for running the retail JK.EXE in the x86
+// reluva-tool's Sith command for running the retail JK.EXE or JKM.EXE in the x86
 // emulator: how far it gets, and what it asks for that nothing stands in
 // for (docs/engines/sith/games/jk/systems/hosting.md).
 
@@ -21,6 +21,7 @@
 #include "emulation/x86/dplay.h"
 #include "emulation/x86/win32.h"
 #include "engines/sith/folders.h"
+#include "engines/sith/games.h"
 #include "engines/sith/host/game_process.h"
 #include "engines/sith/render/scene_gpu.h"
 #include "image/image.h"
@@ -101,7 +102,7 @@ bool parseKeys(const std::string &text, std::vector<KeyPress> &out) {
     return true;
 }
 
-// JK.EXE under the emulator for up to `seconds`, from `install` with CD 1
+// The game's program under the emulator for up to `seconds`, from `install` with CD 1
 // in drive D, saying what it opens, writes and shows.
 int cmdHost(int argc, char **argv) {
     if (argc < 3) {
@@ -187,8 +188,8 @@ int cmdHost(int argc, char **argv) {
         else if (a == "-everyframe")
             everyFrame = true;
     }
-    if (!reluva::fs::findFile(install, "JK.EXE")) {
-        std::fprintf(stderr, "no JK.EXE in %s\n", install.string().c_str());
+    if (!sith::gameInstalled(install)) {
+        std::fprintf(stderr, "no JK.EXE or JKM.EXE in %s\n", install.string().c_str());
         return 1;
     }
     sith::GameProcess game(sith::findFolders(install, {}), writable, args);
@@ -239,7 +240,7 @@ int cmdHost(int argc, char **argv) {
     for (const std::string &m : process.missingImports())
         std::printf("not stood in for: %s\n", m.c_str());
     if (everyFrame)
-        std::printf("the world moved at every frame: %s\n", game.updateEveryFrame() ? "yes" : "not this JK.EXE");
+        std::printf("the world moved at every frame: %s\n", game.updateEveryFrame() ? "yes" : "not this program");
 
     std::vector<KeyPress> presses;
     if (!parseKeys(keysArg, presses)) {
@@ -714,7 +715,7 @@ int cmdHost(int argc, char **argv) {
         std::printf("registers: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n", r[0], r[1],
                     r[2], r[3], r[4], r[5], r[6], r[7]);
         // Return addresses on the stack: the words that point into the program's code.
-        std::printf("on the stack, into JK.EXE's code:");
+        std::printf("on the stack, into the program's code:");
         for (uint32_t i = 0, shown = 0; i < 256 && shown < 12; ++i) {
             const uint32_t at = r[4] + i * 4;
             if (at + 4 > cpu.memory().size())
@@ -739,10 +740,10 @@ int cmdHost(int argc, char **argv) {
     return err ? 1 : 0;
 }
 
-// JK.EXE's code from an address on, an instruction a line.
+// A program's code (JK.EXE's, JKM.EXE's) from an address on, an instruction a line.
 int cmdDisasm(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool sith disasm <JK.EXE> <address> [count]\n");
+        std::fprintf(stderr, "usage: reluva-tool sith disasm <program> <address> [count]\n");
         return 2;
     }
     std::vector<uint8_t> file;
@@ -776,8 +777,8 @@ const Commands kCommands(
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
          "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] "
          "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N] [-fps N] [-everyframe]",
-         "run the retail JK.EXE in the x86 emulator: how far it gets", cmdHost},
-        {"disasm", "<JK.EXE> <address> [count]", "the program's instructions from an address (hexadecimal) on",
+         "run the retail JK.EXE or JKM.EXE in the x86 emulator: how far it gets", cmdHost},
+        {"disasm", "<program> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},
     });
 

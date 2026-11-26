@@ -67,9 +67,10 @@ installer and the readme.
 ## Using it
 
 Add the game's install in the launcher (*Add Game...*), or make one from
-the CDs with *Import Game...* on CD 1 (or a copy of it): it copies what
-the game's installer does, and CD 1's cut scenes into `cd1`; *Add other
-disc...* adds CD 2's into `cd2`. `reluva-tool import <CD 1> <folder>
+the CDs with *Import Game...* on CD 1, a copy of it, or a folder holding
+its image (a cue sheet and its `.bin` files, or an `.iso`): it copies
+what the game's installer does, and CD 1's cut scenes into `cd1`; *Add
+other disc...* adds CD 2's, from the CD, a copy or an image, into `cd2`. `reluva-tool import <CD 1> <folder>
 -patch <CD 2>` does the same. Reluva looks for each CD's files (for the
 cut scenes), the first of:
 
@@ -92,7 +93,7 @@ folder>` makes `.wav` ones). *Import Game...* copies them with each CD's files
 when they're in the CD's folder: a copy of the CD's files with its cue
 sheet and images (or ripped tracks) beside them. `reluva-tool sith
 folders` says how much music each CD has. Without them the game plays
-without music.
+without music. Imported from a CD's image, the music comes with it.
 
 For multiplayer, choose TCP/IP as the network provider. *Join Game*
 finds the games hosted by other copies of Reluva on the local network
