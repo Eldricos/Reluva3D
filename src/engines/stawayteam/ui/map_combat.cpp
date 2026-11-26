@@ -55,7 +55,7 @@ int directionOf(float dx, float dy) {
 
 } // namespace
 
-const ModelInfo &MapScreen::modelInfo(const std::string &model) {
+const ModelInfo &MapScreen::modelInfo(const std::string &model) const {
     auto it = _modelInfos.find(model);
     if (it == _modelInfos.end()) {
         ModelInfo info;

@@ -86,8 +86,7 @@ None now.
   holds, and a collide trigger going as one comes into the part's shape
   rather than as their movement meets it
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **Walking round and joining:** how near a character makes a way
-  through them dearer, how a
+- **Walking round and joining:** how a
   character joining the team is made an officer, and rescues failing as
   their character's killed
   ([systems/maps.md](systems/maps.md#open-questions)).

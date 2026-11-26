@@ -44,8 +44,7 @@ None yet.
   their bolt flies through, and the animations'
   messages aren't there; particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); one taken off the team stays on its bar; a way's
-  planned round characters by their distance from it, not their
-  outlines, and round closed doors, which don't stop one walking; the transporter's pictures aren't drawn
+  planned round closed doors, which don't stop one walking; the transporter's pictures aren't drawn
   as enemies beam out; the Out Of Range cursor isn't there; parts are
   picked by their distance from the pointer, not their shapes; a
   radius's action reaches only the officers and enemies in its

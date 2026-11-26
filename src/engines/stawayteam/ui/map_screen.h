@@ -622,7 +622,7 @@ private:
     // Fighting (map_combat.cpp).
     void setupCombat();
     void updateCombat(float seconds);
-    const ModelInfo &modelInfo(const std::string &model);
+    const ModelInfo &modelInfo(const std::string &model) const;
     const ItemDefinition *weaponOf(const std::vector<std::string> &items) const;
     // A shot from (x, y) with `weapon` at (tx, ty) by `instigator`: its
     // sound, its flashes, the triggers it sets off; how long the shooter's
@@ -869,7 +869,7 @@ private:
     // throws (the footprints of the parts that collide, on the map) and the
     // shots' flashes showing.
     std::map<std::string, ItemDefinition> _items;
-    std::map<std::string, ModelInfo> _modelInfos;
+    mutable std::map<std::string, ModelInfo> _modelInfos; // read as they're first wanted
     struct Wall {
         size_t part;
         bool full; // standing Full Height, so blocking sight

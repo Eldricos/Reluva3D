@@ -2069,6 +2069,36 @@ void testStandingInTheWay() {
         CHECK(std::hypot(b.x - 392.0f, b.y - 297.0f) < 1.0f);
         CHECK(wayRound ? nearest > 40.0f : nearest < 10.0f);
     }
+    // With outlines 6 across, Ann's swept along the middle line misses
+    // Bo's 12 pixels off it (0x438d90): straight through, by him.
+    const std::string zax2 =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=400.000000,300.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 2\nPosition X=400\nPosition Y=312\n}\n}\n}\n";
+    data.files["Levels/Test2.zax"] = bytesOf(zax2);
+    data.files["Cache/Models/Characters/Body.mdl16"] =
+        modelFile("Body", 1, 1, 100.0f, {{-3.0f, -3.0f}, {3.0f, -3.0f}, {3.0f, 3.0f}, {-3.0f, 3.0f}});
+    GameMap map2;
+    CHECK(!loadMap(data, "Levels/Test2.zax", map2));
+    ann.bodyModel = "Characters/Body";
+    bo.bodyModel = "Characters/Body";
+    WayPoints way;
+    way.points = {
+        {300.0f, 300.0f, {1, 3}}, {400.0f, 300.0f, {0, 2}}, {500.0f, 300.0f, {1, 3}}, {400.0f, 360.0f, {0, 2}}};
+    GameOptions options;
+    MapScreen screen(data, rules, map2, options, 0, {ann, bo}, way);
+    const MapScreen::Officer &a = screen.officers()[0];
+    const MapScreen::Officer &b = screen.officers()[1];
+    uint64_t now = 0;
+    screen.update(now += 50);
+    screen.choose(0);
+    screen.order(500.0f, 300.0f);
+    float nearest = 1e9f;
+    while (now < 20000) {
+        screen.update(now += 50);
+        nearest = std::min(nearest, std::hypot(a.x - b.x, a.y - b.y));
+    }
+    CHECK(std::hypot(a.x - 500.0f, a.y - 300.0f) < 2.0f && nearest < 20.0f);
 }
 
 void testScriptsHoldActors() {

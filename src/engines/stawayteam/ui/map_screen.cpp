@@ -54,9 +54,9 @@ constexpr int kDrag = 4;
 // Too near a waypoint to walk any further to it.
 constexpr float kArrived = 1.0f;
 // A way that would take a walker through a character costs this many
-// times its length (0x438ecf), and does so within this of one: a figure's
-// outline about 9 across each (inferred: the models' Bounds Polys swept
-// against each other, 0x438d90, as circles).
+// times its length (0x438ecf): its outline swept along the way meeting
+// theirs (0x438d90); for a model without an outline, within this of them
+// (inferred).
 constexpr float kThroughCharacter = 5.0f;
 constexpr float kCharacterReach = 18.0f;
 // Time stopped: its words' font (0x5be102).
@@ -120,6 +120,61 @@ const uint8_t *texel(const image::Image &img, int x, int y) {
     const int tx = ((x % img.w) + img.w) % img.w;
     const int ty = ((y % img.h) + img.h) % img.h;
     return img.pixel(tx, ty);
+}
+
+// The outline `shape` moved from (ax, ay) to (bx, by), as the hull of it at
+// both ends (0x53ba20).
+std::vector<std::pair<float, float>> swept(const std::vector<std::pair<float, float>> &shape, float ax, float ay,
+                                           float bx, float by) {
+    std::vector<std::pair<float, float>> points;
+    for (const auto &[x, y] : shape) {
+        points.emplace_back(x + ax, y + ay);
+        points.emplace_back(x + bx, y + by);
+    }
+    std::sort(points.begin(), points.end());
+    const auto cross = [](const std::pair<float, float> &o, const std::pair<float, float> &a,
+                          const std::pair<float, float> &b) {
+        return (a.first - o.first) * (b.second - o.second) - (a.second - o.second) * (b.first - o.first);
+    };
+    std::vector<std::pair<float, float>> hull(points.size() * 2);
+    size_t k = 0;
+    for (size_t i = 0; i < points.size(); ++i) {
+        while (k >= 2 && cross(hull[k - 2], hull[k - 1], points[i]) <= 0.0f)
+            --k;
+        hull[k++] = points[i];
+    }
+    for (size_t i = points.size() - 1, t = k + 1; i > 0; --i) {
+        while (k >= t && cross(hull[k - 2], hull[k - 1], points[i - 1]) <= 0.0f)
+            --k;
+        hull[k++] = points[i - 1];
+    }
+    hull.resize(k > 1 ? k - 1 : k);
+    return hull;
+}
+
+// Whether two outlines meet: a corner of one inside the other, or their
+// sides crossing.
+bool meet(const std::vector<std::pair<float, float>> &a, const std::vector<std::pair<float, float>> &b) {
+    for (const auto &[x, y] : a)
+        if (inside(b, x, y))
+            return true;
+    for (const auto &[x, y] : b)
+        if (inside(a, x, y))
+            return true;
+    const auto side = [](const std::pair<float, float> &p, const std::pair<float, float> &q,
+                         const std::pair<float, float> &r) {
+        return (q.first - p.first) * (r.second - p.second) - (q.second - p.second) * (r.first - p.first);
+    };
+    for (size_t i = 0; i < a.size(); ++i)
+        for (size_t j = 0; j < b.size(); ++j) {
+            const auto &p = a[i];
+            const auto &q = a[(i + 1) % a.size()];
+            const auto &r = b[j];
+            const auto &s = b[(j + 1) % b.size()];
+            if ((side(p, q, r) > 0.0f) != (side(p, q, s) > 0.0f) && (side(r, s, p) > 0.0f) != (side(r, s, q) > 0.0f))
+                return true;
+        }
+    return false;
 }
 
 } // namespace
@@ -627,13 +682,34 @@ std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float 
     // straight there (0x52e8a4).
     if (_wayPoints.points.empty() || !_wayPoints.reaches(x0, y0) || !_wayPoints.reaches(x1, y1))
         return {{x1, y1}};
-    std::vector<std::pair<float, float>> others;
+    // Each character standing, by its outline (its body's or its model's
+    // Bounds Poly) where it stands.
+    struct Other {
+        float x;
+        float y;
+        std::vector<std::pair<float, float>> outline;
+    };
+    const auto outlineAt = [](const std::vector<std::pair<float, float>> &shape, float x, float y) {
+        std::vector<std::pair<float, float>> out;
+        for (const auto &[px, py] : shape)
+            out.emplace_back(px + x, py + y);
+        return out;
+    };
+    std::vector<Other> others;
     for (size_t i = 0; i < _officers.size(); ++i)
         if (int(i) != officer && _officers[i].present && _officers[i].alive())
-            others.emplace_back(_officers[i].x, _officers[i].y);
+            others.push_back(
+                {_officers[i].x, _officers[i].y,
+                 outlineAt(modelInfo(_team[_officers[i].member].bodyModel).footprint, _officers[i].x, _officers[i].y)});
     for (size_t i = 0; i < _enemies.size(); ++i)
         if (int(i) != enemy && _enemies[i].alive() && shown(_enemies[i].part))
-            others.emplace_back(_enemies[i].x, _enemies[i].y);
+            others.push_back(
+                {_enemies[i].x, _enemies[i].y,
+                 outlineAt(modelInfo(_map.parts[_enemies[i].part].model).footprint, _enemies[i].x, _enemies[i].y)});
+    const std::vector<std::pair<float, float>> &shape =
+        officer >= 0 ? modelInfo(_team[_officers[size_t(officer)].member].bodyModel).footprint
+        : enemy >= 0 ? modelInfo(_map.parts[_enemies[size_t(enemy)].part].model).footprint
+                     : modelInfo("").footprint;
     // The closed doors in the way: a line through one isn't taken, but
     // through one not locked that answers to this kind of walker, its
     // Triggered By Players or Enemies (0x48e070: asked as the way's
@@ -669,11 +745,22 @@ std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float 
         for (const auto *outline : doors)
             if (through(*outline, ax, ay, bx, by))
                 return 0.0f;
-        // How near each comes to the line, on the ground unforeshortened.
+        // The walker's outline swept along the line meeting a character's.
+        const std::vector<std::pair<float, float>> sweep =
+            shape.size() >= 3 ? swept(shape, ax, ay, bx, by) : std::vector<std::pair<float, float>>{};
         const float dx = bx - ax;
         const float dy = (by - ay) / ParticleSystem::kYToX;
         const float length = dx * dx + dy * dy;
-        for (const auto &[cx, cy] : others) {
+        for (const Other &o : others) {
+            if (sweep.size() >= 3 && o.outline.size() >= 3) {
+                if (meet(sweep, o.outline))
+                    return kThroughCharacter;
+                continue;
+            }
+            // Without outlines: how near it comes to the line, on the
+            // ground unforeshortened.
+            const float cx = o.x;
+            const float cy = o.y;
             const float px = cx - ax;
             const float py = (cy - ay) / ParticleSystem::kYToX;
             const float t = length > 0.0f ? std::clamp((px * dx + py * dy) / length, 0.0f, 1.0f) : 0.0f;

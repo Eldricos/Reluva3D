@@ -369,7 +369,8 @@ the main menu?" (`0x5bb190`).
   of the unnamed, unmoving parts in it (`0x438cb0`: anything movable or
   named doesn't count), and its cost: the walker's outline swept along
   it meeting nothing, 1; only characters, 5; anything else, 0, the line
-  not taken (`0x438d90`). So a way past someone standing costs five
+  not taken (`0x438d90`: the outline swept from the line's one end to
+  the other, `0x53ba20`, tested against the map's parts, `0x4ef720`). So a way past someone standing costs five
   times its length, and is taken only if going round is dearer. Walking,
   they go through one another: the move ignores one character meeting
   another (`0x497c60`), and an officer's, Tries To Collide off, doesn't
@@ -1070,11 +1071,14 @@ warp's time, then is gone *(inferred: the transporter's pictures aren't
 drawn)*.
 
 Walkers' ways (`ui/map_screen.cpp`) are planned as above, round the
-officers and enemies where they stand as the way's planned, each within
-18 pixels of a line, measured on the ground unforeshortened, making it
-cost five times its length (inferred: the models' outlines swept against
-each other, as circles); walking, they go through one another, and onto
-one standing where they're sent.
+officers and enemies where they stand as the way's planned: the
+walker's outline (its body's or model's `Bounds Poly`) moved from one
+end of a line to the other, as the hull of it at both ends (as
+`0x53ba20` sweeps it), meeting a character's outline where they stand
+makes the line cost five times its length; for a model without an
+outline, a character within 18 pixels of the line does *(inferred)*.
+Walking, they go through one another, and onto one standing where
+they're sent.
 
 A character added to the team (`ui/map_mission.cpp`) becomes an officer
 where they stand: the roster's of their name, or one made of their part,
@@ -1310,9 +1314,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   chooses whom it reaches.
 - **The states:** what makes a low-health enemy run away (`0x42b0e2`),
   and the reaction time Got a Target waits on.
-- **Walking:** how the walkers' outlines are swept against each other
-  in planning, the plain checker's part, and how a joined character's
-  made an officer.
+- **Walking:** the plain checker's part in planning, and how a joined
+  character's made an officer.
 - **Doors:** whether a closed one stops a walker as it walks, or only its
   planning.
 - **Noise:** how the rings are drawn, and the investigating AI's rules.
