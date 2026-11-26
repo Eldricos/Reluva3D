@@ -172,6 +172,12 @@ node's).
   `src/engines/storm3d/pages/sprite_page.h`) shows each sprite on its
   texture and enlarged, steps through its keyframes, and writes a line of
   text with a font's characters.
+- **The models' sprite nodes** (`SodMeshes`) play their sprite's
+  square flip-book (an `offset` animation with `@auto=square`), its frame
+  of the time over the animation's length, looping; and a node's `draw`
+  animation shows it while its keyframe is 1 *(inferred)*: an
+  explosion's, `explode1.1`, hides `bigorange` at 1.099 seconds, just
+  before its flip-book of 1.1 would start again.
 - `reluva-tool storm3d spr <game folder> <table.spr>`: a table's
   sprites, animations and emitters.
 - `reluva-tool storm3d spr-check <game folder>`: reads every table, and

@@ -332,6 +332,27 @@ void testParticles() {
         CHECK(p.at[0] * p.at[0] + p.at[1] * p.at[1] + p.at[2] * p.at[2] <= 20.0f * 20.0f + 1e-2f);
 }
 
+// An explosion's sprites: tex4x4_1.1's 16 frames over 1.1 seconds, and
+// explode1.1 showing it until 1.099 of its 1.5.
+void testFlipBooks() {
+    SpriteTable::Animation book;
+    book.kind = "offset";
+    book.count = 16;
+    book.duration = 1.1;
+    CHECK(SodMeshes::frameAt(book, 0) == 0);
+    CHECK(SodMeshes::frameAt(book, 0.55) == 8);
+    CHECK(SodMeshes::frameAt(book, 1.09) == 15);
+    CHECK(SodMeshes::frameAt(book, 1.1 + 0.07) == 1); // looping
+    SpriteTable::Animation draw;
+    draw.kind = "draw";
+    draw.count = 2;
+    draw.duration = 1.5;
+    draw.interpolation = "step";
+    draw.keyframes = {{0.0, 1}, {1.099, 0}};
+    CHECK(SodMeshes::shownAt(draw, 0) && SodMeshes::shownAt(draw, 1.0));
+    CHECK(!SodMeshes::shownAt(draw, 1.2) && !SodMeshes::shownAt(draw, 1.45));
+}
+
 // A sprite's colour over its animation: linear between keyframes, held by
 // a step one, and looping over its length.
 void testColours() {
@@ -360,6 +381,7 @@ static const reluva::test::Suite
                {"broken", [](const std::filesystem::path &) { testBroken(); }},
                {"placing", [](const std::filesystem::path &tmp) { testPlacing(tmp / "placing"); }},
                {"colours", [](const std::filesystem::path &) { testColours(); }},
+               {"flip-books", [](const std::filesystem::path &) { testFlipBooks(); }},
                {"overview", [](const std::filesystem::path &) { testOverview(); }},
                {"particles", [](const std::filesystem::path &) { testParticles(); }},
                {"lighting", [](const std::filesystem::path &) { testLighting(); }},

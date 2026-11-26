@@ -387,6 +387,7 @@ void MapScene::clear() {
     _meshes.clear();
     _placed.clear();
     _teams.clear();
+    _damaged.clear();
     _units.clear();
     _unitModels.clear();
     _background = nullptr;
@@ -516,6 +517,31 @@ bool MapScene::addUnit(const StartUnit &unit, float heading) {
     _unitModels.push_back(m);
     moveUnit(_units.size() - 1, unit.at, heading);
     return true;
+}
+
+void MapScene::drawEffect(const std::string &model, const gfx::Vec3 &at, double seconds) {
+    const SodMeshes::Built *built = model.empty() ? nullptr : _meshes.model(model);
+    if (!_renderer || !built)
+        return;
+    gfx::Mat4 place = gfx::identity();
+    place[12] = at[0], place[13] = at[1], place[14] = at[2];
+    _meshes.drawAt(*built, place, seconds);
+}
+
+void MapScene::drawShieldHit(size_t unit, const gfx::Vec3 &from, int frame, const std::array<float, 3> &colour,
+                             const std::string &texture) {
+    if (!_renderer || unit >= _unitModels.size())
+        return;
+    const auto &[built, place] = _placed[_unitModels[unit].placed];
+    if (built)
+        _meshes.drawShieldHit(*built, place, from, frame, colour, texture);
+}
+
+void MapScene::setDamaged(size_t unit, bool damaged) {
+    if (unit >= _unitModels.size())
+        return;
+    _damaged.resize(_placed.size());
+    _damaged[_unitModels[unit].placed] = damaged;
 }
 
 void MapScene::hideUnit(size_t unit) {
@@ -673,7 +699,8 @@ void MapScene::drawContents(const Camera &camera, double seconds, bool grid, boo
         _renderer->draw(shroud);
     }
     _teams.resize(_placed.size());
-    _meshes.draw(_placed, false, &_teams);
+    _damaged.resize(_placed.size());
+    _meshes.draw(_placed, false, &_teams, &_damaged);
 }
 
 } // namespace reluva::storm3d

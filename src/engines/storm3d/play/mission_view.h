@@ -283,6 +283,22 @@ private:
     std::vector<int> _targets;
     std::vector<bool> _dead;
     std::vector<Combat::Shot> _shots;
+    // A shield glowing where it was last hit: from where, when (the game's
+    // seconds), and the shields left of their most.
+    struct ShieldHit {
+        size_t unit = 0;
+        gfx::Vec3 from{};
+        double at = 0;
+        float left = 1;
+    };
+    std::vector<ShieldHit> _shieldHits;
+    // A unit's explosion: its fireball's model, where, and when it began.
+    struct Explosion {
+        std::string model;
+        gfx::Vec3 at{};
+        double began = 0;
+    };
+    std::vector<Explosion> _explosions;
     bool _targeting = false; // the attack button pressed: the next click picks the target
     uint32_t _roll = 12345;  // the shots' damage rolls
     std::vector<Site> _sites;
@@ -306,6 +322,7 @@ private:
                                   const MapScene::Unit &owner);
     void makeCells();
     void drawShots(const MapScene::Camera &view);
+    void drawEffects(double now); // the shields' glows and the explosions, at the game's seconds
     gfx::MeshId _shotMesh = 0;
     // By sprite: its texture, and its rectangle in it (u0, v0, u1, v1).
     std::map<std::string, std::pair<gfx::TextureId, std::array<float, 4>>> _shotLooks;

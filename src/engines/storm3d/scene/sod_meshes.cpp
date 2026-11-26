@@ -22,6 +22,7 @@ void SodMeshes::clear() {
                 _renderer->destroyTexture(id);
     }
     _meshes.clear();
+    _hemisphere = 0;
     _textures.clear();
     _models.clear();
     _quads.clear();
@@ -239,6 +240,16 @@ void SodMeshes::addSprite(const SpriteTable::SpriteNode *node, const gfx::Mat4 &
     const SpriteTable::Animation *a = table->animation(node->animation);
     if (a && a->kind == "colour" && !a->keyframes.empty())
         part.colourAnimation = a;
+    if (a && a->kind == "draw" && !a->keyframes.empty() && a->duration > 0)
+        part.shown = a;
+    for (const std::string &name : sprite->animations) {
+        const SpriteTable::Animation *f = table->animation(name);
+        if (f && f->kind == "offset" && f->autoLayout == "square" && f->count > 1 && f->duration > 0) {
+            part.frames = f;
+            part.frameWidth = float(sprite->w) / float(sprite->referenceWidth > 0 ? sprite->referenceWidth : 1);
+            part.frameHeight = float(sprite->h) / float(sprite->referenceHeight > 0 ? sprite->referenceHeight : 1);
+        }
+    }
     part.billboard = node->billboard;
     part.additive = sprite->material != "alphathreshold";
     built.sprites.push_back(part);
@@ -379,6 +390,13 @@ std::vector<SodMeshes::Particle> SodMeshes::particlesAt(const EmitterPart &e, do
     return out;
 }
 
+int SodMeshes::frameAt(const SpriteTable::Animation &a, double seconds) {
+    if (a.count <= 0 || a.duration <= 0)
+        return 0;
+    const double t = std::fmod(std::max(0.0, seconds), a.duration);
+    return std::clamp(int(t / a.duration * a.count), 0, a.count - 1);
+}
+
 std::array<float, 3> SodMeshes::colourAt(const SpriteTable::Animation &a, double seconds) {
     const std::vector<std::vector<double>> &keys = a.keyframes;
     auto colour = [](const std::vector<double> &row) {
@@ -466,7 +484,9 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind,
     _renderer->draw(call);
 }
 
-void SodMeshes::drawSprite(const SpritePart &sprite, const gfx::Mat4 &place) const {
+void SodMeshes::drawSprite(const SpritePart &sprite, const gfx::Mat4 &place, double seconds) const {
+    if (sprite.shown && !shownAt(*sprite.shown, seconds))
+        return;
     const gfx::Mat4 node = gfx::multiply(place, sprite.world);
     // How much the model is scaled: its node's first axis' length.
     const float scale = std::sqrt(node[0] * node[0] + node[1] * node[1] + node[2] * node[2]);
@@ -495,8 +515,15 @@ void SodMeshes::drawSprite(const SpritePart &sprite, const gfx::Mat4 &place) con
     call.indexCount = 6;
     call.model = m;
     call.texture = sprite.texture;
-    const std::array<float, 3> c = sprite.colourAnimation ? colourAt(*sprite.colourAnimation, _seconds) : sprite.colour;
+    const std::array<float, 3> c = sprite.colourAnimation ? colourAt(*sprite.colourAnimation, seconds) : sprite.colour;
     call.color = {c[0], c[1], c[2], 1};
+    if (sprite.frames) {
+        // Played through once each duration, row by row from the sprite's own.
+        const int side = std::max(1, int(std::lround(std::sqrt(double(sprite.frames->count)))));
+        const int frame = frameAt(*sprite.frames, seconds);
+        call.preRow0 = {1, 0, float(frame % side) * sprite.frameWidth};
+        call.preRow1 = {0, 1, float(frame / side) * sprite.frameHeight};
+    }
     call.state.cull = gfx::Cull::kNone;
     call.state.depthWrite = false;
     if (sprite.additive) {
@@ -512,8 +539,117 @@ void SodMeshes::draw(const Built &built, const gfx::Mat4 &place, bool behind) co
     draw({{&built, place}}, behind);
 }
 
+void SodMeshes::drawAt(const Built &built, const gfx::Mat4 &place, double seconds) const {
+    drawAll({{&built, place}}, false, nullptr, nullptr, seconds);
+}
+
+void SodMeshes::drawShieldHit(const Built &built, const gfx::Mat4 &place, const gfx::Vec3 &from, int frame,
+                              const std::array<float, 3> &colour, const std::string &name) {
+    const gfx::TextureId tex = texture(name);
+    if (!_renderer || !tex || built.empty())
+        return;
+    if (!_hemisphere) {
+        // Half a sphere about +z, 28 round as the original's whole one of
+        // 784 triangles (28 by 14); its texture across it, seen from +z.
+        constexpr int kRound = 28;
+        constexpr int kRings = 7;
+        std::vector<gfx::Vertex> vertices;
+        std::vector<uint32_t> indices;
+        for (int r = 0; r <= kRings; ++r) {
+            const float polar = float(r) / kRings * 3.14159265f / 2;
+            for (int k = 0; k <= kRound; ++k) {
+                const float around = float(k) / kRound * 2 * 3.14159265f;
+                gfx::Vertex v{};
+                v.pos[0] = std::sin(polar) * std::cos(around);
+                v.pos[1] = std::sin(polar) * std::sin(around);
+                v.pos[2] = std::cos(polar);
+                std::copy(std::begin(v.pos), std::end(v.pos), std::begin(v.normal));
+                v.uv[0] = 0.5f + v.pos[0] / 2;
+                v.uv[1] = 0.5f - v.pos[1] / 2;
+                std::fill(std::begin(v.color), std::end(v.color), uint8_t(255));
+                vertices.push_back(v);
+            }
+        }
+        for (int r = 0; r < kRings; ++r)
+            for (int k = 0; k < kRound; ++k) {
+                const uint32_t a = uint32_t(r * (kRound + 1) + k);
+                const uint32_t b = a + kRound + 1;
+                indices.insert(indices.end(), {a, b, a + 1, a + 1, b, b + 1});
+            }
+        if (_renderer->createMesh(vertices, indices, _hemisphere))
+            return;
+        _meshes.push_back(_hemisphere);
+        _hemisphereIndices = uint32_t(indices.size());
+    }
+    // The shield: the ellipsoid through the corners of the model's box,
+    // its axes the model's (guessed: the original's stands off the hull
+    // as one would).
+    constexpr float kCorners = 1.7320508f; // the square root of 3
+    gfx::Mat4 shield = gfx::identity();
+    for (size_t j = 0; j < 3; ++j) {
+        const float half = (built.hi[j] - built.lo[j]) / 2 * kCorners;
+        for (size_t d = 0; d < 3; ++d)
+            shield[j * 4 + d] = place[j * 4 + d] * half;
+    }
+    gfx::Vec3 middle{};
+    for (size_t d = 0; d < 3; ++d)
+        middle[d] = (built.lo[d] + built.hi[d]) / 2;
+    middle = gfx::transformPoint(place, middle);
+    shield[12] = middle[0], shield[13] = middle[1], shield[14] = middle[2];
+    // Its half towards the shooter: the way to it in the unit sphere's
+    // coordinates, which the shield's axes (square to each other, as a
+    // unit's place) take to the world.
+    gfx::Vec3 away{};
+    for (size_t j = 0; j < 3; ++j) {
+        float dot = 0;
+        float square = 0;
+        for (size_t d = 0; d < 3; ++d) {
+            dot += shield[j * 4 + d] * (from[d] - middle[d]);
+            square += shield[j * 4 + d] * shield[j * 4 + d];
+        }
+        away[j] = square > 0 ? dot / square : 0;
+    }
+    const float length = std::sqrt(away[0] * away[0] + away[1] * away[1] + away[2] * away[2]);
+    if (length <= 0)
+        return;
+    const gfx::Vec3 to{away[0] / length, away[1] / length, away[2] / length};
+    auto cross = [](const gfx::Vec3 &a, const gfx::Vec3 &b) {
+        return gfx::Vec3{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+    };
+    const gfx::Vec3 helper = std::abs(to[1]) < 0.9f ? gfx::Vec3{0, 1, 0} : gfx::Vec3{1, 0, 0};
+    gfx::Vec3 across = cross(helper, to);
+    const float n = std::sqrt(across[0] * across[0] + across[1] * across[1] + across[2] * across[2]);
+    for (float &c : across)
+        c /= n;
+    const gfx::Vec3 up = cross(to, across);
+    gfx::Mat4 turn = gfx::identity();
+    for (size_t d = 0; d < 3; ++d)
+        turn[d] = across[d], turn[4 + d] = up[d], turn[8 + d] = to[d];
+    constexpr int kSide = 4; // 16 frames, 4 by 4
+    frame = std::clamp(frame, 0, kSide * kSide - 1);
+    gfx::DrawCall call;
+    call.mesh = _hemisphere;
+    call.indexCount = _hemisphereIndices;
+    call.model = gfx::multiply(shield, turn);
+    call.texture = tex;
+    call.preRow0 = {1.0f / kSide, 0, float(frame % kSide) / kSide};
+    call.preRow1 = {0, 1.0f / kSide, float(frame / kSide) / kSide};
+    call.color = {colour[0], colour[1], colour[2], 1};
+    call.state.cull = gfx::Cull::kNone;
+    call.state.src = gfx::Blend::kOne;
+    call.state.dst = gfx::Blend::kOne;
+    call.state.depthWrite = false;
+    _renderer->draw(call);
+}
+
 void SodMeshes::draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind,
-                     const std::vector<std::optional<gfx::Vec3>> *teams) const {
+                     const std::vector<std::optional<gfx::Vec3>> *teams, const std::vector<bool> *damaged) const {
+    drawAll(batch, behind, teams, damaged, _seconds);
+}
+
+void SodMeshes::drawAll(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind,
+                        const std::vector<std::optional<gfx::Vec3>> *teams, const std::vector<bool> *damaged,
+                        double seconds) const {
     if (!_renderer)
         return;
     // Opaque parts first, then the additive ones and the sprites over them.
@@ -524,14 +660,15 @@ void SodMeshes::draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &bat
                     drawPart(part, batch[i].second, behind, teams && i < teams->size() ? &(*teams)[i] : nullptr);
     if (behind)
         return;
-    for (const auto &[built, place] : batch)
-        for (const SpritePart &sprite : built->sprites)
-            if (!sprite.damage || _showDamage)
-                drawSprite(sprite, place);
-    for (const auto &[built, place] : batch)
-        for (const EmitterPart &emitter : built->emitters)
+    auto showing = [&](size_t i) { return _showDamage || (damaged && i < damaged->size() && (*damaged)[i]); };
+    for (size_t i = 0; i < batch.size(); ++i)
+        for (const SpritePart &sprite : batch[i].first->sprites)
+            if (!sprite.damage || showing(i))
+                drawSprite(sprite, batch[i].second, seconds);
+    for (size_t i = 0; i < batch.size(); ++i)
+        for (const EmitterPart &emitter : batch[i].first->emitters)
             for (const Particle &p :
-                 emitter.damage && !_showDamage ? std::vector<Particle>{} : particlesAt(emitter, _seconds)) {
+                 emitter.damage && !showing(i) ? std::vector<Particle>{} : particlesAt(emitter, seconds)) {
                 SpritePart sprite = emitter.particle;
                 // At the particle, with the emitter node's own axes.
                 sprite.world[12] = p.at[0];
@@ -540,8 +677,9 @@ void SodMeshes::draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &bat
                 sprite.width *= p.size;
                 sprite.height *= p.size;
                 sprite.colourAnimation = nullptr;
+                sprite.shown = nullptr;
                 sprite.colour = p.colour;
-                drawSprite(sprite, place);
+                drawSprite(sprite, batch[i].second, seconds);
             }
 }
 

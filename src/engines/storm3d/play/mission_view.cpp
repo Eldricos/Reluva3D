@@ -877,7 +877,7 @@ void MissionView::fight(double seconds) {
             // A roll from a little generator of our own, the same each game.
             _roll = _roll * 1664525u + 1013904223u;
             const float roll = float(_roll >> 8) / float(1u << 24);
-            _shots.push_back({size_t(t), from, w.speed, Combat::damageOf(w, roll), w.sprite});
+            _shots.push_back({size_t(t), from, w.speed, Combat::damageOf(w, roll), w.sprite, from});
             w.ready = w.delay;
         }
     }
@@ -896,8 +896,20 @@ void MissionView::fight(double seconds) {
         const float left = std::hypot(dx, dy, dz);
         const float step = float(shot.speed * seconds);
         if (left <= step || shot.speed <= 0) {
-            Combat::hit(_vitals[shot.target], shot.damage);
-            if (!_vitals[shot.target].alive())
+            Combat::Vitals &v = _vitals[shot.target];
+            const bool shielded = v.shields > 0;
+            Combat::hit(v, shot.damage);
+            // The shield glows where it's hit, a new hit starting it over;
+            // a hit on the hull alone doesn't (guessed).
+            if (shielded) {
+                std::erase_if(_shieldHits, [&](const ShieldHit &h) { return h.unit == shot.target; });
+                _shieldHits.push_back(
+                    {shot.target, shot.from, double(_last) / 1000, v.maxShields > 0 ? v.shields / v.maxShields : 0});
+            }
+            // Its fires once its hull is down to two thirds (guessed: the
+            // original's ship was burning after its sixth volley, not its fifth).
+            _scene.setDamaged(shot.target, v.hull < v.maxHull * 2 / 3);
+            if (!v.alive())
                 killed.push_back(shot.target);
             _shots.erase(_shots.begin() + std::ptrdiff_t(s));
             continue;
@@ -912,6 +924,16 @@ void MissionView::fight(double seconds) {
 
 void MissionView::destroy(size_t unit) {
     _dead[unit] = true;
+    // It explodes where it was: its fireball's model (craft.odf's xfirebmd,
+    // whose dbName is xplode).
+    {
+        const Odf::Loader loader = loaderOf(_files.files());
+        Odf def;
+        Odf fireball;
+        if (!def.load(_scene.units()[unit].odf + ".odf", loader) && !def.string("fireball").empty() &&
+            !fireball.load(def.string("fireball") + ".odf", loader) && !fireball.string("dbName").empty())
+            _explosions.push_back({fireball.string("dbName"), _scene.units()[unit].middle(), double(_last) / 1000});
+    }
     _scene.hideUnit(unit);
     // Its officers go back to the count: the original's 4 of 120 became 2
     // as its construction ship went.
@@ -1315,6 +1337,23 @@ void MissionView::makeRing() {
         _ringMesh = 0;
 }
 
+void MissionView::drawEffects(double now) {
+    // The glow's flip-book, xshldx01 (a name of the program's own), at
+    // eighth of its 16 frames 0.4 seconds after a hit: 20 a second.
+    constexpr double kGlowFrame = 0.05;
+    std::erase_if(_shieldHits, [&](const ShieldHit &h) { return now - h.at >= 16 * kGlowFrame || _dead[h.unit]; });
+    for (const ShieldHit &h : _shieldHits)
+        // Green full to red empty, as the info panel's shield bar: (215,
+        // 40, 0) the original's at a sixth.
+        _scene.drawShieldHit(h.unit, h.from, int((now - h.at) / kGlowFrame), {1 - h.left, h.left, 0}, "xshldx01");
+    // The explosion's sprites are drawn for 1.1 to 1.5 seconds (their
+    // "draw" animations); it ends with the last.
+    constexpr double kExplosion = 1.5;
+    std::erase_if(_explosions, [&](const Explosion &e) { return now - e.began >= kExplosion; });
+    for (const Explosion &e : _explosions)
+        _scene.drawEffect(e.model, e.at, now - e.began);
+}
+
 void MissionView::drawShots(const MapScene::Camera &view) {
     if (!_renderer || _shots.empty())
         return;
@@ -1681,6 +1720,7 @@ void MissionView::draw(uint64_t millis) {
         _renderer->draw(ring);
     }
     drawShots(view);
+    drawEffects(double(millis) / 1000);
     drawPlacement(view);
     // The cinematic view: the unit selected first, or the player's first
     // that moves, close up.

@@ -9,6 +9,7 @@
 #include "engines/storm3d/scene/sod_meshes.h"
 #include "graphics/gfx3d.h"
 
+#include <array>
 #include <map>
 #include <optional>
 #include <string>
@@ -177,6 +178,19 @@ public:
      * adding it: a station being placed.
      */
     void drawModelAt(const std::string &odf, const gfx::Vec3 &at);
+    /**
+     * Draws a model of `SOD/` at a place, at its own time (`seconds` since
+     * it began), after draw: an explosion.
+     */
+    void drawEffect(const std::string &model, const gfx::Vec3 &at, double seconds);
+    /**
+     * Draws a unit's shield glowing where it's hit from `from`, after
+     * draw: frame `frame` of `texture`'s flip-book in `colour`.
+     */
+    void drawShieldHit(size_t unit, const gfx::Vec3 &from, int frame, const std::array<float, 3> &colour,
+                       const std::string &texture);
+    /** Whether a unit's damage emitters run (its fires). */
+    void setDamaged(size_t unit, bool damaged);
     /** Stops drawing a unit: one destroyed. */
     void hideUnit(size_t unit);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
@@ -225,6 +239,7 @@ private:
     // What's drawn: each object's model and place; the background's.
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
+    std::vector<bool> _damaged;                   // as _placed: its damage emitters run
     std::vector<Unit> _units;
     gfx::MeshId _insetMesh = 0; // drawInset's black square
     // Each unit's draw, in _placed, and its model's box, scaled, about it.

@@ -44,6 +44,12 @@ public:
         float height = 1;
         std::array<float, 3> colour{1, 1, 1};
         const SpriteTable::Animation *colourAnimation = nullptr; // its colour over time, if it has one
+        // Its sprite's flip-book (an "offset" animation laid out square:
+        // tex4x4_1.1's 16 frames, 4 by 4), each frame its own size along.
+        const SpriteTable::Animation *frames = nullptr;
+        float frameWidth = 0; // of the texture, 0 to 1
+        float frameHeight = 0;
+        const SpriteTable::Animation *shown = nullptr; // when it's drawn (a "draw" animation), if it says
         bool billboard = false;
         bool additive = true; // else alpha-tested
         bool damage = false;  // under a ship's system (the crew's fires): shown only when it's damaged
@@ -124,7 +130,17 @@ public:
      * each one's team colour (none: setTeamColour's), as the batch's.
      */
     void draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind = false,
-              const std::vector<std::optional<gfx::Vec3>> *teams = nullptr) const;
+              const std::vector<std::optional<gfx::Vec3>> *teams = nullptr,
+              const std::vector<bool> *damaged = nullptr) const; // damaged: each one's damage emitters run
+    /** A model at a time of its own (an explosion's since it began), not setView's. */
+    void drawAt(const Built &built, const gfx::Mat4 &place, double seconds) const;
+    /**
+     * A model's shield glowing where it's hit: the half of an ellipsoid
+     * about its box towards `from` (in the world), added on in `colour`,
+     * frame `frame` of the 4 by 4 flip-book `texture` across it.
+     */
+    void drawShieldHit(const Built &built, const gfx::Mat4 &place, const gfx::Vec3 &from, int frame,
+                       const std::array<float, 3> &colour, const std::string &texture);
 
     /**
      * The game's coordinates are left-handed, as Direct3D's are: seen from
@@ -174,6 +190,10 @@ public:
     };
     void setLighting(const Lighting &lighting) { _lighting = lighting; }
 
+    /** A flip-book's frame at a time: its count over its length, looping. */
+    static int frameAt(const SpriteTable::Animation &a, double seconds);
+    /** Whether a "draw" animation shows its sprite at a time (its keyframes' 1 or 0, looping). */
+    static bool shownAt(const SpriteTable::Animation &a, double seconds) { return colourAt(a, seconds)[0] >= 0.5f; }
     /** A colour animation's colour at a time, looping over its length. */
     static std::array<float, 3> colourAt(const SpriteTable::Animation &a, double seconds);
 
@@ -181,7 +201,10 @@ private:
     gfx::TextureId texture(const std::string &name);
     void drawPart(const Part &part, const gfx::Mat4 &place, bool behind,
                   const std::optional<gfx::Vec3> *team = nullptr) const; // team: none, setTeamColour's
-    void drawSprite(const SpritePart &sprite, const gfx::Mat4 &place) const;
+    void drawSprite(const SpritePart &sprite, const gfx::Mat4 &place, double seconds) const;
+    void drawAll(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind,
+                 const std::vector<std::optional<gfx::Vec3>> *teams, const std::vector<bool> *damaged,
+                 double seconds) const;
     const SpriteTable *sprites();
     void addSprites(const SodModel &model, const std::vector<gfx::Mat4> &world, Built &built);
     void addSprite(const SpriteTable::SpriteNode *node, const gfx::Mat4 &world, Built &built);
@@ -194,6 +217,8 @@ private:
     std::map<std::string, std::optional<Built>> _models; // model(), by lower-case name; none when not read
     std::optional<SpriteTable> _spriteTable;             // sprites.spr and its includes, once read
     std::map<std::string, gfx::MeshId> _quads;           // by sprite name
+    gfx::MeshId _hemisphere = 0;                         // drawShieldHit's, in _meshes
+    uint32_t _hemisphereIndices = 0;
     gfx::Vec3 _right{1, 0, 0};
     gfx::Vec3 _up{0, 1, 0};
     double _seconds = 0;

@@ -41,6 +41,32 @@ every second from then to 140 seconds.
 - **Destroyed,** it left debris and its officers went back to the count
   (4 to 2 of 120); the selection lost it.
 
+### What's drawn
+
+From the same run's frames and draws:
+
+- **The shields' glow:** where shots hit the shields, a sheet of light
+  stands off the hull on the shooter's side, about as long as the ship:
+  784 triangles (a sphere's, 28 round by 14 *(inferred)*), added on,
+  with the texture `Xshldx01` (a name of the program's own): a 4 × 4
+  flip-book of a ripple spreading. 0.4 seconds after a hit it was at its
+  eighth frame. Its colour goes with the shields as the info panel's bar:
+  green full, (215, 40, 0) at 59 seconds, a sixth left.
+- **Burning:** from 69 seconds, after the sixth volley, small fires
+  burned on the ship: its models' damage emitters ([sod.md](../formats/sod.md)).
+  Between 65 and 67, after the fifth, blue sparks played over it.
+- **The explosion:** at 74 seconds an orange fireball, half again the
+  ship's length, with pieces of it flying out; at 75 only the pieces,
+  drifting; at 76 nothing. Each ship's `fireball` is `xfirebmd`
+  (`craft.odf`, which they all build on): a `fireballexplode` of 2.5
+  seconds whose model, `dbName` `xplode`, is `SOD\Xplode.sod`: eight
+  sprite nodes, `critical1` to `critical8`, each a billboard of
+  `explosion.spr` (`bigorange` 40 across, `sparkball1` and `sparkball2`
+  smaller), each a 16-frame flip-book over 1.1, 1.3 or 1.5 seconds
+  (`tex4x4_1.1`...) and shown until just before then (`explode1.1`:
+  `draw`, 1 from 0, 0 from 1.099). Its nodes don't move. Its shockwave,
+  `xshock`, follows 0.6 seconds on.
+
 ## In Reluva
 
 - **Rules** (`Combat`): a unit's shields and hull are both its
@@ -58,6 +84,18 @@ every second from then to 140 seconds.
 - **Shown:** the bar over a unit being attacked, and the info panel's
   shield bar, with their colours; the shots as their sprite, added on,
   along their way and turned to the camera.
+- **The shields' glow:** at each hit the shields take, half an ellipsoid
+  through the corners of the unit's box, its half towards the shooter
+  *(guessed)*, with the ripple's 16 frames over 0.8 seconds across it
+  (20 a second, as the eighth at 0.4), a new hit starting it over; in
+  the shield bar's colour. A hit on the hull alone shows none
+  *(guessed)*.
+- **Burning:** a unit's damage emitters run once its hull is down to two
+  thirds *(guessed)*: the original's ship burned after its sixth volley,
+  a third of its hull gone, and not after its fifth.
+- **The explosion:** its `fireball`'s model, at the unit's middle, from
+  its death, for 1.5 seconds, its sprites' flip-books and `draw`
+  animations played from then.
 
 ## Sources and checks
 
@@ -75,8 +113,11 @@ every second from then to 140 seconds.
 
 - The hull's share exactly, and what `damageThreshold`,
   `shieldCrewModifier` and `hullCrewModifier` do (crew lost to hits).
-- The shields' glow where shots hit (a mesh of its own), explosions and
-  debris, and the hit chance's part (`hitChance`, 1 for these).
+- The shield's shape and size exactly, and whether it glows when a hit
+  gets past it.
+- The debris, the shockwave (`xshock`), the blue sparks of hull hits,
+  and when the fires start: by the systems' damage, likely.
+- The hit chance's part (`hitChance`, 1 for these).
 - Ships that chase what they attack, and right-clicking an enemy.
 - The systems (engines, weapons, shields, life support, sensors) and
   their hit points.

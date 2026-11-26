@@ -52,6 +52,7 @@ public:
         float speed = 0;
         float damage = 0;
         std::string sprite;
+        gfx::Vec3 from{}; // where it was fired from
     };
 
     /** Damage taken: by the shields while they last, then by the hull, twice as much. */
