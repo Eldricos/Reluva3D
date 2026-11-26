@@ -298,7 +298,10 @@ with what it found written on the game's pages in `formats/` and
    before the main thread's functions only); the software and 3dfx
    programs linked and racing; and connecting late isn't a hang but the
    game giving up on a tie of two counters that copies started together
-   share ([research/network-play.md](research/network-play.md)).
+   share, and of their names, both left as the default: the serial link
+   decides who hosts by the copies' ticks, then their names
+   ([research/network-play.md](research/network-play.md), Who hosts a
+   link).
 
    Later: IPX and the modem raced to the end as the serial link was,
    and a tournament over IPX, four races with the same results on both

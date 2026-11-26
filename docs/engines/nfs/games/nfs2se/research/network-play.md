@@ -158,7 +158,7 @@ What was found on the way:
   rarely be within a count. Started 3 s apart, the values
   differed by about 0x380 and the late connects all went on. Not traced
   in the code which copy is chosen, or why a tie gives up
-  *(inferred)*. The copies stopping to draw was the static
+  *(inferred)*: since traced, below. The copies stopping to draw was the static
   *connecting...* box and lobby, not a hang: `threads` in the keys file
   (each thread's state, logged) showed the main thread at work and the
   link's packets going.
@@ -175,8 +175,50 @@ What was found on the way:
   B `NFS2SEA.EXE`, Up held), clicked together: the lobby, and the race,
   the two clocks 0.1 s apart.
 
+## Who hosts a link
+
+Traced in the code (late November 2026), after the tie above:
+
+- **The counter** is the program's tick, at 0x51b024: zeroed as its
+  timer starts (0x477e1b), one more each time the timer thread wakes
+  (0x4779cf), asked for 128 times a second (0x47212c). It's a dword;
+  the copies' were still under 0x10000.
+- **The connect message** (0x45ca40, from the link's connecting at
+  0x45ce0b): a 20-byte payload, sent by 0x44fcb0, of the type 6 (its
+  first byte), the tick as a dword at 4, and the player's name (0x4de02c)
+  at 8. Bytes 1 to 3 aren't written: the `ff ff ff` seen is what was on
+  the stack, as is the `ed f2 47 00` after a short name (0x47f2ed, a
+  return address in the connection's opening, 0x47f248, called just
+  before) *(inferred)*. The name is copied without a limit: one over 11
+  characters would run past the 20 bytes *(inferred)*.
+- **Received**, by the type's handler (0x45ccf0, through the table at
+  0x4c4a7c), it's kept at 0x4fd544 and a flag set (0x4de4b0), which the
+  sender waits on.
+- **On the serial link** (0x4de4de = 2, 0x45cab8), the ticks are
+  compared, signed: the copy whose is greater hosts (0x4de4d8 = 1, the
+  local player 0, 0x45cacf) and sends the lobby's settings (0x44f8a0,
+  the `fe 5e`); the less joins (0x4de4d8 = 0, the local player 1,
+  0x45cb48) and waits for them (0x45ce22). Equal, the names decide, as
+  strings (0x4778f0): the greater hosts. Equal names too, it fails
+  (0x45cb42).
+- **Failed**, the copy closes its connections (0x45ce98, 0x47f374): the
+  packet layer's close (0x41d6b0) sends an empty frame of sequence 0xff
+  up to 4 times (0x41d710), the `fe 00 ff 01` seen (01, the other's
+  frame 1 acknowledged, its connect message), which the other takes as
+  the link closed (0x41e380). The `fe 00 fb` frames are keep-alives
+  (0x41d8c4).
+- **On a modem** there's no comparison: the host is the copy already
+  so marked, the answering one *(inferred)*.
+
+So a tie needs both the tick and the name alike. The serial copies that
+tied had both kept the default name, "Player1" (their logged connect
+messages); two players with their own names don't tie. Why only the
+copy that waited was seen closing, the other staying on
+*connecting...*, wasn't traced.
+
 ## Left open
 
-- Where the game decides who hosts the link, and gives up on a tie.
+- Why, after a tie, one copy closes and the other stays on
+  *connecting...*.
 - Copies on two machines; DirectPlay (not installed on the host, and
   the program offered no other protocol).
