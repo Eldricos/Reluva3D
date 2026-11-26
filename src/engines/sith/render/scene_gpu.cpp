@@ -15,9 +15,7 @@ using Scene = x86::DirectX::Scene;
 // Direct3D's numbers (d3dtypes.h).
 constexpr uint32_t kCmpLess = 2;
 constexpr uint32_t kCmpEqual = 3;
-constexpr uint32_t kCmpLessEqual = 4;
 constexpr uint32_t kCmpGreater = 5;
-constexpr uint32_t kCmpNotEqual = 6;
 constexpr uint32_t kCmpGreaterEqual = 7;
 constexpr uint32_t kOpSelectArg1 = 2;
 constexpr uint32_t kOpSelectArg2 = 3;
@@ -66,20 +64,24 @@ gfx::Blend blendFactor(uint32_t d3d, gfx::Blend otherwise) {
     }
 }
 
-// The renderer's alpha tests are fixed: the nearest to the game's.
-gfx::AlphaTest alphaTest(uint32_t func, float ref) {
-    switch (func) {
-    case kCmpNotEqual:
-    case kCmpGreater:
-        return ref < 0.25f ? gfx::AlphaTest::kGt0 : gfx::AlphaTest::kGe128;
-    case kCmpGreaterEqual:
-        return ref <= 1.0f / 255 ? gfx::AlphaTest::kNone : ref < 0.25f ? gfx::AlphaTest::kGt0 : gfx::AlphaTest::kGe128;
-    case kCmpLess:
-    case kCmpLessEqual:
-        return gfx::AlphaTest::kLt128;
-    default:
-        return gfx::AlphaTest::kNone;
-    }
+// How much brighter or darker a gamma ramp (Scene::gamma) makes the
+// picture, as the renderer's one power (setGamma: each colour to 1 /
+// gamma): the power that best fits the three, by least squares on their
+// logarithms. A ramp that isn't a power is drawn as the nearest one.
+float rampGamma(const std::vector<uint16_t> &ramp) {
+    double xy = 0;
+    double xx = 0;
+    for (size_t c = 0; c < 3 && ramp.size() >= 768; ++c)
+        for (int i = 1; i < 255; ++i) {
+            const double y = double(ramp[c * 256 + size_t(i)]) / 65535;
+            if (y <= 0)
+                continue;
+            const double x = std::log(double(i) / 255);
+            xy += x * std::log(y);
+            xx += x * x;
+        }
+    const double power = xx > 0 ? xy / xx : 1;
+    return power > 0.01 ? float(1 / power) : 1.0f;
 }
 
 // Whether a scene's depths run the other way from the renderer's (nearer
@@ -96,6 +98,7 @@ bool depthReversed(const Scene &scene) {
 
 void SceneGpu::setRenderer(gfx::Renderer3D *renderer) {
     if (_renderer && _renderer != renderer) {
+        _renderer->setGamma(1); // as the next user expects it
         for (const auto &[key, made] : _textures)
             _renderer->destroyTexture(made.id);
         if (_mesh)
@@ -151,7 +154,12 @@ bool SceneGpu::upload(const Scene &scene) {
         o.pos[2] = w;
         o.uv[0] = v.u;
         o.uv[1] = v.v;
-        o.uv2[0] = w;
+        // Direct3D's specular colour and fog factor (its alpha), for the
+        // renderer's (DrawCall::specularFromNormal, vertexFog).
+        o.uv2[0] = float(v.specular >> 24) / 255;
+        o.normal[0] = float((v.specular >> 16) & 255) / 255;
+        o.normal[1] = float((v.specular >> 8) & 255) / 255;
+        o.normal[2] = float(v.specular & 255) / 255;
         o.uv2[1] = reversed ? 1 - v.z : v.z;
         o.color[0] = uint8_t(v.diffuse >> 16);
         o.color[1] = uint8_t(v.diffuse >> 8);
@@ -213,6 +221,10 @@ void SceneGpu::draw(const Scene *scene, const Surface &overlay) {
     const double sx = double(width) / gameW;
     const double sy = double(height) / gameH;
     const bool ok = scene && upload(*scene);
+    // The display's gamma ramp, which the 2D (the overlay) went through
+    // already, for the 3D under it.
+    if (scene)
+        _renderer->setGamma(scene->gamma.empty() ? 1.0f : rampGamma(scene->gamma));
     _renderer->beginFrame(screenToClip(0, 0, gameW, gameH), {0, 0, 0}, Color{0, 0, 0});
     if (ok) {
         const bool reversed = depthReversed(*scene);
@@ -274,7 +286,18 @@ void SceneGpu::draw(const Scene *scene, const Surface &overlay) {
                 st.src = blendFactor(s.srcBlend, gfx::Blend::kOne);
                 st.dst = blendFactor(s.destBlend, gfx::Blend::kZero);
             }
-            st.alphaTest = s.alphaTest ? alphaTest(s.alphaFunc, s.alphaRef) : gfx::AlphaTest::kNone;
+            if (s.alphaTest && s.alphaFunc >= 1 && s.alphaFunc <= 8) {
+                st.alphaTest = gfx::AlphaTest::kCompare;
+                call.alphaFunc = gfx::Compare(s.alphaFunc - 1);
+                call.alphaRef = s.alphaRef;
+            }
+            call.specularFromNormal = s.specular;
+            // Table fog (by depth) isn't drawn: no game on this path uses it.
+            if (s.fog && s.fogTable == 0) {
+                call.vertexFog = true;
+                call.tableFogColor = {float((s.fogColor >> 16) & 255) / 255, float((s.fogColor >> 8) & 255) / 255,
+                                      float(s.fogColor & 255) / 255};
+            }
             // A texel keyed out isn't drawn at all.
             if (s.colorKey && call.texture && st.alphaTest == gfx::AlphaTest::kNone)
                 st.alphaTest = gfx::AlphaTest::kGt0;

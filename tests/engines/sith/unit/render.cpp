@@ -157,6 +157,7 @@ public:
     std::vector<std::array<int, 4>> viewports;
     std::vector<gfx::DrawCall> draws;
     Surface shown;
+    float gamma = 0;
     Error createTexture(int, int, const uint8_t *, const gfx::TextureParams &, gfx::TextureId &out) override {
         out = gfx::TextureId(++_next);
         return Error::success();
@@ -193,7 +194,7 @@ public:
     bool hasStencil() const override { return false; }
     void setStencilMode(StencilMode) override {}
     void setMirrored(bool) override {}
-    void setGamma(float) override {}
+    void setGamma(float g) override { gamma = g; }
     void endFrame(const Surface *overlay) override {
         if (overlay)
             shown = *overlay;
@@ -229,16 +230,24 @@ void testSceneScaled() {
     scene.width = 640;
     scene.height = 480;
     // x, y, z, 1/w, diffuse, specular, u, v
-    scene.vertices = {{10, 20, 0.25f, 0.5f, 0xffffffffu, 0, 0, 0},
-                      {100, 20, 0.25f, 0.5f, 0xffffffffu, 0, 1, 0},
-                      {10, 60, 0.75f, 0.5f, 0xffffffffu, 0, 0, 1}};
+    // with a specular colour, its alpha the fog's factor
+    scene.vertices = {{10, 20, 0.25f, 0.5f, 0xffffffffu, 0x40800000u, 0, 0},
+                      {100, 20, 0.25f, 0.5f, 0xffffffffu, 0x40800000u, 1, 0},
+                      {10, 60, 0.75f, 0.5f, 0xffffffffu, 0x40800000u, 0, 1}};
+    // The display's gamma ramp: each colour's square root (a gamma of 2).
+    for (int c = 0; c < 3; ++c)
+        for (int i = 0; i < 256; ++i)
+            scene.gamma.push_back(uint16_t(std::lround(std::sqrt(i / 255.0) * 65535)));
     Scene::Step depth;
     depth.clearDepth = true;
     depth.viewport[2] = 640, depth.viewport[3] = 480;
     Scene::Step step;
     step.count = 3;
     step.viewport[0] = 8, step.viewport[1] = 4, step.viewport[2] = 600, step.viewport[3] = 400;
-    step.zTest = true, step.zWrite = true, step.zFunc = 5; // greater
+    step.zTest = true, step.zWrite = true, step.zFunc = 5;           // greater
+    step.alphaTest = true, step.alphaFunc = 7, step.alphaRef = 0.5f; // greater or equal
+    step.specular = true;
+    step.fog = true, step.fogColor = 0xff0000ffu; // blue, vertex fog
     scene.steps = {depth, step};
     Surface overlay;
     overlay.create(640, 480, PixelFormat::kRGBA32);
@@ -262,7 +271,15 @@ void testSceneScaled() {
         CHECK(std::abs(a[0] - 21) < 1e-3f && std::abs(a[1] - 41) < 1e-3f);
         CHECK(std::abs(b[0] - 201) < 1e-3f && std::abs(b[1] - 41) < 1e-3f);
         CHECK(r.vertices[0].uv2[1] == 0.75f && r.vertices[2].uv2[1] == 0.25f); // nearer is less
+        // Direct3D's alpha test, specular colour and vertex fog as given.
+        CHECK(d.state.alphaTest == gfx::AlphaTest::kCompare && d.alphaFunc == gfx::Compare::kGreaterEqual &&
+              d.alphaRef == 0.5f);
+        CHECK(d.specularFromNormal && std::abs(r.vertices[0].normal[0] - 128 / 255.0f) < 1e-6f &&
+              r.vertices[0].normal[1] == 0 && r.vertices[0].normal[2] == 0);
+        CHECK(d.vertexFog && d.tableFogColor[2] == 1 && d.tableFogColor[0] == 0 &&
+              std::abs(r.vertices[1].uv2[0] - 64 / 255.0f) < 1e-6f);
     }
+    CHECK(std::abs(r.gamma - 2) < 0.01f); // the ramp as the nearest power
     CHECK(r.shown.w == 1280 && r.shown.h == 960);
     if (r.shown.w == 1280) {
         CHECK(r.shown.row(2)[4 * 2] == 200 && r.shown.row(3)[4 * 3 + 3] == 255); // (1, 1) is (2, 2) to (3, 3)

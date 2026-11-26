@@ -263,8 +263,20 @@ Windows does when it fails, and dialog boxes are made but not drawn
     clear to 0 as the renderer's to the far end), half a pixel over
     (Direct3D's pixel centres are on whole numbers), the texture times
     the vertices' colour as the first stage has it, untextured
-    otherwise, the colour key's texels left out. The back buffer is laid
-    over it, its alpha 0 where the scene shows.
+    otherwise, the colour key's texels left out, then the vertices'
+    specular colour added, the alpha test (the function and reference as
+    given, on the alpha as a whole number 0 to 255), and vertex fog
+    (the specular colour's alpha), in Direct3D's order; table fog isn't
+    drawn. The back buffer is laid over it, its alpha 0 where the scene
+    shows. The display's gamma ramp, already through which the back
+    buffer is, is put on the scene as the nearest power curve (fitted to
+    the ramp's three channels), the renderer's brightness.
+
+    Windowed (`-windowGUI`) with 3D acceleration on, the game draws its
+    levels through Direct3D into a flipping chain as full screen does,
+    and only its menus through GDI: seen running into Nar Shaddaa, 746
+    of 1,279 frames came with a scene, the level drawn on the GPU under
+    the gauges.
 
     The scene can be drawn larger than the game's 640 by 480 (*Picture
     size*, 1 to 4 times): its coordinates stay the game's, scaled into

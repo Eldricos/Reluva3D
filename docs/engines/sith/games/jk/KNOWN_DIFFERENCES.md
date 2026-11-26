@@ -43,12 +43,12 @@ None yet.
   software rasterizer, not a graphics card: its filtering and precision
   are Reluva's, not those of the cards of 1997. With *3D drawing* on the
   graphics card, it's the GPU's instead, its colours 8 bits a channel
-  where the game's buffer has 5 or 6, and its depth finer than the
-  game's 16 bits, so surfaces nearly at the same depth may hide each
-  other otherwise. The display's gamma ramp, which the game doesn't set,
-  isn't applied to the scene there. Specular colour, fog and the alpha
-  test's exact reference aren't drawn on the card, as the game doesn't
-  use them ([systems/hosting.md](systems/hosting.md), step 21). At a
+  where the game's buffer has 5 or 6, and its depths worked out its own
+  way, so where triangles meet at the same depth the other may keep a
+  pixel. The display's gamma ramp, which the game doesn't set, would be
+  drawn as the nearest power curve; table fog (by depth), which it
+  doesn't use either, isn't drawn ([systems/hosting.md](systems/hosting.md),
+  step 21). At a
   larger *Picture size* the 3D is finer than any card of the time drew
   it at 640x480, while the menus, gauges and text keep their pixels,
   enlarged. *Anti-aliasing* smooths the polygons' edges, which the cards
