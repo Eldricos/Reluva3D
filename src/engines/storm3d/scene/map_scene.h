@@ -142,6 +142,12 @@ public:
      * scene; the caller draws over it and ends the frame.
      */
     void draw(const Camera &camera, double seconds, float range, Color clear, bool grid);
+    /**
+     * Draws the scene again, after draw, into a part of the frame (x, y,
+     * w, h, on the 640 × 480 screen) through another camera, over what's
+     * there: its background and objects, without the grid or the shroud.
+     */
+    void drawInset(const Camera &camera, double seconds, float range, int x, int y, int w, int h);
 
     /** A unit placed: a starting unit's definition, its place, and its model's box, in the world. */
     struct Unit {
@@ -165,8 +171,12 @@ public:
      * plane y = `height`; none if it doesn't, ahead.
      */
     static std::optional<gfx::Vec3> pointOn(const Camera &camera, float height, int x, int y);
-    /** The camera's view and projection, as draw uses them: the game's coordinates to the renderer's clip space. */
-    static gfx::Mat4 viewProjOf(const Camera &camera, float range);
+    /**
+     * The camera's view and projection, as draw uses them: the game's
+     * coordinates to the renderer's clip space, for a view `aspect` wide
+     * to its height.
+     */
+    static gfx::Mat4 viewProjOf(const Camera &camera, float range, float aspect = 640.0f / 480.0f);
     /**
      * Where a point of the world falls on the 640 × 480 screen, in pixels
      * (a pixel's centre at .5); none behind the camera.
@@ -186,6 +196,7 @@ public:
     size_t starting() const { return _starting; }
 
 private:
+    void drawContents(const Camera &camera, double seconds, bool grid, bool withShroud);
     void makeGrid();
     void freeGrid();
     void makeShroud(const std::vector<bool> &seen);

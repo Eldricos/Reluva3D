@@ -241,6 +241,35 @@ Hud::Unit MissionView::ordersOf(const std::vector<Hud::Unit> &units) {
     return orders;
 }
 
+MapScene::Camera MissionView::closeUpOf(const MapScene::Unit &unit) {
+    // Fitted to the original's draws of a construction ship standing, its
+    // hull in the panel within 0.7 units (docs: play.md): 41.8 from its
+    // box's middle, 1.53 times its ring's half side, along (-0.38, 0.857,
+    // -0.348) with it facing +z; a focal length of 80 pixels for the 80
+    // high view.
+    constexpr float kOut = 1.53f;
+    constexpr gfx::Vec3 kFrom{-0.38f, 0.857f, -0.348f};
+    const float s = std::sin(unit.heading);
+    const float c = std::cos(unit.heading);
+    const gfx::Vec3 from{kFrom[0] * c + kFrom[2] * s, kFrom[1], -kFrom[0] * s + kFrom[2] * c};
+    const float length = std::sqrt(from[0] * from[0] + from[1] * from[1] + from[2] * from[2]);
+    const gfx::Vec3 target = unit.middle();
+    const float distance = kOut * ringHalfOf(unit);
+    MapScene::Camera cam;
+    for (size_t k = 0; k < 3; ++k) {
+        cam.eye[k] = target[k] + from[k] / length * distance;
+        cam.forward[k] = -from[k] / length;
+    }
+    // Up: square to forward, in the plane of forward and the world's up.
+    const float fy = cam.forward[1];
+    cam.up = {-fy * cam.forward[0], 1 - fy * fy, -fy * cam.forward[2]};
+    const float upLength = std::sqrt(cam.up[0] * cam.up[0] + cam.up[1] * cam.up[1] + cam.up[2] * cam.up[2]);
+    for (float &v : cam.up)
+        v /= upLength;
+    cam.fovY = 2 * std::atan(40.0f / 80.0f);
+    return cam;
+}
+
 int MissionView::grownCrew(int crew, double &carry, int starbases, double seconds) {
     // 3.5 a second with one starbase: the original's counter went from
     // 3502 to 3607 in 30 seconds, steadily; per starbase is a guess.
@@ -603,6 +632,18 @@ void MissionView::draw(uint64_t millis) {
         ring.state.dst = gfx::Blend::kOne;
         ring.state.depthWrite = false;
         _renderer->draw(ring);
+    }
+    // The cinematic view: the unit selected first, or the player's first
+    // that moves, close up.
+    int shown = _selection.empty() ? -1 : _selection.front();
+    for (size_t i = 0; shown < 0 && i < units.size(); ++i)
+        if (i < _moves.size() && _moves[i] && units[i].slot == _slot)
+            shown = int(i);
+    _hud.setCinematicShown(shown >= 0);
+    if (shown >= 0) {
+        const std::array<int, 4> area = _hud.cinematicArea();
+        _scene.drawInset(closeUpOf(units[size_t(shown)]), double(millis) / 1000, kRange, area[0], area[1], area[2],
+                         area[3]);
     }
     if (_overlay.w != 640)
         _overlay.create(640, 480, PixelFormat::kRGBA32);

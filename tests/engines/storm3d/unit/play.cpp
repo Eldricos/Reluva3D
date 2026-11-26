@@ -333,6 +333,25 @@ void testMinimap() {
     }
 }
 
+// The cinematic view's close-up: the construction ship's, as fitted, and
+// turned with a unit's heading.
+void testCloseUp() {
+    reluva::storm3d::MapScene::Unit ship;
+    ship.at = {570, 38.5f, 546};
+    ship.lo = {562.5f, 36, 517.5f};
+    ship.hi = {577.5f, 46, 568.5f};
+    const auto cam = MissionView::closeUpOf(ship);
+    const auto middle = ship.middle();
+    const float distance = std::hypot(cam.eye[0] - middle[0], cam.eye[1] - middle[1], cam.eye[2] - middle[2]);
+    CHECK(std::abs(distance - 1.53f * MissionView::ringHalfOf(ship)) < 0.05f);
+    CHECK(cam.eye[0] < middle[0] && cam.eye[2] < middle[2] && cam.eye[1] > middle[1]);
+    CHECK(std::abs(cam.forward[1] + 0.857f) < 0.01f && std::abs(cam.fovY - 0.9273f) < 0.001f);
+    // Facing +x, it's seen from behind (-x) and to its left (+z).
+    ship.heading = 1.5707963f;
+    const auto turned = MissionView::closeUpOf(ship);
+    CHECK(turned.eye[0] < middle[0] && turned.eye[2] > middle[2]);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -351,4 +370,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
                                             {"crew", [](const std::filesystem::path &) { testCrew(); }},
                                             {"minimap", [](const std::filesystem::path &) { testMinimap(); }},
+                                            {"close-up", [](const std::filesystem::path &) { testCloseUp(); }},
                                         });

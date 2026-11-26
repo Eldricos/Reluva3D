@@ -172,6 +172,32 @@ in (128, 128, 128), round where the camera looks.
 A grey pixel (123, 125, 123) under the starbase's mark isn't
 accounted for.
 
+### The cinematic view
+
+The panel over the control panel's left shows the battle in 3D in its
+display (`cinematicDisplayArea`, 113 × 80 at (402, 391)): the scene
+drawn again through a camera of its own, background, planets and units,
+without the grid. Its two buttons say "COMM" and "MENU", the program's
+own words, in black, centred as the other text.
+
+What it shows changes like a director's cuts, from the original's
+frames every second:
+
+- **At rest:** a steady close-up of one of the player's construction
+  ships, the same in every run, from the start of play.
+- **While a ship flies:** shots of it that cut every second or so, from
+  behind, from its side, from further off, with the planets behind it.
+- **After,** the starbase close up, though the ship was still selected.
+
+The steady shot, fitted to the original's draws: the construction
+ship's hull in the panel, against the same hull placed back in the world
+from the main view, aligned by its nearest points (no vertex is drawn
+in both), comes within 0.7 units with a focal length of 80 pixels (53°
+from top to bottom) and a camera 41.8 from the hull's middle, looking
+at it, along (−0.38, 0.857, −0.348) from it with the ship facing +z:
+above, behind and to its left, with the world's up. The starbase's shot
+fitted less well (4.7 units): from its left, 54° down, 84 to 100 away.
+
 ### The crew
 
 In a skirmish the crew counter grows on its own. Read from the
@@ -221,7 +247,11 @@ before and after each ([camera.md](camera.md#the-overview)):
   script sets them) and the minimap's shroud. The cinematic view shows
   its panel's own picture, the race's emblem, as the layout has it for
   no view. The minimap has the units and the view as above, the bottom
-  of the view on the screen's bottom corners. In a skirmish the crew
+  of the view on the screen's bottom corners. The cinematic view shows
+  the unit selected first, or the player's first ship, in the
+  construction ship's steady shot: 1.53 of its ring's half side from its
+  box's middle, turned with its heading *(inferred)*. Its cuts aren't
+  made. In a skirmish the crew
   grows by 3.5 a second for each of the player's starbases.
 - **Selecting:** a click picks the unit whose middle is nearest the
   pointer, of those whose box reaches it on the screen (the game's own
@@ -277,6 +307,8 @@ before and after each ([camera.md](camera.md#the-overview)):
 - How Random sides and Random Placement choose.
 - The minimap's blue sprite, its grey pixel, and how the view's bottom
   edge is made.
+- The cinematic view's director: what it shows when, its shots and
+  cuts, and the starbase's own shot.
 - What makes the crew grow: one starbase gave 3.5 a second; more, or
   none, haven't been seen.
 - When the health bars show: why the unselected ships had theirs, and

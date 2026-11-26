@@ -528,12 +528,12 @@ std::optional<gfx::Vec3> MapScene::pointOn(const Camera &camera, float height, i
     return gfx::Vec3{camera.eye[0] + ray[0] * t, height, camera.eye[2] + ray[2] * t};
 }
 
-gfx::Mat4 MapScene::viewProjOf(const Camera &camera, float range) {
+gfx::Mat4 MapScene::viewProjOf(const Camera &camera, float range, float aspect) {
     // The renderer is right-handed, the game left-handed: the camera's
     // place and axes have z reversed for it (SodMeshes::mirrorZ), and what
     // it draws is in the game's coordinates.
     auto flip = [](const gfx::Vec3 &v) { return gfx::Vec3{v[0], v[1], -v[2]}; };
-    return gfx::multiply(gfx::multiply(gfx::perspective(camera.fovY, 640.0f / 480.0f, range * 0.02f, range * 4 + 20000),
+    return gfx::multiply(gfx::multiply(gfx::perspective(camera.fovY, aspect, range * 0.02f, range * 4 + 20000),
                                        gfx::lookAlong(flip(camera.eye), flip(camera.forward), flip(camera.up))),
                          SodMeshes::mirrorZ());
 }
@@ -552,9 +552,26 @@ std::optional<gfx::Vec3> MapScene::project(const gfx::Mat4 &viewProj, const gfx:
 void MapScene::draw(const Camera &camera, double seconds, float range, Color clear, bool grid) {
     if (!_renderer)
         return;
+    _renderer->beginFrame(viewProjOf(camera, range), camera.eye, clear);
+    drawContents(camera, seconds, grid, true);
+}
+
+void MapScene::drawInset(const Camera &camera, double seconds, float range, int x, int y, int w, int h) {
+    if (!_renderer || w <= 0 || h <= 0)
+        return;
+    // The screen's 640 × 480 to the renderer's frame.
+    const float sx = float(_renderer->width()) / 640;
+    const float sy = float(_renderer->height()) / 480;
+    _renderer->setViewport(int(std::lround(x * sx)), int(std::lround(y * sy)), int(std::lround(w * sx)),
+                           int(std::lround(h * sy)));
+    _renderer->clearDepth();
+    _renderer->setView(viewProjOf(camera, range, float(w) / float(h)), camera.eye);
+    drawContents(camera, seconds, false, false);
+    _renderer->setViewport(0, 0, 0, 0);
+}
+
+void MapScene::drawContents(const Camera &camera, double seconds, bool grid, bool withShroud) {
     const gfx::Vec3 &eye = camera.eye;
-    const gfx::Mat4 viewProj = viewProjOf(camera, range);
-    _renderer->beginFrame(viewProj, eye, clear);
     // Right, in the game's left-handed coordinates, is up × forward.
     const gfx::Vec3 &u = camera.up;
     const gfx::Vec3 &f = camera.forward;
@@ -579,7 +596,7 @@ void MapScene::draw(const Camera &camera, double seconds, float range, Color cle
         _renderer->draw(grid);
     }
     // The shroud after the grid, over it and what's below the plane.
-    if (_shroudMesh && _shroudTexture) {
+    if (withShroud && _shroudMesh && _shroudTexture) {
         gfx::DrawCall shroud;
         shroud.mesh = _shroudMesh;
         shroud.indexCount = 6;

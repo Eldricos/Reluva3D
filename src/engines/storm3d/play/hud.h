@@ -60,6 +60,10 @@ public:
     };
     /** Draws the box a drag selects with: white lines from a pixel up and left of its top left to its bottom right. */
     static void drawBox(Surface &screen, int x0, int y0, int x1, int y1);
+    /** The cinematic view's display on the screen: x, y, width and height. */
+    std::array<int, 4> cinematicArea() const;
+    /** Whether the cinematic view shows a view of its own, which the panel's picture then leaves clear. */
+    void setCinematicShown(bool shown) { _cinematicShown = shown; }
     /** Whether the interface's sprite tables have a sprite of this name. */
     bool hasSprite(const std::string &name) const;
     /**
@@ -139,6 +143,7 @@ private:
     SpriteFont _font;
     std::map<std::string, image::Image> _textures; // by lower-case name; empty if not there
     std::map<std::string, std::string> _words;     // Dynamic_Localized_Strings.h's, by key
+    bool _cinematicShown = false;
     std::string word(const std::string &key, const std::string &fallback) const;
     void drawInfo(Surface &screen, const Unit &unit);
     void drawGroup(Surface &screen, const std::vector<Unit> &units);

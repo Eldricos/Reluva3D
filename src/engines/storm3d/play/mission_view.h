@@ -134,6 +134,12 @@ public:
      */
     static void sendTo(std::vector<Movement::Ship> &ships, const std::vector<MapScene::Unit> &units,
                        const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point);
+    /**
+     * The cinematic view's close-up of a unit: from above, behind and to
+     * its left, looking down at its middle, as the original's steady shot
+     * of a construction ship.
+     */
+    static MapScene::Camera closeUpOf(const MapScene::Unit &unit);
     /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
     static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
     static float ringHalfOf(const MapScene::Unit &unit);

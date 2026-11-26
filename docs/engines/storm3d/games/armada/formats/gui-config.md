@@ -58,6 +58,9 @@ The names come in families, by the panel they start with (`speed`,
   view's two buttons, `cinematicCommButton` and `cinematicMenuButton`,
   each over its border, in (153, 178, 171) and (128, 152, 149).
 
+- `cinematicDisplayArea`: where the cinematic view draws its 3D view
+  ([play.md](../systems/play.md#the-cinematic-view)); the buttons'
+  words, "COMM" and "MENU", are the program's, in black.
 - `infoSingle…`: the info panel's display of one unit, its areas
   from the info panel's corner, in the draws' order: the pieces of
   `infoSingleBackground`; `infoSingleRaceIcon` and the race's own

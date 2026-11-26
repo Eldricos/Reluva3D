@@ -221,6 +221,14 @@ void Hud::drawBox(Surface &screen, int x0, int y0, int x1, int y1) {
     }
 }
 
+std::array<int, 4> Hud::cinematicArea() const {
+    const std::array<int, 4> panel = _layout.area("cinematicPanelArea");
+    std::array<int, 4> display = _layout.area("cinematicDisplayArea");
+    display[0] += panel[0];
+    display[1] += panel[1];
+    return display;
+}
+
 bool Hud::hasSprite(const std::string &name) const {
     return sprite(name) != nullptr;
 }
@@ -429,17 +437,21 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
                const Minimap &map) {
     for (const char *panel : panels())
         drawPanel(screen, panel);
-    // The cinematic view: its picture until there's a view, and its two buttons.
+    // The cinematic view: its picture until there's a view, and its two
+    // buttons, their words black (the program's own, not the strings
+    // file's).
     const std::array<int, 4> cinematic = _layout.area("cinematicPanelArea");
     const std::array<int, 4> picture = _layout.area("cinematicBackgroundArea");
-    drawSprite(screen, _layout.text("cinematicDefaultBackground"), cinematic[0] + picture[0], cinematic[1] + picture[1],
-               picture[2], picture[3]);
+    if (!_cinematicShown)
+        drawSprite(screen, _layout.text("cinematicDefaultBackground"), cinematic[0] + picture[0],
+                   cinematic[1] + picture[1], picture[2], picture[3]);
     for (const char *button : {"Comm", "Menu"}) {
         const std::array<int, 4> r = _layout.area(std::string("cinematic") + button + "ButtonArea");
         const int x = cinematic[0] + r[0];
         const int y = cinematic[1] + r[1];
         drawSprite(screen, _layout.text(std::string("cinematic") + button + "Button"), x, y, r[2], r[3], kButtonTint);
         drawSprite(screen, _layout.text(std::string("cinematic") + button + "Border"), x, y, r[2], r[3], kBorderTint);
+        drawText(screen, {x, y, r[2], r[3]}, button[0] == 'C' ? "COMM" : "MENU", kBlack);
     }
     // The counters: an icon, and the number centred in its place.
     for (int c = 0; c < 3; ++c) {
