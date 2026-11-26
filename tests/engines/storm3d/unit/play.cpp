@@ -10,6 +10,7 @@
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/mission_view.h"
 #include "engines/storm3d/play/movement.h"
+#include "engines/storm3d/play/strategy.h"
 
 #include "tests/support/test.h"
 
@@ -587,6 +588,44 @@ void testBuildList() {
     CHECK(!ComputerPlayer::nextOf(list, {{"fbase", 1}, {"fconst", 1}, {"fmining", 2}, {"ffreight", 2}}));
 }
 
+// The scheduler, as the game's README tells it: goals by what's in each
+// cell, ships committed nearest and best first until a goal's enemy
+// shields are beaten, one to explore, and those short taken back.
+void testStrategy() {
+    using reluva::storm3d::Strategy;
+    Strategy::Personality p; // federation.aip's
+    std::vector<Strategy::Cell> cells(3 * 3);
+    for (auto &c : cells)
+        c.explored = true;
+    cells[0].ourStations = 1; // (0, 0): home
+    cells[2].enemyShips = 1;  // (2, 0): an enemy ship
+    cells[2].enemyShields = 700;
+    cells[8].enemyStations = 1; // (2, 2): its base
+    cells[8].enemyShields = 6000;
+    cells[4].explored = false; // (1, 1): not seen
+    const auto goals = Strategy::goalsOf(cells, 3, 3, p);
+    auto find = [&goals](Strategy::Kind k, int x, int z) {
+        for (size_t i = 0; i < goals.size(); ++i)
+            if (goals[i].kind == k && goals[i].x == x && goals[i].z == z)
+                return std::optional<size_t>(i);
+        return std::optional<size_t>();
+    };
+    const auto attack = find(Strategy::Kind::kAttack, 2, 0);
+    CHECK(attack && find(Strategy::Kind::kDefend, 0, 0) && find(Strategy::Kind::kAttackBase, 2, 2));
+    CHECK(find(Strategy::Kind::kExplore, 1, 1) && !find(Strategy::Kind::kExplore, 0, 0));
+    CHECK(!find(Strategy::Kind::kAttack, 2, 2)); // a cell with their stations is the base's goal
+    if (attack)
+        CHECK(std::abs(goals[*attack].priority - (2 * 0 + 2 * 10 + 1000 + 10)) < 1e-6);
+
+    // Two ships of 500: the ship beats 700 only with both; one alone is
+    // taken back and goes exploring.
+    const std::vector<Strategy::Ship> two = {{1000, 200, 500}, {1000, 300, 500}};
+    const auto to = Strategy::assign(two, goals, p);
+    CHECK(to[0] && to[1] && *to[0] == *attack && *to[1] == *attack);
+    const auto one = Strategy::assign({{1000, 200, 500}}, goals, p);
+    CHECK(one[0] && goals[*one[0]].kind != Strategy::Kind::kAttack);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -613,4 +652,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                             {"build list", [](const std::filesystem::path &) { testBuildList(); }},
+                                            {"strategy", [](const std::filesystem::path &) { testStrategy(); }},
                                         });

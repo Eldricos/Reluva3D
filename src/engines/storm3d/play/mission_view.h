@@ -11,6 +11,7 @@
 #include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/movement.h"
+#include "engines/storm3d/play/strategy.h"
 #include "engines/storm3d/scene/map_scene.h"
 #include "graphics/gfx3d.h"
 #include "image/image.h"
@@ -321,7 +322,13 @@ private:
         Hud::Resources bank;
         double crewCarry = 0;
         double think = 0; // seconds to its next look
+        double plan = 0;  // seconds to its next goals
+        Strategy::Personality personality;
+        std::vector<bool> explored; // by strategic cell, row by row: seen
     };
+    void plan(Computer &c);    // its ships' goals
+    void engage();             // armed units take the nearest enemy in reach
+    std::vector<float> _scans; // by unit: how far it sees (rangeScan)
     std::vector<Computer> _computers;
     std::vector<std::string> _classes; // by unit: its classLabel, lower case
     void drawPlacement(const MapScene::Camera &view);

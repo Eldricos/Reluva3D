@@ -645,11 +645,111 @@ std::optional<gfx::Vec3> MissionView::siteFor(int slot, const ComputerPlayer::El
     return std::nullopt;
 }
 
+void MissionView::plan(Computer &c) {
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    const BznMap &map = _scene.map();
+    const int across = std::max(1, int(std::ceil((map.area[1] - map.area[0]) / Strategy::kCell)));
+    const int down = std::max(1, int(std::ceil((map.area[5] - map.area[4]) / Strategy::kCell)));
+    if (c.explored.size() != size_t(across * down))
+        c.explored.assign(size_t(across * down), false);
+    auto cellOf = [&](const gfx::Vec3 &at) {
+        const int x = std::clamp(int((at[0] - map.area[0]) / Strategy::kCell), 0, across - 1);
+        const int z = std::clamp(int((at[2] - map.area[4]) / Strategy::kCell), 0, down - 1);
+        return size_t(z * across + x);
+    };
+    // What it's seen: the cells whose middles its units' scan has reached.
+    for (size_t i = 0; i < units.size(); ++i) {
+        if (units[i].slot != c.slot || _dead[i])
+            continue;
+        for (int z = 0; z < down; ++z)
+            for (int x = 0; x < across; ++x) {
+                const float cx = map.area[0] + (float(x) + 0.5f) * Strategy::kCell;
+                const float cz = map.area[4] + (float(z) + 0.5f) * Strategy::kCell;
+                if (std::hypot(cx - units[i].at[0], cz - units[i].at[2]) <= _scans[i])
+                    c.explored[size_t(z * across + x)] = true;
+            }
+    }
+    std::vector<Strategy::Cell> cells(size_t(across * down));
+    for (size_t k = 0; k < cells.size(); ++k)
+        cells[k].explored = c.explored[k];
+    std::vector<Strategy::Ship> ships;
+    std::vector<size_t> shipUnits;
+    for (size_t i = 0; i < units.size(); ++i) {
+        if (_dead[i])
+            continue;
+        Strategy::Cell &cell = cells[cellOf(units[i].at)];
+        const bool station = !_moves[i];
+        if (units[i].slot == c.slot) {
+            cell.ourStations += station;
+            // Its ships that fight: armed, and not a builder or freighter.
+            if (!station && !_weapons[i].empty() && _classes[i] != "constructionrig" && _classes[i] != "freighter") {
+                ships.push_back({units[i].at[0] - map.area[0], units[i].at[2] - map.area[4], _vitals[i].maxShields});
+                shipUnits.push_back(i);
+            }
+        } else {
+            cell.enemyStations += station;
+            cell.enemyShips += !station;
+            cell.enemyShields += _vitals[i].shields;
+        }
+    }
+    const std::vector<Strategy::Goal> goals = Strategy::goalsOf(cells, across, down, c.personality);
+    const auto to = Strategy::assign(ships, goals, c.personality);
+    for (size_t s = 0; s < ships.size(); ++s) {
+        if (!to[s])
+            continue;
+        const Strategy::Goal &g = goals[*to[s]];
+        Movement::Ship &ship = _ships[shipUnits[s]];
+        const gfx::Vec3 there{map.area[0] + (float(g.x) + 0.5f) * Strategy::kCell, ship.at[1],
+                              map.area[4] + (float(g.z) + 0.5f) * Strategy::kCell};
+        // On its way there already, or there: left as it is.
+        if (std::hypot(there[0] - ship.at[0], there[2] - ship.at[2]) < Strategy::kCell / 2 ||
+            (ship.goal && std::hypot(there[0] - (*ship.goal)[0], there[2] - (*ship.goal)[2]) < 1))
+            continue;
+        ship.goal = there;
+        ship.route.clear();
+        ship.waiting = Movement::kSetOff;
+    }
+}
+
+void MissionView::engage() {
+    // An armed unit with nothing to attack takes the nearest enemy in its
+    // weapons' reach *(guessed: the original's units fight back)*.
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    for (size_t i = 0; i < units.size() && i < _targets.size(); ++i) {
+        if (_dead[i] || _targets[i] >= 0 || _weapons[i].empty())
+            continue;
+        float reach = 0;
+        for (const Combat::Weapon &w : _weapons[i])
+            reach = std::max(reach, w.range);
+        const gfx::Vec3 from = units[i].middle();
+        int best = -1;
+        float bestDistance = reach;
+        for (size_t j = 0; j < units.size(); ++j) {
+            if (_dead[j] || units[j].slot == units[i].slot)
+                continue;
+            const gfx::Vec3 to = units[j].middle();
+            const float d = std::hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+            if (d <= bestDistance) {
+                best = int(j);
+                bestDistance = d;
+            }
+        }
+        _targets[i] = best;
+    }
+}
+
 void MissionView::think(double seconds) {
     // Each computer player looks once a second at what to build next.
     const std::vector<MapScene::Unit> &units = _scene.units();
     const Odf::Loader loader = loaderOf(_files.files());
     for (Computer &c : _computers) {
+        // Its ships' goals, each ten seconds (guessed: its personality's
+        // recompute_strategy_period, 200, says no unit).
+        c.plan -= seconds;
+        if (c.plan <= 0) {
+            c.plan = 10;
+            plan(c);
+        }
         c.think -= seconds;
         if (c.think > 0)
             continue;
@@ -742,6 +842,7 @@ void MissionView::addFighter(const std::string &odf) {
     _weapons.push_back(read ? Combat::weaponsOf(def, loader) : std::vector<Combat::Weapon>{});
     _targets.push_back(-1);
     _dead.push_back(false);
+    _scans.push_back(read ? float(def.number("rangeScan", 500)) : 500.0f);
     _classes.push_back(read ? text::toLower(def.string("classLabel")) : std::string());
 }
 
@@ -1109,6 +1210,10 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
             if (u.slot == p.slot)
                 theirs.push_back(u.odf);
         c.bank = resourcesOf(start, theirs, _files.files());
+        c.personality = Strategy::personalityOf(
+            ComputerPlayer::buildListFileOf(p.race).substr(0, ComputerPlayer::buildListFileOf(p.race).find('_')) +
+                ".aip",
+            aiLoader);
         _computers.push_back(c);
     }
     _held.clear();
@@ -1414,6 +1519,7 @@ void MissionView::stop() {
     _ships.clear();
     _vitals.clear();
     _classes.clear();
+    _scans.clear();
     _computers.clear();
     _weapons.clear();
     _targets.clear();
@@ -1531,6 +1637,7 @@ void MissionView::draw(uint64_t millis) {
         c.bank.crew = grownCrew(c.bank.crew, c.crewCarry, starbasesOf(c.slot), seconds);
     think(seconds);
     build(seconds);
+    engage();
     fight(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
