@@ -429,7 +429,10 @@ void testPlacing() {
     mining.buffer = 80;
     const auto cells = MissionView::siteCellsOf({1025, 38.5f, 578}, mining);
     CHECK(cells.size() == 25 && cells.front() == std::make_pair(18, 9) && cells.back() == std::make_pair(22, 13));
-    const auto stand = MissionView::standOffOf({514.6f, 38.5f, 434.4f}, {624, 38.5f, 548});
+    // Stood off 53 from the cannon's site, 100 from the mining station's.
+    CHECK(std::abs(MissionView::standOffDistanceOf(cannon) - 53) < 2);
+    CHECK(std::abs(MissionView::standOffDistanceOf(mining) - 100) < 2);
+    const auto stand = MissionView::standOffOf({514.6f, 38.5f, 434.4f}, {624, 38.5f, 548}, 53);
     CHECK(std::abs(std::hypot(stand[0] - 514.6f, stand[2] - 434.4f) - 53) < 0.01f && stand[0] > 514.6f);
 
     const std::map<std::string, std::string> files = {{"fturret.odf", "[S]\nclassLabel = \"sensor\"\n"},
@@ -471,6 +474,37 @@ void testMapIcons() {
     CHECK(icons.size() == 2 && icons[0].sprite == "map_dmoon" && icons[0].x == 1118.5f && icons[0].z == 577);
 }
 
+// A freighter's rounds between the original's mining station and its
+// moon: 150 a time, unloaded over ten seconds, about every 44 seconds.
+void testFreighter() {
+    using reluva::storm3d::Movement;
+    const reluva::gfx::Vec3 station{923, 38.5f, 800};
+    const reluva::gfx::Vec3 moon{1118.5f, -50, 577};
+    Movement::Physics physics; // cnstphys.odf's, as the construction ship's
+    Movement::Ship ship;
+    ship.at = station;
+    MissionView::Freighter freighter;
+    int dilithium = 2000;
+    std::vector<double> deliveries; // when each began
+    int last = dilithium;
+    for (int i = 0; i < 20000; ++i) {
+        const double t = i * 0.01;
+        MissionView::work(freighter, ship, moon, station, dilithium, 0.01);
+        Movement::step(ship, physics, 0.01);
+        if (dilithium > last && (deliveries.empty() || t - deliveries.back() > 20))
+            deliveries.push_back(t);
+        last = dilithium;
+    }
+    CHECK(deliveries.size() >= 4 && std::abs(deliveries[0] - 33) < 2.5);
+    CHECK(dilithium >= 2000 + 150 * int(deliveries.size() - 1));
+    // Each load comes to 150 exactly.
+    CHECK(freighter.state != MissionView::Freighter::State::kUnloading ? (dilithium - 2000) % 150 == 0 : true);
+    if (deliveries.size() >= 3) {
+        const double period = (deliveries.back() - deliveries[1]) / double(deliveries.size() - 2);
+        CHECK(std::abs(period - 44.3) < 1.5);
+    }
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.play",
@@ -494,4 +528,5 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"orders", [](const std::filesystem::path &) { testOrders(); }},
                                             {"placing", [](const std::filesystem::path &) { testPlacing(); }},
                                             {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
+                                            {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                         });

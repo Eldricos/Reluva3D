@@ -183,8 +183,26 @@ public:
         Order order;
         bool started = false;
     };
-    /** Where a builder waits while it builds at `site`: 53 short of it, on the side of `from`. */
-    static gfx::Vec3 standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from);
+    /** Where a builder waits while it builds at `site`: `distance` short of it, on the side of `from`. */
+    static gfx::Vec3 standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from, float distance);
+    /** A freighter's round: to the moon, mining, back to its station, unloading. */
+    struct Freighter {
+        enum class State { kToMoon, kMining, kToStation, kUnloading };
+        size_t unit = 0;
+        size_t station = 0;
+        State state = State::kToMoon;
+        float cargo = 0;  // dilithium aboard
+        double timer = 0; // seconds into its mining, for its shots
+        double carry = 0; // dilithium unloaded, not yet a whole one
+    };
+    /**
+     * A freighter on by `seconds`, its ship `ship` (arrived when it has no
+     * goal), mining from `moon` and unloading at `station`: to the moon's
+     * far side, a shot of 15 each 1.5 seconds to its 150, back to the
+     * station's middle, then 15 a second into `dilithium`.
+     */
+    static void work(Freighter &freighter, Movement::Ship &ship, const gfx::Vec3 &moon, const gfx::Vec3 &station,
+                     int &dilithium, double seconds);
     /** What a station or an object to keep clear of takes: its box's middle and half sides on the plane, and its definition's footprintBuffer. */
     struct Footprint {
         float x = 0;
@@ -204,6 +222,12 @@ public:
      * buffer, in whole cells (the cannon one, the mining station five).
      */
     static std::vector<std::pair<int, int>> siteCellsOf(const gfx::Vec3 &site, const Footprint &station);
+    /**
+     * How far from a station's site its builder waits: the station's
+     * ring's half side and 37, as the original's ships stood off a Pulse
+     * Cannon (53) and a Mining Station (100).
+     */
+    static float standOffDistanceOf(const Footprint &station);
     /** Where the selection's ring lies: its middle, and half its side, from a unit's box. */
     static gfx::Vec3 ringMiddleOf(const MapScene::Unit &unit);
     static float ringHalfOf(const MapScene::Unit &unit);
@@ -248,6 +272,8 @@ private:
     std::optional<std::string> _placing;          // a station being placed, from the build menu
     Footprint _placingFootprint;                  // its, about its site
     std::vector<Footprint> _footprints;           // the stations' and the map's objects to keep clear of
+    std::vector<gfx::Vec3> _moons;                // the dilithium moons
+    std::vector<Freighter> _freighters;
     std::vector<Site> _sites;
     gfx::MeshId _cellMesh = 0;
     gfx::TextureId _cellTaken = 0;
@@ -261,6 +287,8 @@ private:
     void launch(size_t builder, const std::string &item); // a unit built
     void place(int x, int y);                             // the station being placed, at a point of the screen
     void raise(const Site &site);                         // a station built
+    std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
+                                  const MapScene::Unit &owner);
     void makeCells();
     std::optional<Footprint> footprintOf(const std::string &odf, const gfx::Vec3 &at, float fallback);
     bool placeable(const gfx::Vec3 &site) const;

@@ -70,7 +70,8 @@ Cannon (`fturret`, 250 dilithium, 2 officers, 25 seconds):
   program's, made in memory; Reluva draws its like them
   *(guessed)*.
 - **Sent:** a click there placed it, and the ship flew to 53 from the
-  site, on its side, and stopped. Nothing was paid yet: dilithium was
+  site, on its side, and stopped (100 from a Mining Station's: the
+  station's ring's half side and 37 *(inferred)*). Nothing was paid yet: dilithium was
   3000 until between 58 and 59 seconds, when the ship had got there, and
   2750 after; officers 4 to 6.
 - **Built:** worker bees flew round the site, the station's model came

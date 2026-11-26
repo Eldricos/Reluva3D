@@ -347,16 +347,13 @@ gfx::Vec3 MissionView::launchPointOf(const gfx::Vec3 &builder) {
     return {builder[0] - 131, builder[1] + 15, builder[2] - 110};
 }
 
-gfx::Vec3 MissionView::standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from) {
-    // The original's construction ship stopped 53 from its pulse cannon's
-    // site while it built (one build).
-    constexpr float kStandOff = 53;
+gfx::Vec3 MissionView::standOffOf(const gfx::Vec3 &site, const gfx::Vec3 &from, float distance) {
     const float dx = from[0] - site[0];
     const float dz = from[2] - site[2];
     const float length = std::hypot(dx, dz);
     if (length < 1e-3f)
-        return {site[0], from[1], site[2] + kStandOff};
-    return {site[0] + dx / length * kStandOff, from[1], site[2] + dz / length * kStandOff};
+        return {site[0], from[1], site[2] + distance};
+    return {site[0] + dx / length * distance, from[1], site[2] + dz / length * distance};
 }
 
 std::set<std::pair<int, int>> MissionView::takenCellsOf(const std::vector<Footprint> &footprints) {
@@ -412,6 +409,77 @@ bool MissionView::placeable(const gfx::Vec3 &site) const {
         if (taken.count(c))
             return false;
     return true;
+}
+
+float MissionView::standOffDistanceOf(const Footprint &station) {
+    return std::hypot(station.halfX, station.halfZ) + 37;
+}
+
+void MissionView::work(Freighter &freighter, Movement::Ship &ship, const gfx::Vec3 &moon, const gfx::Vec3 &station,
+                       int &dilithium, double seconds) {
+    // gminebm's range, minebm's damage and the shot delay; freight.odf's
+    // maxScrap; fmining.odf's dilithiumTransferRate.
+    constexpr float kReach = 100;
+    constexpr float kShot = 15;
+    constexpr double kShotDelay = 1.5;
+    constexpr float kHold = 150;
+    constexpr float kTransfer = 15;
+    constexpr int kMaxDilithium = 999999; // RTS_CFG.h's cfgMaxDilithium
+    using State = Freighter::State;
+    switch (freighter.state) {
+    case State::kToMoon:
+        if (!ship.goal) {
+            // The original's passed the moon's side and mined out of view
+            // beyond it: at its side, square to the way from the station,
+            // which gives its rounds' 44 seconds (inferred).
+            const float dx = moon[0] - station[0];
+            const float dz = moon[2] - station[2];
+            const float length = std::max(1e-3f, std::hypot(dx, dz));
+            const gfx::Vec3 spot{moon[0] - dz / length * kReach, ship.at[1], moon[2] + dx / length * kReach};
+            if (std::hypot(spot[0] - ship.at[0], spot[2] - ship.at[2]) > 20) {
+                ship.goal = spot;
+                // Round the moon, not through it.
+                ship.route = Movement::routeAround(ship.at, spot, {{moon, kReach / 2}}, 0);
+            } else {
+                // Its first shot as it gets there.
+                freighter.state = State::kMining;
+                freighter.timer = 0;
+                freighter.cargo = std::min(kHold, freighter.cargo + kShot);
+            }
+        }
+        break;
+    case State::kMining: {
+        const int before = int(freighter.timer / kShotDelay);
+        freighter.timer += seconds;
+        const int shots = int(freighter.timer / kShotDelay) - before;
+        freighter.cargo = std::min(kHold, freighter.cargo + kShot * float(shots));
+        if (freighter.cargo >= kHold) {
+            freighter.state = State::kToStation;
+            ship.goal = gfx::Vec3{station[0], ship.at[1], station[2]};
+        }
+        break;
+    }
+    case State::kToStation:
+        if (!ship.goal)
+            freighter.state = State::kUnloading;
+        break;
+    case State::kUnloading: {
+        const float out = std::min(freighter.cargo, float(kTransfer * seconds));
+        freighter.cargo -= out;
+        freighter.carry += out;
+        const double whole = std::floor(freighter.carry);
+        freighter.carry -= whole;
+        dilithium = int(std::min<double>(kMaxDilithium, dilithium + whole));
+        if (freighter.cargo <= 0) {
+            // What's left of the sum's fractions: the load comes to its 150.
+            dilithium = int(std::min<double>(kMaxDilithium, dilithium + std::lround(freighter.carry)));
+            freighter.carry = 0;
+            freighter.cargo = 0;
+            freighter.state = State::kToMoon;
+        }
+        break;
+    }
+    }
 }
 
 int MissionView::grownCrew(int crew, double &carry, int starbases, double seconds) {
@@ -494,7 +562,7 @@ void MissionView::place(int x, int y) {
     site.at = *at;
     site.order = orderOf(*_placing, loaderOf(_files.files()));
     _sites.push_back(site);
-    _ships[builder].goal = standOffOf(*at, _ships[builder].at);
+    _ships[builder].goal = standOffOf(*at, _ships[builder].at, standOffDistanceOf(_placingFootprint));
     _ships[builder].route.clear();
     _ships[builder].waiting = Movement::kSetOff;
     _placing.reset();
@@ -518,9 +586,55 @@ void MissionView::raise(const Site &site) {
     Movement::Ship standing;
     standing.at = site.at;
     _ships.push_back(standing);
+    // A mining station comes with a freighter of its race's (its letter,
+    // then "freight": ffreight), as the original's did, and sets it to
+    // work on the nearest moon.
+    Odf def;
+    if (_moons.empty() || def.load(site.order.item + ".odf", loaderOf(_files.files())) ||
+        !text::equalsIgnoreCase(def.string("classLabel"), "mining"))
+        return;
+    const size_t station = _scene.units().size() - 1;
+    const std::string freighter = site.order.item.substr(0, 1) + "freight";
+    if (auto unit = addShip(freighter, site.at, 0, _scene.units()[station]))
+        _freighters.push_back({*unit, station});
+}
+
+std::optional<size_t> MissionView::addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
+                                           const MapScene::Unit &owner) {
+    MapScene::StartUnit unit;
+    unit.odf = odf;
+    unit.at = at;
+    unit.slot = owner.slot;
+    unit.colour = owner.colour;
+    if (!_scene.addUnit(unit, heading))
+        return std::nullopt;
+    Odf def;
+    const Odf::Loader loader = loaderOf(_files.files());
+    std::optional<Movement::Physics> physics;
+    if (!def.load(odf + ".odf", loader) && def.number("enginesHitPoints") > 0)
+        physics = Movement::physicsOf(def, loader);
+    _moves.push_back(physics.has_value());
+    _physics.push_back(physics);
+    Movement::Ship ship;
+    ship.at = at;
+    ship.heading = heading;
+    _ships.push_back(ship);
+    return _ships.size() - 1;
 }
 
 void MissionView::build(double seconds) {
+    // The freighters, each at its nearest moon.
+    for (Freighter &f : _freighters) {
+        if (f.unit >= _ships.size() || f.station >= _ships.size() || _moons.empty() || !_resources)
+            continue;
+        const gfx::Vec3 &station = _ships[f.station].at;
+        const gfx::Vec3 *moon = &_moons.front();
+        for (const gfx::Vec3 &m : _moons)
+            if (std::hypot(m[0] - station[0], m[2] - station[2]) <
+                std::hypot((*moon)[0] - station[0], (*moon)[2] - station[2]))
+                moon = &m;
+        work(f, _ships[f.unit], *moon, station, _resources->dilithium, seconds);
+    }
     // The stations: begun, and paid for, when the builder has got there.
     for (size_t i = 0; i < _sites.size();) {
         Site &site = _sites[i];
@@ -732,11 +846,17 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
         if (!_moves[i])
             if (auto f = footprintOf(_scene.units()[i].odf, _scene.units()[i].at, 0))
                 _footprints.push_back(*f);
+    _moons.clear();
     for (const BznMap::Object &o : parsed.objects) {
         Odf def;
-        if (!def.load(o.odf + ".odf", loader) && def.number("avoidMe") > 0)
+        if (def.load(o.odf + ".odf", loader))
+            continue;
+        if (def.number("avoidMe") > 0)
             if (auto f = footprintOf(o.odf, o.position, 10))
                 _footprints.push_back(*f);
+        // The dilithium moons are the map's scrap (mdmoon's classLabel).
+        if (text::equalsIgnoreCase(def.string("classLabel"), "scrap"))
+            _moons.push_back(o.position);
     }
     std::vector<std::string> myUnits;
     std::string myRace = "fed";
@@ -963,6 +1083,8 @@ void MissionView::stop() {
     _placing.reset();
     _sites.clear();
     _footprints.clear();
+    _moons.clear();
+    _freighters.clear();
     _moves.clear();
     _physics.clear();
     _ships.clear();
