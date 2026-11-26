@@ -79,9 +79,13 @@ From the same run's frames and draws:
   `attack` shortcut, for one unit or a group), arms the attack cursor
   (`c_attack`); a click on a unit makes it the target of the selected
   units with weapons. A right click on another player's unit does the
-  same *(guessed: the game's settings call its default the right-click
-  interface; no enemy was near enough to try)*, and a right click on
-  the map sends the ships there, giving their attack up. Each weapon fires when it's ready and in range,
+  same *(guessed)*: the game's settings call its default the
+  right-click interface, and no enemy was near enough to try. A right
+  click on the map sends the ships there, giving their attack up.
+- **Chasing:** a ship whose target is out of its weapons' reach flies
+  to the point on its way at 0.8 of that reach from the target, set
+  afresh as the target moves, and stops once it's that close
+  *(guessed)*: the original's chase is still to be measured. Each weapon fires when it's ready and in range,
   its damage rolled by a generator of Reluva's own; the shot flies to
   the target's middle and hits there. A unit whose hull goes is hidden,
   out of the selection and the minimap, its officers back to the count.
@@ -122,7 +126,8 @@ From the same run's frames and draws:
 - The debris, the shockwave (`xshock`), the blue sparks of hull hits,
   and when the fires start: by the systems' damage, likely.
 - The hit chance's part (`hitChance`, 1 for these).
-- Ships that chase what they attack, and what a right click on an
-  enemy does in the original.
+- How the original's ships chase what they attack (how close, whether
+  they circle it: `RTS_CFG.h`'s `DOGFIGHT_RANGE` 70 and its anchor
+  settings suggest so), and what a right click on an enemy does.
 - The systems (engines, weapons, shields, life support, sensors) and
   their hit points.

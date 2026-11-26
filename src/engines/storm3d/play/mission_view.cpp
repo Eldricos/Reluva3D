@@ -848,6 +848,7 @@ void MissionView::addFighter(const std::string &odf) {
     _vitals.push_back(read ? Combat::vitalsOf(def) : Combat::Vitals{});
     _weapons.push_back(read ? Combat::weaponsOf(def, loader) : std::vector<Combat::Weapon>{});
     _targets.push_back(-1);
+    _chasing.push_back(false);
     _dead.push_back(false);
     _scans.push_back(read ? float(def.number("rangeScan", 500)) : 500.0f);
     _classes.push_back(read ? text::toLower(def.string("classLabel")) : std::string());
@@ -1603,6 +1604,7 @@ void MissionView::stop() {
     _computers.clear();
     _weapons.clear();
     _targets.clear();
+    _chasing.clear();
     _dead.clear();
     _shots.clear();
     _shieldHits.clear();
@@ -1732,6 +1734,42 @@ bool MissionView::attack(int target) {
     return any;
 }
 
+void MissionView::pursue() {
+    // Out of its weapons' reach, a ship flies to a point well inside it on
+    // the way to its target, set afresh as the target moves; within it,
+    // it stops there.
+    constexpr float kInside = 0.8f;
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    for (size_t i = 0; i < units.size() && i < _targets.size() && i < _chasing.size() && i < _ships.size(); ++i) {
+        const int t = _targets[i];
+        Movement::Ship &ship = _ships[i];
+        if (t < 0 || _dead[i] || !_physics[i] || _weapons[i].empty()) {
+            if (_chasing[i])
+                ship.goal.reset();
+            _chasing[i] = false;
+            continue;
+        }
+        float reach = 0;
+        for (const Combat::Weapon &w : _weapons[i])
+            reach = std::max(reach, w.range);
+        const gfx::Vec3 from = units[i].middle();
+        const gfx::Vec3 to = units[size_t(t)].middle();
+        const float dx = to[0] - from[0];
+        const float dz = to[2] - from[2];
+        const float distance = std::hypot(dx, to[1] - from[1], dz);
+        if (distance > reach) {
+            const float flat = std::max(1e-3f, std::hypot(dx, dz));
+            const float keep = reach * kInside;
+            ship.goal = gfx::Vec3{to[0] - dx / flat * keep, ship.at[1], to[2] - dz / flat * keep};
+            ship.route.clear();
+            _chasing[i] = true;
+        } else if (_chasing[i] && distance <= reach * kInside + 1) {
+            ship.goal.reset();
+            _chasing[i] = false;
+        }
+    }
+}
+
 MissionView::Ending MissionView::ending() const {
     if (_players.empty())
         return Ending::kNone;
@@ -1785,6 +1823,7 @@ void MissionView::draw(uint64_t millis) {
     think(seconds);
     build(seconds);
     engage();
+    pursue();
     fight(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));

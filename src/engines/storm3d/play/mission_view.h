@@ -316,6 +316,7 @@ private:
     std::vector<Combat::Vitals> _vitals;
     std::vector<std::vector<Combat::Weapon>> _weapons;
     std::vector<int> _targets;
+    std::vector<bool> _chasing; // as _targets: its goal is its target's, set by pursue()
     std::vector<bool> _dead;
     std::vector<Combat::Shot> _shots;
     // A shield glowing where it was last hit: from where, when (the game's
@@ -358,6 +359,7 @@ private:
     int liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const; // unitAt's, but not a destroyed one
     void destroy(size_t unit, int by);                             // by: the slot of the player whose shot it was
     bool attack(int target); // the selected units with weapons take it as their target: whether any did
+    void pursue();           // ships whose target is out of their weapons' reach fly after it
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                   const MapScene::Unit &owner);
     void makeCells();
