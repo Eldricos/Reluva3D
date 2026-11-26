@@ -351,6 +351,11 @@ void Hud::drawInfo(Surface &screen, const Unit &unit) {
     const float f = std::clamp(unit.shields, 0.0f, 1.0f);
     sprite(_layout.text("infoSingleShieldBar"), "infoSingleShieldBarArea",
            {uint8_t(std::lround(255 * (1 - f))), uint8_t(std::lround(255 * f)), 0}, false, f);
+    // Special energy, in the layout's colours: yellow for what it has, grey
+    // under it (infoSingleEnergyBarColor, infoSingleEnergyBarDisableColor).
+    sprite(_layout.text("infoSingleEnergyBar"), "infoSingleEnergyBarArea", kDisabled);
+    sprite(_layout.text("infoSingleEnergyBar"), "infoSingleEnergyBarArea", {255, 255, 0}, false,
+           std::clamp(unit.energy, 0.0f, 1.0f));
     sprite(_layout.text("infoSingleConstructionBar"), "infoSingleConstructionBarArea", kDisabled);
     sprite(_layout.text("infoSingleConstructionBar"), "infoSingleConstructionBarArea", kConstruction, false,
            unit.construction);
@@ -385,8 +390,11 @@ void Hud::drawOrders(Surface &screen, const Unit &unit) {
     const int step = slot[2] + int(_layout.number("speedSingleButtonGap"));
     for (size_t i = 0; i < unit.specials.size() && i < kRailSlots; ++i) {
         const int x = rail[0] + slot[0] + int(i) * step;
-        drawSprite(screen, unit.specials[i], x, rail[1] + slot[1], slot[2], slot[3], kButtonTint);
-        drawSprite(screen, "bb_dweapon", x, rail[1] + slot[1], slot[2], slot[3], kBorderTint, true);
+        // Dark until it can be fired: the original's Defiant had its mines'
+        // so before they were researched.
+        const bool ready = i < unit.specialsReady.size() && unit.specialsReady[i];
+        drawSprite(screen, unit.specials[i], x, rail[1] + slot[1], slot[2], slot[3], ready ? kButtonTint : kOff);
+        drawSprite(screen, "bb_dweapon", x, rail[1] + slot[1], slot[2], slot[3], ready ? kBorderTint : kOff, true);
     }
     // Then what it's building, the first with its progress wiped round
     // clockwise from twelve o'clock in orange, the icon drawn again.
@@ -418,6 +426,18 @@ void Hud::drawOrders(Surface &screen, const Unit &unit) {
     const int transportX = sepX + separator[2] + int(_layout.number("speedSingleButtonGap"));
     drawSprite(screen, "b_transport", transportX, rail[1] + slot[1], slot[2], slot[3], kButtonTint);
     drawSprite(screen, "bb_standard", transportX, rail[1] + slot[1], slot[2], slot[3], kBorderTint, true);
+}
+
+int Hud::specialAt(int x, int y) const {
+    const std::array<int, 4> rail = _layout.area("speedPanelArea");
+    const std::array<int, 4> slot = _layout.area("speedSingleButtonArea");
+    const int step = slot[2] + int(_layout.number("speedSingleButtonGap"));
+    for (size_t i = 0; i < kRailSlots; ++i) {
+        const int left = rail[0] + slot[0] + int(i) * step;
+        if (x >= left && x < left + slot[2] && y >= rail[1] + slot[1] && y < rail[1] + slot[1] + slot[3])
+            return int(i);
+    }
+    return -1;
 }
 
 int Hud::cinematicButtonAt(int x, int y) const {

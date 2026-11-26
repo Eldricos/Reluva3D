@@ -52,6 +52,36 @@ there, the ship's crew falling (492 to 479 over 30 seconds). Their
 places were measured on the frames against the shipyard's site, to
 about ten units.
 
+### Research and special weapons
+
+From the definitions:
+
+- **A weapon with `special` 1** is fired by its own button on the rail
+  over the display (`b_<weapon>`), not at what the unit attacks. 67 are
+  so, of 15 kinds (`classLabel`): cannons, launchers and area weapons,
+  mine layers, cloaks and cloak detectors, beams that hold or tow
+  (`toggleweapon`), wormholes, self-destruct, regeneration and more.
+- **Special energy:** a unit has `maxSpecialEnergy`, coming back at its
+  `specialEnergyRate` (the Defiant's 1000, 10 a second); a special
+  weapon's ordnance costs its `specialEnergyCost` (an Antimatter Mine
+  all 1000; the cloaks keep theirs on the weapon). The info panel shows
+  it as `infoSingleEnergyBar`, in `infoSingleEnergyBarColor`, yellow,
+  over its `DisableColor`: the Defiant's five yellow pips on the
+  original's frames.
+- **Research:** a research station's build items are pods (`fresear`'s
+  `fedpod1` to `5`), each built as a ship is (Antimatter Mines' 40
+  seconds, 200 dilithium, 10 officers), each giving one ship class's
+  special weapon. Nothing in the files names which: the pod's tooltip
+  is the weapon's without its key ("Antimatter Mines - Defiant", the
+  weapon's "Antimatter Mines (^F^1) - Defiant"), so for all 39 pods but
+  the five Tachyon Detection Grids, whose weapons say "Detect Cloak"
+  *(inferred)*. Before research, the original's Defiant had its mines'
+  button dark.
+- **Antimatter Mines** (`gamine`, its ordnance `amine`, an `antimine`):
+  a mine left where the ship is, seeing ships within its `detectRadius`
+  (250), going for them at its `shotSpeed` (45), for 30 seconds
+  (`lifeSpan`), doing 50 give or take 5; drawn as `wantmine.sod`.
+
 ### What's drawn
 
 From the same run's frames and draws:
@@ -93,6 +123,15 @@ From the same run's frames and draws:
   same *(guessed)*: the game's settings call its default the
   right-click interface, and no enemy was near enough to try. A right
   click on the map sends the ships there, giving their attack up.
+- **Special weapons:** each unit's from its definition, its special
+  energy as above, the rail's buttons dark but while one could be
+  fired: researched if a pod gives it, charged, ready, and made. A
+  button pressed fires it from each selected unit that can, or, for
+  one that wants a target, at the next unit clicked. Made yet: the
+  Antimatter Mines, each going for the nearest ship of another's in its
+  sight and hitting it when within half its size *(guessed)*; and the
+  cannons and launchers whose ordnance does damage, as a shot. A pod
+  built gives its player its weapon instead of a ship.
 - **Chasing:** a ship whose target is out of its weapons' reach flies
   to the point on its way at 0.95 of that reach from the target, set
   afresh as the target moves, and stops there; within reach it holds
@@ -134,6 +173,12 @@ From the same run's frames and draws:
 - The debris, the shockwave (`xshock`), the blue sparks of hull hits,
   and when the fires start: by the systems' damage, likely.
 - The hit chance's part (`hitChance`, 1 for these).
+- The other special weapons: the cloaks, the beams, the wormholes, the
+  area weapons and the rest, each its own; and how many mines a ship
+  drops, how they move (`omegaTurn`, `shotAccel`) and what they do to
+  shields.
+- How a pod shows on its station (`podHardpoints`), and whether one
+  researched leaves the menu.
 - What `RTS_CFG.h`'s `DOGFIGHT_RANGE` (70) and anchor settings do: the
   destroyer chasing a construction ship didn't circle it. And what a
   right click on an enemy does.

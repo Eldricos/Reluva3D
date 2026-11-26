@@ -849,6 +849,7 @@ void MissionView::addFighter(const std::string &odf) {
     _weapons.push_back(read ? Combat::weaponsOf(def, loader) : std::vector<Combat::Weapon>{});
     _targets.push_back(-1);
     _chasing.push_back(false);
+    _specials.push_back(read ? Combat::specialsOf(def, loader) : std::vector<Combat::Special>{});
     _dead.push_back(false);
     _scans.push_back(read ? float(def.number("rangeScan", 500)) : 500.0f);
     _classes.push_back(read ? text::toLower(def.string("classLabel")) : std::string());
@@ -866,6 +867,10 @@ void MissionView::fight(double seconds) {
     for (size_t i = 0; i < count; ++i)
         if (!_dead[i])
             Combat::regenerate(_vitals[i], seconds);
+    for (std::vector<Combat::Special> &specials : _specials)
+        for (Combat::Special &sp : specials)
+            sp.ready = std::max(0.0, sp.ready - seconds);
+    moveMines(seconds);
     // Each weapon fires at its unit's target when it's ready and the target
     // is in its range: the starbase's eight all at once, every 4.5 seconds.
     for (size_t i = 0; i < count; ++i) {
@@ -1048,6 +1053,13 @@ void MissionView::launch(size_t builder, const std::string &item) {
     if (builder >= _scene.units().size())
         return;
     const MapScene::Unit from = _scene.units()[builder];
+    // A research station's pod isn't a ship: built, its special weapon is
+    // the player's.
+    Odf def;
+    if (!def.load(item + ".odf", loaderOf(_files.files())) && text::equalsIgnoreCase(def.string("classLabel"), "pod")) {
+        _researched[from.slot].insert(Combat::researchKeyOf(def.string("tooltip")));
+        return;
+    }
     const gfx::Vec3 to = launchPointOf(from.at);
     gfx::Vec3 at = from.middle();
     at[1] = to[1];
@@ -1201,6 +1213,28 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
                  cover);
     _overview = startOf(parsed, slot);
     _slot = slot;
+    // The pods there are: what the starting units can build, and what that
+    // can, on down. A special weapon a pod gives wants it researched.
+    {
+        const Odf::Loader podLoader = loaderOf(_files.files());
+        std::set<std::string> seen;
+        std::vector<std::string> open;
+        for (const MapScene::Unit &u : _scene.units())
+            open.push_back(text::toLower(u.odf));
+        while (!open.empty()) {
+            const std::string odf = open.back();
+            open.pop_back();
+            if (!seen.insert(odf).second)
+                continue;
+            Odf def;
+            if (def.load(odf + ".odf", podLoader))
+                continue;
+            if (text::equalsIgnoreCase(def.string("classLabel"), "pod"))
+                _pods.insert(Combat::researchKeyOf(def.string("tooltip")));
+            for (int i = 0; !def.string("buildItem" + std::to_string(i)).empty(); ++i)
+                open.push_back(text::toLower(def.string("buildItem" + std::to_string(i))));
+        }
+    }
     _mapIcons = mapIconsOf(parsed, loaderOf(_files.files()));
     std::map<std::string, std::optional<Movement::Physics>> physics;
     const Odf::Loader loader = loaderOf(_files.files());
@@ -1394,6 +1428,8 @@ void MissionView::drawEffects(double now) {
     std::erase_if(_explosions, [&](const Explosion &e) { return now - e.began >= kExplosion; });
     for (const Explosion &e : _explosions)
         _scene.drawEffect(e.model, e.at, now - e.began);
+    for (const Mine &m : _mines)
+        _scene.drawEffect(m.special.model, m.at, now);
 }
 
 void MissionView::drawShots(const MapScene::Camera &view) {
@@ -1605,6 +1641,11 @@ void MissionView::stop() {
     _weapons.clear();
     _targets.clear();
     _chasing.clear();
+    _specials.clear();
+    _pods.clear();
+    _researched.clear();
+    _arming.clear();
+    _mines.clear();
     _dead.clear();
     _shots.clear();
     _shieldHits.clear();
@@ -1639,6 +1680,10 @@ void MissionView::handleEvent(const Event &ev) {
             _menuWanted = true;
             return;
         }
+        if (const int sp = _hud.specialAt(ev.mouseX, ev.mouseY); sp >= 0 && size_t(sp) < _orders.specials.size()) {
+            useSpecial(_orders.specials[size_t(sp)], -1);
+            return;
+        }
         pressControl(_hud.controlAt(ev.mouseX, ev.mouseY));
         return;
     }
@@ -1646,8 +1691,14 @@ void MissionView::handleEvent(const Event &ev) {
         // The unit clicked on is what the selected units attack; the right
         // button gives up.
         _targeting = false;
-        if (ev.button == MouseButton::kLeft)
-            attack(liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY));
+        if (ev.button == MouseButton::kLeft) {
+            const int t = liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY);
+            if (!_arming.empty())
+                useSpecial(_arming, t);
+            else
+                attack(t);
+        }
+        _arming.clear();
         return;
     }
     if (_placing && ev.type == EventType::kMouseDown && !_hud.covers(ev.mouseX, ev.mouseY)) {
@@ -1774,6 +1825,105 @@ void MissionView::pursue() {
             _chasing[i] = false;
         }
     }
+}
+
+bool MissionView::usable(size_t unit, const Combat::Special &special) const {
+    if (unit >= _vitals.size() || _dead[unit] || special.ready > 0 || _vitals[unit].energy < special.energy)
+        return false;
+    // One a pod gives wants it researched by the unit's player.
+    if (_pods.count(special.research)) {
+        auto it = _researched.find(_scene.units()[unit].slot);
+        if (it == _researched.end() || !it->second.count(special.research))
+            return false;
+    }
+    // Those made yet: mines, and shots that do damage.
+    return (special.kind == "minelayer" && special.ordnance == "antimine") ||
+           ((special.kind == "cannon" || special.kind == "launcher") && special.damage > 0);
+}
+
+void MissionView::useSpecial(const std::string &button, int target) {
+    for (int i : _selection) {
+        if (size_t(i) >= _specials.size() || _scene.units()[size_t(i)].slot != _slot)
+            continue;
+        for (Combat::Special &sp : _specials[size_t(i)]) {
+            if (sp.button != button || !usable(size_t(i), sp))
+                continue;
+            // One that wants a target waits for the next click on a unit.
+            if (sp.needTarget && target < 0) {
+                _arming = button;
+                _targeting = true;
+                continue;
+            }
+            fireSpecial(size_t(i), sp, target);
+        }
+    }
+}
+
+void MissionView::fireSpecial(size_t unit, Combat::Special &special, int target) {
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    _vitals[unit].energy -= special.energy;
+    special.ready = special.delay;
+    if (special.kind == "minelayer") {
+        // Left where the ship is, to wait for a ship of another's.
+        _mines.push_back({units[unit].middle(), units[unit].slot, special, special.life});
+        return;
+    }
+    if (target < 0 || size_t(target) >= units.size() || _dead[size_t(target)])
+        return;
+    _roll = _roll * 1664525u + 1013904223u;
+    const float roll = float(_roll >> 8) / float(1u << 24);
+    Combat::Weapon as;
+    as.damage = special.damage;
+    as.variance = special.variance;
+    const gfx::Vec3 from = units[unit].middle();
+    _shots.push_back(
+        {size_t(target), from, special.speed, Combat::damageOf(as, roll), special.sprite, from, units[unit].slot});
+}
+
+void MissionView::moveMines(double seconds) {
+    // Each goes for the nearest ship of another's within its sight, at its
+    // speed, and hits it within that ship's reach; spent at its life's end.
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    std::vector<std::pair<size_t, int>> killed;
+    for (size_t m = 0; m < _mines.size();) {
+        Mine &mine = _mines[m];
+        mine.left -= seconds;
+        int prey = -1;
+        float best = mine.special.detect;
+        for (size_t j = 0; j < units.size() && j < _dead.size(); ++j) {
+            if (_dead[j] || units[j].slot == mine.slot || j >= _moves.size() || !_moves[j])
+                continue;
+            const gfx::Vec3 c = units[j].middle();
+            const float d = std::hypot(c[0] - mine.at[0], c[1] - mine.at[1], c[2] - mine.at[2]);
+            if (d <= best)
+                prey = int(j), best = d;
+        }
+        bool spent = mine.left <= 0;
+        if (prey >= 0) {
+            const gfx::Vec3 c = units[size_t(prey)].middle();
+            const float step = float(mine.special.speed * seconds);
+            if (best <= std::max(step, units[size_t(prey)].radius() * 0.5f)) {
+                _roll = _roll * 1664525u + 1013904223u;
+                Combat::Weapon as;
+                as.damage = mine.special.damage;
+                as.variance = mine.special.variance;
+                Combat::hit(_vitals[size_t(prey)], Combat::damageOf(as, float(_roll >> 8) / float(1u << 24)));
+                if (!_vitals[size_t(prey)].alive())
+                    killed.emplace_back(size_t(prey), mine.slot);
+                spent = true;
+            } else {
+                for (size_t k = 0; k < 3; ++k)
+                    mine.at[k] += (c[k] - mine.at[k]) / best * step;
+            }
+        }
+        if (spent)
+            _mines.erase(_mines.begin() + std::ptrdiff_t(m));
+        else
+            ++m;
+    }
+    for (const auto &[k, by] : killed)
+        if (!_dead[k])
+            destroy(k, by);
 }
 
 MissionView::Ending MissionView::ending() const {
@@ -1943,8 +2093,20 @@ void MissionView::draw(uint64_t millis) {
         const size_t i = size_t(_selection[k]);
         if (i < _vitals.size() && _vitals[i].maxShields > 0)
             _display[k].shields = _vitals[i].shields / _vitals[i].maxShields;
+        if (i < _vitals.size())
+            _display[k].energy = _vitals[i].maxEnergy > 0 ? _vitals[i].energy / _vitals[i].maxEnergy : 0;
     }
     Hud::Unit orders = _orders;
+    // A special weapon's button lit while any unit selected could fire it.
+    orders.specialsReady.assign(orders.specials.size(), false);
+    for (size_t b = 0; b < orders.specials.size(); ++b)
+        for (int i : _selection)
+            if (size_t(i) < _specials.size())
+                for (const Combat::Special &sp : _specials[size_t(i)])
+                    if (sp.button == orders.specials[b] && usable(size_t(i), sp))
+                        orders.specialsReady[b] = true;
+    if (!_display.empty())
+        orders.energy = _display.front().energy;
     if (_building) {
         orders.controls = _buildMenu.controls;
         // The item being placed in orange; all dark while the ship builds,

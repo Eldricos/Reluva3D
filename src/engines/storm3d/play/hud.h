@@ -60,6 +60,8 @@ public:
         };
         std::vector<Button> controls;
         std::vector<std::string> specials; // its special weapons' buttons' sprites: "b_gtracbm"
+        std::vector<bool> specialsReady;   // as specials: whether each can be fired now (else drawn dark)
+        float energy = 0;                  // its special energy, 0 to 1 of its most
         std::vector<std::string> queue;    // what it's building, first first: its buttons' sprites
         float progress = 0;                // the first's, 0 to 1
     };
@@ -72,6 +74,8 @@ public:
      */
     std::optional<std::array<float, 2>> minimapPointAt(int x, int y, float left, float right, float near,
                                                        float far) const;
+    /** The rail's special weapon button under a point (into Unit::specials); -1 for none. */
+    int specialAt(int x, int y) const;
     /** The control panel's button (1 to 12, controlButton<n>) under a point of the screen; 0 for none. */
     int controlAt(int x, int y) const;
     /** The cinematic view's display on the screen: x, y, width and height. */

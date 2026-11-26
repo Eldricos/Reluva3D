@@ -628,6 +628,24 @@ void testStrategy() {
 
 } // namespace
 
+// A pod names the special weapon it gives by its tooltip, the weapon's
+// without its key; special energy comes back at its rate, to its most.
+void testSpecials() {
+    using reluva::storm3d::Combat;
+    CHECK(Combat::researchKeyOf("Antimatter Mines (^F^1) - Defiant") == "antimatter mines - defiant");
+    CHECK(Combat::researchKeyOf("^Antimatter Mines - Defiant") == "antimatter mines - defiant");
+    CHECK(Combat::researchKeyOf("Chain Reaction Pulsar (^F^2) - Akira") ==
+          Combat::researchKeyOf("^Chain Reaction Pulsar - Akira"));
+    Combat::Vitals v;
+    v.maxShields = v.shields = v.maxHull = v.hull = 150;
+    v.maxEnergy = 1000;
+    v.energyRate = 10;
+    Combat::regenerate(v, 30);
+    CHECK(std::fabs(v.energy - 300) < 1e-3f);
+    Combat::regenerate(v, 100);
+    CHECK(v.energy == 1000);
+}
+
 // The original's destroyer: within its reach of 250 it held; its target
 // flown to 300 away, it flew to the edge of its reach on the way.
 void testChase() {
@@ -658,6 +676,7 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"orders", [](const std::filesystem::path &) { testOrders(); }},
                                             {"placing", [](const std::filesystem::path &) { testPlacing(); }},
                                             {"chase", [](const std::filesystem::path &) { testChase(); }},
+                                            {"specials", [](const std::filesystem::path &) { testSpecials(); }},
                                             {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                             {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},

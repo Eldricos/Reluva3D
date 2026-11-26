@@ -3,6 +3,8 @@
 
 #include "engines/storm3d/play/combat.h"
 
+#include "common/text.h"
+
 #include <algorithm>
 
 namespace reluva::storm3d {
@@ -24,6 +26,8 @@ Combat::Vitals Combat::vitalsOf(const Odf &unit) {
     v.maxShields = v.shields = float(unit.number("maxHealth"));
     v.maxHull = v.hull = float(unit.number("maxHealth"));
     v.shieldRate = float(unit.number("shieldRate"));
+    v.maxEnergy = v.energy = float(unit.number("maxSpecialEnergy"));
+    v.energyRate = float(unit.number("specialEnergyRate"));
     return v;
 }
 
@@ -51,6 +55,69 @@ std::vector<Combat::Weapon> Combat::weaponsOf(const Odf &unit, const Odf::Loader
     return weapons;
 }
 
+std::vector<Combat::Special> Combat::specialsOf(const Odf &unit, const Odf::Loader &loader) {
+    std::vector<Special> specials;
+    for (int i = 1;; ++i) {
+        const std::string name = unit.string("weapon" + std::to_string(i));
+        if (name.empty())
+            break;
+        Odf weapon;
+        if (weapon.load(name + ".odf", loader) || weapon.number("special") <= 0)
+            continue;
+        Odf ordnance;
+        const bool shot =
+            !weapon.string("ordName").empty() && !ordnance.load(weapon.string("ordName") + ".odf", loader);
+        Special s;
+        s.weapon = text::toLower(name);
+        s.kind = text::toLower(weapon.string("classLabel"));
+        s.button = "b_" + s.weapon;
+        s.research = researchKeyOf(weapon.string("tooltip"));
+        s.range = float(weapon.number("range"));
+        s.delay = weapon.number("shotDelay");
+        s.needTarget = weapon.number("needTarget", 1) != 0;
+        if (shot) {
+            s.ordnance = text::toLower(ordnance.string("classLabel"));
+            s.energy = float(ordnance.number("specialEnergyCost"));
+            s.damage = float(ordnance.number("damageBase"));
+            s.variance = float(ordnance.number("damageVariance"));
+            s.speed = float(ordnance.number("shotSpeed"));
+            s.detect = float(ordnance.number("detectRadius"));
+            s.life = ordnance.number("lifeSpan");
+            s.sprite = ordnance.string("Sprite");
+            s.model = ordnance.string("shotGeometry");
+            if (text::hasSuffixIgnoreCase(s.model, ".sod"))
+                s.model.resize(s.model.size() - 4);
+        }
+        // Some keep their cost on the weapon itself (the cloaks).
+        if (s.energy <= 0)
+            s.energy = float(weapon.number("specialEnergyCost"));
+        specials.push_back(s);
+    }
+    return specials;
+}
+
+std::string Combat::researchKeyOf(const std::string &tooltip) {
+    // "^" marks the hotkey's letter; "(^F^1)" is the key that fires it.
+    std::string out;
+    int depth = 0;
+    for (char c : tooltip) {
+        if (c == '(')
+            ++depth;
+        else if (c == ')')
+            depth = std::max(0, depth - 1);
+        else if (depth == 0 && c != '^')
+            out += c;
+    }
+    // The spaces left round the key, as one.
+    std::string squeezed;
+    for (char c : out)
+        if (c != ' ' || (!squeezed.empty() && squeezed.back() != ' '))
+            squeezed += c;
+    while (!squeezed.empty() && squeezed.back() == ' ')
+        squeezed.pop_back();
+    return text::toLower(squeezed);
+}
+
 void Combat::hit(Vitals &vitals, float damage) {
     const float onShields = std::min(vitals.shields, damage);
     vitals.shields -= onShields;
@@ -58,8 +125,10 @@ void Combat::hit(Vitals &vitals, float damage) {
 }
 
 void Combat::regenerate(Vitals &vitals, double seconds) {
-    if (vitals.alive())
-        vitals.shields = std::min(vitals.maxShields, vitals.shields + float(vitals.shieldRate * seconds));
+    if (!vitals.alive())
+        return;
+    vitals.shields = std::min(vitals.maxShields, vitals.shields + float(vitals.shieldRate * seconds));
+    vitals.energy = std::min(vitals.maxEnergy, vitals.energy + float(vitals.energyRate * seconds));
 }
 
 float Combat::damageOf(const Weapon &weapon, float roll) {

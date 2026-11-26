@@ -322,6 +322,19 @@ private:
     std::vector<Combat::Vitals> _vitals;
     std::vector<std::vector<Combat::Weapon>> _weapons;
     std::vector<int> _targets;
+    std::vector<std::vector<Combat::Special>> _specials; // each unit's special weapons
+    std::set<std::string> _pods;                         // the research keys pods give (Combat::researchKeyOf)
+    std::map<int, std::set<std::string>> _researched;    // each player's, by slot
+    std::string _arming; // a special weapon's button pressed that wants a target: the next click's
+    // A mine dropped: where, whose, and what it does, homing on the nearest
+    // enemy ship in its sight.
+    struct Mine {
+        gfx::Vec3 at{};
+        int slot = 0;
+        Combat::Special special;
+        double left = 0; // seconds of its life
+    };
+    std::vector<Mine> _mines;
     std::vector<bool> _chasing; // as _targets: its goal is its target's, set by pursue()
     std::vector<bool> _dead;
     std::vector<Combat::Shot> _shots;
@@ -366,6 +379,11 @@ private:
     void destroy(size_t unit, int by);                             // by: the slot of the player whose shot it was
     bool attack(int target); // the selected units with weapons take it as their target: whether any did
     void pursue();           // ships whose target is out of their weapons' reach fly after it
+    bool usable(size_t unit, const Combat::Special &special) const; // researched, made, charged and ready
+    void useSpecial(const std::string &button,
+                    int target); // the selected units with it fire it, at target if it wants one
+    void fireSpecial(size_t unit, Combat::Special &special, int target);
+    void moveMines(double seconds);
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                   const MapScene::Unit &owner);
     void makeCells();
