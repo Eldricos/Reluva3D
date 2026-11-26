@@ -768,6 +768,8 @@ void Device::keep(DirectX::Scene &scene) {
     step.alphaTest = k.alphaTest, step.alphaFunc = k.alphaFunc, step.alphaRef = k.alphaRef / 255;
     step.blend = k.blend, step.srcBlend = k.srcBlend, step.destBlend = k.destBlend;
     step.colorKey = k.colorKey, step.fog = k.fog, step.specular = k.specular;
+    step.fogColor = pack(k.fogColor.r, k.fogColor.g, k.fogColor.b, k.fogColor.a);
+    step.fogTable = k.fogTableMode;
     step.cull = renderStates[kCullMode];
     if (_stages > 0) {
         const StageConfig &st = k.stage[0];

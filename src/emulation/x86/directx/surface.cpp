@@ -892,8 +892,11 @@ void DirectX::State::presentShown() {
                     through = true;
                 }
         }
-        if (through)
+        if (through) {
+            if (gamma != identityGamma())
+                scene->gamma.assign(gamma.begin(), gamma.end());
             frame.scene = std::move(scene);
+        }
     }
     applyGamma();
     ++frame.number;

@@ -94,6 +94,8 @@ public:
             uint32_t alphaArg1 = 0;
             uint32_t alphaArg2 = 0;
             bool fog = false;
+            uint32_t fogColor = 0; // 0xAARRGGBB
+            uint32_t fogTable = 0; // D3DFOGMODE: 0, vertex fog (the specular colour's alpha)
             bool specular = false;
             uint32_t cull = 0; // D3DCULL; the vertices are already culled by it
         };
@@ -104,6 +106,9 @@ public:
         std::vector<uint32_t> software;
         int width = 0; // the target's
         int height = 0;
+        // The display's gamma ramp when it was shown (red, green and blue,
+        // 256 each, 0 to 65535); empty for none.
+        std::vector<uint16_t> gamma;
     };
 
     /**

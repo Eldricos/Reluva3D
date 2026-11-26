@@ -148,8 +148,10 @@ use.
   the colours, and the first stage's texture coordinates. Each draw
   also keeps its render states and its first stage's texture (its top
   level, made once each time the texture changes, with the colour key's
-  texels marked), as do the clears of the target and Z-buffer, and a
-  `Blt` depth fill of the Z-buffer, in order. Draws into any other
+  texels marked) and its fog's colour and mode, as do the clears of the
+  target and Z-buffer, and a `Blt` depth fill of the Z-buffer, in order.
+  When it's shown, the scene takes the display's gamma ramp too, which
+  the frame's pixels have been through already. Draws into any other
   surface (a texture, an off-screen buffer) are drawn in software as
   before.
 - **The 2D over it:** a kept draw isn't drawn. Instead the pixels its
