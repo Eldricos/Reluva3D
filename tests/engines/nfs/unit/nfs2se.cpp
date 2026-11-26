@@ -17,6 +17,8 @@
 #include "engines/nfs/nfs2se/glide_sky.h"
 #include "tests/engines/nfs/fixtures.h"
 
+#include <cstring>
+
 using namespace reluva::nfs::testing;
 
 namespace {
@@ -290,6 +292,62 @@ void testGlideSky() {
     CHECK(ring[7] == ring[8] && ring[7] == (nfs2se::Rgb{70, 140, 210}));
 }
 
+// A program with nfs2sen.exe's paint tables where it reads them, as
+// readPaintTable takes it: one section from 0x401000 up.
+std::vector<uint8_t> paintProgram() {
+    constexpr uint32_t kRaw = 0x400;
+    constexpr uint32_t kSize = 0xc4000;
+    std::vector<uint8_t> exe(kRaw + kSize, 0);
+    auto put32 = [&](size_t at, uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            exe[at + size_t(i)] = uint8_t(v >> (8 * i));
+    };
+    exe[0] = 'M';
+    exe[1] = 'Z';
+    put32(0x3c, 0x40);
+    std::memcpy(&exe[0x40], "PE\0\0", 4);
+    exe[0x46] = 1;    // one section
+    exe[0x54] = 0xe0; // the optional header's size
+    const size_t opt = 0x58;
+    exe[opt] = 0x0b; // PE32
+    exe[opt + 1] = 0x01;
+    put32(opt + 28, 0x400000); // the image base
+    put32(opt + 32, 0x1000);
+    put32(opt + 36, 0x200);
+    put32(opt + 60, kRaw); // the headers' size
+    const size_t section = opt + 0xe0;
+    put32(section + 8, kSize);
+    put32(section + 12, 0x1000);
+    put32(section + 16, kSize);
+    put32(section + 20, kRaw);
+    auto at = [&](uint32_t address) { return size_t(address - 0x401000 + kRaw); };
+    const uint8_t lookup[] = {0x56, 0xc1, 0xe0, 0x04, 0x8b, 0xb0, 0x34, 0x36, 0x4c, 0x00};
+    const uint8_t step[] = {0x8a, 0xa6, 0x20, 0x1d, 0x4c, 0x00};
+    std::memcpy(&exe[at(0x4451c0)], lookup, sizeof lookup);
+    std::memcpy(&exe[at(0x4106dd)], step, sizeof step);
+    // Three colours, then the all-zero one that ends them; car 2 the last two.
+    for (uint32_t i = 0; i < 3; ++i)
+        for (uint32_t k = 0; k < 4; ++k)
+            put32(at(0x4c3634 + 16 * i + 4 * k), 10 * i + k + 1);
+    exe[at(0x4c1d20 + 4)] = 1;
+    exe[at(0x4c1d20 + 5)] = 2;
+    return exe;
+}
+
+void testPaintTable() {
+    std::vector<uint8_t> exe = paintProgram();
+    nfs2se::PaintTable table;
+    CHECK(!nfs2se::readPaintTable(exe, table));
+    CHECK(table.colours.size() == 3 && table.colours[2].hue == 21 && table.colours[2].threshold == 24);
+    CHECK(table.cars[2][0] == 1 && table.cars[2][1] == 2 && table.cars[0][1] == 0);
+    // A car's colours past the table, and another program, refused.
+    exe[0x400 + 0x4c1d20 - 0x401000 + 5] = 3;
+    CHECK(nfs2se::readPaintTable(exe, table));
+    exe = paintProgram();
+    exe[0x400 + 0x4451c6 - 0x401000] = 0x35;
+    CHECK(nfs2se::readPaintTable(exe, table));
+}
+
 void testPaint() {
     std::vector<nfs2se::PaintColour> colours;
     CHECK(!nfs2se::parsePaintColours("/* Color 0 */\n0,0,210,80\n/* Color 1 */\n0,255,200,64\n", colours));
@@ -487,6 +545,7 @@ static const reluva::test::Suite kSuite("nfs.unit.nfs2se",
                                             {"picture corners", [](const stdfs::path &) { testPictureCorners(); }},
                                             {"animation script", [](const stdfs::path &) { testAnimationScript(); }},
                                             {"paint", [](const stdfs::path &) { testPaint(); }},
+                                            {"paint table", [](const stdfs::path &) { testPaintTable(); }},
                                             {"glide sky", [](const stdfs::path &) { testGlideSky(); }},
                                             {"car model", [](const stdfs::path &) { testCarModel(); }},
                                             {"movie", [](const stdfs::path &) { testMovie(); }},

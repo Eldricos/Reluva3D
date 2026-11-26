@@ -62,8 +62,8 @@ None yet.
   the code): the program recolours the car palette's greens, by their
   shade, to the chosen colour as it sets up the car (0x444f80;
   [geo.md](formats/geo.md), The paint). The Cars page so repainted
-  shows the F355 red with colour 2 and blue with colour 9, its shading
-  kept. What `DELTA.SJH` holds is a guess from its size, and neither
+  shows the F355 in each of its five colours (82 to 86: red, yellow,
+  black, blue, white), its shading kept. What `DELTA.SJH` holds is a guess from its size, and neither
   program reads it ([geo.md](formats/geo.md), The colours' files).
 - **How the cars' and the tracks' polygons take their pictures**
   (November 2026, from the code and seen): the program gives a

@@ -19,7 +19,7 @@ namespace reluva::nfs::nfs2se {
  * the car's .qfs, a level of detail at a time.
  *   Left/Right: model   drag or A/D/W/S: turn   wheel or +/-: zoom
  *   L: level (high, medium, low, all)   T: textures   Space: spin   R: reset
- *   P: paint (carhsvt.txt's colours, or none)
+ *   P: paint (the car's colours in nfs2sen.exe, as its front end offers them, or none)
  *   V: the car's speed, for the wheels' faces   B: brake, for the tail lights
  * Polygons with frames (geo.md: the wheels' faces, the tail lights) show
  * them as the game picks them.
@@ -44,6 +44,7 @@ private:
     void load(int index);
     void build();
     void release();
+    int carNumber() const;
     int frameShown(size_t frames, uint64_t nowMs) const;
 
     // A speed in each of the game's bands for the wheels, in m/s.
@@ -64,9 +65,9 @@ private:
     // file's picture, then its name with the frame's number in its second
     // character.
     std::vector<std::vector<int>> _frames;
-    std::vector<PaintColour> _paints; // carhsvt.txt's
-    int _paint = -1;                  // into _paints; -1 the pictures as they are
-    int _speed = 2;                   // into kSpeeds
+    PaintTable _paints;
+    int _paint = -1; // into _paints.colours; -1 the pictures as they are
+    int _speed = 2;  // into kSpeeds
     bool _braking = false;
     int _missing = 0; // polygons whose picture the .qfs hasn't
     gfx::MeshId _mesh = 0;

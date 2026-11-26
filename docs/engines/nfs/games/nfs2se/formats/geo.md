@@ -86,9 +86,16 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   sets up the car's palette (0x444f80), its shade from the green
   (0 to 127 above 0x80): black rising to the chosen colour, then toward
   white for the highlights, by a threshold of each colour's. The colours
-  are a table in the program (0x4c3634, 16 bytes each), three values
-  each (hue, saturation and value, by how they're turned into RGB:
-  0x444af8 *(inferred)*) and the threshold. Most cars' palettes have 50
+  are a table in the program (0x4c3634, 16 bytes each, 88 of them before
+  an all-zero one), three values each (hue, saturation and value, by how
+  they're turned into RGB: 0x444af8 *(inferred)*) and the threshold,
+  looked up by number (0x4451c0). Each racing car has a run of them, a
+  first and a count in a table of 2 bytes a car by its number
+  (0x4c1d20): the front end's car colour goes round the run, Left and
+  Right a colour at a time (0x4106cd, 0x41087b), and keeps each car's
+  pick (0x4ddea1, by car). The F355's are 82 to 86 (red, yellow, black,
+  blue and white); `IDGO`, `CHEV`, `DAYT` and `FUTR` have none. No
+  racing car's run takes colours 0 to 23. Most cars' palettes have 50
   to 146 such entries (the F355's 103, all pure greens from 128 to 255);
   `CHEV` and `DAYT` have none, `IDGO` and `LIMO` one, and the props
   none: those can't be repainted.
@@ -148,10 +155,12 @@ Read as `CarModel` (`src/engines/nfs/nfs2se/formats/geo.cpp`);
 The data viewer's Cars page (`src/engines/nfs/nfs2se/pages/car_page.cpp`)
 draws each model a level at a time, its pictures from the car's `.qfs`
 by name, their corners as the program lays them, both faces, lit from
-one side. P picks a paint from `CARHSVT.TXT`'s colours, or none (the
-palette's green), and recolours the pictures as the program does
-(`src/engines/nfs/nfs2se/formats/paint.cpp`): the text file's 24, where
-the game has its table's 111, the first 24 the same.
+one side. P goes round the shown car's own colours, read from the
+install's `nfs2sen.exe` as the front end offers them (`readPaintTable`),
+then none (the palette's green), and recolours the pictures as the
+program does (`src/engines/nfs/nfs2se/formats/paint.cpp`). A car without
+colours of its own, and every model but the racing cars, keeps its
+pictures as they are.
 The wheels' faces and the brake lights show their frames as the game
 picks them, for a speed chosen with V and the brake with B; the count
 steps 30 times a second, where the game's steps once a frame it draws.

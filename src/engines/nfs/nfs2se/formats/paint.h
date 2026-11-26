@@ -13,9 +13,9 @@
 namespace reluva::nfs::nfs2se {
 
 /**
- * A colour a car can be painted (GameData/CarModel/pc/carhsvt.txt, the
- * same as the first of nfs2sen.exe's table at 0x4c3634;
- * docs/engines/nfs/games/nfs2se/formats/geo.md, The paint).
+ * A colour a car can be painted: one of nfs2sen.exe's table at 0x4c3634
+ * (GameData/CarModel/pc/carhsvt.txt holds its first 24, which the game
+ * doesn't read; docs/engines/nfs/games/nfs2se/formats/geo.md, The paint).
  */
 struct PaintColour {
     int hue = 0;        // 0-255, a whole turn
@@ -28,6 +28,21 @@ struct PaintColour {
 
 /** Reads carhsvt.txt: commented text, four numbers a colour. Fails on a count not a whole number of colours. */
 Error parsePaintColours(std::string_view text, std::vector<PaintColour> &out);
+
+/**
+ * The paints of nfs2sen.exe: its colours, and the run of them each racing
+ * car can be painted, by the program's number for the car (0 MCF1 to 14
+ * FUTR; geo.md, The paint).
+ */
+struct PaintTable {
+    std::vector<PaintColour> colours; // 0x4c3634, 16 bytes each, up to the first that's all 0
+    // For each car its first colour and how many (0x4c1d20, the front
+    // end's car colour going round them: 0x4106cd, 0x41087b).
+    std::array<std::array<uint8_t, 2>, 15> cars{};
+};
+
+/** Reads the paints from the retail nfs2sen.exe's bytes. Fails for any other program. */
+Error readPaintTable(const std::vector<uint8_t> &exe, PaintTable &out);
 
 /** The colour's red, green and blue, 0-256 each (0x444af8). */
 std::array<int, 3> paintRgb(const PaintColour &colour);

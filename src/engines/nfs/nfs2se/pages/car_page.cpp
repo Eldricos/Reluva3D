@@ -70,12 +70,23 @@ bool inLevel(size_t p, int level) {
 
 CarPage::CarPage(const GameFiles &files) : _files(files) {
     _models = files.withExtensions({".geo"});
-    for (const FileRef &f : files.withExtensions({".txt"})) {
+    // The paints are the program's own (geo.md, The colours' files).
+    for (const FileRef &f : files.withExtensions({".exe"})) {
         std::vector<uint8_t> data;
-        if (fs::toLower(f.name).ends_with("carhsvt.txt") && !files.read(f, data) &&
-            !parsePaintColours(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()), _paints))
+        if (f.inner.empty() && fs::toLower(f.name) == "nfs2sen.exe" && !files.read(f, data) &&
+            !readPaintTable(data, _paints))
             break;
+        _paints = {};
     }
+}
+
+// The program's number for the shown model, if a racing car (0-14), else -1.
+int CarPage::carNumber() const {
+    if (_models.empty())
+        return -1;
+    const std::string stem = fs::toLower(std::filesystem::path(_models[size_t(_index)].inner).stem().string());
+    const auto it = std::find(kRacingCars.begin(), kRacingCars.end(), stem);
+    return it == kRacingCars.end() ? -1 : static_cast<int>(it - kRacingCars.begin());
 }
 
 CarPage::~CarPage() {
@@ -128,6 +139,8 @@ void CarPage::release() {
 
 void CarPage::load(int index) {
     release();
+    if (index != _index)
+        _paint = -1; // each car has colours of its own
     _index = index;
     _error.clear();
     _skinName.clear();
@@ -160,7 +173,8 @@ void CarPage::load(int index) {
             // palette's entries (0x444f80), the pictures' colours being theirs.
             if (_paint >= 0)
                 for (size_t i = 0; i + 3 < img.rgba.size(); i += 4) {
-                    const auto c = repaint(img.rgba[i], img.rgba[i + 1], img.rgba[i + 2], _paints[size_t(_paint)]);
+                    const auto c =
+                        repaint(img.rgba[i], img.rgba[i + 1], img.rgba[i + 2], _paints.colours[size_t(_paint)]);
                     std::copy(c.begin(), c.end(), img.rgba.begin() + std::ptrdiff_t(i));
                 }
             if (_renderer->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(true), id))
@@ -257,8 +271,12 @@ void CarPage::handleEvent(const Event &ev) {
             _textured = !_textured;
             break;
         case 'p':
-            if (!_paints.empty() && _renderer) {
-                _paint = _paint + 1 < static_cast<int>(_paints.size()) ? _paint + 1 : -1;
+            if (const int car = carNumber(); car >= 0 && _renderer) {
+                // On round the car's own colours, as the front end steps
+                // them (0x41087b), then none.
+                const int first = _paints.cars[size_t(car)][0];
+                const int count = _paints.cars[size_t(car)][1];
+                _paint = _paint < 0 ? (count ? first : -1) : _paint + 1 < first + count ? _paint + 1 : -1;
                 const int level = _level;
                 load(_index);
                 _level = level;
@@ -364,7 +382,7 @@ void CarPage::update(uint64_t nowMs) {
                                     : std::string(kLevelNames[_level]) + " detail, " + std::to_string(_quads) +
                                           " polygons  pictures: " + (_skinName.empty() ? "none" : _skinName) +
                                           (_missing ? "  (" + std::to_string(_missing) + " not in it)" : "") +
-                                          "  paint: " + (_paint < 0 ? "none" : std::to_string(_paint)) +
+                                          "  paint: " + (_paint < 0 ? "none" : "colour " + std::to_string(_paint)) +
                                           "  speed: " + std::to_string(int(kSpeeds[size_t(_speed)])) + " m/s" +
                                           (_braking ? ", braking" : ""));
     lines.push_back(

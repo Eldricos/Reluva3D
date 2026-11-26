@@ -3,11 +3,58 @@
 
 #include "engines/nfs/nfs2se/formats/paint.h"
 
+#include "common/pe.h"
 #include "engines/nfs/formats/commented_text.h"
 
 #include <algorithm>
 
 namespace reluva::nfs::nfs2se {
+
+Error readPaintTable(const std::vector<uint8_t> &exe, PaintTable &out) {
+    out = PaintTable{};
+    PeImage pe;
+    if (Error err = parsePe(exe, pe))
+        return err;
+    // The bytes at a program address, or none past the file.
+    auto at = [&](uint32_t address, size_t size) -> const uint8_t * {
+        if (address < pe.imageBase)
+            return nullptr;
+        const int64_t offset = pe.fileOffset(uint32_t(address - pe.imageBase));
+        return offset >= 0 && size_t(offset) + size <= exe.size() ? exe.data() + offset : nullptr;
+    };
+    // Only where the code reads the two tables: the colour lookup
+    // (0x4451c0, the table's address at 0x4451c6) and the front end's
+    // stepping back through a car's colours (0x4106dd).
+    const uint8_t lookup[] = {0x56, 0xc1, 0xe0, 0x04, 0x8b, 0xb0, 0x34, 0x36, 0x4c, 0x00};
+    const uint8_t cars[] = {0x8a, 0xa6, 0x20, 0x1d, 0x4c, 0x00};
+    const uint8_t *code = at(0x4451c0, sizeof lookup);
+    const uint8_t *step = at(0x4106dd, sizeof cars);
+    if (!code || !step || !std::equal(std::begin(lookup), std::end(lookup), code) ||
+        !std::equal(std::begin(cars), std::end(cars), step))
+        return Error::fail("Not the retail nfs2sen.exe: its paint tables aren't where they're read");
+    constexpr size_t kMost = 128;
+    for (size_t i = 0; i < kMost; ++i) {
+        const uint8_t *e = at(0x4c3634 + uint32_t(16 * i), 16);
+        if (!e)
+            return Error::fail("nfs2sen.exe's paint colours run past the file");
+        auto word = [&](int k) {
+            return int(int32_t(e[4 * k] | e[4 * k + 1] << 8 | e[4 * k + 2] << 16 | uint32_t(e[4 * k + 3]) << 24));
+        };
+        const PaintColour c{word(0), word(1), word(2), word(3)};
+        if (!c.hue && !c.saturation && !c.value && !c.threshold)
+            break;
+        out.colours.push_back(c);
+    }
+    const uint8_t *runs = at(0x4c1d20, 2 * out.cars.size());
+    if (!runs)
+        return Error::fail("nfs2sen.exe's cars' colours run past the file");
+    for (size_t i = 0; i < out.cars.size(); ++i) {
+        out.cars[i] = {runs[2 * i], runs[2 * i + 1]};
+        if (size_t(runs[2 * i]) + runs[2 * i + 1] > out.colours.size())
+            return Error::fail("nfs2sen.exe's car " + std::to_string(i) + " has colours past its table");
+    }
+    return Error::success();
+}
 
 Error parsePaintColours(std::string_view text, std::vector<PaintColour> &out) {
     out.clear();
