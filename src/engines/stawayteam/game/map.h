@@ -114,13 +114,20 @@ struct WayPoints {
         std::vector<int> neighbours; // the points a line joins it to
     };
     std::vector<Point> points;
+    float maxConnect = 0.0f; // MaxDistToConnect: 29 in every map
 
     /** The point nearest (x, y), or -1 with none. */
     int nearest(float x, float y) const;
     /**
+     * Whether a way can start or end at (x, y): a point within four times
+     * MaxDistToConnect of it (0x52e86f, 0x52f230).
+     */
+    bool reaches(float x, float y) const;
+    /**
      * The shortest way along the lines from the point nearest (x0, y0) to
      * the one nearest (x1, y1), and then (x1, y1) itself; empty if there's
-     * none.
+     * none, or if either end has no point within four times MaxDistToConnect
+     * of it (0x52e86f, 0x52e8ea).
      * @param factor What a line from (ax, ay) to (bx, by) costs for each
      *        pixel of it, 0 for one not to be taken; 1 throughout without.
      */

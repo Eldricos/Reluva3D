@@ -356,6 +356,15 @@ the main menu?" (`0x5bb190`).
   it starts (`0x4492c0`), and not again: first with a plain checker,
   then, if there's a way, with its `Path Collide Checker`
   (`CPathCollideChecker`); with no way, it goes straight there. The
+  way runs from the waypoint nearest the start to the one nearest the
+  end, each taken only if some waypoint is within four times the map's
+  `MaxDistToConnect` (29 in every map) of that end (`0x52f230`, then the
+  nearest, `0x52ece0`; no way otherwise, `0x52e8a4`). The search is A*
+  (`0x52b860`, `0x52bab0`): each waypoint reached keeps the cost so far
+  (the one it came from's and the line's length times the checker's
+  cost), the straight distance on to the end (`0x52bc0d`), and their
+  sum, by which the list still to look at is kept in order
+  (`0x52bc6f`); one already done is passed over (`0x52bb16`). The
   search (`0x52bb5d`) asks the checker of each line whether it's clear
   of the unnamed, unmoving parts in it (`0x438cb0`: anything movable or
   named doesn't count), and its cost: the walker's outline swept along
@@ -987,8 +996,8 @@ each the point (`0x5bfcdb`, by `0x5c78a0`) and starts each moving to the
 first one's point (`0x5b8050`, `0x5b7e50`), and a place with only a
 character on it is walked onto, so they end up together on it *(the
 game's mouse buttons aren't traced)*, each by the waypoints (`loadWayPoints`, the
-shortest way along their lines by A*, then straight to the place
-*(inferred)*), facing the way they go, at their walk's own pace, its
+shortest way along their lines by A*, then straight to the place),
+facing the way they go, at their walk's own pace, its
 frames by how far into its cycle they are. In the game a moving
 sequence moves whoever plays it: each update its time goes on by the
 update's seconds times its frame rate times the entity's play speed
@@ -1313,9 +1322,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   where on a character the
   flashes go, stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift.
-- **The team:** the game's path
-  finding, its mouse (which button chooses and which sends), and the
-  info bar's rising.
+- **The team:** its mouse (which button chooses and which sends), and
+  the info bar's rising.
 - **The buttons:** whether orders can be given with time stopped, what
   CANCEL ORDERS drops, how an enemy's sight is chosen and drawn, and
   whether the escape menu holds the game.

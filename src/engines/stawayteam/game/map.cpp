@@ -312,6 +312,7 @@ Error loadWayPoints(const Archive &data, const std::string &path, WayPoints &out
     if (Error err = readBinaryObject(bytes.data(), bytes.size(), "CWayPointMap", object))
         return Error::fail(path + ": " + err.message);
     out.points.clear();
+    out.maxConnect = float(object.object.number("MaxDistToConnect").value_or(0.0));
     for (const WayPoint &p : object.wayPoints)
         out.points.push_back({float(p.x), float(p.y), {}});
     for (const PathLine &line : object.lines) {
@@ -338,15 +339,27 @@ int WayPoints::nearest(float x, float y) const {
     return best;
 }
 
+bool WayPoints::reaches(float x, float y) const {
+    const int i = nearest(x, y);
+    if (i < 0)
+        return false;
+    return maxConnect <= 0.0f || std::hypot(points[size_t(i)].x - x, points[size_t(i)].y - y) <= 4.0f * maxConnect;
+}
+
 std::vector<std::pair<float, float>>
 WayPoints::path(float x0, float y0, float x1, float y1,
                 const std::function<float(float ax, float ay, float bx, float by)> &factor) const {
     // A* over the lines, by their lengths times the factor the walker's
-    // path collide checker gives each, a line it gives 0 left out (0x52bb5d;
-    // inferred: the rest of the program's search isn't traced).
+    // path collide checker gives each, a line it gives 0 left out, the
+    // straight distance to the end the estimate, the open list kept by
+    // their sum (0x52bab0, 0x52bc0d). Each end's point is the nearest, if
+    // one's within four times MaxDistToConnect of it (0x52f230 then
+    // 0x52ece0); with none, there's no way.
     const int from = nearest(x0, y0);
     const int to = nearest(x1, y1);
     if (from < 0 || to < 0)
+        return {};
+    if (!reaches(x0, y0) || !reaches(x1, y1))
         return {};
     const auto distance = [&](int a, int b) {
         return std::hypot(points[size_t(a)].x - points[size_t(b)].x, points[size_t(a)].y - points[size_t(b)].y);

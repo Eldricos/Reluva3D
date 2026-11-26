@@ -623,7 +623,9 @@ std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float 
     // through one cost five times as much, and one through anything else
     // in the way not taken (0x438d90); here the doors, the waypoints
     // already keeping off the rest (inferred).
-    if (_wayPoints.points.empty())
+    // With no waypoint near either end there's no way, and the walker goes
+    // straight there (0x52e8a4).
+    if (_wayPoints.points.empty() || !_wayPoints.reaches(x0, y0) || !_wayPoints.reaches(x1, y1))
         return {{x1, y1}};
     std::vector<std::pair<float, float>> others;
     for (size_t i = 0; i < _officers.size(); ++i)

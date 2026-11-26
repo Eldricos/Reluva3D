@@ -45,8 +45,8 @@ None now.
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
   drawing order's ties, the water's clock stopping while
-  paused, enemies not seeing past what stands between; the path
-  finding by A*, the mouse's buttons, the info bar rising under the
+  paused, enemies not seeing past what stands between; the mouse's
+  buttons, the info bar rising under the
   mouse, the move button's order, the
   view held
   by the camera's scripts, a line's time and the beaming in's look; the

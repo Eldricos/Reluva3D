@@ -132,6 +132,11 @@ void testPaths() {
     w.points.push_back({50, 50, {}});
     CHECK(w.path(0, 0, 50, 50).empty());
     CHECK(WayPoints{}.path(0, 0, 5, 5).empty());
+    // An end with no point within four times MaxDistToConnect of it has no
+    // way (0x52e86f): 29's 116.
+    w.maxConnect = 29.0f;
+    CHECK(w.reaches(-1, 1) && w.reaches(-100, 0) && !w.reaches(-120, 0));
+    CHECK(w.path(-1, 1, -120, 0).empty() && !w.path(-1, 1, 1, 11).empty());
     MemoryArchive data;
     WayPoints none;
     CHECK(loadWayPoints(data, "Levels/Missing.way", none));
