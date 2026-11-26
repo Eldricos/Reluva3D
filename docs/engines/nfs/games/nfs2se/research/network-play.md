@@ -212,13 +212,22 @@ Traced in the code (late November 2026), after the tie above:
 
 So a tie needs both the tick and the name alike. The serial copies that
 tied had both kept the default name, "Player1" (their logged connect
-messages); two players with their own names don't tie. Why only the
-copy that waited was seen closing, the other staying on
-*connecting...*, wasn't traced.
+messages); two players with their own names don't tie.
+
+Only one copy closes after a tie. The copy that waited gets the other's
+connect message before it sends its own (the logs of a connect that went
+on: received twice, then its own sent), so it compares at once, fails
+and closes, its connect message and the close frames sent together. The
+other, having sent its message, waits for the first's (0x45ca92), and
+stops waiting only when that message's handler has set the flag, when
+Esc is held (0x4c8585, scan code 1 in the keys' table, set and cleared
+at 0x4757f0 and 0x475783), or, hosting on a modem, at a time limit
+(0x44fb50); a closed link isn't among them. So it stays on
+*connecting...* until Esc. That the first's connect message, sent just
+before the close, never reaches its handler there is *(inferred)*: had
+it, that copy would have compared and closed too.
 
 ## Left open
 
-- Why, after a tie, one copy closes and the other stays on
-  *connecting...*.
 - Copies on two machines; DirectPlay (not installed on the host, and
   the program offered no other protocol).
