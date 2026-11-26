@@ -108,7 +108,11 @@ C++ library have pages of their own ([directx.md](directx.md),
   thrown: they don't raise it for `win32_exceptions.cpp` to dispatch yet.
 - **`win32_system.cpp`: the system.** System information (one Pentium
   II-class processor, 256 MB), the performance counter (microseconds), the
-  date and time (`GetLocalTime`, `GetSystemTime` and their FILETIME
+  tick count (`GetTickCount`, `timeGetTime`: `milliseconds`, by default
+  the time since the host machine started, as Windows counts, not since
+  the program did: Starfleet Command II keeps such counts in its campaign
+  saves, and with every run starting at 0 a loaded campaign's next
+  mission never started), the date and time (`GetLocalTime`, `GetSystemTime` and their FILETIME
   conversions) by `wallClockMicros` (the host's unless the engine fixes
   it), in UTC with no time zone,
   `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with

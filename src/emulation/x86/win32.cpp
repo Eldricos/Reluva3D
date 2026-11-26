@@ -183,8 +183,10 @@ uint32_t Win32Process::Module::exportAddress(const std::string &function) const 
 Win32Process::Win32Process(Cpu &cpu, std::string exeName, bool loadsExe, bool stackAtTop)
     : _cpu(cpu), _exeName(std::move(exeName)) {
     _arena = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
-    _startMs = steadyMs();
-    milliseconds = [this] { return uint32_t(steadyMs() - _startMs); };
+    // Since the machine started, as Windows counts: a program that keeps
+    // the count in its saves (Starfleet Command II's campaign) can't count
+    // on finding it lower in a later run.
+    milliseconds = [] { return uint32_t(steadyMs()); };
 
     // The thread: its stack, and its information block (which FS points
     // at): the exception handler chain's head, the stack's bounds, its own

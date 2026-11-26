@@ -220,7 +220,8 @@ public:
     // What the program writes for a debugger, or to its standard output
     // and error (its C runtime's messages).
     std::function<void(const std::string &text)> output;
-    // Milliseconds for timeGetTime and GetTickCount (default: since start).
+    // Milliseconds for timeGetTime and GetTickCount (default: since the
+    // host machine started, as Windows counts them).
     std::function<uint32_t()> milliseconds;
     /**
      * The milliseconds the main thread has asked to Sleep, in all. It
@@ -657,7 +658,6 @@ private:
     uint32_t _focus = 0;               // SetFocus and SetActiveWindow's window
     uint32_t _heapHandle = 0x7ffe0000; // HeapCreate's handles: never dereferenced
     uint32_t _exceptionFilter = 0;
-    uint64_t _startMs = 0;
     void addStandIns();
     void addFileStandIns();
     void addSystemStandIns();
