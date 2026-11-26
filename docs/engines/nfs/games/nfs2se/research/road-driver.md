@@ -72,6 +72,15 @@ safe.
   room for before it, now used only where there's no table. Taking the
   lower of the two changed nothing on `TR00`: the guess, at the grip of
   3 × 14 m/s² that was quickest, was never the lower.
+- **Slowed on full lock:** steering full lock and still more than 0.45
+  rad off its aim for 0.3 s above 15 m/s, it slows 3 m/s under its speed
+  until it turns. The computer cars, which can't skid, take a few bends
+  faster than a car can: Mystic Peaks' at its point 110 at 63 m/s, where
+  a grip of 3 × 14 m/s² allows 50, and it ran wide into the wall.
+  Slowed at once, it lost time wherever its aim jumped; capped by its
+  own estimate of the bends instead (on the edges' middle), it stopped
+  less on Mystic Peaks but was a fifth slower on the Outback, the
+  estimate seeing bends that aren't there.
 - **Where the road splits** round something (its lane mask's drivable
   slots with a gap between: [col.md](../formats/col.md), Where a car can
   drive), at the middle of the slots on the right, as the game's own
@@ -154,10 +163,16 @@ end, or at the last lap run.
 The knockout's first round, the `drive` step: 9th of 9 before, 4th
 with the computer cars' speeds (a lap of 57 s), now 3rd (53 s).
 
+Slowed on full lock (late November 2026), laps of 53 s on Proving
+Grounds, 92 to 95 s on the Outback (2nd), 138 to 145 s on
+Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
+
 ## Left open
 
-- Its time lost getting free of walls: about 25 s a race still on
-  Mystic Peaks, round its points 120 and 240.
+- Its time lost getting free of walls: still about 25 s a race on
+  Mystic Peaks, round its points 120 and 250, slowing on full lock
+  being too late at 63 m/s. Round 250 the road's left edge moves from
+  6 to 17 units out and back, its middle with it, and the line.
 - The computer cars' slots across the road (`[0x4c2b0c]`): zero at
   every point of the tables the single races loaded, so not taken.
 - The knockout's later rounds.

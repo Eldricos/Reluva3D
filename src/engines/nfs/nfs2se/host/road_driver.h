@@ -65,6 +65,7 @@ private:
     float _passWanted = 0;
     uint64_t _passUntil = 0;
     uint64_t _lastMs = 0;
+    uint64_t _lockSince = 0;   // since when it's been on full lock, far off its aim
     int32_t _progressMark = 0; // the car's progress (laps times points) when last well on its way
     int32_t _bestProgress = 0; // the farthest it has been, and when it got there
     uint64_t _advancedAt = 0;

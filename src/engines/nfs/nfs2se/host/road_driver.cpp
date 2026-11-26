@@ -351,6 +351,20 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     }
 
     wanted = std::min(wanted, follow);
+    // On full lock and still well off its aim for 0.3 s, it's going too
+    // fast to turn as the road does: the computer cars, which can't skid,
+    // take some bends faster than a car can (Mystic Peaks' at its points
+    // 120 and 250, into the outside wall at 63 and 30 m/s). Slowed till it
+    // turns. Not at once: the aim jumps now and then, and slowed for each
+    // jump the laps took longer.
+    if (std::fabs(angle) > 0.45f && v > 15.0f) {
+        if (!_lockSince)
+            _lockSince = now;
+        if (now > _lockSince + 300)
+            wanted = std::min(wanted, v - 3.0f);
+    } else {
+        _lockSince = 0;
+    }
 
     int steer = int(std::clamp(angle / 0.35f * 127.0f, -128.0f, 124.0f));
     int gas = v < wanted ? 255 : 0;
