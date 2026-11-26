@@ -14,6 +14,7 @@
 #include "engines/sfc/formats/bft_font.h"
 #include "engines/sfc/formats/intro_movie.h"
 #include "engines/sfc/formats/model.h"
+#include "engines/sfc/formats/settings.h"
 #include "engines/sfc/formats/sprite_archive.h"
 #include "engines/sfc/formats/text_tables.h"
 #include "image/image.h"
@@ -86,6 +87,20 @@ int cmdSprites(int argc, char **argv) {
     }
     std::printf("%zu images (%zu with 8 bits a pixel, %zu named), objects from %u; %zu failed\n",
                 archive.images().size(), eight, named, archive.objectsOffset(), failed);
+    // The objects by kind: how many, how many named, one name as an example.
+    std::map<uint16_t, std::pair<size_t, size_t>> kinds;
+    std::map<uint16_t, std::string> example;
+    for (const auto &o : archive.objects()) {
+        auto &[count, withName] = kinds[o.kind];
+        ++count;
+        withName += o.name.empty() ? 0 : 1;
+        if (example[o.kind].empty())
+            example[o.kind] = o.name;
+    }
+    for (const auto &[kind, counts] : kinds)
+        std::printf("objects of kind %2u: %5zu, %5zu named (%s)\n", kind, counts.first, counts.second,
+                    example[kind].c_str());
+    std::printf("%zu objects\n", archive.objects().size());
     return failed ? 1 : 0;
 }
 
@@ -136,6 +151,70 @@ int cmdFonts(int argc, char **argv) {
                     font.half(), font.glyphs().size(), err ? ("  ERROR " + err.message).c_str() : "");
     }
     std::printf("%zu fonts, %zu failed\n", files.size(), failed);
+    return failed ? 1 : 0;
+}
+
+// Every settings file under a folder (.gf, and the campaigns' .mct), read
+// whole: its sections and keys.
+int cmdSettings(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool sfc settings <game folder>\n");
+        return 2;
+    }
+    auto files = filesWith(argv[2], ".gf");
+    for (const auto &path : filesWith(argv[2], ".mct"))
+        files.push_back(path);
+    size_t failed = 0;
+    size_t keys = 0;
+    for (const auto &path : files) {
+        std::vector<uint8_t> data;
+        sfc::SettingsFile file;
+        Error err = readFile(path, data) ? file.read(data) : Error::fail("can't read it");
+        failed += err ? 1 : 0;
+        size_t count = 0;
+        for (const auto &s : file.sections)
+            count += s.entries.size();
+        keys += count;
+        std::printf("%-32s %3zu sections %4zu keys%s\n", path.filename().string().c_str(), file.sections.size() - 1,
+                    count, err ? ("  ERROR " + err.message).c_str() : "");
+    }
+    std::printf("%zu settings files, %zu keys, %zu failed\n", files.size(), keys, failed);
+    return failed ? 1 : 0;
+}
+
+// Every campaign map (.mvm) under a folder: its size, and its hexes' bases
+// and planets by kind.
+int cmdMaps(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool sfc maps <game folder>\n");
+        return 2;
+    }
+    const auto files = filesWith(argv[2], ".mvm");
+    size_t failed = 0;
+    for (const auto &path : files) {
+        std::vector<uint8_t> data;
+        sfc::MetaverseMap map;
+        Error err = readFile(path, data) ? map.read(data) : Error::fail("can't read it");
+        failed += err ? 1 : 0;
+        const auto count = [&map](const std::vector<std::string> &names, int32_t sfc::MetaverseMap::Cell::*field) {
+            std::map<int32_t, size_t> n;
+            for (const auto &c : map.cells)
+                ++n[c.*field];
+            std::string out;
+            for (const auto &[i, k] : n)
+                if (i != 0)
+                    out += " " + std::to_string(k) + " " +
+                           (size_t(i) < names.size() ? names[size_t(i)] : "#" + std::to_string(i)) + ",";
+            if (!out.empty())
+                out.pop_back();
+            return out;
+        };
+        std::printf("%-16s %3ux%-3u bases:%s; planets:%s%s\n", path.filename().string().c_str(), map.width, map.height,
+                    count(map.bases, &sfc::MetaverseMap::Cell::base).c_str(),
+                    count(map.planets, &sfc::MetaverseMap::Cell::planet).c_str(),
+                    err ? ("  ERROR " + err.message).c_str() : "");
+    }
+    std::printf("%zu maps, %zu failed\n", files.size(), failed);
     return failed ? 1 : 0;
 }
 
@@ -315,17 +394,19 @@ int cmdIntro(int argc, char **argv) {
     return decoded == movie.frameCount() ? 0 : 1;
 }
 
-const Commands kCommands("sfc", {
-                                    {"sprites", "<game folder> [-q]",
-                                     "list sprites.q3's images and decode each (-q: only the failures)", cmdSprites},
-                                    {"sprite-png", "<game folder> <index> <out.png>",
-                                     "write one of sprites.q3's images as a PNG", cmdSpritePng},
-                                    {"fonts", "<game folder>", "read every .bft font under a folder", cmdFonts},
-                                    {"models", "<game folder>", "read every .mod model under a folder", cmdModels},
-                                    {"sounds", "<game folder>", "decode every WAV in Assets/Sound's zips", cmdSounds},
-                                    {"table", "<file>", "show a tab-separated table or a string table", cmdTable},
-                                    {"intro", "<game folder> [-frame n out.png]...",
-                                     "decode the opening movie in SFC2Intro.exe", cmdIntro},
-                                });
+const Commands kCommands(
+    "sfc",
+    {
+        {"sprites", "<game folder> [-q]", "list sprites.q3's images and decode each (-q: only the failures)",
+         cmdSprites},
+        {"sprite-png", "<game folder> <index> <out.png>", "write one of sprites.q3's images as a PNG", cmdSpritePng},
+        {"fonts", "<game folder>", "read every .bft font under a folder", cmdFonts},
+        {"models", "<game folder>", "read every .mod model under a folder", cmdModels},
+        {"settings", "<game folder>", "read every settings file (.gf, .mct) under a folder", cmdSettings},
+        {"maps", "<game folder>", "read every campaign map (.mvm) under a folder", cmdMaps},
+        {"sounds", "<game folder>", "decode every WAV in Assets/Sound's zips", cmdSounds},
+        {"table", "<file>", "show a tab-separated table or a string table", cmdTable},
+        {"intro", "<game folder> [-frame n out.png]...", "decode the opening movie in SFC2Intro.exe", cmdIntro},
+    });
 
 } // namespace

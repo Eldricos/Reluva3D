@@ -68,23 +68,50 @@ palette.
 
 ### The objects
 
-From the header's offset to the end. Records are tagged with 0xFF and
-0x99 and hold names as a 32-bit length then the characters. An image's
-own record holds its name, four zero bytes, then the image's size (as
-counted from its header's start) and offset; 6,205 images are named so
-(`MD_BlackHole_bmp`, `NonSelectBtn`...). Every image's size and offset
-pair appears somewhere in the section. The records' other fields aren't
-worked out.
+From the header's offset to the end: the section's size (to the file's
+end: 2,788,228 bytes in 1.0) and its count of records (32,789), then the
+records. Each starts the same way:
+
+| Offset | Size | What |
+|---|---|---|
+| 0 | 2 | its kind |
+| 2 | 4 | its number: 1, 2, 3... in the file's order |
+| 6 | 2 | 0x99 |
+| 8 | 4 | its name's length (0 for none) |
+| 12 | n | the name |
+
+What follows depends on the kind, and isn't worked out but for an
+image's own record (kind 1): four zero bytes, then the image's size (as
+counted from its header's start) and offset, then 0xFF. A record runs
+to the next one's start, found by its number. The kinds in 1.0, with
+what their names suggest:
+
+| Kind | Records | Named | Names (for example) | What, by the names *(guessed)* |
+|---|---|---|---|---|
+| 1 | 19,353 | 6,205 | `MD_BlackHole_bmp`, `NonSelectBtn` | an image, one each |
+| 3 | 1,693 | all | `campaign640x480`, `MapIcons` | a screen or a set of icons |
+| 8 | 2,143 | 1,378 | `CompassMapUp` | a button |
+| 9 | 53 | 45 | `MetaChat` | a chat or text area |
+| 10 | 4,649 | 3,093 | `MD_BlackHole`, `MD_Nebula` | an animation or picture of the map |
+| 11 | 176 | 122 | `MetaSideBarListScrollBar` | a scroll bar |
+| 15 | 87 | 70 | `C_metalistbox`, `MetaStatsText` | a text or list box |
+| 17 | 1,989 | all | `MetaSideBarRadio` | a set of radio buttons |
+| 21 | 2,102 | 497 | `MetaSideBarList`, `cTurnNumber` | a list or scroll box |
+| 25 | 544 | all | `t%Banner_AREA_0` | a template |
+
+2.0.3.6's file has 33,056 records of the same ten kinds.
 
 ## In Reluva
 
 - **Reading it:** `SpriteArchive` (`src/engines/sfc/formats/sprite_archive.h`)
-  lists the images, finds the names, and decodes one as RGBA32, its
-  skipped pixels transparent.
+  lists the images, finds the objects' records (kind, number, name,
+  where and how long), names the images from their own, and decodes one
+  as RGBA32, its skipped pixels transparent.
 - **The data viewer:** the Images page shows every image, with its header
   and name.
 - **Commands:** `reluva-tool sfc sprites <game folder>` lists the images
-  and decodes each; `reluva-tool sfc sprite-png <game folder> <index>
+  and decodes each, and counts the objects by kind; `reluva-tool sfc
+  sprite-png <game folder> <index>
   <out.png>` writes one as a PNG.
 
 ## Sources and checks
@@ -106,6 +133,7 @@ worked out.
 
 - The header's 0x100 and 0x10, and the image header's 0, 255 and 2.
 - What the point at 4 and 6 is for, where it isn't the centre.
-- The object records: their kinds and fields, which images make each
-  button's states and each animation's frames, and what the 2.0.3.6
-  patch's copy changes.
+- The object records' fields past their names, for each kind but an
+  image's: which images make each button's states and each animation's
+  frames, where each goes on its screen, and what the 2.0.3.6 patch's
+  copy changes in them.

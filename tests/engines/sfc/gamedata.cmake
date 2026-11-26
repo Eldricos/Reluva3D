@@ -14,8 +14,9 @@
 # Each step runs reluva-tool on the game:
 #   release  what the game is (detect)
 #   files    every file by name, size and MD5, as one checksum
-#   formats  every picture in sprites.q3, font, model and sound read and
-#            decoded (sfc sprites, fonts, models, sounds)
+#   formats  every picture in sprites.q3 decoded and its objects found,
+#            every font, model, sound, settings file and campaign map read
+#            (sfc sprites, fonts, models, sounds, settings, maps)
 #   intro    the opening movie decoded from SFC2Intro.exe, and one of its
 #            frames (sfc intro)
 #   host     StarFleet2.exe run on a fixed clock to its CD key dialog, a
@@ -74,6 +75,8 @@ elseif(STEP STREQUAL "formats")
     record_run(fonts "fonts," sfc fonts "${game_dir}")
     record_run(models "models," sfc models "${game_dir}")
     record_run(sounds "failed" sfc sounds "${game_dir}")
+    record_run(settings "settings files" sfc settings "${game_dir}")
+    record_run(maps "maps," sfc maps "${game_dir}")
 elseif(STEP STREQUAL "intro")
     set(out "${OUTPUT}/${STEP}")
     file(MAKE_DIRECTORY "${out}")

@@ -6,6 +6,7 @@
 #include "common/bytes.h"
 #include "common/stream.h"
 
+#include <algorithm>
 #include <unordered_map>
 #include <utility>
 
@@ -75,38 +76,68 @@ Error SpriteArchive::open(std::vector<uint8_t> data) {
         _images.push_back(image);
         at += image.size;
     }
-    findNames();
-    return Error::success();
+    return readObjects();
 }
 
-// An object naming an image keeps the name (a 32-bit length, then the
-// characters), four zero bytes, then the image's size and offset. Images
-// referred to only by their size and offset (an animation's frames, a
-// button's states) keep no name.
-void SpriteArchive::findNames() {
+// The objects' section: its size (to the file's end) and its count of
+// records, then the records, each starting with its kind (16 bits), its
+// number (32: 1, 2, 3... in order), 0x99 (16), and its name (a 32-bit
+// length, then the characters). What follows depends on the kind, and
+// isn't worked out but for an image's (kind 1): four zero bytes, then the
+// image's size and offset. So a record ends where the next one's number
+// is found.
+Error SpriteArchive::readObjects() {
+    _records.clear();
+    const uint8_t *d = _data.data();
+    if (_data.size() - _objects < 8 || readLE32(d + _objects) != _data.size() - _objects)
+        return Error::fail("sprites.q3: its objects' section isn't the rest of the file");
+    const uint32_t count = readLE32(d + _objects + 4);
     std::unordered_map<uint32_t, size_t> byOffset;
     for (size_t i = 0; i < _images.size(); ++i)
         byOffset[_images[i].offset] = i;
-    const uint8_t *d = _data.data();
-    for (size_t p = _objects + 8; p + 8 <= _data.size(); ++p) {
-        const auto it = byOffset.find(readLE32(d + p + 4));
-        if (it == byOffset.end() || readLE32(d + p) != _images[it->second].size || readLE32(d + p - 4) != 0)
-            continue;
-        const size_t end = p - 4;
-        size_t start = end;
-        while (start > _objects + 4 && d[start - 1] >= 0x20 && d[start - 1] < 0x7f && end - start < 255)
-            --start;
-        // The longest printable run may take in the length's own bytes;
-        // the name is the run's tail that its length counts.
-        for (size_t s = start; s < end; ++s) {
-            if (readLE32(d + s - 4) == end - s) {
-                Image &image = _images[it->second];
-                if (image.name.empty())
-                    image.name.assign(reinterpret_cast<const char *>(d + s), end - s);
+    size_t at = _objects + 8;
+    for (uint32_t id = 1; id <= count; ++id) {
+        // Its kind (below 64), its number and the tag, the first after the
+        // record before.
+        uint8_t want[6];
+        writeLE32(want, id);
+        want[4] = 0x99;
+        want[5] = 0;
+        auto found = _data.begin() + long(at);
+        for (;;) {
+            found = std::search(found, _data.end(), want, want + 6);
+            if (found == _data.end() || readLE16(&*found - 2) < 64)
                 break;
-            }
+            ++found;
         }
+        const size_t start = size_t(found - _data.begin()) - 2;
+        if (found == _data.end() || start < at || start + 12 > _data.size())
+            return Error::fail("sprites.q3: object " + std::to_string(id) + " of " + std::to_string(count) +
+                               " not found");
+        if (!_records.empty())
+            _records.back().size = static_cast<uint32_t>(start - _records.back().offset);
+        Object o;
+        o.kind = readLE16(d + start);
+        o.id = id;
+        o.offset = static_cast<uint32_t>(start);
+        const uint32_t length = readLE32(d + start + 8);
+        if (length > _data.size() - start - 12)
+            return Error::fail("sprites.q3: object " + std::to_string(id) + "'s name runs past the end");
+        o.name.assign(reinterpret_cast<const char *>(d + start + 12), length);
+        // An image's record names the image at its size and offset.
+        const size_t fields = start + 12 + length;
+        if (o.kind == 1 && fields + 12 <= _data.size() && readLE32(d + fields) == 0) {
+            const auto it = byOffset.find(readLE32(d + fields + 8));
+            if (it != byOffset.end() && _images[it->second].size == readLE32(d + fields + 4) &&
+                _images[it->second].name.empty())
+                _images[it->second].name = o.name;
+        }
+        _records.push_back(std::move(o));
+        at = start + 8;
     }
+    if (!_records.empty())
+        _records.back().size = static_cast<uint32_t>(_data.size() - _records.back().offset);
+    return Error::success();
 }
 
 Error SpriteArchive::decode(const Image &image, Surface &out) const {

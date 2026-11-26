@@ -7,6 +7,7 @@
 #include "engines/sfc/formats/bft_font.h"
 #include "engines/sfc/formats/intro_movie.h"
 #include "engines/sfc/formats/model.h"
+#include "engines/sfc/formats/settings.h"
 #include "engines/sfc/formats/sprite_archive.h"
 #include "engines/sfc/formats/text_tables.h"
 
@@ -14,6 +15,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -74,15 +76,28 @@ std::vector<uint8_t> makeSprites() {
     putImage(d, 3, 1, 8, palette, {0}, {0x42, 0x01, 0xc1});
     const uint32_t objects = uint32_t(d.size());
     writeLE32(d.data() + 10, objects);
-    // An object naming the second image: its name, four zero bytes, its
-    // size and offset.
-    const std::string name = "Test_bmp";
-    put32(d, 0x12345678);
-    put32(d, uint32_t(name.size()));
-    d.insert(d.end(), name.begin(), name.end());
+    // The objects: their section's size and count, then the records, each
+    // its kind, number, 0x99 and name. A screen (kind 3) with fields that
+    // aren't read, then the second image's own (kind 1): four zero bytes,
+    // its size and offset.
+    put32(d, 0); // the section's size, set below
+    put32(d, 2);
+    const auto record = [&d](uint16_t kind, uint32_t id, const std::string &name) {
+        put16(d, kind);
+        put32(d, id);
+        put16(d, 0x99);
+        put32(d, uint32_t(name.size()));
+        d.insert(d.end(), name.begin(), name.end());
+    };
+    record(3, 1, "TestScreen");
+    put32(d, 640);
+    put32(d, 0x99); // a field like a record's start, but not the next number
+    record(1, 2, "Test_bmp");
     put32(d, 0);
     put32(d, 20 + 512 + 4 + 3);
     put32(d, 14 + 20 + 8 + 16);
+    put16(d, 0xff);
+    writeLE32(d.data() + objects, uint32_t(d.size() - objects));
     return d;
 }
 
@@ -105,6 +120,9 @@ void testSprites() {
     CHECK(rgba(0, 1) == (std::vector<int>{0, 0, 0, 0}) && rgba(3, 1) == (std::vector<int>{255, 255, 255, 255}));
     const auto &b = archive.images()[1];
     CHECK(b.bits == 8 && b.width == 3 && b.name == "Test_bmp");
+    const auto &objects = archive.objects();
+    CHECK(objects.size() == 2 && objects[0].kind == 3 && objects[0].name == "TestScreen" && objects[0].size == 30);
+    CHECK(objects.size() == 2 && objects[1].kind == 1 && objects[1].id == 2 && objects[1].name == "Test_bmp");
     CHECK(!archive.decode(b, s));
     CHECK(rgba(1, 0) == (std::vector<int>{255, 255, 255, 255}) && rgba(2, 0)[3] == 0);
 }
@@ -292,6 +310,62 @@ void testTabTable() {
     CHECK(table.rows[2][1] == "1\"2" && table.rows[4][1] == "3");
 }
 
+// A .gf: lines before any section, a comment line, a quoted value keeping
+// its // and spaces, a comment after a plain value, sections by path.
+void testSettings() {
+    const std::string text = "Name = \"Time\"\r\n// a comment\r\n\r\n[Clock]\r\nTurnsPerYear\t\t= 5\r\n"
+                             "MilliSecondsPerTurn = 60000\t // (60000)\r\nUrl=\"http://a b\"\r\n"
+                             "[Clock/StartingDate]\nBaseYear = 2263\n";
+    SettingsFile f;
+    CHECK(!f.read(std::vector<uint8_t>(text.begin(), text.end())));
+    CHECK(f.sections.size() == 3 && f.sections[0].name.empty() && f.sections[2].name == "Clock/StartingDate");
+    CHECK(f.value("", "name") == std::optional<std::string>("Time"));
+    CHECK(f.value("clock", "MilliSecondsPerTurn") == std::optional<std::string>("60000"));
+    CHECK(f.value("Clock", "Url") == std::optional<std::string>("http://a b"));
+    CHECK(f.section("Clock") && f.section("Clock")->entries[0].key == "TurnsPerYear" &&
+          !f.section("Clock")->entries[0].quoted && f.section("Clock")->entries[2].quoted);
+    CHECK(!f.value("Clock", "BaseYear") &&
+          f.value("Clock/StartingDate", "BaseYear") == std::optional<std::string>("2263"));
+    const std::string open = "[A]\r\n1=\"RIS Sui Iuris\r\n2=\"Next\"\r\n";
+    CHECK(!f.read(std::vector<uint8_t>(open.begin(), open.end())) &&
+          f.value("A", "1") == std::optional<std::string>("RIS Sui Iuris") &&
+          f.value("A", "2") == std::optional<std::string>("Next"));
+    const std::string bad = "[Open\r\n";
+    CHECK(f.read(std::vector<uint8_t>(bad.begin(), bad.end())));
+    const std::string bare = "[A]\r\nno equals here\r\n";
+    CHECK(f.read(std::vector<uint8_t>(bare.begin(), bare.end())));
+}
+
+// A .mvm: its header names the classes and where the data starts; the
+// data is a 2x1 map of seven-field cells.
+void testMap() {
+    using namespace std::string_literals;
+    std::string header = "[Version]\r\nFileType=\"StarfleetCommand.Map.Metaverse\"\r\n[Version/Data/Offsets]\r\nData=";
+    const std::string rest = "\r\n[Classes/Bases]\r\n0=\"(none)\"\r\n1=\"Starbase\"\r\n[Objects]\r\n\0\0"s;
+    // The offset counts its own digits: 3 of them.
+    header += std::to_string(header.size() + 3 + rest.size()) + rest;
+    std::vector<uint8_t> d(header.begin(), header.end());
+    put32(d, 2);
+    put32(d, 1);
+    put32(d, 2);
+    for (int cell = 0; cell < 2; ++cell) {
+        put32(d, 5);
+        put32(d, 0x3f800000); // 1.0
+        put32(d, 50);
+        put32(d, uint32_t(cell + 1));
+        put32(d, 0);
+        put32(d, 0);
+        put32(d, uint32_t(cell));
+    }
+    MetaverseMap map;
+    CHECK(!map.read(d));
+    CHECK(map.width == 2 && map.height == 1 && map.cells.size() == 2 && map.cells[1].region == 2 &&
+          map.cells[1].base == 1 && map.cells[0].impedence == 1.0f);
+    CHECK(map.bases == (std::vector<std::string>{"(none)", "Starbase"}));
+    d.resize(d.size() - 4);
+    CHECK(map.read(d));
+}
+
 void testStringTable() {
     const std::u16string text = u"HEADING\r\n|tKey|First\r\n||Second\r\n|tOther|été\r\n";
     std::vector<uint8_t> d;
@@ -321,4 +395,6 @@ static const reluva::test::Suite
                {"intro movie", [](const std::filesystem::path &) { testIntroMovie(); }},
                {"tab table", [](const std::filesystem::path &) { testTabTable(); }},
                {"string table", [](const std::filesystem::path &) { testStringTable(); }},
+               {"settings", [](const std::filesystem::path &) { testSettings(); }},
+               {"map", [](const std::filesystem::path &) { testMap(); }},
            });

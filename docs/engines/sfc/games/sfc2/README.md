@@ -66,10 +66,8 @@ Detection signatures (MD5 of each file's start, and its size, as
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Not yet:** the other five tutorials passed; a multiplayer game between two physical machines (tried between
   copies on one, each with a network and address of its own); a ship
-  bought at a shipyard; the
-  `.gf`, `.mct` and `.mvm`
-  settings, campaign and map files; the objects in
-  `sprites.q3`.
+  bought at a shipyard; the fields of the objects in `sprites.q3` past
+  their kinds and names; data viewer pages for the settings and maps.
 
 The plan is in [PLAN.md](PLAN.md).
 
@@ -128,7 +126,7 @@ Tab moves between its pages, Esc leaves:
 | This page | Where it stands, how to use it |
 | [PLAN.md](PLAN.md) | The plan, its phases, what the install holds, and the decisions taken |
 | [systems/](systems/) | How the game behaves: [hosting.md](systems/hosting.md) (running its own program) |
-| [formats/](formats/) | A page per file format: [sprites-q3.md](formats/sprites-q3.md), [bft.md](formats/bft.md), [mod.md](formats/mod.md), [text-tables.md](formats/text-tables.md), [sound-zips.md](formats/sound-zips.md), [intro.md](formats/intro.md) |
+| [formats/](formats/) | A page per file format: [sprites-q3.md](formats/sprites-q3.md), [bft.md](formats/bft.md), [mod.md](formats/mod.md), [text-tables.md](formats/text-tables.md), [settings.md](formats/settings.md), [mvm.md](formats/mvm.md), [sound-zips.md](formats/sound-zips.md), [intro.md](formats/intro.md) |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |

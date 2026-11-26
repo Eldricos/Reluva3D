@@ -53,9 +53,11 @@ on their pages in `formats/` and `systems/`.
    tables ([formats/text-tables.md](formats/text-tables.md)) and the
    sound zips ([formats/sound-zips.md](formats/sound-zips.md)), each
    worked out from the files themselves and checked on every retail
-   file, and a page of the data viewer for each. Left for later, when the
-   game needs them: the `.gf`, `.mct` and `.mvm` files, and the objects in
-   `sprites.q3`. The opening movie, inside `SFC2Intro.exe`, came later: it
+   file, and a page of the data viewer for each. Then the settings
+   files and campaigns ([formats/settings.md](formats/settings.md)), the
+   campaign maps ([formats/mvm.md](formats/mvm.md)), and the objects in
+   `sprites.q3` found and named by kind; left: those objects' fields,
+   and viewer pages for the settings and maps. The opening movie, inside `SFC2Intro.exe`, came later: it
    plays before the game ([formats/intro.md](formats/intro.md)).
 4. **Hosting spike (a gate)** (done): `StarFleet2.exe` loaded in the x86
    emulator: it runs its start-up, reads its first files and settings,

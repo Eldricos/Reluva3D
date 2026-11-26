@@ -11,7 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `sfc.unit.detection` | The engine is registered; an empty folder isn't a game; the game's files with other contents are an unknown release, whatever their names' case |
-| `sfc.unit.formats` | sprites.q3's images (16- and 8-bit, each kind of run, a name from the objects) and a run past a row's end; a .bft font, measured and drawn; a .mod model, and a triangle with a material that isn't there; a tab table with quotes and comments; a string table with continuation lines and a heading |
+| `sfc.unit.formats` | sprites.q3's images (16- and 8-bit, each kind of run, a name from the objects) and a run past a row's end; a .bft font, measured and drawn; a .mod model, and a triangle with a material that isn't there; a tab table with quotes and comments; a string table with continuation lines and a heading; the objects' records found past a body that isn't read; a settings file (comments, quotes, sections by path, a quote not closed, errors); a campaign map built in the test, and one cut short |
 
 ### The basic engine test
 
@@ -38,7 +38,7 @@ step each:
 |---|---|
 | `sfc.gamedata.release` | What the game is (`detect`) |
 | `sfc.gamedata.files` | Every file by name, size and MD5, as one checksum |
-| `sfc.gamedata.formats` | Every picture in `sprites.q3`, font, model and sound read and decoded (`sfc sprites`, `fonts`, `models`, `sounds`) |
+| `sfc.gamedata.formats` | Every picture in `sprites.q3` decoded and its objects found, and every font, model, sound, settings file and campaign map read (`sfc sprites`, `fonts`, `models`, `sounds`, `settings`, `maps`) |
 | `sfc.gamedata.intro` | The opening movie decoded out of `SFC2Intro.exe`, and its 1000th frame |
 | `sfc.gamedata.host` | `StarFleet2.exe` run on a fixed clock to its CD key dialog, a made-up key typed and refused: the frames shown, where it stopped, and the dialog before and after (no key is needed or kept) |
 | `sfc.gamedata.import` | The game imported from its two CDs, each file compared with the install's |
@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 26 November 2026 | English retail 1.0 and 2.0.3.6 | Linux | The settings files (40 and 48, none failing), the campaign maps (4 and 9) and `sprites.q3`'s objects (32,789 and 33,056 records, ten kinds) read; the game-files test's formats step re-recorded |
 | 26 November 2026 | English retail 1.0 | Linux | A mission's speed: a skirmish's battle on the real clock, 48.1 million instructions and 38.6 frames a second (`-rate`); its work and Convoy Escort's, 31 and 36 million a second, by the share of their instructions not waiting for the next frame (`-profile` on the fixed clock) |
 | 26 November 2026 | English retail 1.0 | Linux | The main menu's other screens, headless with `-fixed-clock`: Film Room (its list empty), Credits, Hot Keys, Vessel Library and its Choose Vessel; the Windows stand-ins moved from the engine to the shared layer, the game-files test and the skirmish's frames the same after |
 | 26 November 2026 | English retail 1.0 | Linux | A multiplayer game won in battle between two copies, headless with `-fixed-clock -net`: the host following and firing on the joining player's ship, "You are the winner!" and the other "Defeat!"; the Klingons' campaign begun, Monster won (300 prestige), Shipyard Defense started and lost |
