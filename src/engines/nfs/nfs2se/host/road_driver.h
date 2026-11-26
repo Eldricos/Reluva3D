@@ -21,7 +21,8 @@ namespace reluva::nfs::nfs2se {
  * (docs/engines/nfs/games/nfs2se/research/road-driver.md): the controls
  * the game samples from the keys replaced each frame before it passes them
  * on, so that a replay and the other copies on a link have them too. It aims a
- * little ahead along the road, slows for the bends it sees coming, and
+ * little ahead along the road, goes as fast as the game's computer cars
+ * are told to there, and
  * backs off a wall it's stuck against.
  */
 class RoadDriver {
@@ -31,7 +32,7 @@ public:
         uint64_t fromMs = 0;   // the game's clock
         uint64_t toMs = ~0ull; //
         float right = 0;       // metres right of the road's points (negative: left)
-        float grip = 1.0f;     // times the grip it takes the bends with (14 m/s²)
+        float grip = 1.0f;     // times the grip it takes the bends with (14 m/s²), if the track has no speeds
     };
 
     /**

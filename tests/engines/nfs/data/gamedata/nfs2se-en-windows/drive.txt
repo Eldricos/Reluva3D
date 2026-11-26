@@ -1,4 +1,4 @@
-drive: bd3066216b7bcec7 | state: 43d64a7f2477be04 after 60000000001 instructions
-drive.road driver: lap 1 done at 101550 ms, 9 of 9
-drive.road driver: lap 2 done at 166362 ms, finished 9 of 9
-drive.frame: 3a7c0c67204fd67b | frame06000
+drive: dac0c07d68ebc778 | state: de1d95d66b16ca16 after 60000000001 instructions
+drive.road driver: lap 1 done at 99362 ms, 7 of 9
+drive.road driver: lap 2 done at 156737 ms, finished 4 of 9
+drive.frame: 98a2b383ec6db7af | frame06000

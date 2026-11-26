@@ -32,6 +32,10 @@ constexpr uint32_t kRoadCount = 0x4dc9d0;
 constexpr uint32_t kRaceRunning = 0x4fd580;
 constexpr uint32_t kRaceCars = 0x4dcf64;
 constexpr uint32_t kRaceLaps = 0x4dd2dc;
+// The computer cars' speeds round the track, in m/s: a u16 each two
+// points, its low byte (read at 0x4258a5).
+constexpr uint32_t kPace = 0x4c2b08;
+constexpr uint32_t kPaceAhead = 4; // points
 
 // A car's fields: 16.16 unless said.
 constexpr uint32_t kSlice = 0x14; // its road point
@@ -224,25 +228,34 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     const float angle = std::atan2(dx * fixed(car + kRight) + dz * fixed(car + kRight + 8),
                                    dx * fixed(car + kForward) + dz * fixed(car + kForward + 8));
 
-    // As fast as the bends ahead allow: each one's speed by its curve (the
-    // turn of the road over about 15 m), and the braking there is room for
-    // before it.
+    // As fast as the computer cars are told to go at each point, the
+    // slowest over the next few (the controls reach the car a few frames
+    // late); the road's own bends, if there's no such table.
     float wanted = kTopSpeed;
-    float along = 0;
-    const float seen = v * v / (2 * kBraking) + 30.0f;
-    for (uint32_t k = slice; along < seen && k < slice + n; ++k) {
-        float span = 0;
-        uint32_t m = k;
-        while (span < 15.0f && m < k + 20) {
-            span += distance(point(m), point(m + 1));
-            ++m;
+    if (const uint32_t pace = c.read32(kPace)) {
+        for (uint32_t k = 0; k <= kPaceAhead; ++k) {
+            const uint32_t at = pace + 2 * (((slice + k) % n) / 2);
+            if (c.valid(at, 1))
+                wanted = std::min(wanted, float(c.read8(at)));
         }
-        const float curve = turnBetween(k, m) / std::max(span, 1.0f);
-        const float corner = curve > 1e-4f ? std::sqrt(kGrip * _options.grip / curve) : kTopSpeed;
-        wanted = std::min(wanted, std::sqrt(corner * corner + 2 * kBraking * along));
-        along += distance(point(k), point(k + 1));
+    } else {
+        // Each bend's speed by its curve (the turn of the road over about
+        // 15 m), and the braking there is room for before it.
+        float along = 0;
+        const float seen = v * v / (2 * kBraking) + 30.0f;
+        for (uint32_t k = slice; along < seen && k < slice + n; ++k) {
+            float span = 0;
+            uint32_t m = k;
+            while (span < 15.0f && m < k + 20) {
+                span += distance(point(m), point(m + 1));
+                ++m;
+            }
+            const float curve = turnBetween(k, m) / std::max(span, 1.0f);
+            const float corner = curve > 1e-4f ? std::sqrt(kGrip * _options.grip / curve) : kTopSpeed;
+            wanted = std::min(wanted, std::sqrt(corner * corner + 2 * kBraking * along));
+            along += distance(point(k), point(k + 1));
+        }
     }
-    wanted = std::min(wanted, kTopSpeed);
 
     int steer = int(std::clamp(angle / 0.35f * 127.0f, -128.0f, 124.0f));
     int gas = v < wanted ? 255 : 0;

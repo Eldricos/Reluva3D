@@ -38,6 +38,20 @@ that printed or changed it:
 - **The race:** its laps at 0x4dd2dc (poked to 1 for short tests), its
   standings at 0x4ffdec (16 bytes a car: slot, progress, time, human),
   sorted a moment after a car crosses the line.
+- **The computer cars' speeds:** a table at `[0x4c2b08]`, a u16 each two
+  road points, set up with the track (0x42d530, 0x42d590); its low byte
+  is the speed the computer cars aim for there, in m/s, read at 0x4258a5
+  with the point halved, and capped by their car's top speed (a table at
+  0x4c32e0). Beside it, at `[0x4c2b0c]`, a byte a point: the slot across
+  the road they keep to, 0 for none *(inferred)*.
+
+The computer cars themselves are no help to ours: they are moved along
+the road at their speed, with no controls, and don't skid, so their
+code has nothing to steer a car with; and it draws from the game's one
+random number generator (0x4c3de4), so calling it for our car would
+change the game's sequence on one copy only, against the replay and
+the other copies on a link *(inferred)*. Their speeds, only read, are
+safe.
 
 ## How it drives
 
@@ -50,10 +64,14 @@ that printed or changed it:
   forward vectors are far off (the same point's, 50°): both made the
   first versions brake hard on straights, so the road's way is taken
   from its middle's places.
-- **How fast:** each bend's speed by its curve over about 15 m,
-  `sqrt(grip / curve)`, and the braking (9 m/s²) there's room for before
-  it; at most 102 m/s, the McLaren F1's 228 mph. A grip of 3 × 14 m/s²
-  was quickest on `TR00` (4× no faster).
+- **How fast:** the computer cars' speed at the road's point, the
+  slowest of the next five (its controls reach the car a few frames
+  late), at most 102 m/s, the McLaren F1's 228 mph. The game knows its
+  bends better than our guess did: each bend's speed by its curve over
+  about 15 m, `sqrt(grip / curve)`, and the braking (9 m/s²) there's
+  room for before it, now used only where there's no table. Taking the
+  lower of the two changed nothing on `TR00`: the guess, at the grip of
+  3 × 14 m/s² that was quickest, was never the lower.
 - **Where the road splits** round something (its lane mask's drivable
   slots with a gap between: [col.md](../formats/col.md), Where a car can
   drive), at the middle of the slots on the right, as the game's own
@@ -100,14 +118,27 @@ place eliminated; the knockout's cars quicker than the driver. Aiming as
 far as a 45° turn of the road instead of 30° made it 8th, but the race
 slower.
 
+A single race of 4 laps on each track in the McLaren, before and after
+the driver took the computer cars' speeds (late November 2026; laps
+after the first, which has the start; places at the end, or the last lap
+run):
+
+| Track | Laps before | Place | Laps after | Place |
+|---|---|---|---|---|
+| Proving Grounds | about 65 s | 5th to 6th | 53 s | **1st** |
+| Outback | 148 s | 8th | 105 to 124 s | 5th |
+| Last Resort | 133 s | 1st to 2nd | 120 s | **1st** |
+| North Country | 170 to 174 s | 6th | 137 s | **1st** |
+| Pacific Spirit | 209 to 273 s | 8th | 166 to 198 s | 4th after 3 laps |
+| Mediterraneo | 134 to 136 s | 4th | 114 to 126 s | **1st** |
+| Mystic Peaks | 178 to 188 s | 4th to 5th | 179 to 190 s | 6th |
+
+The knockout's first round, the `drive` step: 4th of 9, a lap of 57 s
+(9th before).
+
 ## Left open
 
-- Its time lost: at `TR00`'s chicane before the line it still scrapes
-  the left wall, down to 27 m/s; other cars aren't seen, only bumped.
-- Its pace off `TR00`: a 4-lap single race on each track, in the
-  McLaren (late November 2026), laps of about 65 s on Proving Grounds,
-  2 min 13 s to 2 min 30 s on Last Resort, Mediterraneo and the Outback,
-  2 min 50 s to 3 min on North Country and Mystic Peaks, and 3 min 30 s
-  to 4 min 30 s on Pacific Spirit, every race to its end. Most of the
-  time is lost getting free of walls and objects it runs into.
+- Its time lost getting free of walls and objects it runs into, most of
+  what's left on Pacific Spirit and Mystic Peaks; the computer cars'
+  slots across the road (`[0x4c2b0c]`), which it doesn't keep to.
 - The knockout's later rounds.
