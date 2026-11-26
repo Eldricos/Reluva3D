@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/installshield.h"
+#include "common/iso9660.h"
 #include "common/types.h"
 #include "common/wise.h"
 
@@ -13,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva {
@@ -39,6 +41,25 @@ struct GameVariant {
     std::vector<FileSignature> files;
 };
 
+/**
+ * What detection needs of a file: its size, and on demand the MD5 of its
+ * first kDetectionHashBytes bytes (none if it can't be read).
+ */
+struct FoundFile {
+    uint64_t size = 0;
+    std::function<std::optional<std::string>()> md5;
+};
+
+/**
+ * Finds a file by its relative path ('/' between folders), in any case;
+ * none when it isn't there. Lets detection look in a folder or in a disc's
+ * image alike.
+ */
+using FileLookup = std::function<std::optional<FoundFile>(const std::string &name)>;
+
+/** A FileLookup for the files under `dir`. */
+FileLookup folderLookup(const std::filesystem::path &dir);
+
 /** A game found in a folder: which engine runs it, and which release it is. */
 struct DetectedGame {
     std::string engineId;
@@ -57,8 +78,14 @@ struct DetectedGame {
  */
 struct ImportPlan {
     DetectedGame game;
-    /** A file to copy, or to take out of an installer or a cabinet. */
+    /** A file to copy, or to take out of an installer, a cabinet or a disc's image. */
     struct File {
+        File() = default;
+        File(std::filesystem::path from, std::string to, uint64_t size, std::optional<WiseStream> packed = {},
+             std::optional<size_t> cabinetFile = {})
+            : from(std::move(from)), to(std::move(to)), size(size), packed(std::move(packed)),
+              cabinetFile(cabinetFile) {}
+
         std::filesystem::path from;
         std::string to;
         uint64_t size = 0;
@@ -66,6 +93,10 @@ struct ImportPlan {
         std::optional<WiseStream> packed;
         // When `from` is `cabinet`'s header (data1.hdr): which of its files.
         std::optional<size_t> cabinetFile;
+        // When the file is on a disc's image: its data track (`from` is
+        // the track's image file), and the file's first sector there.
+        std::optional<IsoTrack> disc;
+        uint32_t discSector = 0;
     };
     std::vector<File> files;
     // The cabinet files are taken out of (a game's CDs'), when there is
@@ -101,5 +132,8 @@ Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
 /** Every variant in `table` whose files all match inside `dir` (a variant without files never does). */
 std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
                                           const std::filesystem::path &dir);
+/** The same, the files found by `files`. */
+std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
+                                          const FileLookup &files);
 
 } // namespace reluva

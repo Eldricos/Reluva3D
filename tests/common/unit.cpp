@@ -19,6 +19,7 @@
 #include "common/bytes.h"
 #include "common/config.h"
 #include "common/cue.h"
+#include "common/iso9660.h"
 #include "graphics/cursor.h"
 #include "common/dcl.h"
 #include "common/detection.h"
@@ -49,6 +50,7 @@
 #include "common/installshield.h"
 #include "common/wise.h"
 #include "tests/support/installshield_writer.h"
+#include "tests/support/iso_writer.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
@@ -571,6 +573,64 @@ static void testSearchSet(const std::filesystem::path &tmp) {
     CHECK(set.archives().size() == 3 && set.archives()[0] == set.find("a.txt"));
     CHECK(normalizeArchiveName("\\\\Textures\\\\Base//Floor.TGA") == "textures/base/floor.tga");
     std::filesystem::remove_all(tmp);
+}
+
+// A disc's data track read as ISO 9660, raw through a cue sheet and bare
+// as an .iso; its files taken off it by an import.
+static void testIso(const std::filesystem::path &tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp);
+    std::vector<uint8_t> big(5000);
+    for (size_t i = 0; i < big.size(); ++i)
+        big[i] = uint8_t(i * 7);
+    const std::vector<test::IsoEntry> files = {{"README.TXT", test::toBytes("hello")},
+                                               {"GAMEDATA/EXE/GAME.EXE", big},
+                                               {"GAMEDATA/RESOURCE/VIDEO/A.SAN", {1, 2, 3}},
+                                               {"GAMEDATA/RESOURCE/VIDEO/B.SAN", {4}},
+                                               {"NOEXT", {9}}};
+    test::writeFile(tmp / "Disc (Track 1).bin", test::makeIsoImage(files, "SITH", true));
+    test::writeFile(tmp / "Disc (Track 2).bin", std::vector<uint8_t>(2352, 0));
+    const std::string sheet = "FILE \"Disc (Track 1).bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n"
+                              "FILE \"Disc (Track 2).bin\" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n";
+    test::writeFile(tmp / "Disc.cue", test::toBytes(sheet));
+    test::writeFile(tmp / "bare.iso", test::makeIsoImage(files, "BARE"));
+    CHECK(discImagesIn(tmp).size() == 2 && discImagesIn(tmp)[0].filename() == "bare.iso");
+
+    for (const char *name : {"Disc.cue", "bare.iso"}) {
+        IsoImage image;
+        CHECK(!image.openFile(tmp / name));
+        CHECK(image.volume() == (std::string(name) == "Disc.cue" ? "SITH" : "BARE"));
+        CHECK(image.files().size() == 5);
+        const IsoFile *exe = image.find("gamedata\\exe\\game.exe");
+        CHECK(exe && exe->path == "GAMEDATA/EXE/GAME.EXE" && exe->size == big.size());
+        CHECK(image.find("NOEXT") && !image.find("GAMEDATA/EXE") && !image.find("MISSING.TXT"));
+        const auto videos = image.filesIn("gamedata/resource/video/");
+        CHECK(videos.size() == 2 && videos[0]->path == "GAMEDATA/RESOURCE/VIDEO/A.SAN");
+        CHECK(image.filesIn("GAMEDATA").empty());
+        std::vector<uint8_t> bytes;
+        CHECK(exe && !image.readAll(*exe, bytes) && bytes == big);
+        CHECK(exe && image.readAll(*exe, bytes, 100));
+
+        // Copied off it whole by an import.
+        ImportPlan plan;
+        if (exe) {
+            ImportPlan::File f{image.track().file, "out/game.exe", exe->size, std::nullopt, std::nullopt};
+            f.disc = image.track();
+            f.discSector = exe->sector;
+            plan.files.push_back(f);
+        }
+        const std::filesystem::path dest = tmp / (std::string(name) + ".out");
+        CHECK(!runImport(plan, dest, nullptr));
+        std::ifstream in(dest / "out/game.exe", std::ios::binary);
+        CHECK(std::vector<uint8_t>(std::istreambuf_iterator<char>(in), {}) == big);
+    }
+
+    // Not an image, or a cue sheet without its data track.
+    IsoImage image;
+    CHECK(image.openFile(tmp / "Disc (Track 2).bin"));
+    test::writeFile(tmp / "lost.cue", test::toBytes("FILE \"gone.bin\" BINARY\n  TRACK 01 MODE1/2352\n"
+                                                    "    INDEX 01 00:00:00\n"));
+    CHECK(image.openFile(tmp / "lost.cue"));
 }
 
 static void testCue(const std::filesystem::path &tmp) {
@@ -1340,6 +1400,7 @@ static const reluva::test::Suite kFilesSuite(
         {"search set", [](const std::filesystem::path &tmp) { testSearchSet(tmp / "search"); }},
         {"streams", [](const std::filesystem::path &tmp) { testStreams(tmp / "streams"); }},
         {"serializer", [](const std::filesystem::path &) { testSerializer(); }},
+        {"disc images", [](const std::filesystem::path &tmp) { testIso(tmp / "iso"); }},
     });
 
 static const reluva::test::Suite
