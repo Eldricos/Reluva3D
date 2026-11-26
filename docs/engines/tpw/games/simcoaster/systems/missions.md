@@ -36,7 +36,7 @@ own:
 | `TechLevel.NewMaxGroup`, `TechLevel.Theme` | "group to activate": the research groups allowed in that world |
 | `Completion.ObstacleOpened` | an object that opens as it's done (the gates, 1700) |
 | `Completion.ThemeOpened`, `ThemeNumber` | a world it opens (Polar Zone after Operation Manager!) |
-| `Completion.LoadNewHoardings`, `BoundaryClicks` | the park's new land and fence |
+| `Completion.LoadNewHoardings`, `BoundaryClicks` | the park's new land and fence ([land.md](land.md)) |
 | `Completion.EndOfGame` | the last: done, the game's won |
 
 The objectives' statistics are counted as their names say: the visitors
@@ -152,9 +152,8 @@ Plughole and Manager on a small world built in the test.
   Challenges give the golden tickets and promotions, the special rides'
   the promotions past Manager ([challenges.md](challenges.md),
   [special-rides.md](special-rides.md)).
-- How the park's land and fence change (`BoundaryClicks`, `hoardings.map`,
-  `Hoardings.sam`, `EndHoardings.sam`), and what an obstacle's shape and
-  `AfterShape` mark.
+- What an obstacle's shape and `AfterShape` mark. The park's land is in
+  [land.md](land.md).
 - How the player picks the staff, how long they work, and what the
   clearing shows (`Info.DestroyParticleEffect`, the obstacles' scripts);
   what clearing costs.

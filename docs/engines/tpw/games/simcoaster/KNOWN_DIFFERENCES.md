@@ -27,8 +27,8 @@ None yet.
   running, the mission's briefing over it, visitors coming by guessed
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
-  bottom buttons' menus open, and all their items do something but the
-  Overview Map and Visitor Opinion; the game's menu resumes
+  bottom buttons' menus open, and all their items do something, the Overview
+  Map and Visitor Opinion by guess; the game's menu resumes
   and quits, nothing else; attractions', staff's and the gates' windows
   and menus have only some of their controls, and the windows the
   recording doesn't show are laid out by guess

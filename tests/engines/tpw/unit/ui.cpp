@@ -631,6 +631,20 @@ void testParkWindows() {
     CHECK(map.handle(at(EventType::kMouseDown, {spot.x, spot.y, 1, 1})) == tpw::WindowResult::kChose &&
           map.target() == cell);
     CHECK(map.handle(at(EventType::kMouseDown, Map::okRect())) == tpw::WindowResult::kClosed);
+    map.open(Map::Mode::kOpinion);
+    CHECK(map.isOpen() && map.mode() == Map::Mode::kOpinion);
+
+    // The Overview Map goes to another open world, not a closed one or
+    // the park's own.
+    using Overview = tpw::OverviewMapWindow;
+    Overview overview;
+    overview.open({{1, true, 2, 10}, {2, false, 0, 10}, {0, true, 0, 10}}, 1);
+    CHECK(overview.handle(at(EventType::kMouseDown, Overview::rowRect(0))) == tpw::WindowResult::kNone);
+    CHECK(overview.handle(at(EventType::kMouseDown, Overview::rowRect(1))) == tpw::WindowResult::kNone);
+    CHECK(overview.handle(at(EventType::kMouseDown, Overview::rowRect(2))) == tpw::WindowResult::kChose &&
+          overview.chosen() == 0 && !overview.isOpen());
+    overview.open({{1, true, 0, 10}}, 1);
+    CHECK(overview.handle(at(EventType::kMouseDown, Overview::okRect())) == tpw::WindowResult::kClosed);
 
     // Visitor Statistics and the visitors' list close by their buttons;
     // a visitor's arrows do nothing with none in the park.

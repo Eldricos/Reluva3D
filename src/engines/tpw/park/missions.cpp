@@ -18,6 +18,7 @@ constexpr int kMostMissions = 64;
 constexpr int kMostObjectives = 8;
 constexpr int kMostStaffNeeds = 8;
 constexpr int kMostBoundaryClicks = 128;
+constexpr int kBoundaryEnd = 512;
 
 // The worlds' folders, by the missions' theme numbers.
 constexpr std::array<const char *, 3> kThemeFolders{"arabian", "science", "water"};
@@ -127,8 +128,13 @@ Error Park::loadMissions(const SearchSet &files, int mission) {
             const std::string base = "BoundaryClicks[" + std::to_string(i) + "].";
             if (!m.find(base + "X"))
                 break;
-            out.boundary.push_back(cellOf(m, base + "X", base + "Y"));
+            // (512, 512) ends the list.
+            const Cell click = cellOf(m, base + "X", base + "Y");
+            if (click.x == kBoundaryEnd && click.y == kBoundaryEnd)
+                break;
+            out.boundary.push_back(click);
         }
+        out.newLand = m.number("Completion.LoadNewHoardings", 0) != 0;
         _missions.push_back(std::move(out));
     }
     _progress = std::clamp(mission, 0, int(_missions.size()));
@@ -140,6 +146,8 @@ Error Park::loadMissions(const SearchSet &files, int mission) {
             clearObstacle(done.obstacle);
         if (done.opens)
             clearObstacle(done.opens);
+        if (done.newLand)
+            growLand(done.boundary);
     }
     startMission(_progress);
     return Error::success();
@@ -306,6 +314,8 @@ void Park::completeMission() {
     _messages.push_back({kObjectiveCompleteTitle, uint32_t(done.number), {}, {}, true});
     if (done.opens)
         clearObstacle(done.opens);
+    if (done.newLand)
+        growLand(done.boundary);
     if (done.themeOpened >= 0)
         _themesOpened.push_back(done.themeOpened);
     if (done.endOfGame) {

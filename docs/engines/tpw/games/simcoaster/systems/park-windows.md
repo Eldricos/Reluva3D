@@ -41,12 +41,13 @@ Down the HUD's left (`UIHELPTEXT` 116 to 120):
 | Park: Park Statistics (846) | the visitors in the park, the arrival rate, the park's rating and the visitors to date (423 to 426): the rate as the visitors the park draws now, the rating as its points *(guessed)* |
 | Park: Park Awards (850) | "Park Awards - {20}", the world's name, and the eight awards (453 to 460), each held with its measure, else "None" ([park-awards.md](park-awards.md)) |
 | Maps: Park Map (852) | below |
+| Maps: Overview Map (853) | below |
+| Maps: Visitor Opinion (854) | the Park Map, titled "Visitor Opinion", each visitor's dot coloured by their happiness as Visitor Statistics colours its bars: happy, undecided, unhappy *(guessed)* |
 | The envelope | the Message Center (861), below |
 
 The Attractions' and Visitors' lists, Park Statistics and Awards are
 laid out by guess in the staff list's style. Challenges (849) opens the
 objectives' window on its Challenges tab ([challenges.md](challenges.md)).
-Overview Map (853) and Visitor Opinion (854) do nothing yet.
 
 ### Visitor Statistics
 
@@ -100,9 +101,25 @@ The world's map picture (`levels/science/2dmap.tga`, 512 × 512), in a
 frame at (165, 86), 310 across *(guessed)*; on it, each attraction's mark
 (`2dmap/map_ride.tga` and the others of its kind), the visitors as white
 dots and the camera's place as a red cross; a click on it takes the
-camera there. The picture covers 96 cells across, the park's cell (0,
+camera there. The land beyond the park's fence is darkened, by guess
+([land.md](land.md)). The picture covers 96 cells across, the park's cell (0,
 0) at its left and 5.6 cells from its top, as Land of Invention's
 entrance (47, 17), fence (y 48) and river (x 60) lie on it *(inferred)*.
+
+### The Overview Map
+
+The way between the worlds: "use the Overview Map to move between Land
+of Invention and Polar Zone" (`MISSION_DESC` 3). The game's strings for
+it, by their places beside the worlds' names: each world's challenges
+won, "{5}: {22} of {23} challenges completed" (`UITEXT` 491), and "This
+area has been opened" or "This area has not yet been opened" (494, 495);
+"Go to Land Of Invention zone" and the others (`UIHELPTEXT` 164 to 166),
+"This area is not yet open" (145) *(inferred)*. Reluva lists the worlds
+in the globe's order, in a window laid out by guess, the park's own
+marked as a chosen row is; a click on another open world closes the park
+and opens that world's, the player's file kept as quitting keeps it, its
+briefing over it ([players.md](players.md)). The recording never opens
+it, and what the game shows (a map, or the globe) isn't known.
 
 ### The game's menu
 
@@ -118,7 +135,7 @@ Design Kit", "Resume Game", "Quit Game" (768, 769, 774, 766, 770, 50, 771,
 The windows are in `src/engines/tpw/ui/info_windows.cpp`, drawn and
 fed events by `ParkScreen` and `playPark`. `reluva-tool tpw window-shot
 <game folder> <world folder> <out.png>
-<visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map>`
+<visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview>`
 draws them; `messages` runs the park to its first annual report.
 `park-run` quits by the game's menu. The unit tests (`tpw.unit.ui`,
 `tpw.unit.park`) click the game's menu, the Message Center, the map and
@@ -142,4 +159,4 @@ the visitors' windows, and take up path.
 - How the arrival rate and the park's rating are reckoned.
 - What the bulldozer refunds for path, and what it may take up.
 - The camcorder's view, beyond being near the ground.
-- The Overview Map and Visitor Opinion.
+- What the Overview Map and Visitor Opinion show.

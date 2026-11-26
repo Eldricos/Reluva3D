@@ -828,6 +828,7 @@ constexpr ScreenRect kMapWindow{150, 50, 340, 380};
 constexpr ScreenRect kMapFrame{165, 86, 310, 310};
 constexpr ScreenRect kMapOk{452, 398, 28, 28};
 constexpr uint32_t kParkMapText = 852;
+constexpr uint32_t kVisitorOpinionText = 854;
 // The map picture's cells: 96 across its 512 pixels, the park's cell
 // (0, 0) at its left and 5.6 cells down, as Land of Invention's entrance
 // (47, 17), fence (y 48) and river (x 60) lie on it (inferred).
@@ -901,10 +902,21 @@ WindowResult ParkMapWindow::handle(const Event &ev) {
 void ParkMapWindow::draw(Surface &screen, const WindowKit &kit, const Park &park, const Park::Cell &camera) const {
     if (!_open)
         return;
-    kit.window(screen, kMapWindow, kit.ui(kParkMapText));
+    kit.window(screen, kMapWindow, kit.ui(_mode == Mode::kOpinion ? kVisitorOpinionText : kParkMapText));
     kit.frame(screen, kMapFrame);
     const ScreenRect m = mapRect();
     drawScaled(screen, _map, m);
+    // Land beyond the park's fence darkened, by guess: the recording's map
+    // is of a park that hasn't grown.
+    for (int y = m.y; y < m.y + m.h; ++y)
+        for (int x = m.x; x < m.x + m.w; ++x) {
+            const Park::Cell c = cellAt(x, y);
+            if (c.x < 0 || c.y < 0 || c.x >= park.groundWidth() || c.y >= park.groundHeight() || park.owns(c))
+                continue;
+            uint8_t *q = screen.row(y) + x * 4;
+            for (int i = 0; i < 3; ++i)
+                q[i] = uint8_t(q[i] / 2);
+        }
     const auto inside = [&](const Spot &p) { return m.contains(p.x, p.y); };
     for (const Park::PlacedObject &o : park.objects()) {
         const Attractions::Attraction *a = park.attractions().find(o.id);
@@ -915,8 +927,13 @@ void ParkMapWindow::draw(Surface &screen, const WindowKit &kit, const Park &park
     }
     for (const Park::Visitor &v : park.visitorsAbout()) {
         const Spot p = placeOf({int(std::floor(v.x / Park::kCellUnits)), int(std::floor(v.z / Park::kCellUnits))});
-        if (v.inPark && inside(p))
-            WindowKit::fill(screen, {p.x, p.y, 2, 2}, kVisitorDot);
+        if (!v.inPark || !inside(p))
+            continue;
+        const Color dot = _mode == Mode::kPark           ? kVisitorDot
+                          : v.happiness >= kHappyFrom    ? kHappyBar
+                          : v.happiness >= kUnhappyBelow ? kUndecidedBar
+                                                         : kUnhappyBar;
+        WindowKit::fill(screen, {p.x, p.y, _mode == Mode::kPark ? 2 : 3, _mode == Mode::kPark ? 2 : 3}, dot);
     }
     // The camera's place, a cross.
     const Spot c = placeOf(camera);
@@ -925,6 +942,68 @@ void ParkMapWindow::draw(Surface &screen, const WindowKit &kit, const Park &park
         WindowKit::fill(screen, {c.x, c.y - 4, 1, 9}, kCameraMark);
     }
     kit.button(screen, Button::kOk, kMapOk, WindowKit::kPlain);
+}
+
+// The Overview Map.
+
+namespace {
+
+constexpr uint32_t kOverviewMapText = 853;
+constexpr uint32_t kChallengesCompletedText = 491;
+constexpr uint32_t kAreaOpenedText = 494;
+constexpr uint32_t kAreaNotOpenedText = 495;
+constexpr ScreenRect kOverviewWindow{150, 90, 340, 270};
+constexpr ScreenRect kOverviewFrame{165, 128, 310, 172};
+constexpr int kOverviewRow = 56;
+constexpr ScreenRect kOverviewOk{452, 316, 28, 28};
+constexpr Color kClosedWorld{150, 150, 150};
+
+} // namespace
+
+ScreenRect OverviewMapWindow::rowRect(size_t index) {
+    return {kOverviewFrame.x + 4, kOverviewFrame.y + 4 + int(index) * kOverviewRow, kOverviewFrame.w - 8,
+            kOverviewRow - 2};
+}
+
+ScreenRect OverviewMapWindow::okRect() {
+    return kOverviewOk;
+}
+
+WindowResult OverviewMapWindow::handle(const Event &ev) {
+    if (!_open || !WindowKit::isClick(ev))
+        return WindowResult::kNone;
+    if (kOverviewOk.contains(ev.mouseX, ev.mouseY)) {
+        _open = false;
+        return WindowResult::kClosed;
+    }
+    for (size_t i = 0; i < _worlds.size(); ++i)
+        if (rowRect(i).contains(ev.mouseX, ev.mouseY) && _worlds[i].open && _worlds[i].theme != _here) {
+            _chosen = _worlds[i].theme;
+            _open = false;
+            return WindowResult::kChose;
+        }
+    return WindowResult::kNone;
+}
+
+// The world the park's in marked as a chosen row is.
+void OverviewMapWindow::draw(Surface &screen, const WindowKit &kit) const {
+    if (!_open)
+        return;
+    kit.window(screen, kOverviewWindow, kit.ui(kOverviewMapText));
+    kit.frame(screen, kOverviewFrame);
+    for (size_t i = 0; i < _worlds.size(); ++i) {
+        const World &w = _worlds[i];
+        const ScreenRect r = rowRect(i);
+        if (w.theme == _here)
+            WindowKit::fill(screen, r, WindowKit::kChosenRow);
+        const Color c = w.open ? Color{255, 255, 255} : kClosedWorld;
+        kit.text(screen, r.x + 6, r.y + 10,
+                 kit.ui(kChallengesCompletedText,
+                        {{5, kit.worldName(w.theme)}, {22, std::to_string(w.won)}, {23, std::to_string(w.challenges)}}),
+                 c);
+        kit.text(screen, r.x + 6, r.y + 30, kit.ui(w.open ? kAreaOpenedText : kAreaNotOpenedText), c);
+    }
+    kit.button(screen, Button::kOk, kOverviewOk, WindowKit::kPlain);
 }
 
 // Activating a special ride, laid out by guess: the recording opens none.

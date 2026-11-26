@@ -187,6 +187,7 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
                                                                                          : Ground::kOutside;
             }
         layPrebuilt(files, map);
+        loadLand(files);
     }
 
     // The way in: off the bus at its first stop, over the crossing from
@@ -282,6 +283,8 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
 
 Park::Ground Park::ground(const Cell &cell) const {
     if (cell.x < 0 || cell.y < 0 || cell.x >= _mapWidth || cell.y >= _mapHeight)
+        return Ground::kOutside;
+    if (!owns(cell))
         return Ground::kOutside;
     return _ground[size_t(cell.y) * size_t(_mapWidth) + size_t(cell.x)];
 }

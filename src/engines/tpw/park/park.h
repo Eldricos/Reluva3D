@@ -93,7 +93,10 @@ public:
         int promotion = 0;      // Promotion.Number: the rank it needs, in PROMOTIONLEVELS.str
         int challenges = 0;     // RequiredChallenges.Number, won in RequiredChallenges.Theme
         int challengesTheme = -1;
-        std::vector<Cell> boundary; // the park's land as it's done, as clicks from the entrance (inferred)
+        // Completion.LoadNewHoardings, BoundaryClicks: the park's fence as
+        // it's done, its corners from by the entrance (inferred).
+        bool newLand = false;
+        std::vector<Cell> boundary;
         /** Whether its obstacle wants a solution: research, or trained staff. Others open of themselves. */
         bool needsSolution() const { return obstacle && (obstacleEffort > 0 || !staffNeeded.empty()); }
     };
@@ -594,9 +597,17 @@ public:
     /** The ground's size in cells, x across and y down; 0 for a world without its attribute map. */
     int groundWidth() const { return _mapWidth; }
     int groundHeight() const { return _mapHeight; }
-    /** The ground of a cell; kOutside off the map, or for a world without one. */
+    /** The ground of a cell; kOutside off the map, beyond the park's fence, or for a world without one. */
     Ground ground(const Cell &cell) const;
+    /**
+     * Whether a cell is the park's, inside its fence: the world's
+     * `hoardings.map`, grown by the missions done here. See
+     * docs/engines/tpw/games/simcoaster/systems/land.md.
+     */
+    bool owns(const Cell &cell) const;
     bool isPath(const Cell &cell) const { return ground(cell) == Ground::kPath; }
+    /** Whether path is laid on a cell, the park's or beyond its fence, as the prebuilt park has it there. */
+    bool pathLaid(const Cell &cell) const;
     /** An object standing in the park, by its number (its settings' `Info.Id`). */
     struct PlacedObject {
         int id = 0;
@@ -1015,6 +1026,9 @@ private:
     void researchedObstacle();
     void loadChallenges(const SearchSet &files, const SamFile &general, const SamFile *world);
     void loadAwards(const SamFile &general);
+    void loadLand(const SearchSet &files);
+    /** Adds the land inside a mission's fence (Mission::boundary). */
+    void growLand(const std::vector<Cell> &clicks);
     void challengeDay();
     bool challengeTriggered(const Challenge &c) const;
     bool challengeKept(const Challenge &c, int value) const;
@@ -1116,6 +1130,7 @@ private:
     int _mapWidth = 0; // the ground's cells, x across, y down, as the settings number them
     int _mapHeight = 0;
     std::vector<Ground> _ground;
+    std::vector<uint8_t> _owned; // by cell, as _ground; 1 where it's the park's
     bool _prebuilt = false;
     std::vector<PlacedObject> _objects;
     std::vector<Queue> _queues;

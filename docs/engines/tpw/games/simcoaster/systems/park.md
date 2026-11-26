@@ -46,8 +46,10 @@ x 610 to 950 and z 130 to 460 in Land of Invention. The ground's cells
   is `miss00`): its objective (`ExitStatistic[0]`: `Type` 8 with
   `TargetValue` 40, "Get 40 people in the park at once", as its briefing
   says), the obstacle it clears (`Obstacle.Type` 1700), and the park's
-  land as `BoundaryClicks`, 43 corners in the first mission, from (0, 0)
-  to (−50, 66): offsets from the entrance, it seems *(guessed)*.
+  fence once it's done, `BoundaryClicks`, 43 corners in the first
+  mission, counted from by the entrance ([land.md](land.md)).
+- **Its land**: the world's `hoardings.map`, grown by the missions done
+  in this world ([land.md](land.md)).
 - **The prebuilt park's path, queue and objects**, in Land of
   Invention, from the game's own saved park
   ([paths.md](paths.md#where-path-can-go), [tpws.md](../formats/tpws.md)):
@@ -199,9 +201,8 @@ path tool lays path ([paths.md](paths.md)); the bulldozer and the
 camcorder are in [park-windows.md](park-windows.md#the-tools). The
 bottom buttons open their menus; of their items Park's Objectives, Park
 Gates (the entry price, and the gates opened and closed) and Close Park,
-all the Attractions', Staff, Visitors' and Finance menus' items, and
-the Park Map, do something; the Park menu's Challenges and the Maps
-menu's Overview Map and Visitor Opinion don't yet ([staff.md](staff.md),
+all the Attractions', Staff, Visitors', Finance and Maps menus' items,
+and Challenges, do something ([staff.md](staff.md),
 [research.md](research.md), [finance.md](finance.md),
 [park-windows.md](park-windows.md)). The park's messages arrive in the
 Message Center. Clicking the gates opens their window,
@@ -237,8 +238,7 @@ holds its compass's buttons and picks from its menus.
 
 ## Open questions
 
-- What the boundary's clicks are measured from, and how the park's
-  land and its fence are drawn by them.
+- How the park's fence is drawn ([land.md](land.md)).
 - The fly-in along the road; the gates' model at the entrance.
 - The HUD: the windows its menus' items open, and what a right click
   on a bottom button opens ("Right-click to Buy Attractions"); the

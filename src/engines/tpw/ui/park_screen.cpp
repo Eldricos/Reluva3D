@@ -125,6 +125,8 @@ constexpr uint32_t kVisitorStatisticsItem = 840;
 constexpr uint32_t kParkStatisticsItem = 846;
 constexpr uint32_t kParkAwardsItem = 850;
 constexpr uint32_t kParkMapItem = 852;
+constexpr uint32_t kOverviewMapItem = 853;
+constexpr uint32_t kVisitorOpinionItem = 854;
 constexpr uint32_t kChallengesItem = 849;
 constexpr uint32_t kFinancialStatisticsItem = 842;
 constexpr uint32_t kLoansItem = 843;
@@ -679,7 +681,7 @@ void ParkScreen::drawPaths(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCa
     std::vector<uint8_t> laid(size_t(w) * size_t(h), 0);
     for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x)
-            laid[size_t(y) * size_t(w) + size_t(x)] = park.isPath({x, y});
+            laid[size_t(y) * size_t(w) + size_t(x)] = park.pathLaid({x, y});
     for (const Park::Cell &c : _preview)
         if (park.ground(c) != Park::Ground::kOutside)
             laid[size_t(c.y) * size_t(w) + size_t(c.x)] = 1;
@@ -1124,6 +1126,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _parkMap.draw(screen, _kit, park,
                       {int(std::floor(camera.target[0] / Park::kCellUnits)),
                        int(std::floor(camera.target[2] / Park::kCellUnits))});
+        _overviewMap.draw(screen, _kit);
         _messageCenter.draw(screen, _kit, _inbox, _playerName, [&](uint32_t day) { return dateText(day); });
         _messageWindow.draw(screen, _kit);
         _wageDemand.draw(screen, _kit, park, _hire);
@@ -1134,6 +1137,19 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     }
 }
 
+std::vector<OverviewMapWindow::World> ParkScreen::worlds(const Park &park) const {
+    // Land of Invention, Polar Zone, Arabian Nights, as the globe has them.
+    constexpr std::array<int, 3> kGlobeOrder{1, 2, 0};
+    std::vector<OverviewMapWindow::World> out;
+    const std::vector<int> &opened = park.themesOpened();
+    for (const int theme : kGlobeOrder)
+        out.push_back({theme,
+                       theme == park.theme() || _worldOpen[size_t(theme)] ||
+                           std::find(opened.begin(), opened.end(), theme) != opened.end(),
+                       park.challengesWonIn(theme), _worldChallenges[size_t(theme)]});
+    return out;
+}
+
 bool ParkScreen::windowOpen() const {
     return _popup.isOpen() || _attractionWindow.isOpen() || _gateWindow.isOpen() || _staffWindow.isOpen() ||
            _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen() ||
@@ -1142,7 +1158,7 @@ bool ParkScreen::windowOpen() const {
            _attractionFinance.isOpen() || _messageWindow.isOpen() || _visitorStats.isOpen() ||
            _visitorWindow.isOpen() || _visitorList.isOpen() || _attractionList.isOpen() || _parkStats.isOpen() ||
            _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() || _parkMap.isOpen() ||
-           _activateRide.isOpen();
+           _overviewMap.isOpen() || _activateRide.isOpen();
 }
 
 // Every message goes to the Message Center, unread; the president's
@@ -1344,6 +1360,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     screen.parkStats().close();
                     screen.awards().close();
                     screen.parkMap().close();
+                    screen.overviewMap().close();
                     screen.activateRide().close();
                     screen.messageCenter().close();
                     screen.popup().close();
@@ -1396,6 +1413,12 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     screen.awards().handle(ev);
                 } else if (screen.activateRide().isOpen()) {
                     screen.activateRide().handle(ev, park);
+                } else if (screen.overviewMap().isOpen()) {
+                    // Another world chosen: the park's left for it.
+                    if (screen.overviewMap().handle(ev) == WindowResult::kChose) {
+                        screen.setTravel(screen.overviewMap().chosen());
+                        return true;
+                    }
                 } else if (screen.parkMap().isOpen()) {
                     // A click on the map takes the camera there; the map stays.
                     if (screen.parkMap().handle(ev) == WindowResult::kChose)
@@ -1791,6 +1814,10 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             screen.parkStats().open();
         if (choice == kParkMapItem)
             screen.parkMap().open();
+        if (choice == kOverviewMapItem)
+            screen.overviewMap().open(screen.worlds(park), park.theme());
+        if (choice == kVisitorOpinionItem)
+            screen.parkMap().open(ParkMapWindow::Mode::kOpinion);
         if (choice == kParkAwardsItem)
             screen.awards().open(screen.kit().worldName(park.theme()));
         if (choice == ParkHud::kMessageCenterItem) {

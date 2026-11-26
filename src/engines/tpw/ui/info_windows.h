@@ -222,9 +222,19 @@ private:
  */
 class ParkMapWindow {
 public:
+    /**
+     * The Park Map (852), or Visitor Opinion (854): the same map, each
+     * visitor's dot coloured by how happy they are, as Visitor Statistics
+     * colours its bars (guessed: the recording never opens it).
+     */
+    enum class Mode { kPark, kOpinion };
     /** Reads the world's map and the marks; without them it shows a bare frame. */
     void load(const SearchSet &files, const std::string &folder);
-    void open() { _open = true; }
+    void open(Mode mode = Mode::kPark) {
+        _open = true;
+        _mode = mode;
+    }
+    Mode mode() const { return _mode; }
     void close() { _open = false; }
     bool isOpen() const { return _open; }
     /** kChose with the cell clicked in target(). */
@@ -244,9 +254,49 @@ public:
 
 private:
     bool _open = false;
+    Mode _mode = Mode::kPark;
     Park::Cell _target;
     image::Image _map;
     std::array<image::Image, Attractions::kKinds> _marks; // by Attractions::Kind
+};
+
+/**
+ * The Overview Map (853), to move between the worlds ("use the Overview
+ * Map to move between Land of Invention and Polar Zone", MISSION_DESC 3):
+ * each world with its challenges won ("{5}: {22} of {23} challenges
+ * completed", UITEXT 491) and whether it's open (494, 495); clicking
+ * another open one goes there. Laid out by guess: the recording never
+ * opens it.
+ */
+class OverviewMapWindow {
+public:
+    /** A world as the player's file and the park stand. */
+    struct World {
+        int theme = 0; // as Park numbers themes
+        bool open = false;
+        int won = 0; // its challenges won, of `challenges`
+        int challenges = 0;
+    };
+    void open(std::vector<World> worlds, int here) {
+        _open = true;
+        _worlds = std::move(worlds);
+        _here = here;
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    /** kChose with the world clicked in chosen(): another, open. */
+    WindowResult handle(const Event &ev);
+    int chosen() const { return _chosen; }
+    void draw(Surface &screen, const WindowKit &kit) const;
+    /** A world's row, by its place in the list. */
+    static ScreenRect rowRect(size_t index);
+    static ScreenRect okRect();
+
+private:
+    bool _open = false;
+    std::vector<World> _worlds;
+    int _here = -1;
+    int _chosen = -1;
 };
 
 /**

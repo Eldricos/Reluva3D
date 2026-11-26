@@ -78,7 +78,7 @@ std::array<Park::AwardStanding, Park::kAwardCount> Park::awards() const {
     int patrols = 0;
     int cameras = 0;
     for (size_t i = 0; i < _ground.size(); ++i) {
-        const Ground g = _ground[i];
+        const Ground g = ground({int(i % size_t(_mapWidth)), int(i / size_t(_mapWidth))});
         if (g == Ground::kOutside)
             continue;
         ++owned;

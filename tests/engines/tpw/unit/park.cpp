@@ -1379,6 +1379,57 @@ void testAwards(const std::filesystem::path &tmp) {
     CHECK(park.statisticValue(6) == 3);
 }
 
+void testLand(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(data / "levels" / "Standard.sam", "BankAccountInfo.InitialCash 100000\r\nArrival.MinPeople 0\r\n");
+    // The first mission opens the whole map, from by the entrance; the
+    // second opens nothing.
+    writeText(data / "missions" / "miss00.sam",
+              "Info.Number 0\r\nCompletion.EndingTheme 1\r\nExitStatistic[0].Type 8\r\n"
+              "ExitStatistic[0].TargetValue 0\r\nCompletion.LoadNewHoardings 1\r\n"
+              "BoundaryClicks[0].X -7\r\nBoundaryClicks[0].Y -1\r\nBoundaryClicks[1].X 1\r\n"
+              "BoundaryClicks[1].Y -1\r\nBoundaryClicks[2].X 1\r\nBoundaryClicks[2].Y 5\r\n"
+              "BoundaryClicks[3].X -7\r\nBoundaryClicks[3].Y 5\r\nBoundaryClicks[4].X 512\r\n"
+              "BoundaryClicks[4].Y 512\r\n");
+    writeText(data / "missions" / "miss01.sam", "Info.Number 1\r\nCompletion.EndingTheme 1\r\n"
+                                                "Completion.LoadNewHoardings 0\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "Standard.sam", "FixedItemInfo.EntranceAPosX 2\r\nFixedItemInfo.EntranceAPosY 0\r\n"
+                                      "FixedItemInfo.EntranceBPosX 3\r\nFixedItemInfo.EntranceBPosY 0\r\n");
+    writeText(world / "shops" / "Shops.sam", "Info.HasQueue 0\r\nInfo.IsChoosable 1\r\n");
+    writeText(world / "shops" / "balloon" / "balloon.sam", "Info.Id 1209\r\nInfo.Shape\r\n---\r\n*\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    // The park's to start with: x 0 to 3.
+    tpw::testing::Bytes hoardings(size_t(128) * 128, 1);
+    for (int x = 0; x < 4; ++x)
+        for (int y = 0; y < kColumns; ++y)
+            hoardings[size_t(x) * 128 + size_t(y)] = 0;
+    test::writeFile(world / "hoardings.map", hoardings);
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.missions()[0].boundary.size() == 4 && park.missions()[0].newLand);
+    CHECK(park.owns({3, 5}) && !park.owns({4, 0}) && park.ground({5, 2}) == Park::Ground::kOutside);
+    CHECK(park.place(1209, 0, {"*"}, false, {5, 2}, 0) == Park::kNotPlaced);
+    CHECK(park.place(1209, 0, {"*"}, false, {1, 2}, 0) == -1);
+    // Its objective met the first day, the land beyond is the park's.
+    for (int t = 0; t < 3 && park.progress() == 0; ++t)
+        park.advance(Park::kDayMillis);
+    CHECK(park.progress() == 1 && park.owns({7, 5}) && park.ground({5, 2}) == Park::Ground::kOpen);
+    CHECK(park.place(1209, 0, {"*"}, false, {5, 2}, 0) == -1);
+
+    // A park set up after it has the land from the start.
+    Park later;
+    CHECK(!later.load(files, "levels/science", 1));
+    CHECK(later.owns({7, 0}) && later.owns({0, 0}));
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -1400,4 +1451,5 @@ static const reluva::test::Suite
                                 {"challenges", [](const std::filesystem::path &tmp) { testChallenges(tmp); }},
                                 {"special-rides", [](const std::filesystem::path &tmp) { testSpecialRides(tmp); }},
                                 {"awards", [](const std::filesystem::path &tmp) { testAwards(tmp); }},
+                                {"land", [](const std::filesystem::path &tmp) { testLand(tmp); }},
                             });

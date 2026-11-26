@@ -30,8 +30,8 @@ namespace reluva::tpw {
 namespace {
 
 /**
- * The game running: for now its opening, its front end to a world
- * chosen, then its loading screen until the player quits.
+ * The game running: its opening, its front end to a world chosen, then
+ * that world's park, and others' as the player moves between them.
  */
 class TpwEngine : public Engine {
 public:
@@ -66,9 +66,23 @@ public:
         if (world < 0)
             return Error::success();
 
-        // The loading screen while the chosen world's park loads, then the
-        // park, set up as the player's missions done leave it, with their
-        // objective if it's in this world.
+        // Each world's park in turn, as the Overview Map moves between them.
+        for (int next = world; next >= 0;)
+            if (Error err = playWorld(files, next, player))
+                return err;
+        return Error::success();
+    }
+
+private:
+    /**
+     * The loading screen while a world's park loads (by Globe::worlds()'
+     * order), then the park, set up as the player's missions done leave
+     * it, with their objective if it's in this world; what it did kept in
+     * the player's file.
+     * @param world In, the world; out, the one the Overview Map chose
+     *     next, −1 when the player quits or closes the window.
+     */
+    Error playWorld(const SearchSet &files, int &world, PlayerFile &player) {
         Surface screen;
         screen.create(kWidth, kHeight, PixelFormat::kRGBA32);
         image::Image loading;
@@ -85,6 +99,10 @@ public:
             return err;
         // The player's shares are the company's they hold, as their file keeps them.
         parkScreen.setPlayer(player.name, player.rank);
+        for (const PlayerFile::World &w : player.worlds)
+            for (int theme = 0; theme < 3; ++theme)
+                if (Park::themeName(theme) == w.theme)
+                    parkScreen.setWorld(theme, w.open, w.challenges);
         if (player.sharesIssued > 0)
             park.setShares({player.sharesIssued, player.sharesOwned, player.sharePrice});
         park.setPlayer(player.goldenTickets, player.rank);
@@ -95,47 +113,61 @@ public:
         soft3d::Rasterizer rasterizer;
         const ParkScreen::Camera start = parkScreen.startCamera(park);
         if (!briefing.load(files) && !showBriefing(_sys, briefing, park, player.name,
-                                                   [&](Surface &s) { parkScreen.draw(s, rasterizer, park, start); }))
+                                                   [&](Surface &s) { parkScreen.draw(s, rasterizer, park, start); })) {
+            world = -1;
             return Error::success();
-        playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark, bool challenges) {
-            return showBriefing(_sys, briefing, park, player.name, drawPark, challenges);
-        });
-        // What the park did to the share price stays with the player.
+        }
+        const bool left =
+            playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark, bool challenges) {
+                return showBriefing(_sys, briefing, park, player.name, drawPark, challenges);
+            });
+        world = -1;
+        if (left && parkScreen.travel() >= 0)
+            for (size_t i = 0; i < Globe::worlds().size(); ++i)
+                if (Globe::worlds()[i].theme == Park::themeName(parkScreen.travel()))
+                    world = int(i);
+        // What the park did stays with the player, in their file too.
+        keep(player, park);
         if (_target.savePath.empty() || !player.exists())
             return Error::success();
         PlayerSlots players = readPlayers(_target.savePath, {});
         for (PlayerFile &p : players)
-            if (p.exists() && p.name == player.name) {
-                p.sharesIssued = park.shares().issued;
-                p.sharesOwned = park.shares().owned;
-                p.sharePrice = park.shares().price;
-                p.goldenTickets = park.goldenTickets();
-                p.rank = park.rank();
-                p.challengesWon = park.challengesWon();
-                p.challengesFailed = park.challengesFailed();
-                // The special rides activated in this world, with the others' kept.
-                for (int id : park.ridesActivated())
-                    if (std::find(p.ridesActivated.begin(), p.ridesActivated.end(), id) == p.ridesActivated.end())
-                        p.ridesActivated.push_back(id);
-                // Their objective now, where it's played, and the worlds opened.
-                if (park.progress() < int(park.missions().size())) {
-                    p.objective = park.progress();
-                    p.objectiveTheme = Park::themeName(park.missions()[size_t(park.progress())].theme);
-                }
-                for (const int theme : park.themesOpened())
-                    for (PlayerFile::World &w : p.worlds)
-                        if (w.theme == Park::themeName(theme))
-                            w.open = true;
-                // Each world's challenges won, as the Personnel File counts them.
-                for (int theme = 0; theme < 3; ++theme)
-                    for (PlayerFile::World &w : p.worlds)
-                        if (w.theme == Park::themeName(theme))
-                            w.won = park.challengesWonIn(theme);
-            }
+            if (p.exists() && p.name == player.name)
+                keep(p, park);
         return writePlayers(_target.savePath, players);
     }
 
-private:
+    // The share price, golden tickets, rank and challenges as the park
+    // leaves them; the special rides activated, the objective and the
+    // worlds opened.
+    static void keep(PlayerFile &p, const Park &park) {
+        p.sharesIssued = park.shares().issued;
+        p.sharesOwned = park.shares().owned;
+        p.sharePrice = park.shares().price;
+        p.goldenTickets = park.goldenTickets();
+        p.rank = park.rank();
+        p.challengesWon = park.challengesWon();
+        p.challengesFailed = park.challengesFailed();
+        // The special rides activated in this world, with the others' kept.
+        for (int id : park.ridesActivated())
+            if (std::find(p.ridesActivated.begin(), p.ridesActivated.end(), id) == p.ridesActivated.end())
+                p.ridesActivated.push_back(id);
+        // Their objective now, where it's played, and the worlds opened.
+        if (park.progress() < int(park.missions().size())) {
+            p.objective = park.progress();
+            p.objectiveTheme = Park::themeName(park.missions()[size_t(park.progress())].theme);
+        }
+        for (const int theme : park.themesOpened())
+            for (PlayerFile::World &w : p.worlds)
+                if (w.theme == Park::themeName(theme))
+                    w.open = true;
+        // Each world's challenges won, as the Personnel File counts them.
+        for (int theme = 0; theme < 3; ++theme)
+            for (PlayerFile::World &w : p.worlds)
+                if (w.theme == Park::themeName(theme))
+                    w.won = park.challengesWonIn(theme);
+    }
+
     // The game's own levels for its sounds, music and speech, percent, as
     // its settings give them (sound.sam's DefaultVolume); full without them.
     static void setTypeVolumes(const SearchSet &files, audio::Mixer &mixer) {

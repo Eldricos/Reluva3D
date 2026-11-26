@@ -673,7 +673,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|activate> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|activate> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -786,6 +786,12 @@ int cmdWindowShot(int argc, char **argv) {
         screen.gameMenu().open();
     else if (which == "map")
         screen.parkMap().open();
+    else if (which == "overview") {
+        // As a player who's opened Polar Zone, too, would see it.
+        screen.setWorld(2, true, 10);
+        screen.overviewMap().open(screen.worlds(park), park.theme());
+    } else if (which == "opinion")
+        screen.parkMap().open(reluva::tpw::ParkMapWindow::Mode::kOpinion);
     else if (which == "activate") {
         // The first special ride waiting to be activated.
         for (size_t i = park.objects().size(); i-- > 0;)
@@ -821,7 +827,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|activate> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|activate> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",

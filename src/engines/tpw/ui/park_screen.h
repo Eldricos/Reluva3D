@@ -135,6 +135,7 @@ public:
     MessageCenterWindow &messageCenter() { return _messageCenter; }
     GameMenu &gameMenu() { return _gameMenu; }
     ParkMapWindow &parkMap() { return _parkMap; }
+    OverviewMapWindow &overviewMap() { return _overviewMap; }
     ActivateRideWindow &activateRide() { return _activateRide; }
     /** The messages received, oldest first; marks them all read. */
     std::vector<MessageCenterWindow::Received> &inbox() { return _inbox; }
@@ -148,6 +149,22 @@ public:
         _playerName = std::move(name);
         _playerRank = rank;
     }
+    /** Whether a world (as Park numbers themes) is open to the player, and its challenges, as their file has it. */
+    void setWorld(int theme, bool open, int challenges) {
+        if (theme >= 0 && theme < int(_worldOpen.size())) {
+            _worldOpen[size_t(theme)] = open;
+            _worldChallenges[size_t(theme)] = challenges;
+        }
+    }
+    /**
+     * The worlds for the Overview Map, in the globe's order: open as the
+     * player's file and the missions done here have it; the park's own
+     * world always.
+     */
+    std::vector<OverviewMapWindow::World> worlds(const Park &park) const;
+    /** The world the Overview Map chose to go to, as Park numbers themes; −1 for none. */
+    int travel() const { return _travel; }
+    void setTravel(int theme) { _travel = theme; }
     const std::string &playerName() const { return _playerName; }
     int playerRank() const { return _playerRank; }
     /** Takes the park's new messages, and shows the next waiting once none is showing. */
@@ -254,6 +271,10 @@ private:
     MessageCenterWindow _messageCenter;
     GameMenu _gameMenu;
     ParkMapWindow _parkMap;
+    OverviewMapWindow _overviewMap;
+    std::array<bool, 3> _worldOpen{};
+    std::array<int, 3> _worldChallenges{10, 10, 10}; // ChallengesInThisLevel's ten each
+    int _travel = -1;
     ActivateRideWindow _activateRide;
     std::vector<MessageCenterWindow::Received> _inbox;
     std::deque<Park::Message> _messages; // waiting to be shown

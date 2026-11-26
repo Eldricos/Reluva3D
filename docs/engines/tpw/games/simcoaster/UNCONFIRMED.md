@@ -52,10 +52,14 @@ None yet.
   a booth ([park.md](systems/park.md#visitors)). Counts of visitors
   set beside a park's building, over a recording, would settle it.
 
-- **The mission's boundary is measured from the entrance**: its clicks
-  run from (0, 0) to (−50, 66) ([park.md](systems/park.md#what-a-new-park-has)).
-  Drawing it over the world, beside the recording's park fence, would
-  settle it.
+- **The park's land**: the missions' fences counted from four cells
+  past the entrance, each adding to the land rather than replacing it,
+  the land beyond darkened on the Park Map ([land.md](systems/land.md)).
+  The game's park grown by a mission, beside Reluva's, would settle it.
+
+- **The Overview Map and Visitor Opinion**: the one a list of the
+  worlds to move between, the other the Park Map's visitors coloured by
+  happiness, both by guess ([park-windows.md](systems/park-windows.md)).
 
 - **Where the park's ground lies**: flat at y = 0, its cells 2.5 units
   square, the file's first row at the far side, filling `base.MD2`'s
