@@ -91,10 +91,12 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // (their laps and road points, as the game ranks them); after the
     // last, one after those over the line before it. The game's own
     // standings (0x4ffdec) are sorted a moment later, and a finished car
-    // isn't asked for its controls again.
+    // isn't asked for its controls again. The next race's count starting
+    // again at 0 isn't a lap.
     const int laps = int(c.read32(car + kLaps));
-    if (laps != _laps && log) {
-        _laps = laps;
+    const bool lapped = laps != _laps && laps > 0;
+    _laps = laps;
+    if (lapped && log) {
         const uint32_t cars = std::min<uint32_t>(c.read32(kRaceCars), 16);
         const bool last = laps > 0 && uint32_t(laps) >= c.read32(kRaceLaps);
         uint32_t place = 1;

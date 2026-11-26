@@ -163,6 +163,25 @@ end, or at the last lap run.
 The knockout's first round, the `drive` step: 9th of 9 before, 4th
 with the computer cars' speeds (a lap of 57 s), now 3rd (53 s).
 
+A whole knockout (late November 2026), the driver through every round,
+the keys between rounds sent as the screens came (the summary's name,
+*continue* twice, *next race*), 2 laps a round:
+
+| Round | Track | Place |
+|---|---|---|
+| 1 | Proving Grounds | 3rd of 9 |
+| 2 | Outback | 3rd of 8 (7th in an earlier run) |
+| 3 | Last Resort | 4th of 7 (6th) |
+| 4 | North Country | 5th of 6 |
+| 5 | Pacific Spirit | 5th of 5, eliminated |
+
+On Pacific Spirit its second lap was as in a single race (143 s), the
+first lost to backing off walls among the other cars (21 s in reverse).
+The game then went back to its main menu. In the earlier run the
+program ended itself as round 5 loaded (exit code 1, no message, after
+its loading picture); the run with the same keys at other moments
+didn't, and what ended it wasn't found.
+
 Slowed on full lock (late November 2026), laps of 53 s on Proving
 Grounds, 92 to 95 s on the Outback (2nd), 138 to 145 s on
 Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
@@ -175,4 +194,4 @@ Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
   6 to 17 units out and back, its middle with it, and the line.
 - The computer cars' slots across the road (`[0x4c2b0c]`): zero at
   every point of the tables the single races loaded, so not taken.
-- The knockout's later rounds.
+- What ended the program once as a knockout's fifth round loaded.
