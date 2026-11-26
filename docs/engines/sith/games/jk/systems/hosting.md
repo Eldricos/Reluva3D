@@ -363,6 +363,19 @@ Windows does when it fails, and dialog boxes are made but not drawn
     (`reluva-tool sith host -fps N [-everyframe]`), 618 frames at 60
     as the game has it showed 335 new pictures; at 60 with every frame,
     624 of 626; at 100, 988 of 1,043.
+
+    More than 100 a second, for displays of 120 Hz and up, would need
+    the clock's floor of 10 ms lowered too (the 10 compared and set at
+    `0x4dd655` and `0x4dd66f`, and in the same check at `0x4dd77b` and
+    `0x4dd78e`), with the threshold at `0x403d69` below it: a few bytes
+    more, guarded the same way. Left for now, as a possible option:
+    below 10 ms is a step the game was never given, so walking,
+    stopping and jumping would want measuring again as above, and whole
+    skims (the crash at the ending seen only with the world moved at
+    every frame among what they'd look for); the clock's whole
+    milliseconds would make steps of 6 and 7 ms at 144 Hz, 4 and 5 at
+    240; and the emulator would have that much more of the game to run
+    each second. Worth it only on a display faster than 100 Hz.
 23. **Saves** *(confirmed)* ([formats/jks.md](../formats/jks.md)): in
     the player's folder, `save%04d.jks` from *Save*, `quicksave.jks`,
     and an autosave as each level starts, `_JKAUTO_<level>.jks`. *Load

@@ -102,7 +102,10 @@ reaches its menus; then DirectSound; then a level.
    ([systems/hosting.md](systems/hosting.md), step 21). Next: levels
    played through by a person, and the multiplayer games at length, to
    find what differs, the higher frame rates among it; then Mysteries of
-   the Sith.
+   the Sith. A possible option for later: frame rates above 100 (120,
+   144), the world moved at each, by lowering the game's 10 ms floor on
+   a step, once 100 has been tried on a display faster than that and
+   more is wanted ([systems/hosting.md](systems/hosting.md), step 22).
 7. **Mysteries of the Sith.**
 
 ## Decisions
