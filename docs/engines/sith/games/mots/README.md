@@ -93,7 +93,9 @@ The game keeps `InstallData` in its registry (the save folder's
   scenes, 0.0013% of pixels differing at most). Two copies played
   multiplayer on one machine: one hosted *Kill The Fool With The
   Ysalamiri*, the other listed it, joined with a character of its own,
-  and each saw the other's in the level *(confirmed)*. The engine's
+  and each saw the other's in the level *(confirmed)*. The whole
+  single-player episode skimmed with its cheats reached every level and
+  cut scene, the finale and the credits ([TESTING.md](TESTING.md#last-checked)). The engine's
   settings act on it as on Jedi Knight ([Where Reluva reaches into the
   program](#where-reluva-reaches-into-the-program)).
 - **The data viewer:** not yet for this game.

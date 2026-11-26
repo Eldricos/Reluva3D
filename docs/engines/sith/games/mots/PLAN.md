@@ -49,8 +49,10 @@ reaches into the program.
    graphics card); multiplayer through the emulator's DirectPlay. Each
    checked running ([README](README.md#where-it-stands)); the addresses
    are in the [README](README.md#where-reluva-reaches-into-the-program).
-4. **Every level and cut scene.** Gone through with the game's cheats,
-   as Jedi Knight's were ([jk/TESTING.md](../jk/TESTING.md)).
+4. **Every level and cut scene** (done). Gone through with the game's
+   cheats, as Jedi Knight's were: its 14 levels, its 23 cut scenes, the
+   finale and the credits ([TESTING.md](TESTING.md#last-checked)). Its
+   cheats found in `JKM.EXE` ([README](README.md#its-cheats)).
 5. **The data viewer.** The `.goo` archives read as `.gob`; each kind of
    file checked on every file for what differs from Jedi Knight's (the
    levels, models, `.per` files, AI); and the SMUSH cut scenes decoded,
