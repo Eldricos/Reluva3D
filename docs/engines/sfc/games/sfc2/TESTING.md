@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 26 November 2026 | English retail 1.0 | Linux | The main menu's other screens, headless with `-fixed-clock`: Film Room (its list empty), Credits, Hot Keys, Vessel Library and its Choose Vessel; the Windows stand-ins moved from the engine to the shared layer, the game-files test and the skirmish's frames the same after |
 | 26 November 2026 | English retail 1.0 | Linux | A multiplayer game won in battle between two copies, headless with `-fixed-clock -net`: the host following and firing on the joining player's ship, "You are the winner!" and the other "Defeat!"; the Klingons' campaign begun, Monster won (300 prestige), Shipyard Defense started and lost |
 | 26 November 2026 | 2.0.3.6 | Linux | The patched game played, headless with `-fixed-clock`: a skirmish won at ADMIRAL; a new campaign's Scan mission won ("Victory", 200 prestige) with red alert, the deep scanners and fire; a multiplayer battle won between two copies |
 | 25 November 2026 | English retail 1.0 | Linux | The Command 190 tutorial passed, headless with `-fixed-clock`: red alert, a click on the 3D view, the containers targeted (T) and followed (keypad *), fired on (Z); "You have passed course: Command 190 Basic Controls" at 2:48 |

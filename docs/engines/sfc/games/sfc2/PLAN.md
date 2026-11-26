@@ -63,7 +63,7 @@ on their pages in `formats/` and `systems/`.
    Direct3D 3, after 44 million instructions at about 61 million a
    second ([systems/hosting.md](systems/hosting.md)). Hosting goes on
    ([Decisions](#decisions)).
-5. **Shared stand-ins it needs** (in progress), in `src/emulation/x86/`,
+5. **Shared stand-ins it needs** (done), in `src/emulation/x86/`,
    each on its page in `docs/common/x86/`, in the order the game asks
    for them:
    - Direct3D 6 (done): `IDirect3D3`, its device, viewports, materials,
@@ -82,9 +82,11 @@ on their pages in `formats/` and `systems/`.
      ([systems/hosting.md](systems/hosting.md#its-mouse-and-keys)); the
      owner's key is taken, and kept, with the program's other registry
      writes, in the save folder;
-   - the Windows functions the spike stood in for in the engine
-     (`src/engines/sfc/host/system.cpp`), moved to the shared layer as
-     they're settled;
+   - the Windows functions the spike stood in for in the engine, moved
+     to the shared layer (done: `win32_desktop.cpp` and the INI files in
+     `win32_files.cpp`), with the answers Windows gives where a feature
+     isn't there for the rest the game imports (file dialogs, clipboard,
+     display modes, other programs); left in the engine, Winsock's two;
    - DirectPlay's lobby (done): told no lobby started it, the game shows
      its main menu ([dplay.md](../../../../common/x86/dplay.md));
    - DirectPlay 4 (done), its sessions over TCP/IP between copies of
@@ -95,7 +97,8 @@ on their pages in `formats/` and `systems/`.
    - Miles' 25 `AIL_*` sample functions, on the shared mixer (done): the
      menu music plays, byte for byte the music's WAVs
      ([miles.md](../../../../common/x86/miles.md));
-   - DirectSound 3D buffers, if Miles doesn't take all the sound.
+   - DirectSound 3D buffers, if Miles doesn't take all the sound: it
+     does, `DirectSoundCreate` never called in any run.
 6. **The game hosted** (started): the front end (done), a skirmish
    (it runs and is played: steering, targeting and firing with the
    game's keys and its panels; won against a frigate), the tutorials (each runs, its orders

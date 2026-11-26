@@ -53,9 +53,8 @@ None yet.
   multiplayer (against AI players, and between copies of Reluva to a
   game's end) run, and a skirmish and a campaign's Convoy Escort have
   been won, and the Command 190 tutorial passed; the other tutorials
-haven't been passed, and the Film
-  Room, Credits, Hot Keys and Vessel Library screens haven't been
-  opened ([systems/hosting.md](systems/hosting.md)).
+haven't been passed, and the Film Room's playback hasn't been
+  tried (its list was empty: the recordings it lists aren't known yet) ([systems/hosting.md](systems/hosting.md)).
 - **Multiplayer sessions don't pass on to a new host.** When the host
   leaves, the others' session is lost, where DirectPlay could make
   another player the host; groups and chat messages aren't there

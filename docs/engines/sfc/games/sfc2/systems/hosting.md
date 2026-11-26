@@ -172,6 +172,16 @@ no buffer: told `DPERR_NOTLOBBIED`, that no lobby started it, it shows
 its main menu, "Select Game": Single Player and Multiplayer, and Film
 Room, Credits, Hot Keys, Vessel Library and Exit Game. It asks again on
 each frame. Single Player leads to Tutorials, Skirmish and Campaign.
+The others open and go back: the Film Room (a list of recordings, empty
+with the auto-recordings `Auto1.rec` and `Auto2.rec` in the folder; it
+searches the whole folder, `C:\SFC2\*.*`, and keeps what it shows
+itself, so perhaps only recordings saved from a debriefing *(inferred)*;
+and AUTOMATIC FILMING on or off), the Credits (Taldren's and
+Interplay's pages, rolling, then the main menu again), Hot Keys (the
+keys by group, as the readme lists them, to be changed, with ACCEPT and
+OPTIONS), and the Vessel Library (an empire's description, then VIEW
+SHIPS: Choose Vessel, a ship's schematic with its shields, weapons and
+statistics, the Federation's police ship first).
 
 Without the lobby, its code reporting that `CoCreateInstance` failed
 went on to ask the object it didn't get, and read through a null
@@ -532,16 +542,20 @@ known.
 - **`GameProcess`** (`src/engines/sfc/host/game_process.h`): a
   `Win32Process` with the install as `C:\SFC2\`, read-only; host threads
   (`useHostThreads`); the shared DirectDraw, Direct3D 7 and DirectInput
-  stand-ins; and the Windows functions the shared layer lacks, in
-  `src/engines/sfc/host/system.cpp`: interlocked operations, global
-  memory, locale and clock queries, INI files (`GetPrivateProfileString`,
-  reading `sfc.ini`'s comments after a value as comments), disk space,
-  the window's menus, rectangles, and GDI's text calls as no-ops. What
+  stand-ins, the rest of Windows the game asks for among them (global
+  memory, locales, INI files, menus, GDI's text:
+  [windows.md](../../../../../common/x86/windows.md)), which the
+  hosting spike first wrote in the engine. What
   the program writes in its folder goes to a save folder
   (`setSaveFolder`): its files are read there first, its folders in the
   install first (a search lists both); the install isn't written to.
   Winsock's `gethostname` and `gethostbyname`, for the name and address
-  of the machine.
+  of the machine, are the engine's own (`src/engines/sfc/host/system.cpp`).
+  Of the functions the program imports, 32 aren't stood in for, none
+  called in any run: 23 of Winsock's (the closed online services'), a
+  message wait (`GetMessageA`), named and placed file mappings, DIB
+  sections, `RegDeleteKeyA`, a DirectDraw clipper and DirectSound (its
+  sound is Miles').
   `describeException` names an exception raised: for a C++ throw, the
   types thrown and the text in the object (a `tErrInfo`'s message).
 - **What it needed of the shared layer** (`src/emulation/x86/`):

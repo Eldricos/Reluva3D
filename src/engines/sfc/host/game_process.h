@@ -73,8 +73,6 @@ public:
      */
     static std::string describeException(x86::Cpu &c, uint32_t record);
 
-    /** Told of each INI setting the program reads: the file, [section] and key. */
-    std::function<void(const std::string &what)> iniReads;
     /**
      * The date and time of day the program is told (its GetLocalTime and the
      * like), in microseconds since 1970: by default the host's; a tool may
@@ -111,7 +109,6 @@ private:
     std::unique_ptr<x86::Miles> _miles;
     std::unique_ptr<x86::DirectPlay> _directPlay;
     const x86::Win32Process::Module *_exe = nullptr;
-    uint32_t _focus = 0;   // the window with the focus
     uint32_t _hostent = 0; // gethostbyname's answer, made the first time
     /** A registry value kept, as the program wrote it. */
     struct RegistryValue {

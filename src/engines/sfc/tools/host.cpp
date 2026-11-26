@@ -255,10 +255,6 @@ int cmdHost(int argc, char **argv) {
         if (!quiet || !found)
             std::printf("open %s%s\n", path.c_str(), found ? "" : "  (not found)");
     };
-    game.iniReads = [quiet](const std::string &what) {
-        if (!quiet)
-            std::printf("ini %s\n", what.c_str());
-    };
     // Where, not what: a value written may be the player's CD key.
     game.registryWritten = [quiet](const std::string &key, const std::string &name) {
         if (!quiet)
