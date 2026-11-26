@@ -1,6 +1,6 @@
 # Need for Speed III: network messages
 
-> **Status:** done · **Code:** `src/engines/nfs/host/winsock.cpp`, `serial.cpp` · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/emulation/x86/winsock.cpp`, `src/engines/nfs/host/winsock.cpp`, `serial.cpp` · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -1010,8 +1010,11 @@ was the lower.
 ## In Reluva
 
 The game's own code sends and reads these messages; Reluva gives it the
-network underneath. `src/engines/nfs/host/winsock.cpp` is the game's
-Winsock on the machine's network, IPX carried over UDP;
+network underneath. The shared Winsock
+([winsock.md](../../../../../common/x86/winsock.md)) is the game's
+Winsock on the machine's network, IPX carried over UDP, with this
+engine's own address for each copy, traffic log and lost packets
+(`src/engines/nfs/host/winsock.cpp`);
 `src/engines/nfs/host/serial.cpp` its COM ports and modem, each a link
 over TCP (`serial=`, `modem=`; nfs host `-serial`, `-modem`).
 `positionalupdates=on` chooses the positional updates' mode (above).

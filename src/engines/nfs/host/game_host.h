@@ -11,6 +11,7 @@
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
+#include "emulation/x86/winsock.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/host/force_effects.h"
 #include "engines/nfs/host/sound3d.h"
@@ -468,26 +469,14 @@ private:
     bool _actuatorsOff = false;
     uint32_t _effectVtable = 0;
 
-    // The game's sockets (winsock.cpp): Winsock's handle -> ours, and how
-    // the game has it.
-    struct WsSocket {
-        int socket = -1;
-        bool stream = false;
-        bool nonBlocking = false;
-        bool bound = false;
-        bool ipx = false; // an IPX datagram socket, carried over UDP (winsock.cpp)
-    };
-    std::map<uint32_t, WsSocket> _wsSockets;
-    uint32_t _nextWsSocket = 0x100;
-    std::map<uint32_t, uint32_t> _wsLastError; // by thread
-    bool _wsStarted = false;
+    // The game's sockets (winsock.cpp).
+    std::unique_ptr<x86::Winsock> _winsock;
     std::FILE *_netLog = nullptr;
     void logTraffic(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size,
                     bool dropped = false);
     // Whether this packet sent is one Options::netDrop loses.
     bool dropOutgoing();
-    uint64_t _netSent = 0;  // packets sent since netDropFrom
-    uint32_t _wsBuffer = 0; // inet_ntoa's and gethostbyname's results
+    uint64_t _netSent = 0; // packets sent since netDropFrom
     int _mouseDx = 0;
     int _mouseDy = 0;
     bool _mouseButton = false;

@@ -1330,7 +1330,8 @@ Started. Done so far:
 - **Network play** (TCP). The game does its own networking through
   Windows Sockets 1.1 (`WSOCK32`, 25 functions by ordinal), with no
   DirectPlay.
-  - **The stand-in.** `host/winsock.cpp` does each call on real sockets
+  - **The stand-in.** The shared Winsock (`src/emulation/x86/winsock.cpp`,
+    first written here as `host/winsock.cpp`) does each call on real sockets
     (`net::Sockets`, `common/net.h`, done for the system in the sockets
     backend). It covers Winsock's structures in the game's memory
     (`sockaddr_in`, `fd_set`, `hostent`, `WSADATA`), its error numbers,

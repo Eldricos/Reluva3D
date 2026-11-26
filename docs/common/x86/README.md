@@ -18,6 +18,7 @@ documentation. It's all in `src/emulation/x86/`.
 | [directx.md](directx.md) | DirectDraw, Direct3D 7 (in software) and DirectInput |
 | [a3d.md](a3d.md) | Aureal A3D, on Reluva's mixer |
 | [miles.md](miles.md) | The Miles Sound System's samples, on Reluva's mixer |
+| [winsock.md](winsock.md) | Windows Sockets 1.1 (WSOCK32), on the host's network, IPX over UDP |
 | [dplay.md](dplay.md) | DirectPlay: so far its lobby |
 | [msvcp60.md](msvcp60.md) | Visual C++ 6's C++ library, rebuilt with its layouts |
 | [disasm.md](disasm.md) | A disassembler, for studying a game's executable |
