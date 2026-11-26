@@ -640,12 +640,20 @@ known.
 | Instructions to the first exception caught in normal running | 48.12 million |
 | Instructions to the title screen and its CD key dialog | between 600 million and 1 billion (11 to 18 seconds) |
 | Speed | 52 to 62 million instructions a second (the shared JIT on, 4 cores), drawing included |
-| Imports | 111 of the program's not stood in for at the 3D test: 37 KERNEL32 (wide-character files, consoles, processes, file mappings), 10 USER32 (dialogs, clipboard, `GetMessageA`), 3 GDI32 (DIB sections), 25 WSOCK32 and 1 DSOUND (by ordinal), 25 Miles (`mss32.dll`), 5 COMDLG32, 4 ADVAPI32, `DirectDrawCreateClipper` |
+| Imports | 111 of the program's not stood in for at the 3D test: 37 KERNEL32 (wide-character files, consoles, processes, file mappings), 10 USER32 (dialogs, clipboard, `GetMessageA`), 3 GDI32 (DIB sections), 25 WSOCK32 and 1 DSOUND (by ordinal), 25 Miles (`mss32.dll`), 5 COMDLG32, 4 ADVAPI32, `DirectDrawCreateClipper`; 32 now, none called (see [In Reluva](#in-reluva)) |
+| A skirmish's battle, on the real clock (`-rate`, 4,000 frames) | 48.1 million instructions a second, 38.6 frames a second, 1.25 million instructions a frame, none of its time slept; on 4 cores of a 2.1 GHz Xeon |
+| A skirmish's battle, its work (`-profile` on the fixed clock, 400 frames) | 1.16 million instructions a frame, 22.7% of them in its wait for the next frame (0x6767e0 to 0x67680f): 0.89 million of work a frame, some 31 million instructions a second at the 34 frames a second the fixed clock gives |
+| Convoy Escort's battle, its work (the same) | 1.20 million instructions a frame, 11.1% waiting: 1.07 million of work, some 36 million a second |
 
-How fast the game needs to run once it's in a mission isn't measured
-yet: nothing past its title screen has run. Hosted, loading takes 11
-to 18 seconds; how long the original takes on the hardware of its time
-isn't measured.
+A mission needs about 31 to 36 million instructions a second, by the
+battles measured, and gets 48 million here, headless: a third to a half
+more than it needs, so it plays at full speed *(inferred: the fixed
+clock's frames compared with the real clock's)*. In the launcher's
+window, presenting each frame takes some of that; it isn't measured. Raising the game's speed (`]`) asks more of it; the
+missions won headless with the speed raised ran on the fixed clock, so
+how fast they'd go in the window isn't measured. Hosted, loading takes
+11 to 18 seconds; how long the original takes on the hardware of its
+time isn't measured.
 
 ## Open questions
 
@@ -659,7 +667,6 @@ isn't measured.
 - What the game uses DirectInput for, past its title screen.
 - What the folders `dmp3dDLL_Release`, `DLL` and `DRIVERS` are looked for,
   and what it loads from them.
-- How many instructions a second a mission needs.
 - Why no mission starts once one has been played in a campaign that was
   loaded. Loaded from the first win's auto-save, Convoy Escort is offered,
   accepted and won; after it, in the same run, a move brings no missions,
