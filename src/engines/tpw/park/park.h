@@ -592,9 +592,10 @@ public:
         int lastGoods = 0;
         int profit = 0; // to date: takings less costs and goods, its months closed
         uint32_t placedDay = 0;
-        int level = 0;       // its upgrades bought, 0 to 2
-        float upgrading = 0; // days left of an upgrade being made; 0 for none
-        std::string name;    // the player's name for it; empty for its own
+        int level = 0;         // its upgrades bought, 0 to 2
+        float upgrading = 0;   // days left of an upgrade being made; 0 for none
+        std::string name;      // the player's name for it; empty for its own
+        bool prebuilt = false; // the prebuilt park's, there as it opened
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
 
@@ -831,9 +832,62 @@ public:
         std::map<int, std::string> values;
         std::vector<Line> lines;
         bool objectiveLetter = false; // its text is OBJECTIVE_COMPLETE.str's, by the mission done
+        int challenge = 0;            // a challenge whose title (CHALLENGE_TITLES.str) follows it
+        uint32_t sender = 0;          // its sender's name in TAG_SYSTEM; 0 the president
+        int rank = 0;                 // a rank to name in its {4} (PROMOTIONLEVELS.str); 0 none
     };
     /** The messages since last asked, oldest first. */
     std::vector<Message> takeMessages() { return std::exchange(_messages, {}); }
+    /**
+     * A challenge (`Challenges.sam`'s Challenges[n]): what it asks, how
+     * long for, and what it wins. See
+     * docs/engines/tpw/games/simcoaster/systems/challenges.md.
+     */
+    struct Challenge {
+        int number = 0;        // n, its title's in CHALLENGE_TITLES.str and its letters' in CHALLENGE_SPECIFIC.str
+        int type = 0;          // what it asks: 2 hot dogs sold, 37 visitors kept in the park, and so on
+        int time = 0;          // TargetTime: days it runs
+        int target = 0;        // TargetVal
+        int targetObject = 0;  // TargetObj: the attraction it's about
+        int preparation = 0;   // GracePeriodLimit: days to prepare before it runs
+        int cash = 0;          // CashPrize
+        int tickets = 1;       // GTPrize: golden tickets won
+        int shares = 0;        // SharePrize: shares won
+        int promotion = 0;     // PromoGiven: the rank it promotes to; 0 none
+        int missionNeeded = 0; // MissionNeededToActivate: the mission the player must be at
+        int trigger = 0;       // TriggerData, as its type reads it
+        int daysDelay = 0;     // DaysDelay: days from its trigger to its offer
+        int sender = 1;        // Sender: 1 the president, 2 to 6 the directors
+        int priceWon = 0;      // SharePriceEffectWon, percent
+        int priceLost = 0;     // SharePriceEffectLost
+    };
+    enum class ChallengeStatus : uint8_t { kNotYet, kAvailable, kPreparing, kActive, kComplete };
+    /** One of this world's challenges as it stands. */
+    struct ChallengeState {
+        Challenge challenge;
+        ChallengeStatus status = ChallengeStatus::kNotYet;
+        int failures = 0;
+        int daysLeft = 0;   // preparing or active
+        int baseline = 0;   // its count as it began, for those that count
+        int triggered = -1; // the day its trigger was met; −1 not yet
+        bool warned = false;
+    };
+    /** This world's challenges (its ChallengesInThisLevel), in their order. */
+    const std::vector<ChallengeState> &challenges() const { return _challenges; }
+    /** Takes up an available challenge, by its place in challenges(); false if it isn't, or another's under way. */
+    bool acceptChallenge(size_t index);
+    /** Where a challenge's measure stands: what's sold, used, kept; the lowest of what's watched. */
+    int challengeValue(size_t index) const;
+    /** The challenges the player may still fail before they're fired (FiringLineForRank[rank].Limit). */
+    int failuresLeft() const;
+    /** The player's record, as their file keeps it: the challenges won, by number, and those failed. */
+    void setChallengeRecord(std::vector<int> won, int failures);
+    const std::vector<int> &challengesWon() const { return _challengesWon; }
+    /** The challenges won of a world's (its theme's, as missions number them). */
+    int challengesWonIn(int theme) const;
+    int challengesFailed() const { return _challengesFailed; }
+    /** Whether the player's failed too many challenges and been fired (TAG_SYSTEM 167). */
+    bool fired() const { return _fired; }
     /** Months the park's ended in the red, in a row. */
     int monthsInRed() const { return _monthsInRed; }
     /** Whether the park has been in the red six months, and is closed down (TAG_SYSTEM 166). */
@@ -906,6 +960,12 @@ private:
     void missionDay();
     void completeMission();
     void researchedObstacle();
+    void loadChallenges(const SearchSet &files, const SamFile &general, const SamFile *world);
+    void challengeDay();
+    bool challengeTriggered(const Challenge &c) const;
+    bool challengeKept(const Challenge &c, int value) const;
+    void endChallenge(ChallengeState &state, bool won);
+    void postChallenge(const Challenge &c, int event);
     int techCap() const;
     void clearObstacle(int id);
     void setResearchables();
@@ -958,6 +1018,23 @@ private:
     bool _lowWarned = false;
     bool _repayAdvised = false;
     std::vector<Message> _messages;
+    std::vector<ChallengeState> _challenges;
+    std::vector<int> _challengesWon;
+    std::map<int, int> _challengeThemes; // each challenge's world, by number
+    int _challengesFailed = 0;
+    bool _fired = false;
+    int _daysBetweenOffers = 20;                        // Challenges.DaysBetweenOffers
+    int _warningPercent = 20;                           // ShortTimeLeftWarningAt
+    std::array<int, 6> _firingLine{255, 5, 5, 5, 5, 5}; // FiringLineForRank[rank].Limit
+    int _lastOffer = -1000;                             // the day a challenge was last offered
+    // What the challenges count: each shop type's sales and takings less
+    // goods, each attraction's users, pranks, heatwaves.
+    std::array<int, 16> _sold{};
+    std::array<int, 16> _shopProfit{};
+    std::map<int, int> _usesById;
+    int _kidPranks = 0;
+    int _adultPranks = 0;
+    int _heatwaves = 0;
     int _admissionFee = 0;
     int _visitors = 0;
     uint64_t _millis = 0;

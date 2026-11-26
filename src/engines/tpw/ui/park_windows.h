@@ -97,6 +97,11 @@ public:
     static constexpr Color kChosenRow{106, 125, 150};
     /** The president's letter on a mission done, OBJECTIVE_COMPLETE.str's, by the mission. */
     std::string objectiveLetter(int mission) const { return _objectiveLetters.text(uint32_t(mission)); }
+    /** A park's message as it reads: its title; its text and lines, and the challenge it's about. */
+    std::string messageTitle(const Park::Message &m) const;
+    std::vector<std::string> messageText(const Park::Message &m) const;
+    /** A challenge's title, CHALLENGE_TITLES.str's, by its number. */
+    std::string challengeTitle(int number) const { return _challengeTitles.text(uint32_t(number)); }
     /** A world's name, THEMENAMES.str's, by the missions' theme number (Park::theme): 1 "Land of Invention". */
     std::string worldName(int theme) const { return _worlds.text(uint32_t(Park::themeName(theme))); }
     /** A rank, PROMOTIONLEVELS.str's: 1 "Assistant Manager". */
@@ -123,6 +128,7 @@ private:
     StringTable _objectiveLetters;
     StringTable _kidStates;
     StringTable _worlds;
+    StringTable _challengeTitles;
     Font _menuFont;
     std::map<std::string, LoadedModel> _pieces;
     LoadedModel _panel;

@@ -66,6 +66,10 @@ public:
         // (DeleteAfterUse); and whether it opens of itself as its mission's
         // done (OpenedAutomaticly).
         bool obstacle = false;
+        // UsageInfo.ShopType: what a shop sells, by the shops' settings: 2
+        // hot dogs (and chips), 4 drinks (and candy floss), 6 balloons, 5
+        // costumes; −1 for none.
+        int shopType = -1;
         int replaceWith = 0;
         bool openedAutomatically = false;
         int wearRate = 0;    // Upgrades[0].WearRate, out of 10: a ride's wear

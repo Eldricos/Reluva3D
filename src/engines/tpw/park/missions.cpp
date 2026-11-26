@@ -283,8 +283,7 @@ void Park::missionDay() {
     for (const Mission::Objective &o : m.objectives)
         if (statisticValue(o.statistic) < o.target)
             return;
-    // Challenges aren't played yet: none are won.
-    if (_rank < m.promotion || m.challenges > 0 || _goldenTickets < m.goldenTickets)
+    if (_rank < m.promotion || challengesWonIn(m.challengesTheme) < m.challenges || _goldenTickets < m.goldenTickets)
         return;
     completeMission();
 }

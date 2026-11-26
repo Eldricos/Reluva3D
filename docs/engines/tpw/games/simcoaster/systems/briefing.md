@@ -63,9 +63,9 @@ the fence: the tenth. Which picture the other missions show isn't known.
 `Briefing` (`src/engines/tpw/ui/briefing.cpp`) draws the window as
 above; `showBriefing` shows it over the new park until it's closed (by
 Proceed, either cross, Esc or Enter), the park's clock stopped
-meanwhile. The Challenges tab is drawn but not yet shown.
+meanwhile. Its Challenges tab is [challenges.md](challenges.md)'s.
 `reluva-tool tpw briefing-shot <game folder> <world folder> <out.png>
-[player [-details]] [-mission <n>]` draws it over a new park, the
+[player [-details | -challenges]] [-mission <n>]` draws it over a new park, the
 player's campaign at a mission, and prints its text;
 `park-run` turns it to the details and back and proceeds
 ([park.md](park.md#in-reluva)).

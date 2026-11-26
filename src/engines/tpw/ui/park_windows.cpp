@@ -270,6 +270,8 @@ Error WindowKit::load(const SearchSet &files) {
         return err;
     if (Error err = readStringTable(files, folder, "THEMENAMES", _characters, _worlds))
         return err;
+    if (Error err = readStringTable(files, folder, "CHALLENGE_TITLES", _characters, _challengeTitles))
+        return err;
     if (Error err = readGameFont(files, folder, "MENUBIG", _menuFont))
         return err;
     // The other windows' tabs and buttons.
@@ -314,6 +316,30 @@ void WindowKit::menuText(Surface &screen, int x, int y, const std::string &s, Co
 
 int WindowKit::menuTextWidth(const std::string &s) const {
     return gameTextWidth(_menuFont, _characters, s);
+}
+
+// A promotion's rank fills its {4} ("Promotion to {4}").
+std::string WindowKit::messageTitle(const Park::Message &m) const {
+    std::map<int, std::string> values = m.values;
+    if (m.rank > 0)
+        values[4] = rank(m.rank);
+    return tag(m.title, values);
+}
+
+// A challenge's letters end with its title: "...select the challenge called:".
+std::vector<std::string> WindowKit::messageText(const Park::Message &m) const {
+    std::map<int, std::string> values = m.values;
+    if (m.rank > 0)
+        values[4] = rank(m.rank);
+    std::string text = m.objectiveLetter ? objectiveLetter(int(m.text)) : tag(m.text, values);
+    while (!text.empty() && text.back() == '\n')
+        text.pop_back();
+    std::vector<std::string> out{text};
+    for (const Park::Message::Line &line : m.lines)
+        out.push_back(tag(line.text, line.values) + (line.suffix ? tag(line.suffix, line.values) : ""));
+    if (m.challenge > 0)
+        out.push_back(challengeTitle(m.challenge));
+    return out;
 }
 
 std::string WindowKit::tag(uint32_t index, const std::map<int, std::string> &values) const {
@@ -2164,10 +2190,7 @@ namespace {
 
 // Its text and lines, as they're drawn.
 std::vector<std::string> messageLines(const WindowKit &kit, const Park::Message &m) {
-    std::vector<std::string> out{m.objectiveLetter ? kit.objectiveLetter(int(m.text)) : kit.tag(m.text, m.values)};
-    for (const Park::Message::Line &line : m.lines)
-        out.push_back(kit.tag(line.text, line.values) + (line.suffix ? kit.tag(line.suffix, line.values) : ""));
-    return out;
+    return kit.messageText(m);
 }
 
 // How tall it is: measured by drawing it where it can't be seen.
@@ -2202,7 +2225,7 @@ void MessageWindow::draw(Surface &screen, const WindowKit &kit) const {
         return;
     const int height = messageHeight(kit, _message);
     _height = height;
-    kit.window(screen, {kMessageX, kMessageY, kMessageWidth, height}, kit.tag(_message.title, _message.values));
+    kit.window(screen, {kMessageX, kMessageY, kMessageWidth, height}, kit.messageTitle(_message));
     kit.frame(screen, {kMessageX + 12, kMessageY + 36, kMessageWidth - 24, height - 84});
     int y = kMessageY + 44;
     for (const std::string &text : messageLines(kit, _message))

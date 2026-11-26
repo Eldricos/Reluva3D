@@ -371,12 +371,17 @@ void testFrontEndAudio(const std::filesystem::path &tmp) {
 void testBriefingControls() {
     using Control = tpw::Briefing::Control;
     for (Control c : {Control::kObjectivesTab, Control::kChallengesTab, Control::kTurn, Control::kProceed,
-                      Control::kCancel, Control::kClose}) {
+                      Control::kCancel, Control::kClose, Control::kAccept}) {
         const tpw::ScreenRect r = tpw::Briefing::placeOf(c);
         CHECK(r.w > 0 && tpw::Briefing::controlAt(r.x + r.w / 2, r.y + r.h / 2) == c);
     }
     CHECK(tpw::Briefing::controlAt(0, 0) == Control::kNone);
     CHECK(tpw::Briefing::controlAt(639, 479) == Control::kNone);
+    // The Challenges tab's rows, one under another.
+    const tpw::ScreenRect row = tpw::Briefing::challengeRow(2);
+    CHECK(tpw::Briefing::challengeRowAt(row.x + 5, row.y + row.h / 2) == 2);
+    CHECK(tpw::Briefing::challengeRowAt(row.x + 5, row.y + row.h / 2 - row.h) == 1);
+    CHECK(tpw::Briefing::challengeRowAt(0, 0) == -1);
 }
 
 // The park's HUD: a tool chosen as the mouse is let go over it, not when

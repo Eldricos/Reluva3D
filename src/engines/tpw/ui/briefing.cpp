@@ -23,6 +23,33 @@ constexpr size_t kTitleText = 461;
 constexpr size_t kObjectivesText = 463;
 constexpr size_t kChallengesText = 464;
 constexpr size_t kChallengesTitleText = 462;
+constexpr size_t kNoChallengesText = 465;
+// CHALLENGE_GENERIC's.
+constexpr size_t kChallengeOneTicketText = 0;
+constexpr size_t kChallengeTicketsText = 1;
+constexpr size_t kChallengeSharesText = 2;
+constexpr size_t kChallengeCashText = 3;
+constexpr size_t kChallengePriceWonText = 4;
+constexpr size_t kChallengePriceLostText = 5;
+constexpr size_t kChallengePromotionText = 6;
+constexpr size_t kChallengeDetailsText = 7;
+constexpr size_t kChallengeStatusLabel = 8;
+constexpr size_t kChallengeNotAttemptedText = 9;
+constexpr size_t kChallengeFailedTimesText = 10;
+constexpr size_t kChallengeFailedOnceText = 11;
+constexpr size_t kChallengeCompletedText = 14;
+constexpr size_t kChallengeUnderwayText = 15;
+constexpr size_t kChallengePreparingNowText = 16;
+constexpr size_t kChallengeFiringOneText = 18;
+constexpr size_t kChallengeFiringText = 19;
+constexpr size_t kChallengeTitleColumnText = 20;
+constexpr size_t kChallengeStatusColumnText = 21;
+constexpr size_t kChallengeNotAvailableText = 22;
+constexpr size_t kChallengeAvailableText = 23;
+constexpr size_t kChallengePreparingText = 24;
+constexpr size_t kChallengeActiveText = 25;
+constexpr size_t kChallengeCompleteText = 26;
+constexpr size_t kChallengeNotYetText = 27;
 constexpr size_t kProceedText = 82;
 constexpr size_t kRequirementsText = 83;
 constexpr size_t kStatusText = 86;
@@ -112,6 +139,15 @@ constexpr ScreenRect kBar{318, 313, 284, 32};
 constexpr ScreenRect kProceed{392, 360, 135, 23};
 constexpr ScreenRect kCancel{577, 356, 31, 31};
 constexpr ScreenRect kHelp{557, 14, 22, 22};
+// The Challenges tab at 2:30.
+constexpr ScreenRect kChallengePanel{88, 88, 214, 214};
+constexpr ScreenRect kChallengeTitle{96, 96, 126, 30};
+constexpr ScreenRect kChallengeStatus{226, 96, 68, 30};
+constexpr ScreenRect kChallengeList{92, 132, 206, 166};
+constexpr int kChallengeRowStep = 13;
+constexpr ScreenRect kFiringLine{88, 314, 214, 72};
+constexpr ScreenRect kAccept{543, 356, 31, 31};
+constexpr Color kChosenRow{106, 125, 150};
 constexpr ScreenRect kClose{585, 14, 22, 22};
 
 constexpr size_t kPlainMesh = 0;
@@ -169,8 +205,12 @@ Error Briefing::load(const SearchSet &files) {
                               std::pair{&_small, "GAME7AA"}, std::pair{&_label, "GAME8AA"}})
         if (Error err = readGameFont(files, folder, name, *font))
             return err;
+    if (Error err = _accept.load(files, "ui/b_okay.MD2"))
+        return err;
     for (auto [table, name] :
-         {std::pair{&_ui, "UITEXT"}, std::pair{&_operations, "OPERATION"}, std::pair{&_missions, "MISSION_DESC"},
+         {std::pair{&_challengeTitles, "CHALLENGE_TITLES"}, std::pair{&_challengeGeneric, "CHALLENGE_GENERIC"},
+          std::pair{&_challengeSpecific, "CHALLENGE_SPECIFIC"}, std::pair{&_ui, "UITEXT"},
+          std::pair{&_operations, "OPERATION"}, std::pair{&_missions, "MISSION_DESC"},
           std::pair{&_statistics, "STAT_TITLES"}, std::pair{&_tags, "TAG_SYSTEM"}, std::pair{&_themes, "THEMENAMES"},
           std::pair{&_abilities, "ABILITIES"}, std::pair{&_staffTypes, "STAFF_TYPES"},
           std::pair{&_ranks, "PROMOTIONLEVELS"}})
@@ -253,7 +293,7 @@ std::vector<std::string> Briefing::details(const Park &park) const {
         lines.push_back(fillGameString(_ui, kChallengesNeededText,
                                        {{9, std::to_string(mission.challenges)},
                                         {5, _themes.text(size_t(Park::themeName(mission.challengesTheme)))},
-                                        {10, "0"}}));
+                                        {10, std::to_string(park.challengesWonIn(mission.challengesTheme))}}));
     if (mission.obstacle && mission.obstacleEffort > 0) {
         lines.push_back(_ui.text(kResearchExpansionText));
         if (park.obstacleResearched()) {
@@ -301,14 +341,19 @@ std::vector<std::string> Briefing::details(const Park &park) const {
 void Briefing::draw(Surface &screen, const Park &park, const std::string &player, const View &view) const {
     auto lit = [&](Control c) { return view.hovered == c ? kLitMesh : kPlainMesh; };
     drawUiMesh(screen, _window, 0, kWindow);
-    drawText(screen, _title, kTitleX, kTitleY, _ui.text(kTitleText), kWhite);
+    drawText(screen, _title, kTitleX, kTitleY, _ui.text(view.challenges ? kChallengesTitleText : kTitleText), kWhite);
     drawUiMesh(screen, _help, 0, kHelp);
     drawUiMesh(screen, _close, 0, kClose);
     drawUiMesh(screen, _panel, 0, kPanel);
     for (size_t i = 0; i < kTabs.size(); ++i) {
-        drawUiMesh(screen, _tab, i == 0 ? kSelectedTabMesh : kPlainMesh, kTabs[i]);
+        drawUiMesh(screen, _tab, (i == 1) == view.challenges ? kSelectedTabMesh : kPlainMesh, kTabs[i]);
         drawCentred(screen, _label, kTabs[i], kTabs[i].y + 9, _ui.text(i == 0 ? kObjectivesText : kChallengesText),
                     kWhite);
+    }
+    if (view.challenges) {
+        drawChallenges(screen, park, view);
+        drawUiMesh(screen, _cancel, lit(Control::kCancel), kCancel);
+        return;
     }
 
     const int m = park.mission().number;
@@ -351,8 +396,151 @@ void Briefing::draw(Surface &screen, const Park &park, const std::string &player
     drawUiMesh(screen, _cancel, lit(Control::kCancel), kCancel);
 }
 
+// The Challenges tab, as the recording shows it at 2:30: this world's
+// challenges and their status; the one chosen in full beside them, or
+// that none is available; the firing line below.
+void Briefing::drawChallenges(Surface &screen, const Park &park, const View &view) const {
+    drawUiMesh(screen, _panel, 0, kChallengePanel);
+    for (auto [rect, text] : {std::pair{kChallengeTitle, kChallengeTitleColumnText},
+                              std::pair{kChallengeStatus, kChallengeStatusColumnText}}) {
+        drawUiMesh(screen, _button, 0, rect);
+        drawCentred(screen, _label, rect, rect.y + 11, _challengeGeneric.text(text), kWhite);
+    }
+    drawUiMesh(screen, _frame, 0, kChallengeList);
+    const std::vector<Park::ChallengeState> &challenges = park.challenges();
+    for (size_t i = 0; i < challenges.size(); ++i) {
+        const ScreenRect row = challengeRow(i);
+        if (row.y + row.h > kChallengeList.y + kChallengeList.h)
+            break;
+        if (int(i) == view.chosen)
+            for (int y = row.y; y < row.y + row.h; ++y)
+                for (int x = row.x; x < row.x + row.w; ++x) {
+                    uint8_t *p = screen.row(y) + x * 4;
+                    p[0] = kChosenRow.r;
+                    p[1] = kChosenRow.g;
+                    p[2] = kChosenRow.b;
+                }
+        drawText(screen, _label, row.x + 4, row.y + 1, _challengeTitles.text(size_t(challenges[i].challenge.number)),
+                 kWhite);
+        drawText(screen, _label, kChallengeStatus.x + 22, row.y + 1, challengeStatus(challenges[i]), kWhite);
+    }
+    // "FIRING LINE STATUS: You can only fail {6} more challenges before you get fired."
+    drawUiMesh(screen, _frame, 0, kFiringLine);
+    const int left = park.failuresLeft();
+    std::string firing = fillGameString(_challengeGeneric, left == 1 ? kChallengeFiringOneText : kChallengeFiringText,
+                                        {{6, std::to_string(left)}});
+    if (const size_t start = firing.find_first_not_of('\n'); start != std::string::npos)
+        firing = firing.substr(start);
+    int y = kFiringLine.y + 8;
+    for (const std::string &line : wrapGameText(_label, _characters, firing, kFiringLine.w - 16)) {
+        drawText(screen, _label, kFiringLine.x + 8, y, line, kWhite);
+        y += kLineStep;
+    }
+    drawUiMesh(screen, _frame, 0, kList);
+    if (view.chosen < 0 || size_t(view.chosen) >= challenges.size()) {
+        const bool any = std::any_of(challenges.begin(), challenges.end(), [](const Park::ChallengeState &s) {
+            return s.status == Park::ChallengeStatus::kAvailable;
+        });
+        if (!any)
+            drawCentred(screen, _label, kList, kList.y + kList.h / 2 - 6, _ui.text(kNoChallengesText), kWhite);
+        return;
+    }
+    y = kLetterY;
+    for (const std::string &line : challengeDetails(park, size_t(view.chosen))) {
+        if (y + kLineStep > kList.y + kList.h)
+            break;
+        drawText(screen, _label, kLetterX, y, line, kWhite);
+        y += kLineStep;
+    }
+    if (challenges[size_t(view.chosen)].status == Park::ChallengeStatus::kAvailable)
+        drawUiMesh(screen, _accept, view.hovered == Control::kAccept ? kLitMesh : kPlainMesh, kAccept);
+}
+
+std::string Briefing::challengeStatus(const Park::ChallengeState &state) const {
+    switch (state.status) {
+    case Park::ChallengeStatus::kAvailable:
+        return _challengeGeneric.text(kChallengeAvailableText);
+    case Park::ChallengeStatus::kPreparing:
+        return _challengeGeneric.text(kChallengePreparingText);
+    case Park::ChallengeStatus::kActive:
+        return _challengeGeneric.text(kChallengeActiveText);
+    case Park::ChallengeStatus::kComplete:
+        return _challengeGeneric.text(kChallengeCompleteText);
+    default:
+        return _challengeGeneric.text(kChallengeNotAvailableText);
+    }
+}
+
+// Its letter (CHALLENGE_SPECIFIC's first of its three), its prizes, then
+// "CHALLENGE STATUS:" and how it stands, with its count or measure as
+// it's being prepared for or run (the second and third).
+std::vector<std::string> Briefing::challengeDetails(const Park &park, size_t index) const {
+    const Park::ChallengeState &state = park.challenges()[index];
+    const Park::Challenge &c = state.challenge;
+    const size_t first = size_t(c.number - 1) * 3;
+    const std::map<int, std::string> values{
+        {0, std::to_string(state.status == Park::ChallengeStatus::kPreparing ? state.daysLeft : c.preparation)},
+        {1, std::to_string(state.status == Park::ChallengeStatus::kActive ? state.daysLeft : c.time)},
+        {2, std::to_string(c.target)},
+        {3, std::to_string(c.target)},
+        {5, std::to_string(c.target)},
+        {6, std::to_string(c.target)}};
+    std::string text =
+        _challengeGeneric.text(kChallengeDetailsText) + fillGameString(_challengeSpecific, first, values);
+    // The prizes: golden tickets, shares, cash, the share price's rise and fall, a promotion.
+    text += fillGameString(_challengeGeneric, c.tickets == 1 ? kChallengeOneTicketText : kChallengeTicketsText,
+                           {{0, std::to_string(c.tickets)}});
+    if (c.shares > 0)
+        text += fillGameString(_challengeGeneric, kChallengeSharesText, {{1, std::to_string(c.shares)}});
+    if (c.cash > 0)
+        text += fillGameString(_challengeGeneric, kChallengeCashText, {{2, std::to_string(c.cash)}});
+    text += fillGameString(_challengeGeneric, kChallengePriceWonText, {{3, std::to_string(c.priceWon)}}) +
+            fillGameString(_challengeGeneric, kChallengePriceLostText, {{4, std::to_string(c.priceLost)}});
+    if (c.promotion > 0)
+        text += _challengeGeneric.text(kChallengePromotionText) + _ranks.text(size_t(c.promotion)) + "\n";
+    text += _challengeGeneric.text(kChallengeStatusLabel);
+    std::map<int, std::string> now = values;
+    now[2] = std::to_string(park.challengeValue(index));
+    now[4] = "";
+    switch (state.status) {
+    case Park::ChallengeStatus::kPreparing:
+        text += _challengeGeneric.text(kChallengePreparingNowText) + fillGameString(_challengeSpecific, first + 1, now);
+        break;
+    case Park::ChallengeStatus::kActive:
+        text += _challengeGeneric.text(kChallengeUnderwayText) + fillGameString(_challengeSpecific, first + 2, now);
+        break;
+    case Park::ChallengeStatus::kComplete:
+        text += _challengeGeneric.text(kChallengeCompletedText);
+        break;
+    case Park::ChallengeStatus::kAvailable:
+        text += state.failures == 0   ? _challengeGeneric.text(kChallengeNotAttemptedText)
+                : state.failures == 1 ? _challengeGeneric.text(kChallengeFailedOnceText)
+                                      : fillGameString(_challengeGeneric, kChallengeFailedTimesText,
+                                                       {{5, std::to_string(state.failures)}});
+        break;
+    default:
+        text += _challengeGeneric.text(kChallengeNotYetText);
+        break;
+    }
+    return wrapGameText(_label, _characters, text, kLetterWidth + 20);
+}
+
+int Briefing::challengeRowAt(int x, int y) {
+    for (size_t i = 0; i < 16; ++i)
+        if (challengeRow(i).contains(x, y))
+            return int(i);
+    return -1;
+}
+
+ScreenRect Briefing::challengeRow(size_t row) {
+    return {kChallengeList.x + 3, kChallengeList.y + 4 + int(row) * kChallengeRowStep, kChallengeList.w - 6,
+            kChallengeRowStep};
+}
+
 ScreenRect Briefing::placeOf(Control control) {
     switch (control) {
+    case Control::kAccept:
+        return kAccept;
     case Control::kObjectivesTab:
         return kTabs[0];
     case Control::kChallengesTab:
@@ -372,17 +560,18 @@ ScreenRect Briefing::placeOf(Control control) {
 
 Briefing::Control Briefing::controlAt(int x, int y) {
     for (Control c : {Control::kObjectivesTab, Control::kChallengesTab, Control::kTurn, Control::kProceed,
-                      Control::kCancel, Control::kClose})
+                      Control::kCancel, Control::kClose, Control::kAccept})
         if (placeOf(c).contains(x, y))
             return c;
     return Control::kNone;
 }
 
 bool showBriefing(System &sys, const Briefing &briefing, Park &park, const std::string &player,
-                  const std::function<void(Surface &)> &backdrop) {
+                  const std::function<void(Surface &)> &backdrop, bool challenges) {
     Surface screen;
     screen.create(kOpeningWidth, kOpeningHeight, PixelFormat::kRGBA32);
     Briefing::View view;
+    view.challenges = challenges;
     park.setPaused(true);
     struct Resume { // the clock runs again however the window goes
         Park &park;
@@ -405,9 +594,23 @@ bool showBriefing(System &sys, const Briefing &briefing, Park &park, const std::
             case EventType::kMouseDown:
                 if (ev.button != MouseButton::kLeft)
                     break;
+                if (const int row = Briefing::challengeRowAt(ev.mouseX, ev.mouseY);
+                    view.challenges && row >= 0 && size_t(row) < park.challenges().size()) {
+                    view.chosen = row;
+                    break;
+                }
                 switch (Briefing::controlAt(ev.mouseX, ev.mouseY)) {
+                case Briefing::Control::kObjectivesTab:
+                case Briefing::Control::kChallengesTab:
+                    view.challenges = Briefing::controlAt(ev.mouseX, ev.mouseY) == Briefing::Control::kChallengesTab;
+                    break;
+                case Briefing::Control::kAccept:
+                    if (view.challenges && view.chosen >= 0)
+                        park.acceptChallenge(size_t(view.chosen));
+                    break;
                 case Briefing::Control::kTurn:
-                    view.details = !view.details;
+                    if (!view.challenges)
+                        view.details = !view.details;
                     break;
                 case Briefing::Control::kProceed:
                 case Briefing::Control::kCancel:

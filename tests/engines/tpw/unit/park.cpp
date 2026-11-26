@@ -1096,6 +1096,127 @@ void testMissions(const std::filesystem::path &tmp) {
     CHECK(later.attractions().find(1440)->available);
 }
 
+// Challenges: this world's offered one each DaysBetweenOffers, by the
+// director who sets them; a visitors challenge prepared for, then failed
+// at once, the share price down, offered again; a hot dog challenge set
+// off by a hot dog stand, won by its sales, its prizes paid; the Safety
+// Review's promotion doing the mission that wanted it; a player failing
+// past the firing line fired.
+void testChallenges(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    std::string types;
+    for (int i = 0; i < 24; ++i)
+        types += "PeepTypes[" + std::to_string(i) +
+                 "].PreferredExcitement.StartingCash.BoredomThreshold.Generation 60 "
+                 "1000 2000 " +
+                 std::to_string(i / 8) + "\r\n";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 100000\r\nArrival.MinPeople 1\r\nArrival.TimeBetweenArrivals 1\r\n"
+              "Arrival.FixedRate 2\r\nArrival.PointsPerVisitor 1\r\nPeepInfo.PercentageOfKids 100\r\n"
+              "Challenges.DaysBetweenOffers 5\r\nFiringLineForRank[1].Limit 2\r\n" +
+                  types);
+    writeText(data / "Challenges.sam",
+              "Challenges[2].Type 2\r\nChallenges[2].TargetTime 40\r\nChallenges[2].TargetVal 2\r\n"
+              "Challenges[2].CashPrize 500\r\nChallenges[2].GTPrize 2\r\nChallenges[2].SharePrize 100\r\n"
+              "Challenges[2].SharePriceEffectWon 10\r\nChallenges[2].TriggerData 1\r\nChallenges[2].Sender 2\r\n"
+              "Challenges[3].Type 37\r\nChallenges[3].TargetTime 10\r\nChallenges[3].TargetVal 1000\r\n"
+              "Challenges[3].GracePeriodLimit 3\r\nChallenges[3].SharePriceEffectLost 10\r\n"
+              "Challenges[14].Type 46\r\nChallenges[14].TargetTime 5\r\nChallenges[14].TargetVal 10\r\n"
+              "Challenges[14].GracePeriodLimit 2\r\nChallenges[14].PromoGiven 2\r\nChallenges[14].Sender 3\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\nCompletion.EndingTheme 1\r\nPromotion.Number 2\r\n");
+    writeText(data / "missions" / "miss01.sam", "Info.Number 1\r\nCompletion.EndingTheme 2\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "Standard.sam", "ChallengesInThisLevel[0].ChallengeType 3\r\n"
+                                      "ChallengesInThisLevel[1].ChallengeType 2\r\n"
+                                      "ChallengesInThisLevel[2].ChallengeType 14\r\n");
+    writeText(data / "levels" / "water" / "Standard.sam", "ChallengesInThisLevel[0].ChallengeType 7\r\n");
+    writeText(world / "shops" / "Shops.sam", "Info.HasQueue 0\r\nInfo.IsChoosable 1\r\n");
+    writeText(world / "shops" / "hotdog" / "hotdog.sam",
+              "Info.Id 1207\r\nUsageInfo.ShopType 2\r\nUsageInfo.InitPricePerUse 5\r\nInfo.ExpectedPrice 5\r\n"
+              "UsageInfo.HappinessEffect 30\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
+    constexpr int kRows = 8;    // x
+    constexpr int kColumns = 6; // y
+    tpw::testing::Bytes tiles(size_t(kRows) * kColumns, 0);
+    for (int x = 0; x < 7; ++x)
+        tiles[size_t(x) * kColumns + 4] = 8;
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kColumns, kRows, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.challenges().size() == 3 && park.challenges()[0].challenge.number == 3 &&
+          park.challenges()[2].challenge.promotion == 2 && park.challenges()[2].challenge.tickets == 1);
+    std::vector<Park::Message> messages;
+    auto day = [&]() {
+        const uint32_t next = park.day() + 1;
+        while (park.day() < next) {
+            park.advance(100);
+            if (park.queues().empty())
+                continue;
+            if (const int id = park.waitingAt(0); id && park.board(0, id))
+                park.letOff(0, id);
+        }
+        for (Park::Message &m : park.takeMessages())
+            messages.push_back(std::move(m));
+    };
+    auto status = [&](size_t i) { return park.challenges()[i].status; };
+    auto until = [&](auto &&done, int days) {
+        for (int d = 0; d < days && !done(); ++d)
+            day();
+        return done();
+    };
+
+    // The visitors challenge, set off at once, offered by the president.
+    CHECK(until([&] { return status(0) == Park::ChallengeStatus::kAvailable; }, 3));
+    CHECK(!messages.empty() && messages.back().title == 42 && messages.back().text == 43 &&
+          messages.back().challenge == 3 && messages.back().sender == 173);
+    // Prepared for three days, then failed as it runs: a thousand visitors aren't there.
+    const int price = park.shares().price;
+    CHECK(park.acceptChallenge(0) && status(0) == Park::ChallengeStatus::kPreparing);
+    CHECK(!park.acceptChallenge(0));
+    CHECK(until([&] { return status(0) != Park::ChallengeStatus::kPreparing; }, 4) &&
+          status(0) == Park::ChallengeStatus::kActive);
+    CHECK(until([&] { return status(0) != Park::ChallengeStatus::kActive; }, 2));
+    CHECK(status(0) == Park::ChallengeStatus::kNotYet && park.challenges()[0].failures == 1 &&
+          park.challengesFailed() == 1 && park.shares().price == price * 90 / 100 && park.failuresLeft() == 1);
+
+    // A hot dog stand sets the hot dog challenge off; taken up, its two
+    // sales win it: a director's letter, cash, two tickets, shares.
+    CHECK(park.place(1207, 0, {"*2"}, false, {4, 3}, 0) == -1);
+    CHECK(until([&] { return status(1) == Park::ChallengeStatus::kAvailable; }, 12));
+    const int cash = park.cash();
+    CHECK(park.acceptChallenge(1) && status(1) == Park::ChallengeStatus::kActive);
+    CHECK(until([&] { return status(1) == Park::ChallengeStatus::kComplete; }, 40));
+    CHECK(park.goldenTickets() == 2 && park.shares().owned == 1100 && park.cash() >= cash + 500);
+    CHECK(std::any_of(messages.begin(), messages.end(),
+                      [](const Park::Message &m) { return m.title == 46 && m.text == 55 && m.sender == 177; }));
+    CHECK(park.challengesWon() == std::vector<int>{2} && park.challengesWonIn(1) == 1 && park.challengesWonIn(2) == 0);
+
+    // The Safety Review, its rides never worn: won at its end, a
+    // promotion to Manager, which does the mission waiting for it the
+    // day after.
+    CHECK(until([&] { return status(2) == Park::ChallengeStatus::kAvailable; }, 12));
+    CHECK(park.acceptChallenge(2));
+    CHECK(until([&] { return status(2) == Park::ChallengeStatus::kComplete; }, 10));
+    CHECK(park.rank() == 2);
+    CHECK(until([&] { return park.progress() == 1; }, 2));
+    CHECK(std::any_of(messages.begin(), messages.end(),
+                      [](const Park::Message &m) { return m.title == 169 && m.rank == 2; }));
+
+    // One more failure than the firing line allows: fired.
+    Park doomed;
+    CHECK(!doomed.load(files, "levels/science", 0));
+    doomed.setChallengeRecord({}, 1);
+    CHECK(doomed.failuresLeft() == 1);
+    for (int d = 0; d < 3 && doomed.challenges()[0].status != Park::ChallengeStatus::kAvailable; ++d)
+        doomed.advance(Park::kDayMillis);
+    CHECK(doomed.acceptChallenge(0));
+    for (int d = 0; d < 6 && !doomed.fired(); ++d)
+        doomed.advance(Park::kDayMillis);
+    CHECK(doomed.fired() && doomed.failuresLeft() == 0);
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -1114,4 +1235,5 @@ static const reluva::test::Suite
                                 {"research", [](const std::filesystem::path &tmp) { testResearch(tmp); }},
                                 {"finance", [](const std::filesystem::path &tmp) { testFinance(tmp); }},
                                 {"missions", [](const std::filesystem::path &tmp) { testMissions(tmp); }},
+                                {"challenges", [](const std::filesystem::path &tmp) { testChallenges(tmp); }},
                             });

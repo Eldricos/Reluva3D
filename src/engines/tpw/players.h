@@ -6,6 +6,7 @@
 #include "common/types.h"
 
 #include <array>
+#include <vector>
 #include <filesystem>
 #include <string>
 
@@ -24,6 +25,8 @@ struct PlayerFile {
     std::string name; // empty for a slot with no player
     int rank = 1;     // in PROMOTIONLEVELS.str: 1 "Assistant Manager"
     int goldenTickets = 0;
+    std::vector<int> challengesWon; // by their numbers in Challenges.sam
+    int challengesFailed = 0;
     int sharesOwned = 0;
     int sharesIssued = 0;
     int sharePrice = 0;

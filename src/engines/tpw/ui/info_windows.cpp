@@ -796,7 +796,7 @@ void MessageCenterWindow::draw(Surface &screen, const WindowKit &kit, const std:
         const Received &m = inbox[inbox.size() - 1 - i];
         if (i == _chosen)
             WindowKit::fill(screen, r, WindowKit::kChosenRow);
-        kit.text(screen, r.x + 4, r.y + 1, kit.tag(m.message.title, m.message.values));
+        kit.text(screen, r.x + 4, r.y + 1, kit.messageTitle(m.message));
         const std::string when = date(m.day);
         kit.text(screen, r.x + r.w - 4 - kit.textWidth(when), r.y + 1, when);
     }
@@ -804,18 +804,15 @@ void MessageCenterWindow::draw(Surface &screen, const WindowKit &kit, const std:
     if (_chosen < inbox.size()) {
         const Park::Message &m = inbox[inbox.size() - 1 - _chosen].message;
         int y = kCenterDetails.y + 10;
-        for (auto [label, value] : {std::pair{kFromText, kit.tag(kPresidentText)}, std::pair{kToText, player},
-                                    std::pair{kSubjectLabelText, kit.tag(m.title, m.values)}}) {
+        for (auto [label, value] : {std::pair{kFromText, kit.tag(m.sender ? m.sender : kPresidentText)},
+                                    std::pair{kToText, player}, std::pair{kSubjectLabelText, kit.messageTitle(m)}}) {
             kit.text(screen, kCenterDetails.x + 6, y, kit.ui(label), kLabelYellow);
             kit.text(screen, kCenterValueX, y, value);
             y += 14;
         }
         y += 6;
-        const std::string text = m.objectiveLetter ? kit.objectiveLetter(int(m.text)) : kit.tag(m.text, m.values);
-        y = kit.paragraph(screen, kCenterDetails.x + 6, y, kCenterDetails.w - 12, text);
-        for (const Park::Message::Line &line : m.lines)
-            y = kit.paragraph(screen, kCenterDetails.x + 6, y, kCenterDetails.w - 12,
-                              kit.tag(line.text, line.values) + (line.suffix ? kit.tag(line.suffix, line.values) : ""));
+        for (const std::string &text : kit.messageText(m))
+            y = kit.paragraph(screen, kCenterDetails.x + 6, y, kCenterDetails.w - 12, text);
     }
     kit.piece(screen, "b_delete", _over == Control::kDelete ? WindowKit::kLit : WindowKit::kPlain, kCenterDelete);
     kit.button(screen, Button::kOk, kCenterOk, _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);

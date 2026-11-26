@@ -88,6 +88,7 @@ public:
         if (player.sharesIssued > 0)
             park.setShares({player.sharesIssued, player.sharesOwned, player.sharePrice});
         park.setPlayer(player.goldenTickets, player.rank);
+        park.setChallengeRecord(player.challengesWon, player.challengesFailed);
         // The mission's briefing over the park as it opens.
         Briefing briefing;
         soft3d::Rasterizer rasterizer;
@@ -95,8 +96,8 @@ public:
         if (!briefing.load(files) && !showBriefing(_sys, briefing, park, player.name,
                                                    [&](Surface &s) { parkScreen.draw(s, rasterizer, park, start); }))
             return Error::success();
-        playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark) {
-            return showBriefing(_sys, briefing, park, player.name, drawPark);
+        playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark, bool challenges) {
+            return showBriefing(_sys, briefing, park, player.name, drawPark, challenges);
         });
         // What the park did to the share price stays with the player.
         if (_target.savePath.empty() || !player.exists())
@@ -108,6 +109,9 @@ public:
                 p.sharesOwned = park.shares().owned;
                 p.sharePrice = park.shares().price;
                 p.goldenTickets = park.goldenTickets();
+                p.rank = park.rank();
+                p.challengesWon = park.challengesWon();
+                p.challengesFailed = park.challengesFailed();
                 // Their objective now, where it's played, and the worlds opened.
                 if (park.progress() < int(park.missions().size())) {
                     p.objective = park.progress();
@@ -117,6 +121,11 @@ public:
                     for (PlayerFile::World &w : p.worlds)
                         if (w.theme == Park::themeName(theme))
                             w.open = true;
+                // Each world's challenges won, as the Personnel File counts them.
+                for (int theme = 0; theme < 3; ++theme)
+                    for (PlayerFile::World &w : p.worlds)
+                        if (w.theme == Park::themeName(theme))
+                            w.won = park.challengesWonIn(theme);
             }
         return writePlayers(_target.savePath, players);
     }

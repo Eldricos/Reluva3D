@@ -82,8 +82,8 @@ profit against last year's, as a share of what the company's worth (its
 bank balance, less what it owes, and its park's value, not taken below
 § 10,000), up to the big change either way; within the similar
 percentage it stays; past halfway to the big change it's the second
-message either way, all of it *(guessed)*. Challenges move the price too
-(`CHALLENGE_GENERIC.str` 4, 5), which waits for the challenges.
+message either way, all of it *(guessed)*. Challenges move the price too, won
+or failed ([challenges.md](challenges.md)).
 
 ### Running out
 

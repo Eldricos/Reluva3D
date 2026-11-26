@@ -55,6 +55,9 @@ objective 0 0
   (0 Land of Invention, 1 Polar Zone, 3 Arabian Nights), 1 if open, and
   its challenges won.
 - `objective <mission> <theme>`: in `OPERATION.str` (−1 none) and where.
+- `challenges-won <n>...`, `challenges-failed <n>`: the challenges won, by
+  their numbers in `Challenges.sam`, and how many failed
+  ([challenges.md](challenges.md)); a world's line counts its won.
 
 Lines it doesn't know are passed over, and what a player's lines leave
 out is a new player's, so a later Reluva can add to them. The shares

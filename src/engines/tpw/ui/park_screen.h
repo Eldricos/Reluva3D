@@ -280,8 +280,8 @@ private:
     image::Image _lightning; // a bolt, top to bottom
 };
 
-/** Shows the mission's briefing over a background it's given a way to draw. */
-using ObjectivesShower = std::function<bool(const std::function<void(Surface &)> &drawPark)>;
+/** Shows the mission's briefing over a background it's given a way to draw: on its Challenges tab, if asked. */
+using ObjectivesShower = std::function<bool(const std::function<void(Surface &)> &drawPark, bool challenges)>;
 
 /**
  * Plays the park until the player leaves it (Esc) or the window is

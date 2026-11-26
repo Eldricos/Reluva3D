@@ -44,8 +44,9 @@ Down the HUD's left (`UIHELPTEXT` 116 to 120):
 | The envelope | the Message Center (861), below |
 
 The Attractions' and Visitors' lists, Park Statistics and Awards are
-laid out by guess in the staff list's style. Challenges (849), Overview
-Map (853) and Visitor Opinion (854) do nothing yet.
+laid out by guess in the staff list's style. Challenges (849) opens the
+objectives' window on its Challenges tab ([challenges.md](challenges.md)).
+Overview Map (853) and Visitor Opinion (854) do nothing yet.
 
 ### Visitor Statistics
 
@@ -84,7 +85,8 @@ the date it came; in a frame at (325, 82), "From:", "To:" and "Subject:"
 (856, 855, 857) in yellow, the sender, the player and the subject, then
 the message. `b_delete` at the bottom left deletes the one chosen; the
 tick closes it. The recording's "From" is "The Adviser" for the
-park's own news; Reluva signs every letter from the president.
+park's own news; Reluva signs the challenges' letters from their
+directors, the rest from the president.
 
 Every message the park writes ([finance.md](finance.md),
 [missions.md](missions.md)) goes there, unread, counted on the
@@ -140,4 +142,4 @@ the visitors' windows, and take up path.
 - How the arrival rate and the park's rating are reckoned.
 - What the bulldozer refunds for path, and what it may take up.
 - The camcorder's view, beyond being near the ground.
-- Challenges, the Overview Map and Visitor Opinion.
+- The Overview Map and Visitor Opinion.

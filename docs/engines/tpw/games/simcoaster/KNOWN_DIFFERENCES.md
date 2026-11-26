@@ -28,7 +28,7 @@ None yet.
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
   bottom buttons' menus open, and all their items do something but the
-  Challenges, Overview Map and Visitor Opinion; the game's menu resumes
+  Overview Map and Visitor Opinion; the game's menu resumes
   and quits, nothing else; attractions', staff's and the gates' windows
   and menus have only some of their controls, and the windows the
   recording doesn't show are laid out by guess
@@ -42,9 +42,9 @@ None yet.
   ([staff.md](systems/staff.md)); research and upgrades by guessed
   rates; the money's accounts, loans, share price and bankruptcy by
   guessed rules, their windows laid out by guess
-  ([finance.md](systems/finance.md)); the missions played as far as
-  challenges, promotions, golden tickets and park awards allow, none of
-  which are played yet, an obstacle cleared at once by the first staff
+  ([finance.md](systems/finance.md)); the missions played as far as the
+  special rides and park awards, not yet there, allow; challenges by
+  guessed rules, their triggers partly ([challenges.md](systems/challenges.md)); an obstacle cleared at once by the first staff
   trained, and each park set up anew as the missions done leave it
   ([missions.md](systems/missions.md)); the Assign staff, financial summary and naming windows laid out
   by guess, and a ride's view only the camera brought close

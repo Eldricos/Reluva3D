@@ -41,6 +41,12 @@ PlayerSlots readPlayers(const std::filesystem::path &folder, const PlayerFile &f
             words >> p->rank;
         } else if (key == "golden-tickets") {
             words >> p->goldenTickets;
+        } else if (key == "challenges-won") {
+            p->challengesWon.clear();
+            for (int n; words >> n;)
+                p->challengesWon.push_back(n);
+        } else if (key == "challenges-failed") {
+            words >> p->challengesFailed;
         } else if (key == "shares-owned") {
             words >> p->sharesOwned;
         } else if (key == "share-price") {
@@ -77,6 +83,11 @@ Error writePlayers(const std::filesystem::path &folder, const PlayerSlots &playe
         out << "name " << p.name << '\n';
         out << "rank " << p.rank << '\n';
         out << "golden-tickets " << p.goldenTickets << '\n';
+        out << "challenges-won";
+        for (int n : p.challengesWon)
+            out << ' ' << n;
+        out << '\n';
+        out << "challenges-failed " << p.challengesFailed << '\n';
         out << "shares-owned " << p.sharesOwned << '\n';
         out << "share-price " << p.sharePrice << '\n';
         for (const PlayerFile::World &w : p.worlds)

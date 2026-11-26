@@ -139,6 +139,7 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     SamFile world;
     const bool hasWorld = !readSettings(files, folder + "/Standard.sam", world);
     loadFinance(general, hasWorld ? &world : nullptr);
+    loadChallenges(files, general, hasWorld ? &world : nullptr);
     if (hasWorld) {
         // Each season's weather: a quarter of the year each, from January.
         for (size_t season = 0; season < _seasons.size(); ++season)
@@ -267,6 +268,7 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
         if (!o.placed())
             continue;
         _objects.push_back({o.id, {int(std::floor(o.x)), int(std::floor(o.y))}, int(o.angle)});
+        _objects.back().prebuilt = true;
         const PlacedObject &placed = _objects.back();
         if (const Attractions::Attraction *a = _attractions.find(o.id))
             linkQueue(_objects.size() - 1, footprint(a->shape, placed.at, placed.angle));

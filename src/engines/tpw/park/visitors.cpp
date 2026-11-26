@@ -308,8 +308,13 @@ bool Park::board(int queue, int id) {
                  : kind == Attractions::Kind::kRide     ? Ledger::kRides
                                                         : Ledger::kFacilities,
                  fare);
+            if (taker && taker->shopType >= 0 && size_t(taker->shopType) < _sold.size()) {
+                ++_sold[size_t(taker->shopType)];
+                _shopProfit[size_t(taker->shopType)] += fare - taker->costOfGoods;
+            }
             if (q.object >= 0) {
                 PlacedObject &o = _objects[size_t(q.object)];
+                ++_usesById[o.id];
                 ++o.users;
                 o.takings += fare;
                 if (const Attractions::Attraction *a = _attractions.find(o.id)) {
@@ -821,6 +826,7 @@ void Park::rollWeather() {
         sum += _seasons[season][size_t(w)];
         if (r < sum) {
             _weather = Weather(w + 1);
+            _heatwaves += _weather == Weather::kHeatwave;
             break;
         }
     }
@@ -834,6 +840,7 @@ void Park::newDay() {
     researchDay();
     financeDay();
     missionDay();
+    challengeDay();
     const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
     const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;
     for (Visitor &v : _people) {
@@ -856,6 +863,7 @@ void Park::newDay() {
                 v, [](const Attractions::Attraction &a) { return a.security; }, kCameraCells) &&
             !guarded(v.x, v.z)) {
             think(v, Thought::kNaughty);
+            ++(v.generation == 0 ? _kidPranks : _adultPranks);
             chase(v);
             if (int(roll(v) % 100) < _rules.stinkBombPercent) {
                 _stinkBombs.push_back({v.x, v.z, _millis, _millis + kStinkBombMillis});
@@ -872,13 +880,15 @@ void Park::newDay() {
                 }
             }
         }
-        // Whining, heard about them.
-        if (v.generation > 0 && v.happiness <= float(_rules.unhappy) && v.doing == Doing::kWalking)
+        // Whining, heard about them: a grown-up's prank, as challenges count them.
+        if (v.generation > 0 && v.happiness <= float(_rules.unhappy) && v.doing == Doing::kWalking) {
+            ++_adultPranks;
             for (Visitor &other : _people)
                 if (other.id != v.id && other.inPark &&
                     std::abs(other.x - v.x) <= float(_rules.rumourCells) * kCellUnits &&
                     std::abs(other.z - v.z) <= float(_rules.rumourCells) * kCellUnits)
                     other.happiness = std::max(0.0f, other.happiness - 1);
+        }
     }
 }
 

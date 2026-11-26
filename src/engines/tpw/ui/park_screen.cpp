@@ -125,6 +125,7 @@ constexpr uint32_t kVisitorStatisticsItem = 840;
 constexpr uint32_t kParkStatisticsItem = 846;
 constexpr uint32_t kParkAwardsItem = 850;
 constexpr uint32_t kParkMapItem = 852;
+constexpr uint32_t kChallengesItem = 849;
 constexpr uint32_t kFinancialStatisticsItem = 842;
 constexpr uint32_t kLoansItem = 843;
 constexpr uint32_t kSharePortfolioItem = 844;
@@ -1143,11 +1144,11 @@ bool ParkScreen::windowOpen() const {
 }
 
 // Every message goes to the Message Center, unread; the president's
-// letters on an objective done and the game's end show over the park
-// too (guessed: the recording's Message Center has an "Objective
-// Complete!" in it).
+// letters on an objective done, a promotion and the game's end show
+// over the park too (guessed: the recording's Message Center has an
+// "Objective Complete!" in it).
 void ParkScreen::takeMessages(Park &park) {
-    constexpr std::array<uint32_t, 3> kShown{168, 163, 165};
+    constexpr std::array<uint32_t, 4> kShown{168, 163, 165, 169};
     for (Park::Message &m : park.takeMessages()) {
         const bool shown = std::find(kShown.begin(), kShown.end(), m.title) != kShown.end();
         _inbox.push_back({m, park.day(), shown});
@@ -1763,7 +1764,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         // The park's messages, one at a time; once the bankruptcy's letter
         // is put away, the park's over.
         screen.takeMessages(park);
-        if (park.bankrupt() && !screen.messagesWaiting())
+        if ((park.bankrupt() || park.fired()) && !screen.messagesWaiting())
             return true;
         screen.hud().setResearchLab(park.hasResearchLab());
         if (choice == kCloseParkItem)
@@ -1811,10 +1812,12 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             shownMission = park.mission().number;
             wantObjectives = wantObjectives || shownMission >= 0;
         }
-        if ((choice == ParkHud::kObjectivesItem || std::exchange(wantObjectives, false)) && showObjectives) {
+        const bool challenges = choice == kChallengesItem;
+        if ((choice == ParkHud::kObjectivesItem || challenges || std::exchange(wantObjectives, false)) &&
+            showObjectives) {
             park.setPaused(true);
             const ParkScreen::Camera now = camera;
-            const bool open = showObjectives([&](Surface &s) { screen.draw(s, rasterizer, park, now); });
+            const bool open = showObjectives([&](Surface &s) { screen.draw(s, rasterizer, park, now); }, challenges);
             park.setPaused(false);
             last = sys.getMillis();
             if (!open)

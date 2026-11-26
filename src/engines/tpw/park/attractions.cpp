@@ -106,6 +106,7 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.price = int(number("Upgrades[0].CostOfUpgrade", 0));
             a.hasQueue = number("Info.HasQueue", 0) != 0;
             a.obstacle = number("Info.IsObstacle", 0) != 0;
+            a.shopType = int(number("UsageInfo.ShopType", -1));
             a.available = !a.obstacle && number("Research.Group", -1) == 0 && a.price > 0;
             // An obstacle's shape marks land its own way, which isn't worked
             // out: it stands on its first cell.

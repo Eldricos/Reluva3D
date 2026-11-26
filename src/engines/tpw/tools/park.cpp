@@ -211,9 +211,9 @@ int cmdParkShot(int argc, char **argv) {
 // details, to a PNG; the letter's lines printed.
 int cmdBriefingShot(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(
-            stderr,
-            "usage: reluva-tool tpw briefing-shot <game folder> <world folder> <out.png> [player [-details]] [-mission <n>]\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool tpw briefing-shot <game folder> <world folder> <out.png> [player [-details | "
+                     "-challenges]] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -229,12 +229,31 @@ int cmdBriefingShot(int argc, char **argv) {
     const std::string player = argc > 5 ? argv[5] : "Tester";
     reluva::tpw::Briefing::View view;
     view.details = argc > 6 && std::string(argv[6]) == "-details";
+    // The Challenges tab, the park run on 60 days for some to be offered,
+    // the first offered chosen.
+    view.challenges = argc > 6 && std::string(argv[6]) == "-challenges";
+    if (view.challenges) {
+        while (park.day() < 60)
+            park.advance(1000);
+        for (size_t i = 0; i < park.challenges().size() && view.chosen < 0; ++i)
+            if (park.challenges()[i].status == reluva::tpw::Park::ChallengeStatus::kAvailable)
+                view.chosen = int(i);
+    }
     reluva::Surface surface;
     surface.create(640, 480, reluva::PixelFormat::kRGBA32);
     reluva::soft3d::Rasterizer rasterizer;
     screen.draw(surface, rasterizer, park, screen.startCamera(park));
     briefing.draw(surface, park, player, view);
     writePng(surface, argv[4]);
+    if (view.challenges) {
+        for (size_t i = 0; i < park.challenges().size(); ++i)
+            std::printf("%d: %s\n", park.challenges()[i].challenge.number,
+                        briefing.challengeStatus(park.challenges()[i]).c_str());
+        if (view.chosen >= 0)
+            for (const std::string &line : briefing.challengeDetails(park, size_t(view.chosen)))
+                std::printf("%s\n", line.c_str());
+        return 0;
+    }
     for (const std::string &line : view.details ? briefing.details(park) : briefing.letter(park, player))
         std::printf("%s\n", line.c_str());
     return 0;
@@ -383,9 +402,9 @@ int cmdParkRun(int argc, char **argv) {
     const bool briefed = reluva::tpw::showBriefing(
         sys, briefing, park, "Tester", [&](reluva::Surface &s) { screen.draw(s, rasterizer, park, start); });
     int briefings = 1;
-    const bool left = briefed && reluva::tpw::playPark(sys, screen, park, [&](const auto &drawPark) {
+    const bool left = briefed && reluva::tpw::playPark(sys, screen, park, [&](const auto &drawPark, bool challenges) {
                           ++briefings;
-                          return reluva::tpw::showBriefing(sys, briefing, park, "Tester", drawPark);
+                          return reluva::tpw::showBriefing(sys, briefing, park, "Tester", drawPark, challenges);
                       });
     int paths = 0;
     for (int y = 0; y < park.groundHeight(); ++y)
@@ -810,7 +829,7 @@ const Commands kCommands(
          "and draw it, "
          "its HUD over it, to a PNG; and list its visitors",
          cmdParkShot},
-        {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details]] [-mission <n>]",
+        {"briefing-shot", "<game folder> <world folder> <out.png> [player [-details | -challenges]] [-mission <n>]",
          "draw the mission's briefing over a new park, the player's campaign at a -mission, to a PNG", cmdBriefingShot},
         {"park-run", "<game folder> <world folder> [-shots <folder> <ms>...]",
          "play a new park headless: its briefing, path laid, the Park menu's Objectives, the camera moved "
