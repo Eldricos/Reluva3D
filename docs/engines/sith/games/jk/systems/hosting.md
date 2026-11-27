@@ -490,7 +490,7 @@ Windows does when it fails, and dialog boxes are made but not drawn
 
     Left open: the game's own software renderer, never offered a wide
     mode (it draws in 8-bit modes, 1024 by 768 at most).
-25. **The console and `-devMode`** *(confirmed but where marked)*. The
+25. **The console and `-devMode`** *(confirmed)*. The
     game has one command line for its console, its cheats and, in
     multiplayer, chat: T opens it in a level, and Enter (`0x408e50`)
     sends what's typed as chat in a multiplayer game, and otherwise
