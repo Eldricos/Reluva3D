@@ -123,6 +123,9 @@ public:
             options.load(_target.savePath / "options.ini");
         // The sound's volumes as the game sets them as it starts (0x56e7b5).
         options.applySound(mixer);
+        // No pointer over the opening movies: the game's starts hidden
+        // (SetCursor with none, 0x510a44) until the main menu shows its own.
+        _sys.setMouseCursorVisible(false);
         const auto opening = _target.settings.find(kOpeningMovies);
         if (opening == _target.settings.end() || opening->second != "0") {
             for (const char *name : kOpeningMovieNames) {

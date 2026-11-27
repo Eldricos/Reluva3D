@@ -63,8 +63,10 @@ The song is `Rules.txt`'s `Startup Song`,
   plays each of `kOpeningMovieNames` from the install's `DATA/Movies/`
   through the shared `video::MoviePlayer`, its picture in the middle of
   the screen on black, its sound through the mixer, until it ends or a key
-  is pressed; a movie that isn't there is passed over. The engine's setting
-  "Opening movies" leaves them out.
+  is pressed; a movie that isn't there is passed over. There's no pointer
+  over them: the game's pointer starts hidden (`SetCursor` with none,
+  `0x510a44`), and only the game's own shows once a screen turns it on
+  (`0x510bf0`). The engine's setting "Opening movies" leaves them out.
 - **The main menu's screen:** `MainMenu`
   (`src/engines/stawayteam/ui/main_menu.cpp`) reads the main menu's nernies
   from `Rules.txt` and shows each at its place, the movies over and over,
