@@ -24,8 +24,10 @@ The mission's `.MDS` (a `CMissionDescription`) gives:
   02 Final.bik"; 15 missions have `Generic/Starfield.bik`), and **`Loop
   movie`** (1 for 14 of them).
 - **`Briefing Music`**, of `Music/` (`Briefing.ogg` for all). It
-  starts as the mission begins, once its starting movie is over, faded
-  in over a tenth of a second, whether or not there's a briefing to show
+  is queued as the mission begins, once its starting movie is over,
+  with a tenth of a second's fade: the song playing fades out over it
+  and then this one starts (as the maps' song,
+  [maps.md](maps.md#the-music)), whether or not there's a briefing to show
   (`0x5c3104`; Mission 13 has none, so it plays over its team
   selection); with no other song to follow, it plays again as it ends
   (`0x5bcbeb`), until the maps' Primary Song takes over. The

@@ -431,11 +431,33 @@ void MainMenu::playMissionMusic() {
     if (!_mixer)
         return;
     const bool briefed = _briefing || _teamSelection;
-    if (_briefingSong != audio::kNoSound && (_mapScreen || !briefed)) {
+    if (_briefingSong != audio::kNoSound && !_mapScreen && !briefed) {
         _mixer->stop(_briefingSong);
         _briefingSong = audio::kNoSound;
     }
+    if (_mapScreen && _songsPlayed == 0) {
+        // The Primary Song is queued with a 0.2-second fade (0x5c3263):
+        // what's playing goes down to -33.33 dB, evenly in dB, and the
+        // song starts at full once the time's up, playing or not
+        // (0x4d5640, 0x4d5cb0).
+        constexpr float kFade = 0.2f;
+        constexpr float kDown = -33.33f;
+        const uint64_t now = _sys.getMillis();
+        if (!_songFadeStart)
+            _songFadeStart = now;
+        const float t = float(now - *_songFadeStart) / 1000.0f;
+        if (t < kFade) {
+            if (_briefingSong != audio::kNoSound)
+                _mixer->setVolume(_briefingSong,
+                                  int(float(audio::kMaxVolume) * std::pow(10.0f, kDown * t / kFade / 20.0f)));
+            return;
+        }
+        if (_briefingSong != audio::kNoSound)
+            _mixer->stop(_briefingSong);
+        _briefingSong = audio::kNoSound;
+    }
     if (!_mapScreen) {
+        _songFadeStart.reset();
         if (_missionSong != audio::kNoSound)
             _mixer->stop(_missionSong);
         _missionSong = audio::kNoSound;

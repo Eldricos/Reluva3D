@@ -448,8 +448,11 @@ and 17. Each map has its own `Map Song`: "Scavenger Briefing.ogg",
 `!None.ogg` for Missions 16 and 18.
 
 The mission's `Briefing Music` and `Debriefing Music` play on those
-screens; as its maps start, its Primary Song, faded in over 0.2 seconds
-(`0x5c3258`, `0x4d5c00`). The game plays a song queued by name, else,
+screens; as its maps start, its Primary Song, queued with a 0.2-second
+fade (`0x5c3258`, `0x4d5c00`): the song playing, the briefing's, goes
+down to -33.33 dB, evenly in dB (-3333 hundredths at the end,
+`0x621ba0`), and when the time's up the new song starts at full,
+whether anything was playing or not (`0x4d5640`, `0x4d5cb0`). The game plays a song queued by name, else,
 with none playing, asks the mission for the next (`0x4d5d23`,
 `0x4e4200`, `0x5bcbd0`): the next of its Random Songs from a list of
 them shuffled, each in turn swapped with one chosen by chance, and the
@@ -1193,8 +1196,9 @@ while one's shown.
 
 The music (`ui/main_menu.cpp`): on a mission's maps, its Primary Song,
 then its Random Songs shuffled as the program does, or the last song
-again without them; stopping as the maps are left. It starts without
-its fade, and Reluva's random numbers aren't the program's.
+again without them; stopping as the maps are left. The briefing's
+music fades out under the first as the game's does. Reluva's random
+numbers aren't the program's.
 
 Not there yet: the AIs'
 other messages and tasks (CSendMessageAction's to animations; the

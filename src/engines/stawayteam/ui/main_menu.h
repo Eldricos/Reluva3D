@@ -159,6 +159,7 @@ private:
     std::shared_ptr<audio::Sound> _briefingMusic;
     audio::SoundHandle _briefingSong = audio::kNoSound;
     int _songsPlayed = 0;
+    std::optional<uint64_t> _songFadeStart; // ms; the song before the maps' first fading out
     unsigned _songRandom = 1;
     // The mission's Random Songs shuffled, and the next of them to play.
     std::vector<std::string> _playlist;

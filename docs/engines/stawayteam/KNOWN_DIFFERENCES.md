@@ -48,8 +48,7 @@ None yet.
   as enemies beam out; the Out Of Range cursor isn't there; parts are
   picked by their distance from the pointer, not their shapes; a
   radius's action reaches only the officers and enemies in its
-  categories, not other parts; the maps' first song starts without its
-  0.2-second fade; a walker goes straight along its way, not the way its
+  categories, not other parts; a walker goes straight along its way, not the way its
   direction's frames move
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
@@ -60,7 +59,7 @@ None yet.
   warp effect's noise ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, the briefing music
-  starts without its tenth of a second's fade, and EXIT doesn't fade out
+  starts at once, not after the tenth of a second's fade of the song before, and EXIT doesn't fade out
   ([systems/briefing.md](systems/briefing.md#in-reluva)).
 - **The team selection:** the transporter's random numbers and the
   effect the figures are drawn through aren't there yet
