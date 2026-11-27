@@ -28,11 +28,16 @@ constexpr int kPauseTextY = 0x14;
 } // namespace
 
 void MapScreen::cancelOrders() {
+    // Each chosen officer's CPlayerAI drops its orders, the one under way
+    // and those queued, and any process they're going through ends
+    // (0x5b80e0, 0x539fe0, 0x5b8150): sent as a command (0x481b20).
     for (Officer &o : _officers)
         if (o.chosen) {
             o.path.clear();
             o.attacking = -1;
             o.task = Officer::Task::kNone;
+            o.taskProcess = nullptr;
+            o.taskStep = 0;
         }
 }
 

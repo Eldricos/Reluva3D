@@ -55,8 +55,8 @@ None now.
 - **Items:** the counts for -1, the keys matched to items by name,
   walking into range before using one, and the items' panels' layout
   ([systems/items.md](systems/items.md#open-questions)).
-- **The interface's buttons:** what Cancel Orders drops, and how an
-  enemy's sight is chosen and drawn
+- **The interface's buttons:** how an enemy's sight is chosen and
+  drawn
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The gadgets:** an enemy shooting a hologram down by its hit points,
   and what's put down running its model's AIs as a map's part

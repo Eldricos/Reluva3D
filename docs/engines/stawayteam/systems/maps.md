@@ -230,7 +230,13 @@ Select Entire Team (A) the select-all button, Display Objectives (O) the
 objectives button. The vision button has three states, `Vision
 Default`, `Vision Select` and `Vision Press`, a press going on to the
 next and round (`0x51a600`); V from the second goes back to the first
-(`0x476c1c`). Choosing, the cursor is the `Vision Cursor` (`0x5c5e4e`).
+(`0x476c1c`). CANCEL ORDERS (`0x476b6b`) sends a command (`0x5c9c70`,
+handled at `0x481b20`) for each of the player's chosen officers
+(`0x5b80e0`): their `CPlayerAI`, if it has orders (`+0x41`), drops them,
+the one under way and those queued (`0x539fe0`); the process they're
+going through is let go in the game's list of those held, the text they
+show for it cleared, and they're sent a `CProcessDoneMessage`
+(`0x5b8150`). Choosing, the cursor is the `Vision Cursor` (`0x5c5e4e`).
 
 The mouse's pointers are Rules.txt's `Mouse Cursors`, the sequences of
 `Interface/Game Cursors` (`0x5c5d2f`), each's origin its hotspot; the
@@ -1045,8 +1051,8 @@ are its model's where the map leaves them out, Enemy without either
 The buttons (`ui/map_vision.cpp`, `ui/escape_menu.cpp`): the pause
 button or Pause (Enter) stops time, the view still moved and orders
 still given, till it's pressed again *(inferred)*. CANCEL ORDERS or
-Backspace drops the chosen officers' walking, attacking and items'
-tasks *(inferred)*. The vision button goes off, choosing, showing: a
+Backspace drops the chosen officers' walking, attacking, items' tasks
+and processes. The vision button goes off, choosing, showing: a
 click on an enemy while choosing shows its sight, or pressed on to
 showing, the enemy nearest the view's middle *(inferred)*; Cycle Vision
 Cones (Tab) the next enemy in the view *(inferred)*. Its sight, in its
@@ -1453,8 +1459,10 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.
-- **The buttons:** what CANCEL ORDERS drops, and how an enemy's sight
-  is chosen and drawn.
+- **The buttons:** how an enemy's sight is chosen and drawn.
+- **Processes:** a process that doesn't `Allow Multiple Members` is
+  held by its officer in the game's list (`0x5b8150`); what another
+  officer sent to it then does isn't traced, and Reluva doesn't hold it.
 - **A mission's maps:** whether those the team's left go on, which place
   each officer arrives at, what Only on this map does, and the other
   relocations.
