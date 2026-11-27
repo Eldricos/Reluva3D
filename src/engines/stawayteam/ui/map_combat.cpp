@@ -259,19 +259,37 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
     // someone.
     if (!weapon.hitFlash.empty() && weapon.dischargeAction == "CStrikeTargetAction")
         _flashes.push_back({weapon.hitFlash, tx, ty});
-    // A beam weapon's line from its muzzle (Forward Position along the way
-    // they face, Lateral Position across it, Height up) to the target, as
-    // high on them (inferred), shown its Shot Duration, fading (inferred).
+    // A beam weapon's line, the CPhaserShot (0x5c95d0): from its muzzle
+    // (Forward Position along the way they face, Lateral Position across
+    // it, Height up) toward the target as high on them (inferred), its head
+    // going out at 1500 a second, stopping where its bolt meets someone or
+    // a wall, or at its reach (the weapon's range, inferred); after its
+    // Shot Duration its tail follows at the same pace, and it's gone when
+    // that catches up (0x535c00).
     const float dx = tx - x;
     const float dy = ty - y;
     const float distance = std::hypot(dx, dy);
+    _pendingBeam = -1;
     if (weapon.beam && distance > 0.0f) {
-        const float ux = dx / distance;
-        const float uy = dy / distance;
-        const float mx = x + ux * weapon.forward - uy * weapon.lateral;
-        const float my = y + uy * weapon.forward + ux * weapon.lateral - weapon.height;
-        const float time = weapon.shotDuration > 0.0f ? weapon.shotDuration : kBeamTime;
-        _beams.push_back({mx, my, tx, ty - weapon.height, weapon.beamOutside, weapon.beamMiddle, time, time});
+        const float mx = x + dx / distance * weapon.forward - dy / distance * weapon.lateral;
+        const float my = y + dy / distance * weapon.forward + dx / distance * weapon.lateral - weapon.height;
+        const float bx = tx - mx;
+        const float by = ty - weapon.height - my;
+        const float along = std::hypot(bx, by);
+        if (along > 0.0f) {
+            Beam b;
+            b.x0 = b.x1 = b.sx = mx;
+            b.y0 = b.y1 = b.sy = my;
+            b.ux = bx / along;
+            b.uy = by / along;
+            b.lift = weapon.height;
+            b.reach = std::max(weapon.range, along);
+            b.left = weapon.shotDuration > 0.0f ? weapon.shotDuration : kBeamTime;
+            b.outside = weapon.beamOutside;
+            b.middle = weapon.beamMiddle;
+            b.id = _pendingBeam = ++_beamIds;
+            _beams.push_back(b);
+        }
     }
     (void)instigator;
     const Animation &a = animation(model, weapon.dischargeSequence.empty() ? "Shoot1" : weapon.dischargeSequence);
@@ -600,8 +618,21 @@ void MapScreen::fireBolt(const ItemDefinition &weapon, float x, float y, float t
     if (distance <= 0.0f)
         return;
     const float range = std::max(weapon.range * enhancement(self), distance + kHitReach);
-    _bolts.push_back(
-        {&weapon, self, attacker, stun, x, y, (tx - x) / distance, (ty - y) / distance, tx, ty, 0.0f, range, {}});
+    _bolts.push_back({&weapon,
+                      self,
+                      attacker,
+                      stun,
+                      x,
+                      y,
+                      (tx - x) / distance,
+                      (ty - y) / distance,
+                      tx,
+                      ty,
+                      0.0f,
+                      range,
+                      {},
+                      _pendingBeam});
+    _pendingBeam = -1;
 }
 
 void MapScreen::updateBolts(float seconds) {
@@ -643,18 +674,36 @@ void MapScreen::updateBolts(float seconds) {
         } else if (!clearSight(bolt.x, bolt.y, x1, y1)) {
             done = true;
         }
-        if (done)
+        if (done) {
+            // Its beam's head stops there (0x535e5c).
+            const float ex = hit >= 0 ? _officers[size_t(hit)].x
+                                      : (hit != kNobody ? _enemies[size_t(kEnemyInstigator - hit)].x : x1);
+            const float ey = hit >= 0 ? _officers[size_t(hit)].y
+                                      : (hit != kNobody ? _enemies[size_t(kEnemyInstigator - hit)].y : y1);
+            for (Beam &beam : _beams)
+                if (beam.id == bolt.beam)
+                    beam.reach = std::max(0.0f, (ex - beam.sx) * beam.ux + (ey - beam.lift - beam.sy) * beam.uy);
             _bolts.erase(_bolts.begin() + ptrdiff_t(i));
-        else
+        } else
             ++i;
     }
 }
 
 void MapScreen::updateCombat(float seconds) {
     updateBolts(seconds);
-    for (Beam &b : _beams)
+    for (Beam &b : _beams) {
         b.left -= seconds;
-    std::erase_if(_beams, [](const Beam &b) { return b.left <= 0.0f; });
+        if (b.left > 0.0f)
+            b.head = std::min(b.reach, b.head + kBoltSpeed * seconds);
+        else
+            b.tail = std::min(b.head, b.tail + kBoltSpeed * seconds);
+        b.head = std::min(b.head, b.reach);
+        b.x0 = b.sx + b.ux * b.tail;
+        b.y0 = b.sy + b.uy * b.tail;
+        b.x1 = b.sx + b.ux * b.head;
+        b.y1 = b.sy + b.uy * b.head;
+    }
+    std::erase_if(_beams, [](const Beam &b) { return b.left <= 0.0f && b.tail >= b.head; });
     for (Flash &f : _flashes)
         f.time += seconds;
     std::erase_if(_flashes, [&](const Flash &f) {

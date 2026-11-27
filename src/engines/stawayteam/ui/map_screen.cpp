@@ -1530,16 +1530,16 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         blitBy(view, a.at(now), int(std::lround(t.x)) - left, int(std::lround(t.y - t.z)) - top);
     }
     // The beams: their middle line, and one either side in their edges'
-    // colour (CEntityAnimatedLine, 0x499470), fading out.
+    // colour (CEntityAnimatedLine, 0x499470), plain.
     for (const Beam &b : _beams) {
-        const float fade = std::clamp(b.left / b.shown, 0.0f, 1.0f);
+        constexpr float kPlain = 1.0f;
         const float len = std::hypot(b.x1 - b.x0, b.y1 - b.y0);
         const float px = len > 0.0f ? -(b.y1 - b.y0) / len : 0.0f;
         const float py = len > 0.0f ? (b.x1 - b.x0) / len : 0.0f;
         for (const int side : {-1, 1})
             drawLine(view, b.x0 + px * float(side) - float(left), b.y0 + py * float(side) - float(top),
-                     b.x1 + px * float(side) - float(left), b.y1 + py * float(side) - float(top), b.outside, fade);
-        drawLine(view, b.x0 - float(left), b.y0 - float(top), b.x1 - float(left), b.y1 - float(top), b.middle, fade);
+                     b.x1 + px * float(side) - float(left), b.y1 + py * float(side) - float(top), b.outside, kPlain);
+        drawLine(view, b.x0 - float(left), b.y0 - float(top), b.x1 - float(left), b.y1 - float(top), b.middle, kPlain);
     }
     // The parts beamed away, their Warp Overlay Effect over them: its frames
     // a direction's worth after another, for Num Rotations directions; the

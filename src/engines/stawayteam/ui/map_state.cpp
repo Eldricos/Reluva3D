@@ -333,6 +333,7 @@ void MapScreen::state(StateIo &s) {
     s.io(_dialogLeft);
 
     s.io(_thrownIds);
+    s.io(_beamIds);
     s.list(_flashes, [&](Flash &f) {
         s.io(f.model);
         s.io(f.x);
@@ -342,8 +343,10 @@ void MapScreen::state(StateIo &s) {
         s.io(f.follow);
     });
     s.list(_beams, [&](Beam &b) {
-        for (float *f : {&b.x0, &b.y0, &b.x1, &b.y1, &b.left, &b.shown})
+        for (float *f :
+             {&b.x0, &b.y0, &b.x1, &b.y1, &b.sx, &b.sy, &b.ux, &b.uy, &b.lift, &b.tail, &b.head, &b.reach, &b.left})
             s.io(*f);
+        s.io(b.id);
         colour(s, b.outside);
         colour(s, b.middle);
     });
@@ -355,6 +358,7 @@ void MapScreen::state(StateIo &s) {
         for (float *f : {&b.x, &b.y, &b.ux, &b.uy, &b.aimX, &b.aimY, &b.head, &b.range})
             s.io(*f);
         s.io(b.crossed);
+        s.io(b.beam);
     });
     s.list(_thrown, [&](Thrown &t) {
         item(t.item);

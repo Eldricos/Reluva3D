@@ -3305,15 +3305,22 @@ void testBeams() {
     screen.attack(0);
     for (int k = 0; k < 10 && screen.beams().empty(); ++k)
         screen.update(now += 50);
-    // From her muzzle, 20 on towards the guard and 5 across, 30 up, to the
-    // guard as high; in its colours.
+    // From her muzzle, 20 on towards the guard and 5 across, 30 up, its
+    // head going out at 1500 a second toward the guard as high, in its
+    // colours (0x5c95d0, 0x535c00).
     CHECK(screen.beams().size() == 1);
     const MapScreen::Beam &b = screen.beams()[0];
-    CHECK(b.x0 == 320.0f && b.y0 == 300.0f - 5.0f - 30.0f && b.x1 == 500.0f && b.y1 == 270.0f);
+    CHECK(b.x0 == 320.0f && b.y0 == 300.0f - 5.0f - 30.0f && b.x1 < 500.0f);
     CHECK((b.outside == std::array<uint8_t, 3>{255, 83, 0}) && (b.middle == std::array<uint8_t, 3>{255, 255, 0}));
-    // Gone after its Shot Duration.
+    // Its head stops on the guard, the bolt meeting him; its tail stays at
+    // the muzzle for its Shot Duration.
     const uint64_t shot = now;
-    while (now < shot + 600)
+    while (now < shot + 300)
+        screen.update(now += 50);
+    CHECK(screen.beams().size() == 1);
+    CHECK(std::abs(b.x1 - 500.0f) < 1.0f && std::abs(b.y1 - 270.0f) < 1.0f && b.x0 == 320.0f);
+    // Then its tail follows at the same pace, and it's gone.
+    while (now < shot + 750)
         screen.update(now += 50);
     CHECK(screen.beams().empty());
 }

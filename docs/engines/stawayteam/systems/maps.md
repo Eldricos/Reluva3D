@@ -947,9 +947,19 @@ them) and shots are silent to the others; an action's noise
   and `Time` (the Phaser's 250 for 1 s; 14 weapons have 250), with the
   shot's `Forward Position`, `Lateral Position` and `Height`, and its
   beam's `Outside Color` and `Middle Color`.
-- **Beams:** a `CShootEnergyWeaponAction` makes a `CEntityAnimatedLine`
-  (`0x499b3e`) with its `Outside Color` and `Middle Color` (the line's
-  own (205, 20, 25) without them, `0x499b66`): drawn as three lines
+- **Beams:** a `CShootEnergyWeaponAction` (`0x5f6ec0`, `0x5c95d0`) makes
+  a `CPhaserShot`, a `CEntityAnimatedLine`. It copies the action's
+  colours, takes the weapon's Shot Duration as its time (`+0x138` to
+  `+0xf0`, `0x536120`), its way (`0x536180`) and its muzzle as both its
+  tail (`+0x104`) and head (`+0x10c`, `0x5361a0`). Each update
+  (`0x535c00`) its head goes on at 1500 a second (`0x6283cc`) while it's
+  growing (`+0xec`), its length (`+0x114`) with it, till that reaches its
+  furthest (`+0x118`) or it meets someone, where its head stops
+  (`0x535e5c`); when its time's out it stops growing and its tail
+  (`+0xed`) follows as fast; at no length it's deleted (`0x535d4d`),
+  with the two sprites it keeps at its ends (`+0x120`, `+0x124`). A
+  `CEntityAnimatedLine` (`0x499b3e`) has its `Outside Color` and `Middle Color` (the line's
+  own (205, 20, 25) without them, `0x499b66`), and is drawn as three lines
   (`0x499470`), the middle from `Start` to `End` in the Middle Color, and
   one each side of it, by its `PerpenNormal`, in the Outside Color. The
   Phaser's (255, 83, 0) and (255, 255, 0), the Romulan Disruptor's
@@ -1319,9 +1329,13 @@ the Team Members (`0x535c19`, `0x535dcf`, `0x535e05`), and stopped by a
 wall. Its Shot Sound,
 its Shot Flash on the shooter and its Hit Flash on the one it meets, the
 shooter's `Shoot1` played through, the Weapon Damage taken off. A beam
-weapon's beam is drawn from its muzzle (Forward Position along the way
-to the target, Lateral Position across, Height up) to the target as high
-up *(inferred)*, as above, for its Shot Duration, fading *(inferred)*.
+weapon's beam is drawn as the program's bolt line: from its muzzle
+(Forward Position along the way to the target, Lateral Position across,
+Height up) toward the target as high up *(inferred)*, as three lines,
+its head going out at 1500 a second and stopping where its bolt meets
+someone or a wall; after its Shot Duration its tail follows as fast and
+it's gone when that catches up. Its head's furthest is the weapon's
+range *(inferred)*.
 A footstep plays its Default Sound where it has one (none do); the
 surfaces' sounds aren't looked up, none being given. An enemy
 hit runs its Damage Action, and with Target If Hit, not attacking, goes to look where whoever hit it is;
@@ -1488,11 +1502,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
 - **Fighting:** the bolt's hitting someone moving out of its way; the
-  beam's drawing: the line drawn is the `CPhaserShot` bolt itself
-  (`CEntityAnimatedLine`, its `Start` at `+0xc8` and `End` at `+0xd0`),
-  moving at 1500 a second (`0x6283cc`) and gone when its time at `+0xf0`
-  (set at `0x536120`) runs out, where Reluva draws a still line from the
-  muzzle for the Shot Duration; where on a character the flashes go;
+  beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
+  shooter's slot `0xa4` gives); where on a character the flashes go;
   stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and

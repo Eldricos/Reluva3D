@@ -333,15 +333,28 @@ public:
     /** A thrown thing as an action's instigator: kThrownInstigator less its id. */
     static constexpr int kThrownInstigator = -1000000;
     /** A beam shot, from muzzle to target, up off the ground as drawn. */
+    /**
+     * A beam weapon's shot as it's drawn, the program's CPhaserShot line
+     * (docs/engines/stawayteam/systems/maps.md#fighting): from its tail to
+     * its head, both along the way from the muzzle.
+     */
     struct Beam {
-        float x0;
-        float y0;
-        float x1;
-        float y1;
-        std::array<uint8_t, 3> outside;
-        std::array<uint8_t, 3> middle;
-        float left;  // seconds
-        float shown; // seconds in all
+        float x0 = 0.0f; // its tail, on the map
+        float y0 = 0.0f;
+        float x1 = 0.0f; // its head
+        float y1 = 0.0f;
+        std::array<uint8_t, 3> outside{};
+        std::array<uint8_t, 3> middle{};
+        float sx = 0.0f; // the muzzle, and the way from it
+        float sy = 0.0f;
+        float ux = 0.0f;
+        float uy = 0.0f;
+        float lift = 0.0f; // how far up the muzzle is
+        float tail = 0.0f; // how far out each end is
+        float head = 0.0f;
+        float reach = 0.0f; // the furthest its head goes
+        float left = 0.0f;  // seconds till its tail goes after its head
+        int id = 0;
     };
     const std::vector<Beam> &beams() const { return _beams; }
     /** A mine put down: arming, armed, or set off and about to go. */
@@ -1012,6 +1025,8 @@ private:
     };
     std::vector<Flash> _flashes;
     std::vector<Beam> _beams;
+    int _beamIds = 0;
+    int _pendingBeam = -1; // the beam the next bolt fired goes with
     // Bolts in flight: from (x, y) along (ux, uy), the head `head` on,
     // flying up to `range`; the triggers they've crossed, by part.
     struct Bolt {
@@ -1028,6 +1043,7 @@ private:
         float head = 0.0f;
         float range = 0.0f;
         std::vector<size_t> crossed;
+        int beam = -1; // the beam drawn for it, by its id
     };
     std::vector<Bolt> _bolts;
     void updateBolts(float seconds);
