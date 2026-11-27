@@ -128,10 +128,10 @@ objects that aren't any one block's. Their placements are of types 1 and
   | Kind | Points, left / right | Effect | Sound | Does |
   |---|---|---|---|---|
   | 0 | 55 / 130 | | | no wall: the car isn't held, and the drivers keep no margin (0x438bbf) |
-  | 1, 4 | 6,719 / 8,037, 3,580 / 2,602 | sparks | a crash: sample 33 when loud, else 30 or 32; and a scrape, 32, 34, 35 or 37 | a wall |
+  | 1, 4 | 6,719 / 8,037, 3,580 / 2,602 | sparks | a crash: sample 33 when loud (a loud, harsh crash with a sound of damage), else 30 or 32 (a crash with damage, quieter); and a scrape, 32, 34 (a short metallic impact), 35 (a springy scrape) or 37 (a springy impact) | a wall |
   | 2 | 1,691 / 1,731 | sparks | as 1 | a wall, and a tunnel *(inferred)*: a roof 10 units over the road (14 and 24 along stretches of `TR04`, 20 on `TR08`: 0x44c660), a sound turned up inside (0x42f91f), the camera's own setting (0x470fdb), a car put back on the road dropped from half the height (0x43ee8e), and no rain (0x473cc0) |
-  | 3 | 798 / 456 | dust | a dull thud, 30 | a wall |
-  | 5 | 1,060 / 1,020 | grit | a sharp bang, 29 | a wall |
+  | 3 | 798 / 456 | dust | a blunt impact, quieter and softer than 29, 30 | a wall |
+  | 5 | 1,060 / 1,020 | grit | a blunt impact, 29 | a wall |
   | 6 | 268 / 186 | | as 3 | a drop past the wall: a car more than 3 units above the road (0x44e970) crashes, tumbling (0x457231), and is put back on the road; lower, a wall |
   | 7 | 51 / 60 | dust | as 3 | for some cars, above a speed of 10, a wreck: the car's damage raised, and past 200 it's wrecked (0x456f8b) |
 
@@ -142,8 +142,9 @@ objects that aren't any one block's. Their placements are of types 1 and
     (`ga00` to `ga02`), brown specks carried with the car. On `TR08` the
     sparks are blue-white (`ms00` to `ms07`).
   - **The sounds:** the samples' numbers in `GEN.BNK` *(inferred: the
-    numbers the program picks, 29 to 37, are those the bank has)*; their
-    kind as they sound by their length and brightness *(inferred)*. On
+    numbers the program picks, 29 to 37, are those the bank has)*; what
+    each sounds like, as heard by a listener (late November 2026): 31,
+    which no wall plays, an impact and then a spring's sound. On
     `TR08` every wall plays `TRAMB08.BNK`'s 4, a clang; on `TR07`, along
     its trestle bridge (points 1,430 to 1,492), 5 or 6 of `TRAMB07.BNK`,
     a creak, with 29 quietly.
@@ -190,5 +191,4 @@ hosted game's race clock runs.
 
 ## Open questions
 
-- The wall sounds as heard: their kinds are judged by their length and
-  brightness only.
+None.
