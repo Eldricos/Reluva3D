@@ -101,7 +101,77 @@ int cmdSprites(int argc, char **argv) {
         std::printf("objects of kind %2u: %5zu, %5zu named (%s)\n", kind, counts.first, counts.second,
                     example[kind].c_str());
     std::printf("%zu objects\n", archive.objects().size());
+    // Their fields: groups' children, buttons' and pictures' images by
+    // list, and how many records have a class named.
+    size_t groups = 0;
+    size_t children = 0;
+    size_t withFrames = 0;
+    size_t frames[3] = {};
+    size_t classed = 0;
+    for (const auto &o : archive.objects()) {
+        groups += o.children.empty() ? 0 : 1;
+        children += o.children.size();
+        withFrames += o.frames[0].empty() && o.frames[1].empty() && o.frames[2].empty() ? 0 : 1;
+        for (int i = 0; i < 3; ++i)
+            frames[i] += o.frames[i].size();
+        classed += o.className.empty() ? 0 : 1;
+    }
+    std::printf("%zu groups with %zu children; %zu buttons and pictures with frames (%zu states, %zu pressed, %zu "
+                "disabled); %zu with a class\n",
+                groups, children, withFrames, frames[0], frames[1], frames[2], classed);
     return failed ? 1 : 0;
+}
+
+// An object of sprites.q3 drawn as the interface draws it at rest (a
+// screen, a panel, a button), as a PNG.
+int cmdSpriteScreen(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr, "usage: reluva-tool sfc sprite-screen <game folder> <name or number> <out.png>\n");
+        return 2;
+    }
+    sfc::SpriteArchive archive;
+    if (int rc = openSprites(argv[2], archive))
+        return rc;
+    const std::string want = argv[3];
+    uint32_t id = 0;
+    for (const auto &o : archive.objects())
+        if (o.name == want && o.kind != sfc::SpriteArchive::kKindImage) {
+            id = o.id;
+            break;
+        }
+    if (!id && !want.empty() && std::all_of(want.begin(), want.end(), [](char c) { return c >= '0' && c <= '9'; }))
+        id = static_cast<uint32_t>(std::strtoul(want.c_str(), nullptr, 10));
+    if (!archive.object(id)) {
+        std::fprintf(stderr, "no object named or numbered %s\n", want.c_str());
+        return 1;
+    }
+    // The screens are laid out from their top left at 640x480 and up; 1600x1200 holds the largest.
+    Surface s;
+    s.create(1600, 1200, PixelFormat::kRGBA32);
+    if (Error err = archive.compose(id, s, 0, 0)) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    // Cut to what was drawn.
+    int right = 0;
+    int bottom = 0;
+    for (int y = 0; y < s.h; ++y)
+        for (int x = 0; x < s.w; ++x)
+            if (s.row(y)[4 * x + 3]) {
+                right = std::max(right, x + 1);
+                bottom = std::max(bottom, y + 1);
+            }
+    image::Image img;
+    img.w = std::max(right, 1);
+    img.h = std::max(bottom, 1);
+    img.rgba.resize(size_t(img.w) * img.h * 4);
+    for (int y = 0; y < img.h; ++y)
+        std::copy(s.row(y), s.row(y) + 4 * img.w, img.rgba.begin() + 4 * size_t(y) * img.w);
+    if (!writeFile(argv[4], image::encodePng(img))) {
+        std::fprintf(stderr, "can't write %s\n", argv[4]);
+        return 1;
+    }
+    return 0;
 }
 
 // One of sprites.q3's images, as a PNG.
@@ -400,6 +470,8 @@ const Commands kCommands(
         {"sprites", "<game folder> [-q]", "list sprites.q3's images and decode each (-q: only the failures)",
          cmdSprites},
         {"sprite-png", "<game folder> <index> <out.png>", "write one of sprites.q3's images as a PNG", cmdSpritePng},
+        {"sprite-screen", "<game folder> <name or number> <out.png>",
+         "draw one of sprites.q3's objects (a screen, a button) as a PNG", cmdSpriteScreen},
         {"fonts", "<game folder>", "read every .bft font under a folder", cmdFonts},
         {"models", "<game folder>", "read every .mod model under a folder", cmdModels},
         {"settings", "<game folder>", "read every settings file (.gf, .mct) under a folder", cmdSettings},

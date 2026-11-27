@@ -1,4 +1,4 @@
-sprites: 6d2667d8ce779b65 | 19353 images (418 with 8 bits a pixel, 6205 named), objects from 75464798, 0 failed
+sprites: e9a27ce15e760a42 | 19353 images (418 with 8 bits a pixel, 6205 named), objects from 75464798, 0 failed
 fonts: 97416c13adac900d | 126 fonts, 0 failed
 models: 63c00a9358c8b75c | 317 models, 0 failed, 22 textures not found
 sounds: 25ed381423f5705c | 0 failed

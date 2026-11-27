@@ -108,6 +108,7 @@ text files, and the installers' headers.
 | `reluva-tool sfc files` | Lists a game folder's files (the template's first command) |
 | `reluva-tool sfc sprites` | Lists sprites.q3's images and decodes each |
 | `reluva-tool sfc sprite-png` | Writes one of sprites.q3's images as a PNG |
+| `reluva-tool sfc sprite-screen` | Draws one of sprites.q3's objects (a screen, a button) from its fields, as a PNG |
 | `reluva-tool sfc fonts` | Reads every .bft font |
 | `reluva-tool sfc models` | Reads every .mod model, and lists textures it names that aren't there |
 | `reluva-tool sfc sounds` | Decodes every WAV in the sound zips |

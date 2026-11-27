@@ -137,6 +137,125 @@ Error SpriteArchive::readObjects() {
     }
     if (!_records.empty())
         _records.back().size = static_cast<uint32_t>(_data.size() - _records.back().offset);
+    for (Object &o : _records) {
+        if (o.kind == kKindImage) {
+            const size_t fields = o.offset + 12 + o.name.size();
+            if (fields + 12 <= o.offset + o.size)
+                if (const auto it = byOffset.find(readLE32(_data.data() + fields + 8)); it != byOffset.end())
+                    o.image = static_cast<int32_t>(it->second);
+        } else {
+            readFields(o);
+        }
+    }
+    return Error::success();
+}
+
+// The fields after a record's name, as far as they're worked out: the
+// program's class (a 32-bit length, then the characters), then for a
+// group (kinds 3 and 17) a word whose use isn't known, the count of its
+// children and each child's record, x, y and depth (32 bits each); for a
+// button or picture (kinds 8 and 10), at the record's end, three lists of
+// image records (each a count, then the records). What lies between
+// isn't read. Where the fields don't fit, the record is left without them.
+void SpriteArchive::readFields(Object &o) {
+    const uint8_t *d = _data.data();
+    const size_t end = size_t(o.offset) + o.size;
+    size_t at = o.offset + 12 + o.name.size();
+    if (end - at < 4 || readLE32(d + at) > end - at - 4)
+        return;
+    const uint32_t classLength = readLE32(d + at);
+    o.className.assign(reinterpret_cast<const char *>(d + at + 4), classLength);
+    at += 4 + classLength;
+    const auto isImage = [this](uint32_t id) {
+        const Object *r = object(id);
+        return r && r->kind == kKindImage;
+    };
+    if (o.kind == kKindScreen || o.kind == kKindButtonGroup) {
+        if (end - at < 8)
+            return;
+        const uint32_t count = readLE32(d + at + 4);
+        if (count > (end - at - 8) / 16)
+            return;
+        for (uint32_t i = 0; i < count; ++i) {
+            const uint8_t *c = d + at + 8 + 16 * size_t(i);
+            Child child{readLE32(c), static_cast<int32_t>(readLE32(c + 4)), static_cast<int32_t>(readLE32(c + 8)),
+                        readLE32(c + 12)};
+            if (!object(child.id)) {
+                o.children.clear();
+                return;
+            }
+            o.children.push_back(child);
+        }
+    } else if (o.kind == kKindButton || o.kind == kKindPicture) {
+        // The three lists end the record: the start found is the latest
+        // from which they run exactly to its end.
+        for (size_t start = end >= 12 ? end - 12 : 0; start + 1 > at; --start) {
+            std::vector<uint32_t> lists[3];
+            size_t p = start;
+            bool fits = true;
+            for (auto &list : lists) {
+                if (end - p < 4 || readLE32(d + p) > (end - p - 4) / 4) {
+                    fits = false;
+                    break;
+                }
+                const uint32_t n = readLE32(d + p);
+                for (uint32_t i = 0; i < n && fits; ++i) {
+                    const uint32_t frame = readLE32(d + p + 4 + 4 * size_t(i));
+                    fits = isImage(frame);
+                    list.push_back(frame);
+                }
+                p += 4 + 4 * size_t(n);
+                if (!fits)
+                    break;
+            }
+            if (fits && p == end) {
+                for (int i = 0; i < 3; ++i)
+                    o.frames[i] = std::move(lists[i]);
+                return;
+            }
+            if (start == 0)
+                break;
+        }
+    }
+}
+
+Error SpriteArchive::compose(uint32_t id, Surface &out, int x, int y) const {
+    return compose(id, out, x, y, 0);
+}
+
+Error SpriteArchive::compose(uint32_t id, Surface &out, int x, int y, int depth) const {
+    const Object *o = object(id);
+    if (!o || depth > 32) // no tree in the files is that deep; a loop would be
+        return Error::success();
+    if (o->kind == kKindImage) {
+        if (o->image < 0)
+            return Error::success();
+        const Image &image = _images[size_t(o->image)];
+        Surface picture;
+        if (Error err = decode(image, picture))
+            return err;
+        // Its pixels over what's there, by their alpha (all or nothing).
+        const int left = x - image.hotX;
+        const int top = y - image.hotY;
+        for (int py = std::max(0, -top); py < picture.h && top + py < out.h; ++py) {
+            const uint8_t *src = picture.row(py);
+            uint8_t *dst = out.row(top + py);
+            for (int px = std::max(0, -left); px < picture.w && left + px < out.w; ++px)
+                if (src[4 * px + 3])
+                    std::copy(src + 4 * px, src + 4 * px + 4, dst + 4 * (left + px));
+        }
+        return Error::success();
+    }
+    if (!o->children.empty()) {
+        std::vector<Child> order = o->children;
+        std::stable_sort(order.begin(), order.end(), [](const Child &a, const Child &b) { return a.depth > b.depth; });
+        for (const Child &c : order)
+            if (Error err = compose(c.id, out, x + c.x, y + c.y, depth + 1))
+                return err;
+        return Error::success();
+    }
+    if (!o->frames[0].empty())
+        return compose(o->frames[0].front(), out, x, y, depth + 1);
     return Error::success();
 }
 

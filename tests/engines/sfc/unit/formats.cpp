@@ -127,6 +127,81 @@ void testSprites() {
     CHECK(rgba(1, 0) == (std::vector<int>{255, 255, 255, 255}) && rgba(2, 0)[3] == 0);
 }
 
+// The objects' fields: a group's children and where they go, a button's
+// images by list, and a screen drawn from them.
+void testSpriteObjects() {
+    std::vector<uint8_t> d;
+    putTag(d, "MDM!");
+    put16(d, 0x99);
+    put16(d, 0x100);
+    put16(d, 0x10);
+    put32(d, 0);
+    // A 4x2 image, all red, its hot spot at 2,1.
+    std::vector<uint8_t> codes;
+    for (const uint16_t v : {0x4004, 0x7c00, 0x4004, 0x7c00})
+        put16(codes, v);
+    putImage(d, 4, 2, 16, {}, {0, 2}, codes);
+    const uint32_t objects = uint32_t(d.size());
+    writeLE32(d.data() + 10, objects);
+    put32(d, 0);
+    put32(d, 3);
+    const auto record = [&d](uint16_t kind, uint32_t id, const std::string &name, const std::string &cls) {
+        put16(d, kind);
+        put32(d, id);
+        put16(d, 0x99);
+        put32(d, uint32_t(name.size()));
+        d.insert(d.end(), name.begin(), name.end());
+        put32(d, uint32_t(cls.size()));
+        d.insert(d.end(), cls.begin(), cls.end());
+    };
+    // The screen: no class, a word, two children (the button at 10,5 in
+    // front, the image itself at 20,5 behind), then fields not read.
+    record(3, 1, "TestScreen", "");
+    put32(d, 0);
+    put32(d, 2);
+    for (const uint32_t v : {3u, 10u, 5u, 1u, 2u, 20u, 5u, 2u})
+        put32(d, v);
+    put32(d, 32);
+    // The image's own record (its first field read as an empty class).
+    record(1, 2, "Test_bmp", "");
+    put32(d, 20 + 8 + 8); // its size and offset
+    put32(d, 14);
+    put16(d, 0xff);
+    // The button: its class, fields not read (one looking like a list),
+    // then its lists: [2], [], [2].
+    record(8, 3, "TestButton", "SFCPushBtn");
+    for (const uint32_t v : {0u, 32u, 1u, 0x48u})
+        put32(d, v);
+    for (const uint32_t v : {1u, 2u, 0u, 1u, 2u})
+        put32(d, v);
+    writeLE32(d.data() + objects, uint32_t(d.size() - objects));
+
+    SpriteArchive archive;
+    CHECK(!archive.open(d));
+    const auto *screen = archive.object(1);
+    const auto *image = archive.object(2);
+    const auto *button = archive.object(3);
+    CHECK(screen && screen->children.size() == 2 && screen->className.empty());
+    if (!screen || screen->children.size() != 2 || !image || !button)
+        return;
+    CHECK(screen->children[0].id == 3 && screen->children[0].x == 10 && screen->children[0].y == 5 &&
+          screen->children[0].depth == 1 && screen->children[1].id == 2);
+    CHECK(image->image == 0 && image->children.empty() && archive.images()[0].name == "Test_bmp");
+    CHECK(button->className == "SFCPushBtn" && button->frames[0] == std::vector<uint32_t>{2} &&
+          button->frames[1].empty() && button->frames[2] == std::vector<uint32_t>{2});
+    CHECK(!archive.object(4));
+    // Drawn: each image's hot spot where it's placed (the button by its
+    // first state's image), nothing elsewhere.
+    Surface out;
+    out.create(32, 16, PixelFormat::kRGBA32);
+    CHECK(!archive.compose(1, out, 0, 0));
+    const auto red = [&](int x, int y) { return out.row(y)[4 * x] == 255 && out.row(y)[4 * x + 3] == 255; };
+    CHECK(red(8, 4) && red(11, 5) && !red(12, 4) && !red(7, 4));
+    CHECK(red(18, 4) && red(21, 5) && !red(22, 4) && out.row(0)[3] == 0);
+    // Placed off the surface's edge, it's cut there.
+    CHECK(!archive.compose(1, out, -10, -4));
+}
+
 // A run past the row's width is an error, not a write past the image.
 void testSpriteOverrun() {
     std::vector<uint8_t> d = makeSprites();
@@ -388,6 +463,7 @@ static const reluva::test::Suite
            {
                {"sprites", [](const std::filesystem::path &) { testSprites(); }},
                {"sprite overrun", [](const std::filesystem::path &) { testSpriteOverrun(); }},
+               {"sprite objects", [](const std::filesystem::path &) { testSpriteObjects(); }},
                {"font", [](const std::filesystem::path &) { testFont(); }},
                {"model", [](const std::filesystem::path &) { testModel(); }},
                {"model bad material", [](const std::filesystem::path &) { testModelBadMaterial(); }},

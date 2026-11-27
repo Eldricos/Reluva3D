@@ -10,8 +10,10 @@ picture of the interface: screens' backgrounds at 640x480, 800x600 and
 ships' outlines for the systems display. The images lie back to back
 from the start of the file; after them, a section of the interface's
 objects (buttons, groups, animations) refers to each image by its size
-and its offset. The images are read; the objects only as far as the
-names some of them give their images.
+and its offset. The images are read; of the objects, their kinds,
+names and classes, the groups' children and where each goes, and the
+buttons' and pictures' images by state, enough to draw any screen as it
+stands before the program fills it in.
 
 ## Layout
 
@@ -35,7 +37,7 @@ The first image's header follows at 14.
 |---|---|---|
 | 0 | 2 | width |
 | 2 | 2 | height |
-| 4 | 2 | x of a point in it, from its left: half the width in 18,580 of the 19,353; perhaps the point the image is drawn at *(guessed)* |
+| 4 | 2 | x of its hot spot, from its left: the point placed where an object puts the image (half the width in 18,580 of the 19,353) |
 | 6 | 2 | y of that point, from its top |
 | 8 | 2 | 0 in every image |
 | 10 | 2 | bits a pixel: 16 (18,935 images) or 8 (418) |
@@ -80,11 +82,14 @@ records. Each starts the same way:
 | 8 | 4 | its name's length (0 for none) |
 | 12 | n | the name |
 
-What follows depends on the kind, and isn't worked out but for an
-image's own record (kind 1): four zero bytes, then the image's size (as
-counted from its header's start) and offset, then 0xFF. A record runs
-to the next one's start, found by its number. The kinds in 1.0, with
-what their names suggest:
+A record runs to the next one's start, found by its number. After its
+name, every kind but an image's starts with the name of the program's
+class for it (a 32-bit length, then the characters: `SFCPushBtn`,
+`PushToggle`, `Gauge`, `VBtnGrp`...; empty in many: that it's the
+class is inferred, by the names). An image's own
+record (kind 1) has four zero bytes there, then the image's size (as
+counted from its header's start) and offset, then 0xFF. The kinds in
+1.0, with what their names suggest:
 
 | Kind | Records | Named | Names (for example) | What, by the names *(guessed)* |
 |---|---|---|---|---|
@@ -101,18 +106,56 @@ what their names suggest:
 
 2.0.3.6's file has 33,056 records of the same ten kinds.
 
+#### Groups (kinds 3 and 17)
+
+After the class: a 32-bit word (0 in every kind 3, 16 in most kind 17;
+what it's for isn't known), the count of children, then for each its
+record's number, x, y and depth (32 bits each), then fields shared with
+the other kinds (48 bytes or more: 0, 0, 0x20, 0x01000E00, then zeros,
+in most) that aren't read. A child is placed from the group's origin,
+its top left: an image with its hot spot there, a group with its own
+origin there; the furthest (the highest depth) is drawn first. Kind 3
+is a screen (`campaign640x480`, `FilmRoom`), a panel or a set of icons;
+kind 17 a set of buttons that act together (`VBtnGrp`, `SFCRadio`). A
+screen comes in sizes from 640x480 up to 1600x1200 (`fleet640x480` to
+`fleet1600x1200`); the game at 800x600 shows the 640x480 one centred.
+
+#### Buttons and pictures (kinds 8 and 10)
+
+After the class: the shared fields, then a word (0x48 in a push
+button, 0x68 in a scroll bar's, 0 in a plain picture: flags, perhaps
+*(guessed)*), fields not read, the name of what the program connects it to, where it has one
+(`Starfleet.mapup`, `metachatscrollbar.top`: the program's
+"App could not find 'StarFleet.VersionString' to do connection" names
+one it lacks), and at the record's end three lists of image records,
+each a 32-bit count then the records:
+
+| List | What, by the images | For example |
+|---|---|---|
+| 1 | its states: a button's normal look then its selected one, a toggle's off and on, a gauge's or indicator's steps | the menu buttons: teal, then copper |
+| 2 | its look while it's pressed *(inferred)* | the bid buttons: dark |
+| 3 | its look when it can't be used *(inferred)* | grey, as SUPPLY and SHIPYARD are out of a base |
+
+Each of the 6,792 kind 8 and 10 records in 1.0 (and 6,786 in 2.0.3.6)
+ends with the three lists: 15,659 images as states, 597 pressed and
+1,367 disabled in 1.0.
+
 ## In Reluva
 
 - **Reading it:** `SpriteArchive` (`src/engines/sfc/formats/sprite_archive.h`)
   lists the images, finds the objects' records (kind, number, name,
-  where and how long), names the images from their own, and decodes one
-  as RGBA32, its skipped pixels transparent.
+  class, where and how long), names the images from their own, reads
+  the groups' children and the buttons' and pictures' lists, and decodes
+  an image as RGBA32, its skipped pixels transparent. `compose` draws an
+  object as it stands at rest: each group's children at their places,
+  each button by its first state.
 - **The data viewer:** the Images page shows every image, with its header
-  and name.
+  and name; the Screens page draws each group.
 - **Commands:** `reluva-tool sfc sprites <game folder>` lists the images
-  and decodes each, and counts the objects by kind; `reluva-tool sfc
-  sprite-png <game folder> <index>
-  <out.png>` writes one as a PNG.
+  and decodes each, and counts the objects by kind and their fields;
+  `reluva-tool sfc sprite-png <game folder> <index> <out.png>` writes
+  one as a PNG, and `reluva-tool sfc sprite-screen <game folder> <name
+  or number> <out.png>` an object drawn.
 
 ## Sources and checks
 
@@ -126,14 +169,23 @@ what their names suggest:
   width; a 640x480 screen and an 8-bit ship's outline written as PNGs
   and seen to be right (brushed metal and copper; a white outline on
   black).
-- **Unit test:** `sfc.unit.formats` (sprites, sprite overrun), on images
-  built in the test.
+- **The objects' fields** were found in the 1.0 file by their values: the
+  children's numbers name records, the lists' numbers images, and every
+  group and button record parses to its end so. Drawn from them, the
+  Film Room's 640x480 screen matches the game's own, as it showed it
+  hosted at 800x600, in 96.3% of its pixels; the rest is the program's
+  text, its pointer and the button it selects.
+- **Unit test:** `sfc.unit.formats` (sprites, sprite overrun, sprite
+  objects), on files built in the test.
 
 ## Open questions
 
 - The header's 0x100 and 0x10, and the image header's 0, 255 and 2.
-- What the point at 4 and 6 is for, where it isn't the centre.
-- The object records' fields past their names, for each kind but an
-  image's: which images make each button's states and each animation's
-  frames, where each goes on its screen, and what the 2.0.3.6 patch's
-  copy changes in them.
+- The shared fields, the groups' first word, the flags and the fields
+  between them and the connection's name; the fields of kinds 9, 11,
+  15, 21 and 25 (chat, scroll bars, lists, text, rectangles).
+- Which of a button's states the program shows when, beyond the first
+  two (a multi-state indicator's), and how an animation's frames are
+  timed.
+- What the 2.0.3.6 patch's copy changes in the objects (it has 267 more
+  records).
