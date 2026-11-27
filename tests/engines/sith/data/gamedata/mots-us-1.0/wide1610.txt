@@ -1,0 +1,4 @@
+wide1610: b91ca7b7fccc3295 | 6721 files opened
+wide1610.reached: cut scene jkmintro.san
+widescreen: 768x480, the view widened: yes
+frame sizes: 640x480 768x480

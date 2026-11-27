@@ -60,12 +60,13 @@ function(record_host name seconds until)
     set(host_log "${log}" PARENT_SCOPE)
 endfunction()
 
-# Widescreen (sith host -wide): the game into its first level at 854 by
-# 480, as record_host would, with whether the view was widened and the
+# Widescreen (sith host -wide): the game into its first level in a mode
+# `width` by 480 (854 for 16:9, 768 for 16:10, 1120 for 21:9), kept as
+# <name> as record_host would, with whether the view was widened and the
 # sizes of the frames shown: the menus' and cut scenes' 640 by 480, play's
 # the mode's.
-function(record_wide seconds until)
-    record_host(wide ${seconds} "${until}" -wide 854 ${ARGN})
+function(record_wide name width seconds until)
+    record_host(${name} ${seconds} "${until}" -wide ${width} ${ARGN})
     string(REGEX MATCH "widescreen: [^\n]*" widened "${host_log}")
     string(REGEX MATCH "frame sizes: [^\n]*" sizes "${host_log}")
     set(record "${record}${widened}\n${sizes}\n" PARENT_SCOPE)

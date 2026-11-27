@@ -35,7 +35,9 @@ The engine's, `sith.engine`, on Jedi Knight's files.
 | `movies` | Every cut scene's frames, palettes, sound and subtitle numbers, as a checksum |
 | `start` | The retail `JKM.EXE` run in the emulator from a new state for 30 seconds, the opening skipped, until it waits at *New Player*: its checks of Jedi Knight's CD 2 and its own (its `InstallData` written), the files it opens, its registry writes and debug output, as a checksum |
 | `level` | The same with a player made (`mara`), *Single Player* and *New Game* clicked at set seconds, and `-skim`: the opening and the first level's cut scenes reached, the level ended by its cheat, and every file opened up to the second level, `s1l2_astcrust.jkl` |
-| `wide` | The same into the first level in widescreen, 854 by 480 (`-wide 854`, 50 seconds): the files opened up to it, that the view was widened, and the frames' sizes, 640 by 480 and 854 by 480 |
+| `wide` | The same into the first level in widescreen, 16:9, 854 by 480 (`-wide 854`, 50 seconds): the files opened up to it, that the view was widened, and the frames' sizes, 640 by 480 and 854 by 480 |
+| `wide1610` | The same at 16:10, 768 by 480 (`-wide 768`) |
+| `wide219` | The same at 21:9, 1120 by 480 (`-wide 1120`) |
 
 Like Jedi Knight's, the host steps record only what a run decides
 itself: past the level a step stops at, neither the levels and cut

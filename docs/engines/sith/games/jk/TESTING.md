@@ -50,7 +50,9 @@ the game, one step each:
 | `movies` | Every cut scene's frames, palettes, sound and subtitle numbers, each cut scene as a checksum (`movies -all`) |
 | `start` | The retail game run from a new state until it waits at *New Player* (30 seconds): the files it opens, its registry writes and its debug output, as a checksum |
 | `level` | A player made, *Single Player*, *New Game*, by clicks at set seconds; cut scenes skipped and Nar Shaddaa ended by its cheat (`host -skim`, 75 seconds): the cut scenes and levels reached, and every file opened up to the second level, as a checksum |
-| `wide` | The same into Nar Shaddaa in widescreen, 854 by 480 (`host -wide 854`, 45 seconds): the cut scenes reached and the files opened up to the level, as a checksum; that the view was widened; and the frames' sizes, the menus' 640 by 480 and play's 854 by 480 |
+| `wide` | The same into Nar Shaddaa in widescreen, 16:9, 854 by 480 (`host -wide 854`, 45 seconds): the cut scenes reached and the files opened up to the level, as a checksum; that the view was widened; and the frames' sizes, the menus' 640 by 480 and play's 854 by 480 |
+| `wide1610` | The same at 16:10, 768 by 480 (`-wide 768`) |
+| `wide219` | The same at 21:9, 1120 by 480 (`-wide 1120`) |
 
 The game runs on the machine's clock, not an instruction clock, so the
 hosted steps keep only what the run decides itself, up to a point any
@@ -146,6 +148,7 @@ graphics card:
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | The `wide1610` and `wide219` steps made, and the three widescreen steps of both games, six runs, passed run four at a time as recorded |
 | November 2026 | US retail | Linux | *Widescreen* in each of its shapes, 16:10, 16:9 and 21:9, through `reluva` on a virtual display (Xvfb, 1280x1024, llvmpipe), driven by `xdotool` from a new state: *New Player* typed and clicked through the menus at their place in each shape's window, into the first level. Jedi Knight and Mysteries of the Sith alike, in software in all three, on the graphics card at 16:10 and 21:9: the menus 4:3 in the middle, black beside them; in the level, at the view's size of 9, the 3D across the whole width and height of the window, both gauges whole and readable in its bottom corners, 21:9's too |
 | November 2026 | US retail | Linux | *Widescreen* at 16:9 (854 by 480) through `reluva` on a virtual display (Xvfb, llvmpipe), driven by `xdotool`: the loading screen and menus 640 by 480 in the middle of the wide window, *Players* and *New Game* clicked through them, the cut scene the same, Nar Shaddaa filling the window with the gauges in its corners, in software and with *3D drawing* on the graphics card; nothing of it in the registry file after. `host -wide 854` into the level as the `wide` step records; `-wide 768` (16:10) and `-wide 1120` (21:9) the same, Nar Shaddaa's start as tall as at 4:3 and wider. The view's size in widescreen, from a player's 5: the first widescreen session at 9, the whole screen; `-` in play made it 8, kept for the next widescreen session, which started at 8, while one without started at 5 |
 | November 2026 | US retail | Linux | *3D drawing* on the graphics card with *Setup*'s 3D acceleration off in the game's registry (`reluva` on a virtual display): turned on as the game started (`b3DAccel` 1 after), Nar Shaddaa drawn through Direct3D on the GPU; `host -d3d`, now the same code, reached the level drawing through Direct3D |
