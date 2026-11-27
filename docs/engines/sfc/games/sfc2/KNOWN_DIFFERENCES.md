@@ -52,8 +52,8 @@ None yet.
   tutorials, a campaign's first missions with its saves, and
   multiplayer (against AI players, and between copies of Reluva to a
   game's end) run, and a skirmish and a campaign's Convoy Escort have
-  been won, and the six tutorials passed; the Film Room's playback hasn't been
-  tried (its list was empty: the recordings it lists aren't known yet) ([systems/hosting.md](systems/hosting.md)).
+  been won, the six tutorials passed and a recording played in the Film
+  Room ([systems/hosting.md](systems/hosting.md)).
 - **Multiplayer's groups aren't there,** nor DirectPlay's own chat
   messages, which the game doesn't use; a new host, across machines,
   needs the first to join to be on another machine than the host

@@ -11,10 +11,29 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <optional>
 #include <sstream>
 #include <vector>
 
 namespace reluva::sfc {
+
+namespace {
+
+// A Windows path's part under the install folder, with slashes and without
+// a last one ("" for the folder itself); nothing if it's outside it.
+std::optional<std::string> underInstall(const std::string &windowsPath) {
+    const std::string folder = fs::toLower(GameProcess::kInstallFolder);
+    const std::string path = fs::toLower(windowsPath);
+    if (path.rfind(folder, 0) != 0 && path != folder.substr(0, folder.size() - 1))
+        return std::nullopt;
+    std::string rest = windowsPath.size() > folder.size() ? windowsPath.substr(folder.size()) : std::string();
+    std::replace(rest.begin(), rest.end(), '\\', '/');
+    while (!rest.empty() && rest.back() == '/')
+        rest.pop_back();
+    return rest;
+}
+
+} // namespace
 
 GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _dir(std::move(install)) {
     _cpu = std::make_unique<x86::Cpu>(memoryMb << 20);
@@ -32,15 +51,10 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
     // is read first; the install isn't written to.
     _process->mapPath = [this](const std::string &windowsPath,
                                bool forWriting) -> std::optional<std::filesystem::path> {
-        // The folder, named with or without its last backslash, and what's in it.
-        const std::string folder = fs::toLower(kInstallFolder);
-        const std::string path = fs::toLower(windowsPath);
-        if (path.rfind(folder, 0) != 0 && path != folder.substr(0, folder.size() - 1))
+        const auto under = underInstall(windowsPath);
+        if (!under)
             return std::nullopt;
-        std::string rest = windowsPath.size() > folder.size() ? windowsPath.substr(folder.size()) : std::string();
-        std::replace(rest.begin(), rest.end(), '\\', '/');
-        while (!rest.empty() && rest.back() == '/')
-            rest.pop_back();
+        const std::string &rest = *under;
         if (forWriting) {
             if (_saveDir.empty() || rest.empty())
                 return std::nullopt;
@@ -73,6 +87,16 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
         if (fileOpened)
             fileOpened(windowsPath, found.has_value());
         return found;
+    };
+    // A search lists the save folder's copy of a folder with the install's:
+    // the Film Room finds the recordings a mission wrote (Auto1.rec) there.
+    _process->writtenFolder = [this](const std::string &windowsFolder) -> std::optional<std::filesystem::path> {
+        const auto rest = underInstall(windowsFolder);
+        if (_saveDir.empty() || !rest)
+            return std::nullopt;
+        if (rest->empty())
+            return _saveDir;
+        return fs::findDirectory(_saveDir, *rest);
     };
     // What it writes to the registry is kept in the save folder, as
     // Reluva has no registry of its own on any system.

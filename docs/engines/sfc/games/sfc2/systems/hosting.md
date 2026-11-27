@@ -172,11 +172,16 @@ no buffer: told `DPERR_NOTLOBBIED`, that no lobby started it, it shows
 its main menu, "Select Game": Single Player and Multiplayer, and Film
 Room, Credits, Hot Keys, Vessel Library and Exit Game. It asks again on
 each frame. Single Player leads to Tutorials, Skirmish and Campaign.
-The others open and go back: the Film Room (a list of recordings, empty
-with the auto-recordings `Auto1.rec` and `Auto2.rec` in the folder; it
-searches the whole folder, `C:\SFC2\*.*`, and keeps what it shows
-itself, so perhaps only recordings saved from a debriefing *(inferred)*;
-and AUTOMATIC FILMING on or off), the Credits (Taldren's and
+The others open and go back: the Film Room (the recordings, the `.rec`
+files in the game's folder: it searches `C:\SFC2\*.*` (0x459e47) and
+keeps those named `.rec`. A mission played is recorded to `Auto1.rec`,
+the one before it then in `Auto2.rec`; the program names up to
+`Auto5.rec`, so it keeps five *(inferred)*. Each shows its title (the
+mission's script, `Met_13Monster`), map, type, race and size, with PLAY,
+SAVE AS and DELETE, and AUTOMATIC FILMING on or off. PLAY replays the
+mission and returns to the Film Room at its end. Its list was empty
+until Reluva's search also listed what the program had written: the
+recordings are in the save folder, not the install), the Credits (Taldren's and
 Interplay's pages, rolling, then the main menu again), Hot Keys (the
 keys by group, as the readme lists them, to be changed, with ACCEPT and
 OPTIONS), and the Vessel Library (an empire's description, then VIEW

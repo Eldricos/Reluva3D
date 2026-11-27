@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 27 November 2026 | English retail 1.0 | Linux | The Film Room, headless with `-fixed-clock`: a campaign's two recordings listed from the save folder (Auto1, `Met_13Monster`, 34,474 bytes) and Auto1 played to its end, back to the Film Room |
 | 27 November 2026 | English retail 1.0 | Linux | Science 310 passed, headless with `-fixed-clock`: probe, deep scan, the spare part beamed aboard, a transporter mine, and a cargo box pushed into an asteroid with the tractor beam (18:01). All six tutorials now passed |
 | 27 November 2026 | English retail 1.0 | Linux | Four more tutorials passed, headless with `-fixed-clock`: Command 290 (20 asteroids destroyed), Weapons 380 (the freighter destroyed with overloaded photons, a mine laid, 13:10), Weapons Advanced 480 (the mock battle with the Daystrom to its ten minutes) and Command 590 (the captured Klingons fought with the fleet, 6:59); Science 310 played to its transporter, three of its runs ending against asteroids |
 | 26 November 2026 | English retail 1.0 | Linux | A loaded campaign starting missions again, headless with `-fixed-clock`: a new campaign, Convoy Escort won and Monster played, the auto-save loaded in a second run (the clock going on from the first) and Patrol accepted, READY: the mission started. Before, the same save stuck at READY; with the tick count moved on by 0.5 to 36 million ms it started, the date left as it was |
