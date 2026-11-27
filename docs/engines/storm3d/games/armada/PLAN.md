@@ -93,7 +93,7 @@ these phases start from, is in [formats/install.md](formats/install.md).
    to play over the network (phase 9).
 7. **Rules** (in progress): units from their object definitions:
    skirmish against the computer player (its scheduler, the `.aip`
-   personalities, its DLLs). The largest phase, checked against the
+   personalities). The largest phase, checked against the
    original and recordings, with the manual for the rules. Done: a
    mission shown in play after its loading screen, the map from the
    overview camera, which the keys move
@@ -122,7 +122,10 @@ these phases start from, is in [formats/install.md](formats/install.md).
    other and of fields, warp, and groups sent as the original's
    ([systems/movement.md](systems/movement.md)); the models' specular
    highlights as they turn in the light, and their glows unlit
-   ([formats/bzn.md](formats/bzn.md#lighting)).
+   ([formats/bzn.md](formats/bzn.md#lighting)); the computer player's
+   stance, defensive or offensive by its strength, which the program
+   decides itself, a skirmish loading none of the AI's DLLs
+   ([systems/computer-player.md](systems/computer-player.md#the-ais-dlls)).
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

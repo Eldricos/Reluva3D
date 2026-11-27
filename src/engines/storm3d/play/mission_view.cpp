@@ -792,7 +792,53 @@ void MissionView::engage() {
     }
 }
 
+ConfigFile::Loader MissionView::aiLoader() const {
+    return [this](std::string_view name, std::string &text) {
+        std::vector<uint8_t> bytes;
+        if (Error err = _files.read("AI/AIPs/" + std::string(name), bytes))
+            return err;
+        text.assign(bytes.begin(), bytes.end());
+        return Error::success();
+    };
+}
+
+void MissionView::takeStance(Computer &c, ComputerPlayer::Stance stance) {
+    c.stance = stance;
+    c.personality = Strategy::personalityOf(ComputerPlayer::personalityFileOf(stance), aiLoader());
+    c.list = ComputerPlayer::buildListOf(ComputerPlayer::buildListFileOf(c.race, stance), aiLoader());
+}
+
+void MissionView::weighStances() {
+    // A player's strength is its units' hull added up; the average is of
+    // the players in the game that have any (0x430600, 0x4307f0).
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    std::map<int, float> strength;
+    for (size_t i = 0; i < units.size() && i < _vitals.size(); ++i)
+        if (!_dead[i])
+            strength[units[i].slot] += _vitals[i].hull;
+    float sum = 0;
+    int counted = 0;
+    for (const Player &p : _players)
+        if (strength[p.slot] > 0)
+            sum += strength[p.slot], ++counted;
+    if (counted == 0)
+        return;
+    const float average = sum / float(counted);
+    for (Computer &c : _computers) {
+        if (!c.stances)
+            continue;
+        const ComputerPlayer::Stance stance = ComputerPlayer::stanceFor(strength[c.slot], average);
+        if (stance != c.stance)
+            takeStance(c, stance);
+    }
+}
+
 void MissionView::think(double seconds) {
+    _stanceClock -= seconds;
+    if (_stanceClock <= 0) {
+        _stanceClock += ComputerPlayer::kStanceUpdates / ComputerPlayer::kUpdatesPerSecond;
+        weighStances();
+    }
     // Each computer player looks once a second at what to build next.
     const std::vector<MapScene::Unit> &units = _scene.units();
     const Odf::Loader loader = loaderOf(_files.files());
@@ -1496,28 +1542,22 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
     // The computer players, each with its race's build list and its own
     // counters, starting as the player does.
     _computers.clear();
-    const ConfigFile::Loader aiLoader = [this](std::string_view name, std::string &text) {
-        std::vector<uint8_t> bytes;
-        if (Error err = _files.read("AI/AIPs/" + std::string(name), bytes))
-            return err;
-        text.assign(bytes.begin(), bytes.end());
-        return Error::success();
-    };
+    _stanceClock = ComputerPlayer::kStanceUpdates / ComputerPlayer::kUpdatesPerSecond;
     for (const Player &p : players) {
         if (p.human)
             continue;
         Computer c;
         c.slot = p.slot;
-        c.list = ComputerPlayer::buildListOf(ComputerPlayer::buildListFileOf(p.race), aiLoader);
+        c.race = p.race;
+        c.stances = p.stances;
         std::vector<std::string> theirs;
         for (const MapScene::StartUnit &u : units)
             if (u.slot == p.slot)
                 theirs.push_back(u.odf);
         c.bank = resourcesOf(start, theirs, _files.files());
-        c.personality = Strategy::personalityOf(
-            ComputerPlayer::buildListFileOf(p.race).substr(0, ComputerPlayer::buildListFileOf(p.race).find('_')) +
-                ".aip",
-            aiLoader);
+        // Every player starts as the program starts them (0x4313ca), not
+        // with its race's personality (federation.aip...).
+        takeStance(c, ComputerPlayer::Stance::kNormal);
         _computers.push_back(c);
     }
     _held.clear();

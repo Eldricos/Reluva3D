@@ -336,6 +336,8 @@ public:
                             p.colour = MapScene::teamColourOf(GameSetupScreen::colourName(slot.colour), _files.files())
                                            .value_or(gfx::Vec3{0.5f, 0.5f, 0.5f});
                             p.human = slot.who == GameSetupScreen::Who::kPlayer;
+                            p.stances = slot.who == GameSetupScreen::Who::kComputerMedium ||
+                                        slot.who == GameSetupScreen::Who::kComputerHard;
                             p.team = slot.team;
                             // The debriefing names a computer in the program's
                             // own words ("Computer Medium"), not the setup's.

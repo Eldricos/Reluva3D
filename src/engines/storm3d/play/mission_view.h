@@ -68,9 +68,10 @@ public:
         std::string race; // "fed", "kling", "rom", "borg"
         gfx::Vec3 colour{};
         bool human = false;
-        int team = 0;     // players on a team win together
-        std::string name; // as the Game Setup screen says them: "Computer Medium"
-        std::string side; // "Federation"
+        bool stances = false; // a Medium or Hard computer, which turns defensive or offensive; Easy doesn't
+        int team = 0;         // players on a team win together
+        std::string name;     // as the Game Setup screen says them: "Computer Medium"
+        std::string side;     // "Federation"
     };
     /** What a player did, as the debriefing counts it. */
     struct Tally {
@@ -513,6 +514,9 @@ private:
     // A computer player: its slot, its build list, its counters.
     struct Computer {
         int slot = 0;
+        std::string race;
+        bool stances = false;
+        ComputerPlayer::Stance stance = ComputerPlayer::Stance::kNormal;
         std::vector<ComputerPlayer::Element> list;
         Hud::Resources bank;
         double crewCarry = 0;
@@ -521,9 +525,13 @@ private:
         Strategy::Personality personality;
         std::vector<bool> explored; // by strategic cell, row by row: seen
     };
-    void plan(Computer &c);    // its ships' goals
-    void engage();             // armed units take the nearest enemy in reach
-    std::vector<float> _scans; // by unit: how far it sees (rangeScan)
+    void plan(Computer &c); // its ships' goals
+    void weighStances();    // each Medium or Hard one's, by its strength against the others'
+    void takeStance(Computer &c, ComputerPlayer::Stance stance);
+    ConfigFile::Loader aiLoader() const; // reads AI/AIPs
+    double _stanceClock = 0;             // seconds to the next weighing
+    void engage();                       // armed units take the nearest enemy in reach
+    std::vector<float> _scans;           // by unit: how far it sees (rangeScan)
     std::vector<Computer> _computers;
     std::vector<std::string> _classes; // by unit: its classLabel, lower case
     void drawPlacement(const MapScene::Camera &view);

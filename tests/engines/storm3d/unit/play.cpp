@@ -593,6 +593,28 @@ void testBuildList() {
     CHECK(!ComputerPlayer::nextOf(list, {{"fbase", 1}, {"fconst", 1}, {"fmining", 2}, {"ffreight", 2}}));
 }
 
+// A Medium or Hard computer's stance: by its units' hull against the
+// average of the players', each loading its personality and its race's
+// list. The skirmish's start (6,000 + 700 + 700 each) is even: normal.
+void testStances() {
+    using reluva::storm3d::ComputerPlayer;
+    using Stance = ComputerPlayer::Stance;
+    CHECK(ComputerPlayer::buildListFileOf("borg", Stance::kDefensive) == "borg_defensive_list.aip");
+    CHECK(ComputerPlayer::buildListFileOf("rom", Stance::kOffensive) == "romulan_offensive_list.aip");
+    CHECK(ComputerPlayer::personalityFileOf(Stance::kNormal) == "newdefault.aip");
+    CHECK(ComputerPlayer::personalityFileOf(Stance::kDefensive) == "default_defensive.aip");
+    CHECK(ComputerPlayer::personalityFileOf(Stance::kOffensive) == "default_offensive.aip");
+    CHECK(ComputerPlayer::stanceFor(7400, 7400) == Stance::kNormal);
+    // Two players: 10,000 against 6,000 averages 8,000; 1.1 times it is
+    // 8,800 and 0.7 times it 5,600.
+    CHECK(ComputerPlayer::stanceFor(10000, 8000) == Stance::kOffensive);
+    CHECK(ComputerPlayer::stanceFor(8800, 8000) == Stance::kOffensive);
+    CHECK(ComputerPlayer::stanceFor(8700, 8000) == Stance::kNormal);
+    CHECK(ComputerPlayer::stanceFor(6000, 8000) == Stance::kNormal);
+    CHECK(ComputerPlayer::stanceFor(5600, 8000) == Stance::kDefensive);
+    CHECK(ComputerPlayer::stanceFor(0, 8000) == Stance::kDefensive);
+}
+
 // The scheduler, as the game's README tells it: goals by what's in each
 // cell, ships committed nearest and best first until a goal's enemy
 // shields are beaten, one to explore, and those short taken back.
@@ -779,5 +801,6 @@ static const reluva::test::Suite
                                     {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                     {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                     {"build list", [](const std::filesystem::path &) { testBuildList(); }},
+                                    {"stances", [](const std::filesystem::path &) { testStances(); }},
                                     {"strategy", [](const std::filesystem::path &) { testStrategy(); }},
                                 });

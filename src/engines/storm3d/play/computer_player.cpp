@@ -7,11 +7,26 @@
 
 namespace reluva::storm3d {
 
-std::string ComputerPlayer::buildListFileOf(const std::string &race) {
+std::string ComputerPlayer::buildListFileOf(const std::string &race, Stance stance) {
     static const std::map<std::string, std::string> kNames = {
         {"fed", "federation"}, {"kling", "klingon"}, {"rom", "romulan"}, {"borg", "borg"}};
     auto it = kNames.find(text::toLower(race));
-    return (it == kNames.end() ? std::string("federation") : it->second) + "_build_list.aip";
+    const char *list = stance == Stance::kDefensive   ? "_defensive_list.aip"
+                       : stance == Stance::kOffensive ? "_offensive_list.aip"
+                                                      : "_build_list.aip";
+    return (it == kNames.end() ? std::string("federation") : it->second) + list;
+}
+
+std::string ComputerPlayer::personalityFileOf(Stance stance) {
+    return stance == Stance::kDefensive   ? "default_defensive.aip"
+           : stance == Stance::kOffensive ? "default_offensive.aip"
+                                          : "newdefault.aip";
+}
+
+ComputerPlayer::Stance ComputerPlayer::stanceFor(float strength, float average) {
+    if (strength >= average * 1.1f)
+        return Stance::kOffensive;
+    return strength <= average * 0.7f ? Stance::kDefensive : Stance::kNormal;
 }
 
 std::vector<ComputerPlayer::Element> ComputerPlayer::buildListOf(const std::string &file,
