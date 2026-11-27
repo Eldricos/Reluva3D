@@ -1184,7 +1184,11 @@ patrol, their patrol's AIs as above, a path straight from corner to
 corner, a scan's turning in degrees a second, the rest done at once
 *(inferred)*; seeing an officer (the nearest in Max Distance and half
 the Vision Cone either side of their facing, as the program finds it,
-and nothing standing full height between *(inferred)*), alerted: the Alert's Start Action, turning to them, and after
+and nothing standing full height between: the line test sight asks
+with mode 2 (`0x435024`) takes what's Active, Collideable and Full Height
+by its `Bounds Poly`, seen or not (`0x4ef771`), the line from the
+shooter's weapon, its Forward and Lateral Position turned to the target
+and flattened (`0x434fcc`); Reluva starts it where they stand), alerted: the Alert's Start Action, turning to them, and after
 Alert Time its Next State, through GotATarget's Acquired a Target for
 Got a Target *(inferred)*: mostly attacking, the Attack's Start Action,
 facing them; attacking and pursuing as above, a target out of its cone
@@ -1483,11 +1487,13 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   team- and every-touching triggers' own code, read from the maps' fields.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
-- **Fighting:** the program's rules for sight (whether the footprints
-  are what blocks it, `Half Height`), the bolt's hitting someone moving
-  out of its way, how long a beam's shown and how high it ends,
-  where on a character the
-  flashes go, stunning, death, and the mouse for attacking.
+- **Fighting:** the bolt's hitting someone moving out of its way; the
+  beam's drawing: the line drawn is the `CPhaserShot` bolt itself
+  (`CEntityAnimatedLine`, its `Start` at `+0xc8` and `End` at `+0xd0`),
+  moving at 1500 a second (`0x6283cc`) and gone when its time at `+0xf0`
+  (set at `0x536120`) runs out, where Reluva draws a still line from the
+  muzzle for the Shot Duration; where on a character the flashes go;
+  stunning, death, and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.

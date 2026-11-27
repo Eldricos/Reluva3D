@@ -44,7 +44,7 @@ None now.
   by the camera's scripts, a line's time and the beaming in's look; the
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift; fighting:
-  sight blocked by the models' `Bounds Poly`, a shot meeting those on its
+  sight's line starting where the enemy stands, a shot meeting those on its
   line at once, stunning, the health bar's cut, and a
   click on an enemy to attack it; noise: what an enemy does after
   looking about; the enemies going to retreat and acting on their messages, and

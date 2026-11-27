@@ -147,7 +147,10 @@ bool MapScreen::clearSight(float x0, float y0, float x1, float y1) const {
     for (const Wall &w : _walls) {
         if (!w.full || w.x1 < lx || w.x0 > hx || w.y1 < ly || w.y0 > hy)
             continue;
-        if (!shown(w.part) || !_partStates[w.part].collideable)
+        // What's Active, Collideable and Full Height, seen or not: sight's
+        // line test asks for those, not Visible (0x435024, 0x4ef771).
+        const PartState &state = _partStates[w.part];
+        if (!state.active || state.deleted || !state.collideable)
             continue;
         const size_t n = w.points.size();
         for (size_t k = 0; k < n; ++k) {
