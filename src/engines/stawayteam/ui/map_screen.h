@@ -138,7 +138,9 @@ public:
         float reload = 0.0f;                    // seconds till their weapon shoots again
         float shooting = 0.0f;                  // seconds into their shot's sequence; 0 not shooting
         float dead = -1.0f;                     // seconds since they fell; below 0 alive
-        float stunned = 0.0f;                   // seconds of their stun left
+        float stunned = 0.0f;                   // seconds of their stun left, till they're up
+        float stunTotal = 0.0f;                 // their stun's seconds, falling, lying and getting up
+        float stunLength = 0.0f;                // its seconds lying down (Time To Stun)
         float enhanced = 0.0f;                  // seconds their weapons are enhanced for
         std::string discharge = "Shoot1";       // the sequence they're using an item with
         // What their tricorder last said, each officer's own (0x55d410),
@@ -264,12 +266,16 @@ public:
         bool stuns = false; // its weapon's set to stun
         float reload = 0.0f;
         float shooting = 0.0f;
-        float dead = -1.0f;    // seconds since it fell; below 0 alive
-        float stunned = 0.0f;  // seconds of its stun left
-        float held = 0.0f;     // seconds it's held to a task (a stasis field's, an EM pulse's), kHeldForever
-        int decoy = -1;        // the decoy's part it's after, or -1
-        float reaction = 0.0f; // seconds before Got a Target takes a target again, hit by another
-        float energy = 100.0f; // its energy weapon's, out of 100
+        float dead = -1.0f;      // seconds since it fell; below 0 alive
+        float stunned = 0.0f;    // seconds of its stun left, till it's up
+        float stunTotal = 0.0f;  // its stun's seconds, falling, lying and getting up
+        float stunLength = 0.0f; // its seconds lying down (Time To Stun)
+        bool stunKept = false;   // its Collideable put aside while it lies, to put back
+        bool stunLaid = false;   // lying, its Collideable put aside
+        float held = 0.0f;       // seconds it's held to a task (a stasis field's, an EM pulse's), kHeldForever
+        int decoy = -1;          // the decoy's part it's after, or -1
+        float reaction = 0.0f;   // seconds before Got a Target takes a target again, hit by another
+        float energy = 100.0f;   // its energy weapon's, out of 100
         // Its CShieldAI, if any: how far it's adapted to each damage type,
         // out of 1, and the type that last hit it (Last Damage Type).
         const TextObject *shield = nullptr;
@@ -809,9 +815,23 @@ private:
     std::string describe(const std::string &script, const std::string &line) const;
     const ItemDefinition *itemOf(const Officer &o) const;
     // The sequence a character's drawn with, and how far into it, for one
-    // shooting or fallen; empty for neither.
-    std::string combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model,
+    // shooting, fallen or stunned (stunned seconds left of a stun of
+    // stunTotal, lying stunLength of them); empty for none of those.
+    struct Stun {
+        float left = 0.0f;
+        float total = 0.0f;
+        float length = 0.0f;
+    };
+    std::string combatSequence(float shooting, float dead, const Stun &stun, int &frame, const std::string &model,
                                const std::string &discharge = "Shoot1");
+    // How long a stun by `weapon` lies one down: its Stun Duration by the
+    // difficulty (0x5dae70).
+    float stunLength(const ItemDefinition &weapon) const;
+    // A stunned enemy's Collideable put back, if it was put aside.
+    void standUp(Enemy &e);
+    // A stun of `length` lying down, as a character of `model` falls,
+    // lies and gets up: its seconds in all.
+    float stunTotal(const std::string &model, float length);
     // The map's triggers (map_triggers.cpp).
     void setupTriggers();
     // A part's AI that's a trigger watched from now on.

@@ -3531,6 +3531,52 @@ void testTeamCount() {
     }
 }
 
+void testStunning() {
+    // A guard and Ann, each stunned by a weapon of Stun Duration 2: on
+    // easy for 1.66 of it, on normal all of it, a level above three
+    // quarters of it (0x5dae70). Their models have no Death or GetUp, so
+    // they lie for all of it. Lying, the guard's out of the way, its
+    // Collideable put back as it's up (0x5e0e9a, 0x5e1008).
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityWalking\n{\nName=Guard\nCollideable=1\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\n"
+        "Current State=Patrol\nMax Distance=10\n}\n}\nModel=Characters/Guard\nPosition X=900\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+    for (const int difficulty : {1, 2, 3}) {
+        MemoryArchive data;
+        data.files["Levels/Test.zax"] = bytesOf(zax);
+        data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1, 1000.0f);
+        GameMap map;
+        CHECK(!loadMap(data, "Levels/Test.zax", map));
+        TextObject rules;
+        CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                              "\t\tScreen Size=200,200\n\t}\n}\n",
+                              rules));
+        GameOptions options;
+        options.pauseWhenHit = false;
+        TeamMember ann;
+        ann.firstName = "Ann";
+        MapScreen screen(data, rules, map, options, 0, {ann});
+        screen.setDifficulty(difficulty);
+        ItemDefinition stunner;
+        stunner.stunDuration = 2.0f;
+        screen.hurtOfficer(0, stunner, true);
+        screen.hurtEnemy(0, stunner, -1, true);
+        const float expected = difficulty == 1 ? 3.32f : difficulty == 2 ? 2.0f : 1.5f;
+        CHECK(std::abs(screen.officers()[0].stunned - expected) < 0.001f);
+        CHECK(std::abs(screen.enemies()[0].stunned - expected) < 0.001f);
+        uint64_t now = 0;
+        screen.update(now += 50);
+        const size_t guard = screen.enemies()[0].part;
+        CHECK(!screen.partState(guard).collideable);
+        while (now < 4000)
+            screen.update(now += 50);
+        CHECK(screen.officers()[0].stunned == 0.0f && screen.enemies()[0].stunned == 0.0f);
+        CHECK(screen.partState(guard).collideable);
+    }
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -3662,6 +3708,7 @@ static const reluva::test::Suite
                {"occupant", [](const std::filesystem::path &) { testOccupant(); }},
                {"search order", [](const std::filesystem::path &) { testSearchOrder(); }},
                {"team count", [](const std::filesystem::path &) { testTeamCount(); }},
+               {"stunning", [](const std::filesystem::path &) { testStunning(); }},
                {"combat", [](const std::filesystem::path &) { testCombat(); }},
                {"noise", [](const std::filesystem::path &) { testNoise(); }},
                {"objectives", [](const std::filesystem::path &) { testObjectives(); }},

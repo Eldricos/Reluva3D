@@ -46,11 +46,10 @@ None now.
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift; fighting:
   sight's line starting where the enemy stands, a shot meeting those on its
-  line at once, stunning, the health bar's cut, and a
+  line at once, the stun effect not drawn, the health bar's cut, and a
   click on an enemy to attack it; noise: what an enemy does after
-  looking about; the enemies going to retreat and acting on their messages, and
-  officers stunned
-  ([systems/maps.md](systems/maps.md#open-questions)).
+  looking about; the enemies going to retreat and acting on their
+  messages ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** the debriefing's lines typed only once their panel's
   in ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **Items:** the counts for -1, the keys matched to items by name,

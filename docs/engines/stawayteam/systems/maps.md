@@ -1412,18 +1412,32 @@ its head going out at 1500 a second and stopping where its bolt meets
 someone or a wall; after its Shot Duration its tail follows as fast and
 it's gone when that catches up, its Shot Flash going round on its tail
 and its Hit Flash on its head once it meets someone. Its head's
-furthest is the weapon's range *(inferred)*.
+furthest is the weapon's Item Range, a quarter more while enhanced.
 A footstep plays its Default Sound where it has one (none do); the
 surfaces' sounds aren't looked up, none being given. An enemy
 hit runs its Damage Action, and with Target If Hit, not attacking, goes to look where whoever hit it is;
-a weapon set to stun puts it down for the Stun Duration, then back on
-patrol, unless its Stun State is Attack, when it attacks *(inferred)*.
+a weapon set to stun puts it down as below, then back on patrol, unless
+its Stun State is Attack, when it attacks *(inferred)*.
 A Borg shield adapts and blocks as above, the Render Effect's sequence
 played once over the Borg, following it; a Who To Adapt other than Enemy
 is taken to share with none *(inferred)*.
-An enemy's weapon set to stun puts an officer down for its Stun
-Duration unhurt, unable to move or shoot, and unseen as a target
-meanwhile *(inferred)*. With no health left a character plays `Death` once
+A weapon set to stun sends its target a `CStunMessage` (`0x5cf4d0`)
+with its Stun Duration by the difficulty (`0x5dae70`): on easy 1.66 of
+it, on normal all of it, above less by a quarter of it for each level,
+at most three quarters; and its Show Stun Effect. An officer's
+`CPlayerAI` drops their orders and frees their process, and makes a
+`CStunAI` theirs (`0x53a46b`); an enemy's Stun state's own `CStunAI`
+takes the time and the flag (`0x42cdb7`). A `CStunAI` (`0x5e0c50`)
+shows its `Stun Effect` render effect with Show Effect, plays its `Die
+Sequence` (`Death`, `0x5e04da`) once, then its `Dead Sequence` (`Dead`);
+fallen, it puts aside the character's `Collideable` and makes it
+`Immune to Psyche Displacement` (`0x5e0e9a`); it counts down its `Time
+To Stun`, takes the effect off, plays its `Stand Up Sequence` (`GetUp`)
+into `Idle`, or without one its Die Sequence backwards, and once that's
+done puts the flags back (`0x5e1008`) and is done (`AI Done`). Reluva
+lies them down so, an enemy out of the way meanwhile; the officers are
+never in the way. Down, they can't move or shoot, and are unseen as a
+target *(inferred)*. With no health left a character plays `Death` once
 and lies `Dead`; a fallen officer can't be chosen or sent.
 
 Noise (`ui/map_noise.cpp`): an officer's walk makes its footsteps'
@@ -1574,8 +1588,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Drawing order:** where the `Trans` and `Warped` polygons not on
   the ground are drawn.
 - **The triggers:** where a thrown thing comes in the grid's search.
-- **Fighting:** a strike's flashes; stunning, death, and the mouse for
-  attacking.
+- **Fighting:** a strike's flashes; the stun effect's look; death, and
+  the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.

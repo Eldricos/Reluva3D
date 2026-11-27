@@ -429,7 +429,10 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         // Its target dropped, and where the shot came from taken as its
         // place to go to (0x42cdd8, 0x42cdf9): up again, its Next State
         // goes there.
-        e.stunned = weapon.stunDuration;
+        // Its Stun state's stun AI given the stun's time (0x42cdb7).
+        standUp(e);
+        e.stunLength = stunLength(weapon);
+        e.stunTotal = e.stunned = stunTotal(_map.parts[e.part].model, e.stunLength);
         e.route.clear();
         setState(e, "Stun");
         e.target = -1;
@@ -579,11 +582,16 @@ void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool s
         return;
     officerHit(officer);
     if (stun) {
-        // Down for the weapon's Stun Duration, their orders dropped
-        // (inferred).
-        o.stunned = std::max(o.stunned, weapon.stunDuration);
+        // A stun AI made theirs, their orders and what they were doing
+        // dropped (0x53a46b), lying them down as long as the weapon stuns
+        // for.
+        o.stunLength = stunLength(weapon);
+        o.stunTotal = o.stunned = stunTotal(_team[o.member].bodyModel, o.stunLength);
         o.path.clear();
         o.attacking = -1;
+        o.task = Officer::Task::kNone;
+        o.taskProcess = nullptr;
+        o.taskStep = 0;
         return;
     }
     // An officer's hurt by the difficulty's share of it, and by less the
@@ -811,7 +819,18 @@ void MapScreen::updateCombat(float seconds) {
         }
         if (e.stunned > 0.0f) {
             e.stunned = std::max(0.0f, e.stunned - seconds);
+            // Lying once it's fallen, it's out of the way till it's up
+            // again: its Collideable put aside, then back (0x5e0e9a,
+            // 0x5e1008).
+            const Animation &death = animation(_map.parts[e.part].model, "Death");
+            const float fall = death.fps > 0.0f ? float(death.perDirection()) / death.fps : 0.0f;
+            if (!e.stunLaid && e.stunned > 0.0f && e.stunTotal - e.stunned >= fall) {
+                e.stunKept = _partStates[e.part].collideable;
+                _partStates[e.part].collideable = false;
+                e.stunLaid = true;
+            }
             if (e.stunned <= 0.0f) {
+                standUp(e);
                 // Up, its stun AI done: its Stun state's Next State
                 // (0x42ce3f), Investigate going to where the shot came
                 // from, or Recharge; else its patrol (inferred).
@@ -826,23 +845,69 @@ void MapScreen::updateCombat(float seconds) {
     }
 }
 
-std::string MapScreen::combatSequence(float shooting, float dead, float stunned, int &frame, const std::string &model,
-                                      const std::string &discharge) {
-    // Fallen, its Death once and then Dead; stunned, as fallen till it's
-    // up (inferred); shooting, its Shoot1 through.
+void MapScreen::standUp(Enemy &e) {
+    if (e.stunLaid && e.stunKept)
+        _partStates[e.part].collideable = true;
+    e.stunLaid = false;
+}
+
+float MapScreen::stunLength(const ItemDefinition &weapon) const {
+    // Its Stun Duration by the difficulty: on easy 1.66 of it, on normal
+    // all of it (0x64a22c); above, less by a quarter of it for each level,
+    // at most three quarters (0x5dae98).
+    if (_difficulty <= 1)
+        return weapon.stunDuration * 1.66f;
+    if (_difficulty == 2)
+        return weapon.stunDuration;
+    return weapon.stunDuration * (1.0f - std::min(float(_difficulty - 2) * 0.25f, 0.75f));
+}
+
+float MapScreen::stunTotal(const std::string &model, float length) {
+    // Its Die Sequence once, Death, then its Dead Sequence, Dead, for the
+    // Time To Stun, then its Stand Up Sequence, GetUp, or without one its
+    // Death backwards (the CStunAI's defaults, 0x5e04da; its states,
+    // 0x5e0c50).
+    const auto seconds = [&](const char *sequence) {
+        const Animation &a = animation(model, sequence);
+        return a.fps > 0.0f ? float(a.perDirection()) / a.fps : 0.0f;
+    };
+    const float up = animation(model, "GetUp").perDirection() > 0 ? seconds("GetUp") : seconds("Death");
+    return seconds("Death") + length + up;
+}
+
+std::string MapScreen::combatSequence(float shooting, float dead, const Stun &stun, int &frame,
+                                      const std::string &model, const std::string &discharge) {
+    // Fallen, its Death once and then Dead; stunned, falling so, lying
+    // its while, then getting up (0x5e0c50); shooting, its Shoot1 through.
     const auto into = [&](const char *sequence, float time) {
         const Animation &a = animation(model, sequence);
         frame = std::min(int(time * a.fps), std::max(0, a.perDirection() - 1));
     };
-    if (dead >= 0.0f || stunned > 0.0f) {
+    if (stun.left > 0.0f && dead < 0.0f) {
         const Animation &death = animation(model, "Death");
-        const float time = dead >= 0.0f ? dead : 0.0f;
-        if (dead >= 0.0f && death.fps > 0.0f && time * death.fps < float(death.perDirection())) {
-            into("Death", time);
+        const float fall = death.fps > 0.0f ? float(death.perDirection()) / death.fps : 0.0f;
+        float t = stun.total - stun.left;
+        if (t < fall) {
+            into("Death", t);
             return "Death";
         }
-        if (dead < 0.0f) {
-            into("Death", 1e6f);
+        t -= fall;
+        if (t < stun.length) {
+            frame = 0;
+            return "Dead";
+        }
+        t -= stun.length;
+        if (animation(model, "GetUp").perDirection() > 0) {
+            into("GetUp", t);
+            return "GetUp";
+        }
+        frame = std::max(0, death.perDirection() - 1 - int(t * death.fps));
+        return "Death";
+    }
+    if (dead >= 0.0f) {
+        const Animation &death = animation(model, "Death");
+        if (death.fps > 0.0f && dead * death.fps < float(death.perDirection())) {
+            into("Death", dead);
             return "Death";
         }
         frame = 0;

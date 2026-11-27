@@ -197,7 +197,7 @@ void MapScreen::state(StateIo &s) {
         s.io(o.maxHealth);
         item(o.weapon);
         s.io(o.attacking);
-        for (float *f : {&o.reload, &o.shooting, &o.dead, &o.stunned, &o.enhanced})
+        for (float *f : {&o.reload, &o.shooting, &o.dead, &o.stunned, &o.stunTotal, &o.stunLength, &o.enhanced})
             s.io(*f);
         s.io(o.discharge);
         s.io(o.scanText);
@@ -275,8 +275,10 @@ void MapScreen::state(StateIo &s) {
         s.io(e.maxHealth);
         item(e.weapon);
         s.io(e.stuns);
-        for (float *f : {&e.reload, &e.shooting, &e.dead, &e.stunned, &e.held})
+        for (float *f : {&e.reload, &e.shooting, &e.dead, &e.stunned, &e.stunTotal, &e.stunLength, &e.held})
             s.io(*f);
+        s.io(e.stunKept);
+        s.io(e.stunLaid);
         s.io(e.decoy);
         s.io(e.reaction);
         s.io(e.energy);

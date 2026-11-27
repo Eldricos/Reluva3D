@@ -978,7 +978,8 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
         return;
     const TeamMember &m = _team[o.member];
     int fought = 0;
-    const std::string fighting = combatSequence(o.shooting, o.dead, o.stunned, fought, m.bodyModel, o.discharge);
+    const std::string fighting =
+        combatSequence(o.shooting, o.dead, {o.stunned, o.stunTotal, o.stunLength}, fought, m.bodyModel, o.discharge);
     const bool walking = !o.path.empty() && fighting.empty();
     const std::string sequence = !fighting.empty() ? fighting : walking ? kMoving[o.move] : kStanding[o.move];
     const Animation &body = animation(m.bodyModel, sequence);
@@ -1413,7 +1414,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         if (e && (look.sequence == "Idle" || look.sequence == "Walk"))
             look.sequence = e->walking ? (e->running ? "Run" : "Walk") : "Idle";
         int fought = 0;
-        const std::string fighting = e ? combatSequence(e->shooting, e->dead, e->stunned, fought, p.model) : "";
+        const std::string fighting =
+            e ? combatSequence(e->shooting, e->dead, {e->stunned, e->stunTotal, e->stunLength}, fought, p.model) : "";
         if (!fighting.empty())
             look.sequence = fighting;
         if (e && !e->onceSequence.empty())
