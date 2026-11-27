@@ -662,12 +662,21 @@ void testParkWindows() {
     CHECK(message.handle(at(EventType::kMouseDown, message.okRect())) == tpw::WindowResult::kClosed &&
           !message.isOpen());
 
-    // The game's menu: loading, saving, resuming and quitting answer; the
-    // rest don't; Esc resumes.
+    // The game's menu: loading, saving, resuming answer; choosing a new
+    // player and quitting once said yes to; going online doesn't; Esc
+    // resumes, or takes back a question.
     tpw::GameMenu game;
     game.open();
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(3))) == tpw::GameMenu::Choice::kNone &&
+          game.isOpen());
     CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(2))) == tpw::GameMenu::Choice::kNone &&
           game.isOpen());
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::askRect(false))) == tpw::GameMenu::Choice::kNone &&
+          game.isOpen());
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(2))) == tpw::GameMenu::Choice::kNone);
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::askRect(true))) == tpw::GameMenu::Choice::kNewPlayer &&
+          !game.isOpen());
+    game.open();
     CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(0))) == tpw::GameMenu::Choice::kLoad);
     game.open();
     CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(1))) == tpw::GameMenu::Choice::kSave);
@@ -675,7 +684,8 @@ void testParkWindows() {
     CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(6))) == tpw::GameMenu::Choice::kResume &&
           !game.isOpen());
     game.open();
-    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(7))) == tpw::GameMenu::Choice::kQuit);
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::itemRect(7))) == tpw::GameMenu::Choice::kNone);
+    CHECK(game.handle(at(EventType::kMouseDown, tpw::GameMenu::askRect(true))) == tpw::GameMenu::Choice::kQuit);
     game.open();
     Event escape;
     escape.type = EventType::kKeyDown;

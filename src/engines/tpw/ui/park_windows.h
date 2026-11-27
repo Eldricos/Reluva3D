@@ -18,6 +18,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -66,6 +67,13 @@ public:
     void header(Surface &screen, const ScreenRect &r, const std::string &label) const;
     /** A tab of the staff's kinds. */
     void staffTab(Surface &screen, Park::StaffKind kind, const ScreenRect &r, size_t state) const;
+    /**
+     * The tooltips of the buttons and tabs drawn since clearTips(), as
+     * UIHELPTEXT has them ("Ok", "Fire employee", "Show engineers"): the
+          * one at a point, the last drawn there, if any.
+     */
+    std::optional<uint32_t> tipAt(int x, int y) const;
+    void clearTips() const { _tips.clear(); }
 
     /** UITEXT's string, with its parameters filled. */
     std::string ui(uint32_t index) const { return _ui.text(index); }
@@ -111,6 +119,7 @@ public:
     std::string rank(int index) const { return _ranks.text(uint32_t(index)); }
 
 private:
+    mutable std::vector<std::pair<ScreenRect, uint32_t>> _tips; // where tipAt() looks
     LoadedModel _window;
     LoadedModel _frame;
     LoadedModel _header;

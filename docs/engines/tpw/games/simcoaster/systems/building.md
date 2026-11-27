@@ -132,6 +132,13 @@ under the money while it's placed, is half the money's size, in yellow:
 the recording's "§ 500" is half as wide as "§ 500" in the money's font,
 and no font of the game's is that size *(guessed)*.
 
+Ctrl held as it's placed, another of it follows the pointer to be placed
+in turn, its line and track laid later from its menu *(guessed)*. "You
+can hold the Ctrl key and click on an item to quickly buy another one"
+(`TOTD` 2): a Ctrl-click on an attraction, with the pointer, picks
+another of it to place, as its menu's "Buy another" does, if it's on
+sale.
+
 ### Running
 
 Once placed, an attraction runs by its own script beside its model
@@ -257,8 +264,8 @@ and click the windows.
 - What "Reliability" is made from; the weather icons under the ratings
   (`clim_*`, the settings' `WeatherModifier`); the two small header
   buttons; the tick's green (Reluva's comes out yellow).
-- Whether the game's footprint shows the model as well; Ctrl to place
-  several; what placing does to the ground (the hoardings, the
+- Whether the game's footprint shows the model as well; what Ctrl does
+  to lines and tracks when placing several; what placing does to the ground (the hoardings, the
   particle effect on building, `Info.CreateParticleEffect`).
 - Exits: where visitors leave, and the path they need.
 - How wear comes, by rider or by cycle; `RideBreakDown.WarnPlayer`;

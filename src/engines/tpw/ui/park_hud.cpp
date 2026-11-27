@@ -96,19 +96,6 @@ constexpr Color kMenuItemGreyed{40, 80, 115};
 constexpr std::array<uint32_t, ParkHud::kTools> kToolTips{116, 117, 118, 119, 120};
 constexpr std::array<uint32_t, ParkHud::kGizmos> kGizmoTips{167, 169, 168, 170, 171, 172, 173};
 constexpr std::array<uint32_t, ParkHud::kCompassButtons> kCompassTips{112, 113, 102, 103};
-// A tooltip shows once the mouse has rested so long on a button, fading
-// in through the model's four meshes (guessed); it lies a little left of
-// the pointer and above it, as the recording's two do, give or take, 12
-// wider than its text, 11 high and 10 a line, its text dark.
-constexpr uint32_t kTooltipDelay = 500;
-constexpr uint32_t kTooltipFadeStep = 50;
-constexpr size_t kTooltipMeshes = 4;
-constexpr int kTipLeft = -6;
-constexpr int kTipAbove = -27;
-constexpr int kTipPadding = 6;
-constexpr int kTipLine = 10;
-constexpr int kTipEdge = 11;
-constexpr Color kTipText{48, 48, 40};
 
 constexpr std::array<const char *, ParkHud::kTools> kToolModels{
     "ui/tb_pointer.MD2", "ui/tb_path.MD2", "ui/tb_delete.MD2", "ui/tb_camera.MD2", "ui/tb_postcard.MD2"};
@@ -121,10 +108,11 @@ constexpr std::array<const char *, ParkHud::kCompassButtons> kCompassModels{
 } // namespace
 
 Error ParkHud::load(const SearchSet &files) {
-    std::array<std::pair<LoadedModel *, const char *>, 11> singles{{
+    if (Error err = _tip.load(files))
+        return err;
+    std::array<std::pair<LoadedModel *, const char *>, 10> singles{{
         {&_menuPanel, "ui/!f_plain.MD2"},
         {&_menuTail, "ui/gizmojoin.MD2"},
-        {&_tooltip, "ui/!tooltip.MD2"},
         {&_gauge, "ui/happyguage.MD2"},
         {&_faces, "ui/face.MD2"},
         {&_compassPlate, "ui/comp.MD2"},
@@ -155,13 +143,11 @@ Error ParkHud::load(const SearchSet &files) {
         return err;
     if (Error err = _characters.parse(data))
         return err;
-    for (auto [font, name] :
-         {std::pair{&_titleFont, "TITLEMED"}, std::pair{&_itemFont, "GAME7AA"}, std::pair{&_tipFont, "GAME8AA"}})
+    for (auto [font, name] : {std::pair{&_titleFont, "TITLEMED"}, std::pair{&_itemFont, "GAME7AA"}})
         if (Error err = readGameFont(files, folder, name, *font))
             return err;
-    for (auto [table, name] : {std::pair{&_uiText, "UITEXT"}, std::pair{&_helpText, "UIHELPTEXT"}})
-        if (Error err = readStringTable(files, folder, name, _characters, *table))
-            return err;
+    if (Error err = readStringTable(files, folder, "UITEXT", _characters, _uiText))
+        return err;
     return Error::success();
 }
 
@@ -408,31 +394,9 @@ uint32_t ParkHud::tooltipText() const {
 
 void ParkHud::drawTooltip(Surface &screen) const {
     const uint32_t text = tooltipText();
-    if (text == 0 || _pressed.kind != Hit::kNone || _clock - _overSince < kTooltipDelay)
+    if (text == 0 || _pressed.kind != Hit::kNone)
         return;
-    std::vector<std::string> lines;
-    std::string all = _helpText.text(text);
-    for (size_t at = 0;;) {
-        const size_t end = all.find('\n', at);
-        lines.push_back(all.substr(at, end == std::string::npos ? std::string::npos : end - at));
-        if (end == std::string::npos)
-            break;
-        at = end + 1;
-    }
-    int width = 0;
-    for (const std::string &line : lines)
-        width = std::max(width, gameTextWidth(_tipFont, _characters, line));
-    ScreenRect box{_mouseX + kTipLeft, _mouseY + kTipAbove, width + 2 * kTipPadding,
-                   kTipEdge + kTipLine * int(lines.size())};
-    box.x = std::clamp(box.x, 0, screen.w - box.w);
-    box.y = std::clamp(box.y, 0, screen.h - box.h);
-    const size_t fade = std::min<size_t>(kTooltipMeshes - 1, (_clock - _overSince - kTooltipDelay) / kTooltipFadeStep);
-    drawUiMesh(screen, _tooltip, fade, box);
-    for (size_t i = 0; i < lines.size(); ++i) {
-        const int w = gameTextWidth(_tipFont, _characters, lines[i]);
-        drawGameText(screen, _tipFont, _characters, box.x + (box.w - w) / 2, box.y + kTipEdge / 2 + kTipLine * int(i),
-                     lines[i], kTipText);
-    }
+    _tip.draw(screen, _mouseX, _mouseY, _tip.help(text), _clock - _overSince);
 }
 
 } // namespace reluva::tpw

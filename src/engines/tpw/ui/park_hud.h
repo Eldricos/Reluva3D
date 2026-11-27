@@ -10,6 +10,7 @@
 #include "engines/tpw/formats/str.h"
 #include "engines/tpw/ui/model_view.h"
 #include "engines/tpw/ui/text.h"
+#include "engines/tpw/ui/tooltip.h"
 #include "engines/tpw/ui/ui_model.h"
 
 #include <array>
@@ -84,6 +85,8 @@ public:
     Tool tool() const { return _tool; }
     /** Whether a point of the screen is on the HUD rather than the park. */
     bool covers(int x, int y) const;
+    /** The tooltips' box, font and strings, for the park's own tips too. */
+    const Tooltip &tooltip() const { return _tip; }
     /** Whether one of the bottom buttons' menus is open. */
     bool menuOpen() const { return _menu >= 0; }
     /**
@@ -142,13 +145,11 @@ private:
     LoadedModel _help;
     LoadedModel _menuPanel;
     LoadedModel _menuTail;
-    LoadedModel _tooltip;
     CharacterSet _characters;
     Font _titleFont;
     Font _itemFont;
-    Font _tipFont;
     StringTable _uiText;
-    StringTable _helpText;
+    Tooltip _tip;
 
     Tool _tool = Tool::kPointer;
     Spot _over;    // under the mouse

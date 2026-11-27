@@ -57,7 +57,7 @@ bool watchGlobe(System &sys, const Globe &globe, uint64_t &start, uint32_t pathM
 } // namespace
 
 int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder, audio::Mixer *mixer,
-                PlayerFile *chosen, std::filesystem::path *loadSave) {
+                PlayerFile *chosen, std::filesystem::path *loadSave, bool personnelFile) {
     FrontEndScene scene;
     Globe globe;
     const bool drawn = !scene.load(files) && !globe.load(scene);
@@ -82,9 +82,9 @@ int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path
         if (withOverlay)
             sound.update(ms);
     };
-    const PathEnd end =
-        drawn ? playFrontEnd(sys, scene, withEffects ? &effects : nullptr, withOverlay ? &overlay : nullptr, keepUp)
-              : PathEnd::kSkipped;
+    const PathEnd end = drawn && !personnelFile ? playFrontEnd(sys, scene, withEffects ? &effects : nullptr,
+                                                               withOverlay ? &overlay : nullptr, keepUp)
+                                                : PathEnd::kSkipped;
     effects.setMixer(nullptr);
     if (mixer && end == PathEnd::kSkipped)
         mixer->stopType(audio::SoundType::kEffects);
@@ -99,7 +99,7 @@ int runFrontEnd(System &sys, const SearchSet &files, const std::filesystem::path
     const uint32_t pathMillis = uint32_t(scene.frames() * 1000 / Animation::kFramesPerSecond);
     const uint32_t ahead = end == PathEnd::kSkipped ? FrontEndOverlay::kGlobeMillis - pathMillis : 0;
     uint64_t start = sys.getMillis() - std::min<uint64_t>(sys.getMillis(), ahead);
-    if (withOverlay && !watchGlobe(sys, globe, start, pathMillis, overlay, sound))
+    if (withOverlay && !personnelFile && !watchGlobe(sys, globe, start, pathMillis, overlay, sound))
         return -1;
     // The portrait goes as the Personnel File opens, and his words with it.
     sound.stopSpeech(true);

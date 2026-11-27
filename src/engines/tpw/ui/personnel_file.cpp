@@ -13,9 +13,11 @@
 #include "engines/tpw/ui/info_windows.h"
 #include "engines/tpw/ui/park_windows.h"
 #include "engines/tpw/ui/text.h"
+#include "engines/tpw/ui/tooltip.h"
 
 #include <algorithm>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace reluva::tpw {
@@ -440,9 +442,56 @@ void PersonnelFile::type(std::string &name, const std::string &utf8) const {
     }
 }
 
+namespace {
+
+// Each control's tooltip, UIHELPTEXT's: a tab "View existing player's
+// details" or "Create a new player"; "Enter Game" "Resume this game", as
+// the recording shows it for a player who has played, else "Begin game"
+// (guessed); "Load", "Delete this player", "Quit to Windows", "Go to
+// Coaster Design Kit"; the ticks "Ok", the cross "Cancel", the close
+// button "Close".
+std::optional<uint32_t> tipOf(PersonnelFile::Control c, const PlayerSlots &players, int shown) {
+    using Control = PersonnelFile::Control;
+    switch (c) {
+    case Control::kTab0:
+    case Control::kTab1:
+    case Control::kTab2:
+    case Control::kTab3:
+        return players[size_t(int(c) - int(Control::kTab0))].exists() ? 286 : 285;
+    case Control::kEnterGame:
+        return players[size_t(shown)].objective >= 0 ? 287 : 351;
+    case Control::kLoadGame:
+        return 141;
+    case Control::kDeletePlayer:
+        return 288;
+    case Control::kQuitGame:
+        return 289;
+    case Control::kCoasterKit:
+        return 290;
+    case Control::kNameDone:
+    case Control::kConfirmYes:
+        return 0;
+    case Control::kConfirmNo:
+        return 3;
+    case Control::kConfirmClose:
+        return 1;
+    case Control::kNone:
+        break;
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
 bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::path &saveFolder,
                   const Backdrop &backdrop, PlayerFile &chosen, std::filesystem::path *loadSave) {
     using Control = PersonnelFile::Control;
+    // The buttons' tooltips, as the park's HUD has them; none without their pieces.
+    Tooltip tip;
+    const bool tips = !tip.load(files);
+    int mouseX = 0;
+    int mouseY = 0;
+    uint64_t overSince = sys.getMillis();
     PersonnelFile file;
     if (file.load(files)) {
         chosen = {};
@@ -528,9 +577,15 @@ bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::pa
             case EventType::kQuit:
             case EventType::kReturnToLauncher:
                 return false;
-            case EventType::kMouseMove:
-                view.hovered = PersonnelFile::controlAt(ev.mouseX, ev.mouseY, players, view);
+            case EventType::kMouseMove: {
+                const Control over = PersonnelFile::controlAt(ev.mouseX, ev.mouseY, players, view);
+                if (over != view.hovered)
+                    overSince = sys.getMillis();
+                view.hovered = over;
+                mouseX = ev.mouseX;
+                mouseY = ev.mouseY;
                 break;
+            }
             case EventType::kMouseDown: {
                 if (ev.button != MouseButton::kLeft)
                     break;
@@ -595,6 +650,9 @@ bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::pa
         }
         backdrop(screen);
         file.draw(screen, players, view);
+        if (const std::optional<uint32_t> help = tipOf(view.hovered, players, view.selected); tips && help)
+            tip.draw(screen, mouseX, mouseY, tip.help(*help),
+                     uint32_t(std::min<uint64_t>(sys.getMillis() - overSince, UINT32_MAX)));
         sys.updateScreen(screen);
         sys.delayMillis(kFrameMillis);
     }

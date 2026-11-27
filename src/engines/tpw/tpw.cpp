@@ -76,9 +76,20 @@ public:
         // Each world's park in turn, as the Overview Map moves between them.
         _mixer = audioOut ? &mixer : nullptr;
         Next next{save.empty() ? world : -1, save};
-        while (next.world >= 0 || !next.save.empty())
+        while (next.world >= 0 || !next.save.empty() || next.newPlayer) {
+            // Select A New Player: the Personnel File again, then the
+            // world or save the player chooses.
+            if (next.newPlayer) {
+                save.clear();
+                const int chosen = runFrontEnd(_sys, files, _target.savePath, _mixer, &player, &save, true);
+                if (chosen < 0)
+                    break;
+                next = Next{save.empty() ? chosen : -1, save};
+                continue;
+            }
             if (Error err = playWorld(files, next, player))
                 return err;
+        }
         _mixer = nullptr;
         return Error::success();
     }
@@ -88,6 +99,7 @@ private:
     struct Next {
         int world = -1;
         std::filesystem::path save;
+        bool newPlayer = false; // the Personnel File first, to choose a player
     };
 
     /**
@@ -95,8 +107,9 @@ private:
      * as the player's missions done leave it, with their objective if
      * it's in this world, or as a saved game left it; what it did kept in
      * the player's file.
-     * @param next In, the park; out, the one the Overview Map or Load Game
-     *     chose next, neither when the player quits or closes the window.
+          * @param next In, the park; out, the one the Overview Map or Load Game
+     *     chose next, or the Personnel File for Select A New Player;
+     *     none when the player quits or closes the window.
      */
     Error playWorld(const SearchSet &files, Next &next, PlayerFile &player) {
         const Next now = std::exchange(next, Next{});
@@ -167,7 +180,9 @@ private:
             playPark(_sys, parkScreen, park, [&](const std::function<void(Surface &)> &drawPark, bool challenges) {
                 return showBriefing(_sys, briefing, park, player.name, drawPark, challenges);
             });
-        if (left && !parkScreen.loadRequest().empty())
+        if (left && parkScreen.newPlayerRequested())
+            next.newPlayer = true;
+        else if (left && !parkScreen.loadRequest().empty())
             next.save = parkScreen.loadRequest();
         else if (left && parkScreen.travel() >= 0)
             for (size_t i = 0; i < Globe::worlds().size(); ++i)

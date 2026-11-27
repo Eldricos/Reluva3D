@@ -135,7 +135,14 @@ if they had none; "Load A Game", lit once they have a game saved, lists
 their saves and goes on into the one chosen ([saving.md](saving.md));
 "Quit Game" leaves. Not yet
 ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#not-yet-as-the-original)):
-the Coaster Design Kit does nothing; there are no tooltips.
+the Coaster Design Kit does nothing. Its buttons and tabs show
+tooltips as the park's do ([park.md](park.md#menus-and-tooltips)): a
+tab "View existing player's details" or "Create a new player" (286,
+285), "Enter Game" "Resume this game" (287) for a player who has played
+and "Begin game" (351) for a new one *(guessed)*, "Load" (141), "Delete
+this player", "Quit to Windows", "Go to Coaster Design Kit" (288 to
+290). Select A New Player, in the park, comes back here
+([saving.md](saving.md)).
 
 `reluva-tool tpw personnel-shot <game folder> <out.png> [name
 [-delete]]` draws it over the front end's globe: an empty slot, a new

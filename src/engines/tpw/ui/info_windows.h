@@ -429,25 +429,34 @@ private:
  * The game's menu, over the park on Esc, as the recording shows it at
  * 4:20: Load Game, Save Game, Select A New Player, Go Online, Options,
   * Go to Coaster Design Kit, Resume Game, Quit Game. Loading, saving,
- * the options, resuming and quitting work; the rest are grey.
+ * choosing a new player, the options, resuming and quitting work; going
+ * online and the Coaster Design Kit are grey.
  */
 class GameMenu {
 public:
-    enum class Choice { kNone, kResume, kQuit, kLoad, kSave, kOptions };
+    enum class Choice { kNone, kResume, kQuit, kLoad, kSave, kOptions, kNewPlayer };
     void open() {
         _open = true;
         _over = -1;
+        _asking = -1;
     }
     void close() { _open = false; }
     bool isOpen() const { return _open; }
+    /**
+     * Takes the mouse and Esc. Select A New Player and Quit Game ask first
+     * (UITEXT 775, 773), their choice coming once the player says yes.
+     */
     Choice handle(const Event &ev);
     void draw(Surface &screen, const WindowKit &kit) const;
     /** An item's line, top to bottom. */
     static ScreenRect itemRect(size_t item);
+    /** The question's yes (OK) and no (cancel) buttons. */
+    static ScreenRect askRect(bool yes);
 
 private:
     bool _open = false;
     int _over = -1;
+    int _asking = -1; // the item whose question shows; −1 for none
 };
 
 } // namespace reluva::tpw

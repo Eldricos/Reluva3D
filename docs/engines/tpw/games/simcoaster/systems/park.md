@@ -177,6 +177,28 @@ compass's "Rotate left", "Rotate right", "Zoom in", "Zoom out" (112,
 113, 102, 103). How long the mouse must rest, and where the box goes
 against the pointer, aren't measured *(guessed)*.
 
+`UIHELPTEXT` has tips for much else, which Reluva shows the same way
+*(guessed)*:
+
+- **In the park**, with the pointer: an attraction's "{0} / Click to
+  view details / Right-click for options" (234), a closed one's "{0}:
+  Closed" (355), a special ride's "Special Ride: {0} / Not yet
+  activated" (335); a member of staff's "{0}: Click to view details /
+  Right-click for options / Experience: " (155) and a visitor's
+  "Visitor #{1}: ... Happiness: " (156), the measure after them as
+  Reluva keeps it (experience out of 100, happiness in percent); the
+  mission's obstacle's "Click to view details / Right-click for options"
+  (161) and another's "This is not your current objective / Click to
+  view objectives" (360); the gates' "Park Gates" (364).
+- **While building**: placing's "Rotate using < and >, click to build /
+  Hold CTRL when placing to build multiple" (146), path's "Click to
+  build a length of path / Click onto existing path to finish" (148), a
+  line's (150) and a track's (152).
+- **In the windows**: their OK, Close, Cancel, Previous and Next
+  buttons' "Ok", "Close", "Cancel", "Previous", "Next" (0, 1, 3, 5, 4),
+  "Fire employee" (14), and the staff tabs' "Show engineers" to "Show
+  scientists" (57 to 62).
+
 The thermometer's model is full, its liquid light blue; an empty one is
 black above the face. In a bare park it's empty and its face the red
 no-entry sign, until the first attraction is built (the recording's
@@ -193,7 +215,9 @@ general settings, the world's and the mission's, and keeps its clock;
 ([lnd.md](../formats/lnd.md#in-reluva)), through a camera that starts
 on the road before the entrance, the money and date over it, and its
 visitors; `ParkHud` (`src/engines/tpw/ui/park_hud.cpp`)
-draws the HUD over it and follows the mouse over its buttons. After the
+draws the HUD over it and follows the mouse over its buttons;
+`Tooltip` (`src/engines/tpw/ui/tooltip.cpp`) draws the tooltips, the
+HUD's and the rest. After the
 loading screen the mission's briefing shows over it
 ([briefing.md](briefing.md)), then `playPark` runs it: the arrow keys
 move the camera, Q and E or the compass's arrows (held) turn it, Page

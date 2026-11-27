@@ -166,6 +166,15 @@ None yet.
   ([challenges.md](systems/challenges.md)). The game's challenges played
   through would settle them.
 
+- **Select A New Player, the shortcuts and tooltips**: what Select A
+  New Player names its save and where it returns to; whether Backspace
+  pays back what it takes up, and what Ctrl does to lines and tracks
+  when placing several; the tooltips' wait, place and which show over
+  the park and in the windows ([saving.md](systems/saving.md),
+  [paths.md](systems/paths.md), [building.md](systems/building.md#placing),
+  [park.md](systems/park.md#menus-and-tooltips)). A recording of the game
+  using them would settle them.
+
 - **Go-kart and water tracks**: how the game lays them, from where by
   the station, on what grid, at what cost, and how their cars run; how
   the go-kart and water-ride awards are measured

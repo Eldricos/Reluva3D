@@ -32,6 +32,14 @@ recording opens none of them.
 - **From the Personnel File**, "Load A Game", lit once the player shown
   has a game saved, opens Load Game over the file; the save chosen goes
   on into its park, past the globe.
+- **Select A New Player**, in the game's menu, asks first ("SELECT A NEW
+  PLAYER / Are you sure you want to quit this game and select a new
+  player? / (Your game WILL be saved)", `UITEXT` 775). Said yes to, the
+  game's saved, named for its world and date ("Land of Invention
+  11.Jan.00"), over a save of that name *(guessed)*; the player's file
+  keeps what the park did, as quitting does, and the Personnel File
+  comes up over the globe, past the camera's path and the portrait, for
+  a player, then their world or saved game *(guessed)*.
 
 A ride's riders are let off as a saved park opens: the rides' scripts
 start afresh, without them.
@@ -58,6 +66,5 @@ load one.
 ## Open questions
 
 - How the game's windows look, and where its delete button is.
-- Whether "Select A New Player" saves the game as it says, and where it
-  comes back to.
+- What "Select A New Player" names its save, and where it comes back to.
 - What the game's own saves hold besides the grid ([tpws.md](../formats/tpws.md)).

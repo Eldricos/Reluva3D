@@ -29,9 +29,9 @@ None yet.
   camera moved by Reluva's own keys and the compass; path can be laid, the
   bottom buttons' menus open, and all their items do something, the Overview
   Map and Visitor Opinion by guess, the Park Map's layers too; the game's
-  menu loads, saves, sets the options Reluva follows (speed, volumes,
-  advisor: [options.md](systems/options.md)), resumes and quits, nothing
-  else; attractions', staff's and the gates' windows
+  menu loads, saves, chooses a new player, saving first, sets the
+  options Reluva follows (speed, volumes, advisor:
+  [options.md](systems/options.md)), resumes and quits, nothing else; attractions', staff's and the gates' windows
   and menus have only some of their controls, and the windows the
   recording doesn't show are laid out by guess
   ([park-windows.md](systems/park-windows.md)); a new park has the prebuilt park's
@@ -45,8 +45,8 @@ None yet.
   rates; the money's accounts, loans, share price and bankruptcy by
   guessed rules, their windows laid out by guess
   ([finance.md](systems/finance.md)); the missions played as far as the park
-  awards allow, four of the eight measured by guessed rules and the
-  rides' never held, so the last mission can't be done
+  awards allow, six of the eight measured by guessed rules and the
+  coasters' never held
   ([park-awards.md](systems/park-awards.md)); challenges by guessed rules, their
   triggers partly ([challenges.md](systems/challenges.md)); special rides
   activated in a window laid out by guess, abilities discovered and
@@ -93,8 +93,8 @@ None yet.
 - **The Personnel File** keeps its players in a file of Reluva's own,
   `players.txt` in the game's save folder, as the game's own aren't
   known ([players.md](systems/players.md)); the Coaster Design Kit does
-  nothing; there are no
-  tooltips; the portrait always shows; its blue buttons are lighter than
+    nothing; its tooltips, and most of the park's, shown by guessed rules
+  ([park.md](systems/park.md#menus-and-tooltips)); the portrait always shows; its blue buttons are lighter than
   the game's ([personnel-file.md](systems/personnel-file.md#in-reluva)).
 - **On the globe**, a world under the pointer shows nothing, and the
   chosen world turns to the camera the shorter way round, guesses

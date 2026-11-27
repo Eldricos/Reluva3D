@@ -14,6 +14,7 @@
 #include "engines/tpw/ui/text.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <cstdlib>
 #include <optional>
@@ -459,8 +460,25 @@ void WindowKit::bar(Surface &screen, int x, int y, int width, float level) const
         }
 }
 
+// UIHELPTEXT's for each Button: OK "Ok", cancel "Cancel", close
+// "Close", the arrows "Previous" and "Next", fire "Fire employee"; the
+// others' depend on their window.
+constexpr uint32_t kNoTip = UINT32_MAX;
+constexpr std::array<uint32_t, 10> kButtonTips{kNoTip, kNoTip, kNoTip, 14, kNoTip, 0, 3, 1, 5, 4};
+// The staff tabs': "Show engineers" to "Show scientists", by kind.
+constexpr uint32_t kStaffTabTips = 57;
+
 void WindowKit::button(Surface &screen, Button b, const ScreenRect &r, size_t state) const {
     drawUiMesh(screen, _buttons[size_t(b)], state, r);
+    if (kButtonTips[size_t(b)] != kNoTip)
+        _tips.emplace_back(r, kButtonTips[size_t(b)]);
+}
+
+std::optional<uint32_t> WindowKit::tipAt(int x, int y) const {
+    for (auto it = _tips.rbegin(); it != _tips.rend(); ++it)
+        if (it->first.contains(x, y))
+            return it->second;
+    return std::nullopt;
 }
 
 // Its label centred, a line at a time where it breaks ("Users\nLast Month").
@@ -484,6 +502,7 @@ void WindowKit::header(Surface &screen, const ScreenRect &r, const std::string &
 
 void WindowKit::staffTab(Surface &screen, Park::StaffKind kind, const ScreenRect &r, size_t state) const {
     drawUiMesh(screen, _tabs[size_t(kind)], state, r);
+    _tips.emplace_back(r, kStaffTabTips + uint32_t(kind));
 }
 
 std::string WindowKit::ui(uint32_t index, const std::map<int, std::string> &values) const {

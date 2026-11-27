@@ -180,6 +180,11 @@ void testPaths(const std::filesystem::path &tmp) {
     CHECK(park.buildPath(run) == 3 && park.cash() == 70 && park.isPath({2, 5}));
     // Not over (5, 4), nor again over (2, 4).
     CHECK(park.buildPath(back) == 4 && park.cash() == 30 && park.isPath({7, 4}) && !park.isPath({5, 4}));
+    // Backspace takes the length back, paid back; laid again, as before.
+    std::vector<Park::Cell> laid;
+    park.undoPath({{7, 4}, {6, 4}, {4, 4}, {3, 4}});
+    CHECK(park.cash() == 70 && !park.isPath({7, 4}) && park.isPath({2, 4}));
+    CHECK(park.buildPath(back, &laid) == 4 && park.cash() == 30 && laid.size() == 4 && (laid[0] == Park::Cell{7, 4}));
     // The money runs out three cells along.
     CHECK(park.buildPath(Park::pathRun({0, 0}, {0, 5})) == 3 && park.cash() == 0 && !park.isPath({0, 3}));
 
@@ -205,6 +210,9 @@ void testPaths(const std::filesystem::path &tmp) {
     CHECK(preview.cells.size() == 3 && !preview.atPath && park.queues()[size_t(q)].cells.empty());
     CHECK(park.layQueue(q, Park::pathRun({7, 3}, {7, 1})) == 2 && park.cash() == 80);
     CHECK(park.queueFrom({7, 1}) == q && park.ground({7, 2}) == Park::Ground::kQueue);
+    park.undoQueue(q, 1);
+    CHECK(park.cash() == 90 && park.ground({7, 1}) == Park::Ground::kOpen && park.queueFrom({7, 2}) == q);
+    CHECK(park.layQueue(q, Park::pathRun({7, 2}, {7, 1})) == 1 && park.cash() == 80);
     // On to the path at (6, 1): it joins it at once.
     CHECK(park.layQueue(q, Park::pathRun({7, 1}, {3, 1})) == 0 && park.queues()[size_t(q)].atPath);
     CHECK((park.queues()[size_t(q)].pathEnd == Park::Cell{6, 1}) && park.queueFrom({7, 1}) == -1);

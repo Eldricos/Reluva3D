@@ -316,17 +316,25 @@ bool Park::removePath(const Cell &cell) {
     return true;
 }
 
-int Park::buildPath(const std::vector<Cell> &cells) {
-    int laid = 0;
+int Park::buildPath(const std::vector<Cell> &cells, std::vector<Cell> *laid) {
+    int count = 0;
     for (const Cell &c : cells) {
         if (ground(c) != Ground::kOpen || _cash < _pathCost)
             continue;
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kPath;
         book(Ledger::kBuilding, _pathCost);
-        ++laid;
+        ++count;
+        if (laid)
+            laid->push_back(c);
     }
     findKioskPaths();
-    return laid;
+    return count;
+}
+
+void Park::undoPath(const std::vector<Cell> &cells) {
+    for (const Cell &c : cells)
+        if (removePath(c))
+            book(Ledger::kBuilding, -_pathCost);
 }
 
 void Park::step(uint32_t ms) {

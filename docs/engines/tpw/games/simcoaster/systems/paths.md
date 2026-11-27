@@ -116,7 +116,12 @@ turn; `ParkScreen` draws the path a twentieth of a unit over the ground,
 and, while the path tool is chosen, the length that would be laid, the
 cells it can't cross marked red, and finds the cell under the mouse.
 `playPark` takes the tool's clicks, and lays queues as above, the line
-being laid drawn as it would be. `Park::queuePieces`
+being laid drawn as it would be. "When building paths, lines, tracks
+and track supports, you can press the Backspace key to undo sections
+which you have already placed" (`TOTD` 4): Backspace takes up the
+lengths of path laid while the path tool's chosen, the last first, and
+laying goes on from where that one began; and a line's lengths, while
+it's being laid; what they cost paid back *(guessed)*. `Park::queuePieces`
 (`src/engines/tpw/park/queues.cpp`) works out each queue's pieces; the
 prebuilt park's queue is followed from its entrance. Queues' and
 objects' cells can't be laid over.

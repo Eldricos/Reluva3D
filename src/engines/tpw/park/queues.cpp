@@ -231,4 +231,19 @@ int Park::layQueue(int index, const std::vector<Cell> &run) {
     return laid;
 }
 
+void Park::undoQueue(int index, size_t count) {
+    if (index < 0 || size_t(index) >= _queues.size())
+        return;
+    Queue &q = _queues[size_t(index)];
+    for (; count > 0 && !q.cells.empty(); --count) {
+        const Cell c = q.cells.back();
+        q.cells.pop_back();
+        if (ground(c) == Ground::kQueue) {
+            _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kOpen;
+            book(Ledger::kBuilding, -_queueCost);
+        }
+    }
+    q.atPath = false;
+}
+
 } // namespace reluva::tpw

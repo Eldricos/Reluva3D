@@ -880,6 +880,11 @@ public:
      * @return How many cells were laid.
      */
     int layQueue(int index, const std::vector<Cell> &run);
+    /**
+     * Takes up a queue's last `count` cells, as Backspace does (TOTD 4),
+     * what they cost paid back (guessed).
+     */
+    void undoQueue(int index, size_t count);
 
     /** Whether the prebuilt park's path, queues and objects were laid. */
     bool prebuilt() const { return _prebuilt; }
@@ -896,7 +901,9 @@ public:
      * pathCost() each, while the money lasts.
      * @return How many cells were laid.
      */
-    int buildPath(const std::vector<Cell> &cells);
+    int buildPath(const std::vector<Cell> &cells, std::vector<Cell> *laid = nullptr);
+    /** Takes up path just laid (buildPath's `laid`), as Backspace does (TOTD 4), what it cost paid back (guessed). */
+    void undoPath(const std::vector<Cell> &cells);
     /** Takes up a cell of path, as the bulldozer does: the land bare again, nothing paid back (guessed). */
     bool removePath(const Cell &cell);
 

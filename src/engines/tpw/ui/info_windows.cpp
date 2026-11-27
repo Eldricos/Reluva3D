@@ -143,13 +143,22 @@ constexpr int kGameMenuStep = 46;
 constexpr int kGameMenuHeight = 36;
 constexpr size_t kLoadItem = 0;
 constexpr size_t kSaveItem = 1;
+constexpr size_t kNewPlayerItem = 2;
 constexpr size_t kOptionsItem = 4;
 constexpr size_t kResumeItem = 6;
 constexpr size_t kQuitItem = 7;
 
 bool works(size_t item) {
-    return item == kLoadItem || item == kSaveItem || item == kOptionsItem || item == kResumeItem || item == kQuitItem;
+    return item == kLoadItem || item == kSaveItem || item == kNewPlayerItem || item == kOptionsItem ||
+           item == kResumeItem || item == kQuitItem;
 }
+// "QUIT GAME ... Are you sure ...", "SELECT A NEW PLAYER ... (Your game
+// WILL be saved)": in a box over the menu, laid out by guess.
+constexpr uint32_t kQuitQuestion = 773;
+constexpr uint32_t kNewPlayerQuestion = 775;
+constexpr ScreenRect kAskBox{150, 150, 340, 170};
+constexpr ScreenRect kAskYes{410, 278, 28, 28};
+constexpr ScreenRect kAskNo{444, 280, 26, 26};
 constexpr Color kMenuCyan{96, 200, 216};
 constexpr Color kMenuGrey{96, 120, 128};
 
@@ -1222,9 +1231,27 @@ ScreenRect GameMenu::itemRect(size_t item) {
     return {120, kGameMenuTop + int(item) * kGameMenuStep, 400, kGameMenuHeight};
 }
 
+ScreenRect GameMenu::askRect(bool yes) {
+    return yes ? kAskYes : kAskNo;
+}
+
 GameMenu::Choice GameMenu::handle(const Event &ev) {
     if (!_open)
         return Choice::kNone;
+    if (_asking >= 0) {
+        const bool no = (ev.type == EventType::kKeyDown && ev.key == key::kEscape) ||
+                        (WindowKit::isClick(ev) && kAskNo.contains(ev.mouseX, ev.mouseY));
+        if (no) {
+            _asking = -1;
+            return Choice::kNone;
+        }
+        if (!WindowKit::isClick(ev) || !kAskYes.contains(ev.mouseX, ev.mouseY))
+            return Choice::kNone;
+        const bool quit = _asking == int(kQuitItem);
+        _asking = -1;
+        _open = false;
+        return quit ? Choice::kQuit : Choice::kNewPlayer;
+    }
     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
         _open = false;
         return Choice::kResume;
@@ -1237,6 +1264,10 @@ GameMenu::Choice GameMenu::handle(const Event &ev) {
             _over = int(i);
     if (!WindowKit::isClick(ev) || _over < 0 || !works(size_t(_over)))
         return Choice::kNone;
+    if (_over == int(kQuitItem) || _over == int(kNewPlayerItem)) {
+        _asking = _over;
+        return Choice::kNone;
+    }
     _open = false;
     return _over == int(kResumeItem) ? Choice::kResume
            : _over == int(kQuitItem) ? Choice::kQuit
@@ -1264,6 +1295,13 @@ void GameMenu::draw(Surface &screen, const WindowKit &kit) const {
                      : _over == int(i) ? kWhite
                                        : kMenuCyan);
     }
+    if (_asking < 0)
+        return;
+    kit.frame(screen, kAskBox);
+    kit.paragraph(screen, kAskBox.x + 16, kAskBox.y + 16, kAskBox.w - 32,
+                  kit.ui(_asking == int(kQuitItem) ? kQuitQuestion : kNewPlayerQuestion));
+    kit.button(screen, WindowKit::Button::kOk, kAskYes, WindowKit::kPlain);
+    kit.button(screen, WindowKit::Button::kCancel, kAskNo, WindowKit::kPlain);
 }
 
 // Save Game and Load Game.

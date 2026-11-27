@@ -351,9 +351,10 @@ int cmdParkRun(int argc, char **argv) {
     click(11000, centre(ParkHud::toolRect(ParkHud::Tool::kBulldozer)));
     click(12000, centre(ParkHud::gizmoRect(ParkHud::Gizmo::kAttractions)));
     click(13000, {320, 200});
-    // Esc opens the game's menu; its Quit Game leaves.
+    // Esc opens the game's menu; its Quit Game, once said yes to, leaves.
     key(45000, 0, reluva::key::kEscape);
-    click(45200, centre(reluva::tpw::GameMenu::itemRect(7)));
+    click(45100, centre(reluva::tpw::GameMenu::itemRect(7)));
+    click(45200, centre(reluva::tpw::GameMenu::askRect(true)));
 
     struct Player : reluva::HeadlessSystem {
         reluva::Md5 all;
@@ -773,7 +774,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate|ability|employee> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate|ability|employee|newplayer> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -882,9 +883,11 @@ int cmdWindowShot(int argc, char **argv) {
             park.advance(1000);
         screen.takeMessages(park);
         screen.messageCenter().open();
-    } else if (which == "gamemenu")
+    } else if (which == "gamemenu" || which == "newplayer") {
         screen.gameMenu().open();
-    else if (which == "map")
+        if (which == "newplayer")
+            screen.gameMenu().handle(clickOn(reluva::tpw::GameMenu::itemRect(2)));
+    } else if (which == "map")
         screen.parkMap().open();
     else if (which == "map-layers") {
         // Every layer on.
@@ -1048,7 +1051,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate|ability|employee> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate|ability|employee|newplayer> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",

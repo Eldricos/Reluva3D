@@ -180,6 +180,16 @@ public:
     void takeLoadChosen() { _loadRequest = _slotFiles[size_t(_saveLoad.chosen())]; }
     /** The save to load in this park's place; empty for none. */
     const std::filesystem::path &loadRequest() const { return _loadRequest; }
+    /**
+     * Saves the game as Select A New Player does, named for its world and
+     * date ("Land of Invention 11.Jan.00"), over a save of that name, and
+     * asks for the Personnel File.
+     */
+    Error saveForNewPlayer(const Park &park);
+    /** Writes the game to a file under a name. */
+    Error saveAs(const Park &park, const std::string &name, const std::filesystem::path &file) const;
+    /** Whether the player chose Select A New Player: the Personnel File comes next. */
+    bool newPlayerRequested() const { return _newPlayer; }
     Advisor &advisor() { return _advisor; }
     const Advisor &advisor() const { return _advisor; }
     ActivateRideWindow &activateRide() { return _activateRide; }
@@ -239,6 +249,17 @@ public:
     int staffAt(const Park &park, const Camera &camera, int x, int y) const;
     /** Likewise a visitor in the park, walking or queueing; 0 for none. */
     int visitorAt(const Park &park, const Camera &camera, int x, int y) const;
+    /**
+     * The tooltip for what's under a point of the park, as the pointer
+     * finds it (UIHELPTEXT's): a member of staff, a visitor, an attraction
+     * or obstacle, the gates; empty for nothing.
+     */
+    std::string tipAt(const Park &park, const Camera &camera, int x, int y) const;
+    /**
+     * The tooltip to show by the pointer, from now (in the system's
+     * milliseconds): it shows once the same text has stood a while.
+     */
+    void setTip(std::string text, int x, int y, uint64_t now);
     /** The camcorder's view (the tool's): at a visitor's eye height over a cell, turned as `from`. */
     Camera groundCamera(const Park::Cell &cell, const Camera &from) const;
     /** An object's name as the game shows it, and its model; nullptr if it hasn't one. */
@@ -287,6 +308,11 @@ private:
     StringTable _months;
     bool _hud = false; // the fonts and months read
     ParkHud _furniture;
+    std::string _tip;
+    int _tipX = 0;
+    int _tipY = 0;
+    uint64_t _tipSince = 0; // when the tip's text came
+    uint64_t _tipNow = 0;
     std::array<image::Image, kPathTextures.size()> _pathTextures;
     bool _pathsRead = false;
     std::vector<Park::Cell> _preview;
@@ -354,6 +380,7 @@ private:
     std::string _saver;
     std::vector<std::filesystem::path> _slotFiles; // the Save and Load windows' rows' files
     std::filesystem::path _loadRequest;
+    bool _newPlayer = false;
     Advisor _advisor;
     std::array<bool, 3> _worldOpen{};
     std::array<int, 3> _worldChallenges{10, 10, 10}; // ChallengesInThisLevel's ten each

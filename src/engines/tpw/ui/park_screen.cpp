@@ -134,6 +134,26 @@ constexpr uint32_t kCallEngineerItem = 524;
 constexpr uint32_t kCancelEngineerItem = 525;
 constexpr uint32_t kEditLineItem = 526;
 constexpr uint32_t kEditTrackItem = 527;
+// UIHELPTEXT's tooltips for what's in the park: an attraction ("{0}\nClick
+// to view details\nRight-click for options"), a closed one, a special
+// ride not yet activated; a member of staff, a visitor ("... Experience:
+// ", "... Happiness: "); the mission's obstacle and another; the gates.
+constexpr uint32_t kAttractionTip = 234;
+constexpr uint32_t kClosedTip = 355;
+constexpr uint32_t kNotActivatedTip = 335;
+constexpr uint32_t kStaffTip = 155;
+constexpr uint32_t kVisitorTip = 156;
+constexpr uint32_t kObstacleTip = 161;
+constexpr uint32_t kNotObjectiveTip = 360;
+constexpr uint32_t kGatesTip = 364;
+// What each way of building says while it's in use: placing ("Rotate
+// using < and >, click to build / Hold CTRL ..."), path, a line, a track.
+constexpr uint32_t kPlacingTip = 146;
+constexpr uint32_t kPathTip = 148;
+constexpr uint32_t kLineTip = 150;
+constexpr uint32_t kTrackTip = 152;
+// The pointer moved further than this, in pixels, starts a tip's wait again.
+constexpr int kTipStill = 3;
 constexpr uint32_t kDeleteTrackItem = 528;
 // "Incomplete Track", "Invalid Track": what laying track comes to, left
 // unfinished or stopped (the Coaster Design Kit's titles; guessed).
@@ -1364,6 +1384,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     if (_hireRead)
         _hire.draw(screen);
     if (_kitRead) {
+        _kit.clearTips();
         _attractionWindow.draw(screen, _kit, park);
         _gateWindow.draw(screen, _kit, park);
         _staffList.draw(screen, _kit, park, _hire);
@@ -1402,6 +1423,55 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
             drawNotice(screen, _kit, _kit.ui(_notice));
         _gameMenu.draw(screen, _kit);
     }
+    if (_furnitureRead)
+        _furniture.tooltip().draw(screen, _tipX, _tipY, _tip,
+                                  uint32_t(std::min<uint64_t>(_tipNow - _tipSince, UINT32_MAX)));
+}
+
+void ParkScreen::setTip(std::string text, int x, int y, uint64_t now) {
+    if (text != _tip || std::abs(x - _tipX) + std::abs(y - _tipY) > kTipStill) {
+        _tip = std::move(text);
+        _tipSince = now;
+    }
+    _tipX = x;
+    _tipY = y;
+    _tipNow = now;
+}
+
+// "{0}: Click to view details ... Experience: " and the like, the
+// measures after them as Reluva has them: staff's experience out of 100,
+// a visitor's happiness in percent.
+std::string ParkScreen::tipAt(const Park &park, const Camera &camera, int x, int y) const {
+    if (!_furnitureRead)
+        return {};
+    const Tooltip &tip = _furniture.tooltip();
+    if (const int id = staffAt(park, camera, x, y))
+        if (const Park::StaffMember *m = park.staffMember(id))
+            return tip.help(kStaffTip, {{0, _hire.nameOf(m->kind, m->name)}}) +
+                   std::to_string(m->experience * 100 / Park::kMostExperience);
+    if (const int id = visitorAt(park, camera, x, y))
+        for (const Park::Visitor &v : park.visitorsAbout())
+            if (v.id == id)
+                return tip.help(kVisitorTip, {{1, std::to_string(v.id)}}) + std::to_string(int(v.happiness)) + "%";
+    Park::Cell under;
+    if (!cellAt(camera, x, y, under))
+        return {};
+    if (const int object = objectAt(park, under); object >= 0) {
+        const Park::PlacedObject &o = park.objects()[size_t(object)];
+        const Attractions::Attraction *a = park.attractions().find(o.id);
+        const std::string name = nameOf(park, size_t(object));
+        if (a && a->obstacle)
+            return tip.help(o.id == park.mission().obstacle ? kObstacleTip : kNotObjectiveTip);
+        if (park.awaitsActivation(size_t(object)))
+            return tip.help(kNotActivatedTip, {{0, name}});
+        if (!o.open)
+            return tip.help(kClosedTip, {{0, name}});
+        return tip.help(kAttractionTip, {{0, name}});
+    }
+    const auto &gates = park.fixedItems().entrance;
+    if (std::find(gates.begin(), gates.end(), under) != gates.end())
+        return tip.help(kGatesTip);
+    return {};
 }
 
 // The billboard's box, its corners as the screen has them.
@@ -1550,15 +1620,32 @@ Error ParkScreen::saveChosen(const Park &park) {
     if (_savesFolder.empty())
         return Error::fail("no folder to save in");
     const int chosen = _saveLoad.chosen();
+    return saveAs(park, chosen >= 0 ? listSaves(_savesFolder, _saver)[size_t(chosen)].name : _saveLoad.typed(),
+                  chosen >= 0 ? _slotFiles[size_t(chosen)] : newSaveFile(_savesFolder));
+}
+
+Error ParkScreen::saveForNewPlayer(const Park &park) {
+    _newPlayer = true;
+    if (_savesFolder.empty())
+        return Error::fail("no folder to save in");
+    const std::string name = _kit.worldName(park.theme()) + " " + dateText(park.day());
+    std::filesystem::path file = newSaveFile(_savesFolder);
+    for (const SaveSlot &slot : listSaves(_savesFolder, _saver))
+        if (slot.name == name)
+            file = slot.file;
+    return saveAs(park, name, file);
+}
+
+Error ParkScreen::saveAs(const Park &park, const std::string &name, const std::filesystem::path &file) const {
     SavedGame save;
-    save.name = chosen >= 0 ? listSaves(_savesFolder, _saver)[size_t(chosen)].name : _saveLoad.typed();
+    save.name = name;
     save.player = _saver;
     save.world = park.folder();
     save.mission = park.progress();
     save.day = park.day();
     save.park = park.saveState();
     save.screen = saveState();
-    return writeSave(chosen >= 0 ? _slotFiles[size_t(chosen)] : newSaveFile(_savesFolder), save);
+    return writeSave(file, save);
 }
 
 std::vector<uint8_t> ParkScreen::saveState() const {
@@ -1729,6 +1816,14 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     // track comes once its line's laid.
     int trackLaying = -1;
     int trackNext = -1;
+    // What Backspace takes back (TOTD 4): the path's lengths just laid, each
+    // with where laying went on from before it; the line's, by its queue.
+    struct PathLaid {
+        std::vector<Park::Cell> cells;
+        std::optional<Park::Cell> from;
+    };
+    std::vector<PathLaid> pathLaid;
+    std::vector<std::pair<int, size_t>> queueLaid;
     auto endTrack = [&]() {
         if (trackLaying >= 0 && !park.trackComplete(size_t(trackLaying)))
             screen.notify(park, kIncompleteTrackText);
@@ -1758,6 +1853,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         return std::find(gates.begin(), gates.end(), c) != gates.end();
     };
     // A right-click menu's items, by what it's of (UITEXT's).
+    auto canBuyAnother = [](const Attractions::Attraction &a) { return a.price > 0 && a.available; };
     auto objectItems = [&](size_t object) {
         std::vector<uint32_t> items;
         const Park::PlacedObject &o = park.objects()[object];
@@ -1792,7 +1888,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             items.push_back(kKioskFinanceItem);
             items.push_back(kKioskNameItem);
         }
-        if (a && a->price > 0 && a->available)
+        if (a && canBuyAnother(*a))
             items.push_back(kBuyAnotherItem);
         items.push_back(kDeleteItem);
         return items;
@@ -1813,6 +1909,10 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     const GameMenu::Choice choice = screen.gameMenu().handle(ev);
                     if (choice == GameMenu::Choice::kQuit)
                         return true;
+                    if (choice == GameMenu::Choice::kNewPlayer) {
+                        (void)screen.saveForNewPlayer(park);
+                        return true;
+                    }
                     if (choice == GameMenu::Choice::kOptions)
                         screen.optionsWindow().open(screen.options());
                     if (choice == GameMenu::Choice::kSave || choice == GameMenu::Choice::kLoad) {
@@ -2097,7 +2197,10 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && onGround) {
                     const int queue =
                         park.place(placing->id, placing->price, placing->shape, placing->hasQueue, under, placingAngle);
-                    if (queue != Park::kNotPlaced) {
+                    // "Hold CTRL when placing to build multiple" (UIHELPTEXT
+                    // 146): it's placed again, the lines and tracks laid
+                    // later from their menus (guessed).
+                    if (queue != Park::kNotPlaced && !(ev.mods & keymod::kCtrl)) {
                         placing = nullptr;
                         // A ride's queue is laid at once, from its entrance
                         // ("Edit line"), then its track, if it has one.
@@ -2211,6 +2314,16 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     }
                     continue;
                 }
+                // "Hold the Ctrl key and click on an item to quickly buy
+                // another one" (TOTD 2).
+                if (left && object >= 0 && (ev.mods & keymod::kCtrl)) {
+                    const Park::PlacedObject &o = park.objects()[size_t(object)];
+                    if (const Attractions::Attraction *a = park.attractions().find(o.id); a && canBuyAnother(*a)) {
+                        placing = a;
+                        placingAngle = o.angle;
+                        continue;
+                    }
+                }
                 // A special ride waiting to be activated: its window, by
                 // either click (guessed).
                 if (object >= 0 && park.awaitsActivation(size_t(object))) {
@@ -2262,7 +2375,9 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     if (under == end) {
                         queueLaying = -1;
                     } else {
-                        park.layQueue(queueLaying, Park::pathRun(end, under));
+                        const int laid = park.layQueue(queueLaying, Park::pathRun(end, under));
+                        if (laid > 0)
+                            queueLaid.emplace_back(queueLaying, size_t(laid));
                         if (park.queues()[size_t(queueLaying)].atPath)
                             queueLaying = -1;
                     }
@@ -2278,7 +2393,10 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                         // other lays the length and goes on from its end.
                         const bool ontoPath = park.isPath(under) && !(under == *pathStart);
                         const std::vector<Park::Cell> run = Park::pathRun(*pathStart, under);
-                        park.buildPath(run);
+                        PathLaid laid{{}, pathStart};
+                        park.buildPath(run, &laid.cells);
+                        if (!laid.cells.empty())
+                            pathLaid.push_back(std::move(laid));
                         pathStart.reset();
                         if (!ontoPath)
                             pathStart = run.back();
@@ -2286,6 +2404,21 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 }
                 continue;
             }
+            if (ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
+                if (queueLaying >= 0 && !queueLaid.empty() && queueLaid.back().first == queueLaying) {
+                    park.undoQueue(queueLaying, queueLaid.back().second);
+                    queueLaid.pop_back();
+                } else if (screen.hud().tool() == ParkHud::Tool::kPath && queueLaying < 0 && !pathLaid.empty()) {
+                    park.undoPath(pathLaid.back().cells);
+                    pathStart = pathLaid.back().from;
+                    pathLaid.pop_back();
+                }
+                continue;
+            }
+            if (screen.hud().tool() != ParkHud::Tool::kPath)
+                pathLaid.clear();
+            if (queueLaying < 0)
+                queueLaid.clear();
             if (ev.type == EventType::kKeyDown) {
                 if (ev.key == key::kEscape && (pathStart || queueLaying >= 0)) {
                     pathStart.reset();
@@ -2453,6 +2586,30 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 preview = pathStart ? Park::pathRun(*pathStart, under) : std::vector<Park::Cell>{under};
         }
         screen.setPathPreview(std::move(preview));
+        // A tooltip: a window's button or tab under the pointer; else, over
+        // the park, what the way of building in use says, or with the
+        // pointer, what's there. The HUD's buttons show their own.
+        {
+            const Tooltip &tips = screen.hud().tooltip();
+            std::string tip;
+            if (screen.windowOpen() || screen.buyWindow().isOpen() || screen.hireWindow().isOpen()) {
+                if (const std::optional<uint32_t> help = screen.kit().tipAt(mouseX, mouseY))
+                    tip = tips.help(*help);
+            } else if (!screen.hud().covers(mouseX, mouseY) && !screen.hud().menuOpen()) {
+                const ParkHud::Tool tool = screen.hud().tool();
+                if (placing)
+                    tip = tips.help(kPlacingTip);
+                else if (trackLaying >= 0)
+                    tip = tips.help(kTrackTip);
+                else if (queueLaying >= 0)
+                    tip = tips.help(kLineTip);
+                else if (tool == ParkHud::Tool::kPath)
+                    tip = tips.help(kPathTip);
+                else if (tool == ParkHud::Tool::kPointer && !patrolling)
+                    tip = screen.tipAt(park, camera, mouseX, mouseY);
+            }
+            screen.setTip(std::move(tip), mouseX, mouseY, sys.getMillis());
+        }
         screen.setQueuePreview(std::move(queuePreview));
 
         // The arrows move along the ground as the camera faces; farther

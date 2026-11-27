@@ -148,8 +148,13 @@ Game", "Select A New Player", "Go Online", "Options", "Go to Coaster
 Design Kit", "Resume Game", "Quit Game" (768, 769, 774, 766, 770, 50, 771,
 772). The park's clock stops meanwhile. "Load Game" and "Save Game"
 open their windows ([saving.md](saving.md)), "Options" its
-([options.md](options.md)), "Resume Game" (or Esc) and "Quit Game" do
-as they say; the others are grey.
+([options.md](options.md)), "Resume Game" (or Esc) does as it says.
+"Select A New Player" and "Quit Game" ask first, in a box over the
+menu, laid out by guess, with the game's questions ("QUIT GAME / Are
+you sure you want to quit the game and return to Windows?", 773; 775),
+the tick going ahead and the cross or Esc going back
+([saving.md](saving.md)). "Go Online" and "Go to Coaster Design Kit"
+are grey.
 
 ## In Reluva
 
