@@ -100,12 +100,15 @@ constexpr int kMotionStepY = 220;
 /** What the player does, when (ms of the program's clock). */
 struct InputEvent {
     uint64_t at = 0;
-    enum class Kind { kMove, kMotion, kButton, kKey } kind = Kind::kMove;
+    enum class Kind { kMove, kMotion, kButton, kKey, kPoke } kind = Kind::kMove;
     // kMove: the pointer on the screen; kMotion: how far the mouse moves;
     // kButton: 0 left, 1 right; kKey: a virtual key
     int x = 0;
     int y = 0;
     bool down = false;
+    // kPoke: a 32-bit word written into the program's memory
+    uint32_t address = 0;
+    uint32_t value = 0;
 };
 
 // An input file's lines: `<ms> move <x> <y>`, `<ms> motion <dx> <dy>`
@@ -114,7 +117,9 @@ struct InputEvent {
 // `<ms> down [<x> <y>]` and `<ms> up [<x> <y>]` (the left button pressed
 // and let go, for a drag), `<ms> rclick [<x> <y>]` (the right button, as
 // click), `<ms> key <virtual key> [held ms]` (pressed, and released after
-// 100 ms or as long as said). '#' starts a comment.
+// 100 ms or as long as said), `<ms> poke <address> <value>` (a 32-bit
+// word written into the program's memory, to bring about a state the input
+// alone can't soon). '#' starts a comment.
 // A key's scan code, as a US keyboard gives it: 0x100 marks an extended
 // key (the grey arrows, Insert, the keypad's /), which Input.map tells
 // from the keypad's ("GreyRightArrow"). 0 for one not listed.
@@ -184,6 +189,11 @@ Error readInput(const std::filesystem::path &path, std::vector<InputEvent> &out)
                 hold = 100;
             out.push_back({at, InputEvent::Kind::kKey, a, 0, true});
             out.push_back({at + uint64_t(std::max(hold, 1)), InputEvent::Kind::kKey, a, 0, false});
+        } else if (std::string address, value; action == "poke" && words >> address >> value) {
+            InputEvent e{at, InputEvent::Kind::kPoke};
+            e.address = uint32_t(std::strtoul(address.c_str(), nullptr, 0));
+            e.value = uint32_t(std::strtoul(value.c_str(), nullptr, 0));
+            out.push_back(e);
         } else {
             return Error::fail(path.string() + ": line " + std::to_string(number) + " isn't understood");
         }
@@ -592,6 +602,12 @@ int cmdHost(int argc, char **argv) {
         }
         for (; nextInput < input.size() && input[nextInput].at <= now; ++nextInput) {
             const InputEvent &e = input[nextInput];
+            if (e.kind == InputEvent::Kind::kPoke) {
+                if (cpu->valid(e.address, 4))
+                    cpu->write32(e.address, e.value);
+                std::printf("input at %llu ms: poke %08x <- %08x\n", (unsigned long long)now, e.address, e.value);
+                continue;
+            }
             if (e.kind == InputEvent::Kind::kMove)
                 process.mouseMoveTo(e.x, e.y);
             else if (e.kind == InputEvent::Kind::kMotion)
