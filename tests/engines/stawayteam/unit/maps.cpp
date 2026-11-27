@@ -1156,7 +1156,8 @@ void testObjectives() {
 }
 
 void testEnemyAI() {
-    // A guard that sees Ann calls the guards about it to look where she is;
+    // A guard that sees Ann calls the guards about it to look where it is,
+    // itself its alert's instigator (0x42b8da);
     // its gun's set to stun. A guard to send after Bo, one that retreats to
     // its alarm when it's hurt, and their places.
     const auto guard = [](const std::string &name, int x, int y, float angle, const std::string &ai,
@@ -1242,11 +1243,11 @@ void testEnemyAI() {
             screen.update(now += 50);
     };
     // The guard sees Ann: its alert calls Guard 2, in its radius and named
-    // its Name Filter in full, any case, to look where she is, but not
+    // its Name Filter in full, any case, to look where it is, but not
     // Guard 3, out of it, nor Guard 4, named otherwise. Then
     // it shoots her with its stun gun: down, unhurt, and she can't walk.
     run(1000);
-    CHECK(enemies[1].state == "Investigate" && enemies[1].heardX == 350.0f && enemies[1].heardY == 500.0f);
+    CHECK(enemies[1].state == "Investigate" && enemies[1].heardX == 500.0f && enemies[1].heardY == 500.0f);
     CHECK(enemies[2].state == "Patrol" && enemies[3].state == "Patrol");
     const MapScreen::Officer &a = screen.officers()[0];
     CHECK(a.stunned > 0.0f && a.health == 100.0f && a.alive());
@@ -1256,7 +1257,7 @@ void testEnemyAI() {
     CHECK(a.x == 350.0f && a.y == 500.0f);
     // Bo shoots Guard 4 once, the bolt flying to it: at 75 of its 100 it
     // retreats, running to its Alarm Spot, sets off the alarm there and
-    // holds the place.
+    // waits, its health still under its Retreat At Percent (0x4300e0).
     screen.choose(1);
     screen.attack(3);
     run(2050);
@@ -1265,16 +1266,17 @@ void testEnemyAI() {
     CHECK(enemies[3].health == 75.0f && enemies[3].state == "Retreat");
     screen.order(300.0f, 150.0f);
     run(16000);
-    CHECK(enemies[3].retreated && enemies[3].state == "Attack" && enemies[3].x == 900.0f);
+    CHECK(enemies[3].retreated && enemies[3].state == "Retreat" && enemies[3].x == 900.0f);
     CHECK(screen.partState(5).active);
-    // Guard 3, sent after Bo, goes after him though it doesn't see him.
+    // Guard 3, sent after Bo: in its sight but past its Max Distance, it
+    // pursues him (0x42b069).
     TextObject message;
     CHECK(!readTextObject("CSendInvestigateTargetMessageAction\n{\n\tTarget=Guard 3\n}\n", message));
     screen.runAction(&message, 1);
     CHECK(enemies[2].state == "Attack" && enemies[2].target == 1);
     const float before = std::hypot(enemies[2].x - 300.0f, enemies[2].y - 150.0f);
     run(19000);
-    CHECK(enemies[2].state == "Attack" && enemies[2].walking && enemies[2].running);
+    CHECK(enemies[2].state == "Pursue" && enemies[2].walking && enemies[2].running);
     CHECK(std::hypot(enemies[2].x - 300.0f, enemies[2].y - 150.0f) < before - 50.0f);
 }
 

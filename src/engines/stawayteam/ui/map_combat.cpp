@@ -403,13 +403,18 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
         partFell(e.part);
         return;
     }
-    // One that's Target If Hit turns on whoever hit it, and attacks; one
-    // hurt enough retreats. One taken over does as it's told.
+    // One that's Target If Hit, hit while it isn't attacking, turns to
+    // whoever hit it and goes to look where they are, its Investigate
+    // (0x4343db, 0x434432); one hurt enough retreats. One taken over does
+    // as it's told.
     if (int(enemy) == _melded)
         return;
-    if (attacker >= 0 && (readText(e.ai, "Target If Hit") == "1" || stun) && e.state != "Attack" &&
-        e.state != "Retreat")
-        attackOfficer(e, attacker);
+    if (attacker >= 0 && size_t(attacker) < _officers.size() && readText(e.ai, "Target If Hit") == "1" &&
+        e.state != "Attack" && e.state != "Retreat") {
+        const Officer &o = _officers[size_t(attacker)];
+        e.angle = std::atan2(o.y - e.y, e.x - o.x); // facing angle: 0 is left
+        investigate(e, o.x, o.y);
+    }
     maybeRetreat(e);
 }
 

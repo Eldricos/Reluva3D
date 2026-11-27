@@ -664,6 +664,8 @@ private:
     bool runItemProcess(size_t officer, float seconds);
     // Where part `part` stands: an enemy where it's got to.
     void placeOf(size_t part, float &x, float &y) const;
+    // Its Got a Target state's choice, made at once (map_enemies.cpp).
+    void gotATarget(Enemy &e);
     // `e` goes after officer `officer`: attacking, its Attack's Start Action run.
     void attackOfficer(Enemy &e, int officer);
     // Walks `e` along its route; true once it's at its end.
@@ -681,6 +683,10 @@ private:
     // Turns `e` towards `angle` at `degreesPerSecond`; true there.
     bool turnTo(Enemy &e, float angle, float degreesPerSecond, float seconds);
     bool sees(const Enemy &e, const Officer &o) const;
+    // Whether `o` is in `e`'s cone and in sight, at any distance, and not
+    // hidden by a cloak: what attacking and pursuing look at (0x434e20,
+    // 0x434e90).
+    bool inView(const Enemy &e, const Officer &o) const;
     // The nearest officer it sees, or -1.
     int closestSeen(const Enemy &e) const;
     // An enemy's Max Distance where its AI gives none (0x5dd316).

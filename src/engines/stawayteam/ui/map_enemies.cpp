@@ -129,6 +129,15 @@ bool MapScreen::sees(const Enemy &e, const Officer &o) const {
     return seesPoint(e, o.x, o.y);
 }
 
+bool MapScreen::inView(const Enemy &e, const Officer &o) const {
+    if (o.opacity <= kSeenOpacity)
+        return false;
+    const float half = number(e.ai, "Vision Cone", 125.0f) / 2.0f * kPi / 180.0f;
+    if (half > 0.0f && half < kPi && std::abs(wrap(angleOf(o.x - e.x, o.y - e.y) - e.angle)) > half)
+        return false;
+    return clearSight(e.x, e.y, o.x, o.y);
+}
+
 int MapScreen::closestSeen(const Enemy &e) const {
     // Of those it sees, the nearest (CEntityBehaviorStateSetClosestTarget,
     // 0x4fe710).
@@ -342,6 +351,27 @@ void MapScreen::placeOf(size_t part, float &x, float &y) const {
     y = enemy != _enemyOfPart.end() ? _enemies[enemy->second].y : _map.parts[part].y;
 }
 
+void MapScreen::gotATarget(Enemy &e) {
+    // Its Acquired a Target, mostly Attack, with a target alive, in its
+    // cone and in sight, and its reaction time over; else its Default
+    // (0x42e1d0).
+    const TextObject *got = e.ai->object("GotATarget");
+    const bool acquired = e.target >= 0 && size_t(e.target) < _officers.size() &&
+                          sees(e, _officers[size_t(e.target)]) && e.reaction <= 0.0f;
+    std::string next = stateKey(got ? readText(got, acquired ? "Acquired a Target" : "Default") : std::string());
+    if (next.empty())
+        next = acquired ? "Attack" : "Patrol";
+    if (next == "Attack" && acquired) {
+        attackOfficer(e, e.target);
+        return;
+    }
+    e.target = -1;
+    if (next == "Investigate")
+        investigate(e, e.seenX, e.seenY);
+    else
+        setState(e, next == "Alert" || next == "Attack" ? "Patrol" : next);
+}
+
 void MapScreen::attackOfficer(Enemy &e, int officer) {
     const Officer &o = _officers[size_t(officer)];
     e.target = officer;
@@ -392,17 +422,19 @@ std::string MapScreen::stateKey(const std::string &name) {
 
 void MapScreen::setState(Enemy &e, const std::string &to) {
     // The state left's End Action, the transitions from it to the new one,
-    // then the new one's Start Action, its target the instigator
-    // (0x4348d9). A transition fires Every Time, or once: First Time for
-    // good, Once Per New Target till the target changes (0x426550,
-    // 0x4352d9).
+    // then the new one's Start Action (0x4348d9): the enemy their $Trigger,
+    // and the states' actions' instigator too (0x42b8da, 0x426978); the
+    // transitions', its target, or itself without one (0x426561). A
+    // transition fires Every Time, or once: First Time for good, Once Per
+    // New Target till the target changes (0x426550, 0x4352d9).
     const std::string from = e.state;
     const std::string next = stateKey(to);
     if (from == next)
         return;
     const int self = int(e.part);
+    const int itself = kEnemyInstigator - int(&e - _enemies.data());
     if (const TextObject *old = e.ai->object(from))
-        runAction(old->object("End Action"), e.target, self);
+        runAction(old->object("End Action"), itself, self);
     e.state = next;
     e.stateTime = 0.0f;
     const TextObject *holder = e.ai->object("Transitions");
@@ -422,12 +454,12 @@ void MapScreen::setState(Enemy &e, const std::string &to) {
         if (when == "Once Per New Target" && fired.first && fired.second == e.target)
             continue;
         fired = {true, e.target};
-        runAction(t->object("Action"), e.target, self);
+        runAction(t->object("Action"), e.target >= 0 ? e.target : itself, self);
         if (e.state != next)
             return;
     }
     if (const TextObject *now = e.ai->object(next))
-        runAction(now->object("Start Action"), e.target, self);
+        runAction(now->object("Start Action"), itself, self);
 }
 
 bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int trigger) {
@@ -670,7 +702,15 @@ void MapScreen::updateEnemies(float seconds) {
                 e.target = seen;
                 e.unseen = 0.0f;
                 e.route.clear();
-                setState(e, "Alert");
+                // On patrol, alerted (0x4297b5); looking about or doing
+                // something, straight to Got a Target (0x42ed60, 0x4310ae).
+                if (e.state == "Patrol" || e.state == "Recharge") {
+                    setState(e, "Alert");
+                } else {
+                    e.seenX = _officers[size_t(seen)].x;
+                    e.seenY = _officers[size_t(seen)].y;
+                    gotATarget(e);
+                }
             }
         }
         // Hearing the team, one on patrol goes to look, or looks again
@@ -788,78 +828,83 @@ void MapScreen::updateEnemies(float seconds) {
             continue;
         }
         if (e.state == "Retreat") {
-            // There, its GoTo's Done action, and it holds the place, still
-            // fighting (inferred).
-            if (followRoute(e, seconds, runs(e, "Retreat"))) {
+            // Its Retreat AI while its health's at most its Retreat At
+            // Percent, and nothing else: there, its GoTo's Done action, and it
+            // waits; healed past it, it goes to look where its target was
+            // (0x4300e0).
+            const float percent = float(e.ai->integer("Retreat At Percent").value_or(0));
+            if (e.health > e.maxHealth * percent / 100.0f) {
+                e.target = -1;
+                investigate(e, e.seenX, e.seenY);
+                continue;
+            }
+            if (!e.retreated && followRoute(e, seconds, runs(e, "Retreat"))) {
                 const TextObject *retreat = states->object("Retreat");
                 const TextObject *goTo = retreat ? retreat->object("Retreat AI") : nullptr;
                 e.retreated = true;
                 runAction(goTo ? goTo->object("Done action") : nullptr, e.target, self);
-                setState(e, "Attack");
             }
             continue;
         }
-        if ((e.state != "Alert" && e.state != "Attack") || e.target < 0)
+        if ((e.state != "Alert" && e.state != "Attack" && e.state != "Pursue") || e.target < 0)
             continue;
         const Officer &o = _officers[size_t(e.target)];
-        const bool seen = sees(e, o);
+        // Attacking and pursuing, the target's seen in its cone and in sight
+        // at any distance (0x434e20, 0x434e90), as long as it's there and
+        // not dead (0x4350c0).
+        const bool valid = o.alive() && o.present && inCategory("Player,Team Member", e.validTargets);
+        const bool seen = valid && inView(e, o);
         if (seen) {
             e.seenX = o.x;
             e.seenY = o.y;
             e.route.clear();
         }
         e.unseen = seen ? 0.0f : e.unseen + seconds;
-        // Out of sight, an attacker whose Pursue AI chases goes after them
-        // by the waypoints to where it saw them last; it gives up there, or
-        // with nowhere to go, once it's not seen them for a while
-        // (inferred).
-        const TextObject *pursue = states->object("Pursue");
-        const TextObject *chase = pursue ? pursue->object("Pursue AI") : nullptr;
-        const bool chases = chase && chase->className == "CChasePursueAI" && !e.retreated;
-        bool arrived = true;
-        if (!seen && e.state == "Attack" && chases) {
-            if (e.route.empty() && std::hypot(e.seenX - e.x, e.seenY - e.y) > 1.0f)
-                e.route = route(e, e.seenX, e.seenY);
-            arrived = followRoute(e, seconds, runs(e, "Pursue"));
-            if (arrived) {
-                e.seenX = e.x;
-                e.seenY = e.y;
+        if (e.state == "Attack" || e.state == "Pursue") {
+            // Not seen, or its reaction time not over: Lost a Target, whose
+            // Had a Target (its place, where they were seen last) is mostly
+            // Investigate (0x42afcc, 0x42b9a0, 0x42d970).
+            if (!seen || e.reaction > 0.0f) {
+                const TextObject *lost = states->object("LostATarget");
+                const std::string next = stateKey(lost ? readText(lost, "Had a Target") : std::string());
+                e.target = -1;
+                e.route.clear();
+                if (next == "Investigate")
+                    investigate(e, e.seenX, e.seenY);
+                else
+                    setState(e, next.empty() || next == "Attack" || next == "Pursue" ? "Patrol" : next);
+                continue;
             }
-        } else {
-            turnTo(e, angleOf(o.x - e.x, o.y - e.y), kTurnSpeed, seconds);
+            // Further than its Max Distance it pursues them, at its Pursue's
+            // pace, till they're within it again, then attacks (0x42b069,
+            // 0x42ba78); one holding a retreat's place stays (inferred).
+            const float sight = number(e.ai, "Max Distance", kSightDefault);
+            const float distance = std::hypot(o.x - e.x, o.y - e.y);
+            if (e.state == "Attack" && distance > sight && !e.retreated) {
+                setState(e, "Pursue");
+                continue;
+            }
+            if (e.state == "Pursue") {
+                if (distance <= sight)
+                    setState(e, "Attack");
+                else
+                    walkTo(e, o.x, o.y, 1.0f, seconds, runs(e, "Pursue"));
+                continue;
+            }
         }
-        if ((e.unseen > kForgetAfter && arrived) || o.down()) {
-            // Lost: its LostATarget's Had a Target, mostly Investigate,
-            // looking about where it saw them last; else back to its patrol
-            // where it left off (inferred: the choice's use isn't traced).
-            const TextObject *lost = states->object("LostATarget");
-            const std::string next = lost ? readText(lost, "Had a Target") : std::string("Patrol");
-            e.target = -1;
-            e.route.clear();
-            if (stateKey(next) == "Investigate" && !o.down())
-                investigate(e, e.seenX, e.seenY);
-            else
-                setState(e, stateKey(next) == "Attack" || next.empty() ? "Patrol" : next);
-            continue;
-        }
+        turnTo(e, angleOf(o.x - e.x, o.y - e.y), kTurnSpeed, seconds);
         // Alert Time over, its Next State (0x42a189): mostly Got a Target,
         // which goes to its Acquired a Target, mostly Attack, with a target
         // alive, in its cone and in sight, and its reaction time over; else
         // to its Default (0x42e1d0).
         const TextObject *alert = states->object("Alert");
         if (e.state == "Alert" && e.stateTime >= number(alert, "Alert Time", 2.0f)) {
-            std::string next = stateKey(alert ? readText(alert, "Next State") : std::string());
+            const std::string next = stateKey(alert ? readText(alert, "Next State") : std::string());
             if (next.empty() || next == "GotATarget") {
-                const TextObject *got = states->object("GotATarget");
-                const bool acquired = e.target >= 0 && size_t(e.target) < _officers.size() &&
-                                      !_officers[size_t(e.target)].down() && sees(e, _officers[size_t(e.target)]) &&
-                                      e.reaction <= 0.0f;
-                next = stateKey(got ? readText(got, acquired ? "Acquired a Target" : "Default")
-                                    : std::string(acquired ? "Attack" : "Patrol"));
-                if (next.empty())
-                    next = acquired ? "Attack" : "Patrol";
-            }
-            if (next.empty() || next == "Attack") {
+                gotATarget(e);
+                if (e.state != "Attack")
+                    continue;
+            } else if (next == "Attack") {
                 attackOfficer(e, e.target);
             } else if (next == "Investigate") {
                 e.target = -1;

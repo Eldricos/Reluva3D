@@ -711,6 +711,28 @@ In all the maps' 776 enemies:
   a body's place, `Had a Target` with another, else `Default`. `Lost a
   Target` (`0x42d970`) goes to `Had a Target` with a place, else
   `Default`. Investigate goes to the place.
+- **Attacking** (`0x42af70`): its target, there, not dead (its sequence
+  not `Dead`, `0x4350c0`) and of its Valid Targets, in its cone and in
+  sight at any distance (`0x434e20`, `0x434e90`) and its reaction time
+  over, or else Lost a Target; the target further than its Max Distance
+  (`+0xbc`), Pursue (`0x42b069`); else its Attack AI, after the Run Away
+  rule below. A target stunned is still one.
+- **Pursuing** (`0x42b9a0`): the same test (`0x435120`), or else Lost a
+  Target; within its Max Distance again, Attack (`0x42ba78`); else its
+  Pursue AI, chasing them.
+- **Retreating** (`0x4300e0`): its Retreat AI, and nothing else, while
+  its health's at most its `Retreat At Percent`; healed past it,
+  Investigate. There, a `CGoToAI`'s Done action is run once, and it
+  waits: it doesn't fight.
+- **Seeing a target** in a calm state: on patrol, Alert (`0x4297b5`);
+  investigating, looking at a body or doing something (`0x42ec80`,
+  `0x42f850`, `0x430f10`), straight to Got a Target (`0x42ed60`,
+  `0x42f947`, `0x4310ae`), facing them, their place taken. Doing
+  something and Investigate Sounds, a noise heard does the same, its
+  place the noise's.
+- **Hit** (`0x4343db`): one whose `Target If Hit` is set, hit while it
+  isn't attacking, turns to whoever hit it, takes where they are as its
+  place (`0x4352a0`) and goes to Investigate (`0x434432`).
 - **Bodies** are seen on patrol and alerted (`0x4295db`, `0x42a550`):
   a candidate its targeting turns up, in its sight and reach, that's a
   dead walker or not a target, of the game's dead bodies' category,
@@ -736,7 +758,10 @@ In all the maps' 776 enemies:
   next runs: the state left's exit (its `End Action`), then each
   transition from it to the new one not done (`0x426550`), then the new
   state's entry (its `Start Action`), the new one keeping the old as its
-  `Last State`. A transition `Every Time` fires each time; one `First
+  `Last State`. The states' actions are run with the enemy as both
+  `$Trigger` and instigator (`0x42b8da`, `0x426978`); a transition's
+  with its target as instigator, or the enemy itself without one
+  (`0x426561`, `0x4265cf`). A transition `Every Time` fires each time; one `First
   Time` or `Once Per New Target` is done once fired, the second made
   ready again whenever the enemy's target changes (`0x4352d9`). Every
   matching transition fires, in their order.
@@ -1098,16 +1123,16 @@ the Vision Cone either side of their facing, as the program finds it,
 and nothing standing full height between *(inferred)*), alerted: the Alert's Start Action, turning to them, and after
 Alert Time its Next State, through GotATarget's Acquired a Target for
 Got a Target *(inferred)*: mostly attacking, the Attack's Start Action,
-facing them; their
-target fallen or stunned, or out of sight five seconds with nowhere left
-to go after them, back to the patrol *(inferred)*. Attacking, one whose
-Pursue AI chases goes after a target out of sight by the waypoints to
-where it saw them last, at a run with its Pursue's Move Mode Run, and
-straight at one it sees out of its weapon's range *(inferred)*. Hurt to
+facing them; attacking and pursuing as above, a target out of its cone
+or sight lost at once, to its Lost a Target's Had a Target, mostly
+looking where they were seen last; one seen past its Max Distance
+pursued at its Pursue's pace, straight at them; one seen out of its
+weapon's range, but within its Max Distance, walked toward
+*(inferred)*. Hurt to
 its Retreat At Percent, one whose Retreat AI goes somewhere runs there by
-the waypoints, runs its Done action, and holds the place, fighting
-*(inferred)*. A state's actions have the enemy as their `$Trigger`, and
-the officer it's after as their instigator *(inferred)*.
+the waypoints, runs its Done action, and waits there, as above. A state's Start and End Actions have the enemy as both their
+`$Trigger` and their instigator; a transition's, the enemy as `$Trigger`
+and its target as instigator, or the enemy without one.
 
 Each change of an enemy's state runs the state left's End Action, the
 transitions that match it (Every Time; First Time once; Once Per New
@@ -1231,7 +1256,7 @@ to the target, Lateral Position across, Height up) to the target as high
 up *(inferred)*, as above, for its Shot Duration, fading *(inferred)*.
 A footstep plays its Default Sound where it has one (none do); the
 surfaces' sounds aren't looked up, none being given. An enemy
-hit runs its Damage Action, and with Target If Hit attacks whoever hit it;
+hit runs its Damage Action, and with Target If Hit, not attacking, goes to look where whoever hit it is;
 a weapon set to stun puts it down for the Stun Duration, then back on
 patrol, unless its Stun State is Attack, when it attacks *(inferred)*.
 An enemy's weapon set to stun puts an officer down for its Stun
@@ -1388,10 +1413,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **The triggers:** the order the program finds those in a touching
   trigger in (the last found is the one it holds), and the anything-,
   team- and every-touching triggers' own code, read from the maps' fields.
-- **The enemies:** likewise, the AIs' rules: when they pursue and give
-  up, what holding a retreat's place is, what `$Trigger` and the
-  instigator are in their states' actions, and how a radius's action
-  chooses whom it reaches.
+- **The enemies:** likewise, the AIs' rules: when an enemy first goes to Retreat, and
+  whether a stunned officer, still a target, is shot at.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
 - **Noise:** how the rings are drawn, and the investigating AI's rules.
