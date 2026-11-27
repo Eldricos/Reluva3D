@@ -26,7 +26,7 @@ std::string lower(std::string s) {
 void MapScreen::addEmitter(size_t part, const TextObject *ai) {
     if (ai->className != "CGenericParticleSystemAI")
         return;
-    Emitter e{part, ParticleSystem(*ai, uint32_t(part) * 2654435761u + uint32_t(_emitters.size()))};
+    Emitter e{part, ParticleSystem(*ai, uint32_t(part) * 2654435761u + uint32_t(_emitters.size())), ai};
     // A falling particle bounces by its model's Bounce Factor and Friction.
     for (size_t k = 0; k < e.system.kinds().size(); ++k) {
         ParticleSystem::Kind &kind = e.system.kind(k);

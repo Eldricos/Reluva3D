@@ -11,6 +11,7 @@
 #include "engines/stawayteam/formats/text_object.h"
 #include "engines/stawayteam/game/map.h"
 #include "engines/stawayteam/game/particles.h"
+#include "engines/stawayteam/game/state_io.h"
 #include "engines/stawayteam/game/objectives.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/game/team.h"
@@ -51,6 +52,11 @@ struct MissionProgress {
     std::vector<std::string> discover;   // items found, for the next briefing (CDiscoverInventoryNextBriefingAction)
     std::vector<std::string> discovered; // the items found before it, for CIsDiscoveredAction
 };
+
+/** A mission's progress saved, or read back (Reluva's saves): all but its objectives' file. */
+void stateOf(StateIo &s, MissionProgress &progress);
+/** An officer saved, or read back. */
+void stateOf(StateIo &s, TeamMember &member);
 
 /**
  * Officers sent to another of the mission's maps (`CStarTrekRelocateTeamAction`):
@@ -356,6 +362,7 @@ public:
     struct Emitter {
         size_t part;
         ParticleSystem system;
+        const TextObject *ai = nullptr; // the system's
     };
     const std::vector<Emitter> &emitters() const { return _emitters; }
     /** The map as it is now: its parts' categories changed by the game among it. */
@@ -531,6 +538,25 @@ public:
     /** The mouse pointer's picture at `now`; nullptr for none. */
     const Animation::Picture *cursor(uint64_t now);
 
+    /**
+     * Its trees that what's saved points into, for `s` to write by: the
+     * map's, its models' and death behaviours' read so far, its items'.
+     * Each is named `prefix` and its own name.
+     */
+    void stateRoots(const std::string &prefix, StateIo &s);
+    /** One of those trees by its own name, read if it isn't yet; nullptr if there's none. */
+    const TextObject *stateRoot(const std::string &name);
+    /**
+     * The map as the game stands, saved to `s` or read back from it into
+     * the map as it's first opened (Reluva's saves): its parts, the team on
+     * it, the enemies, the triggers and all in flight. Its mission's
+     * progress is the maps' together, and saved apart (stateOf). Read back,
+     * the sounds playing aren't, and its windows are closed.
+     */
+    void state(StateIo &s);
+    /** The view as it's drawn now, at its size, without the windows over it. */
+    image::Image viewPicture();
+
 private:
     // What a ground value draws: a texture, and how much of the next one
     // over it (0-255) (0x538d20, the 16-bit table).
@@ -595,6 +621,8 @@ private:
     // Another enemy of its Valid Targets seen, it's alerted and fights
     // them; true while it does (map_enemies.cpp).
     bool fightFoe(size_t self, float seconds);
+    // A Death Behaviors file, kept; nullptr if it won't read.
+    const TextObject *deathBehaviors(const std::string &type);
     // A part's Death Behaviors, as it's killed: its body's process, its
     // categories (Death Behaviors/<its Default Death Type>).
     void runDeathBehaviors(size_t part, int instigator);
@@ -905,6 +933,7 @@ private:
     std::deque<Animation::Picture> _warpedPictures; // this frame's, kept while it's drawn
     // The info dialog.
     std::string _dialogText;
+    std::string _dialogSpeaker; // their icon's
     image::Image _dialogIcon;
     audio::SoundHandle _dialogVoice = audio::kNoSound;
     float _dialogLeft = 0.0f;

@@ -187,8 +187,12 @@ private:
     void updateNetScreens(uint64_t now);
     // The save or load screen opened, saving the mission's start.
     void openSaveScreen(SaveGameScreen::Mode mode);
-    // A saved game begun: its mission, from its briefing.
+    // A saved game begun: its maps as they were, or, a save without them,
+    // its mission from its briefing.
     void loadGame(const SaveGame &save);
+    // The mission as it stands, its maps and all, saved to `s` or read back
+    // from it (Reluva's own saves); false if it won't read.
+    bool gameState(StateIo &s);
 };
 
 } // namespace reluva::stawayteam

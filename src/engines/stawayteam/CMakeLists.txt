@@ -28,6 +28,7 @@ reluva_add_engine(stawayteam
         ui/save_menu.cpp
         ui/map_triggers.cpp
         ui/map_vision.cpp
+        ui/map_state.cpp
         ui/objectives_window.cpp
         ui/settings.cpp
         ui/sound_options.cpp
@@ -44,6 +45,7 @@ reluva_add_engine(stawayteam
         game/map.cpp
         game/netplay.cpp
         game/particles.cpp
+        game/state_io.cpp
         game/objectives.cpp
         game/team.cpp
         game/water_warp.cpp

@@ -813,6 +813,7 @@ void MapScreen::showDialog(const std::string &script, const std::string &line, c
         if (const std::string *text = rds.find(line))
             _dialogText = *text;
     }
+    _dialogSpeaker = speaker;
     _dialogIcon = cachePicture(_data, "Character/Character Icons/" + speaker);
     if (_mixer && _dialogVoice != audio::kNoSound)
         _mixer->stop(_dialogVoice);

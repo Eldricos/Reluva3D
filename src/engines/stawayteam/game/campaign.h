@@ -6,6 +6,7 @@
 #include "common/types.h"
 #include "engines/stawayteam/game/objectives.h"
 #include "engines/stawayteam/game/team.h"
+#include "image/image.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -43,21 +44,28 @@ std::vector<std::string> foundByScore(const std::map<std::string, ItemDefinition
 
 /**
  * A game saved: its name, when (seconds since 1970), the mission's name as
- * shown, and the campaign as the mission began (Reluva saves the mission's
- * start, not the map as it stands).
+ * shown, the campaign as the mission began, the game as it stands in it,
+ * and a picture of the map then.
  */
 struct SaveGame {
     std::string name;
     int64_t savedAt = 0;
     std::string missionName;
     Campaign campaign;
+    std::vector<uint8_t> state; // the maps as they stand (Reluva's own); empty: from the mission's start
+    image::Image picture;
 };
 
-/** Writes a save to `path`, in Reluva's own text. */
+/**
+ * Writes a save to `path`, in Reluva's own text; its state and picture
+ * beside it, as `.state` and `.png`.
+ */
 Error writeSaveGame(const std::filesystem::path &path, const SaveGame &save);
-/** Reads one written by writeSaveGame. */
-Error readSaveGame(const std::filesystem::path &path, SaveGame &out);
-/** The saves in `folder` (its `*.sav`), newest first. */
+/** Reads one written by writeSaveGame, its state only `withState`: it's large. */
+Error readSaveGame(const std::filesystem::path &path, SaveGame &out, bool withState = false);
+/** Deletes a save and what's beside it. */
+void removeSaveGame(const std::filesystem::path &path);
+/** The saves in `folder` (its `*.sav`), newest first, without their states. */
 std::vector<std::pair<std::filesystem::path, SaveGame>> listSaveGames(const std::filesystem::path &folder);
 
 } // namespace reluva::stawayteam

@@ -426,6 +426,67 @@ void testEnemies() {
     CHECK(screen.enemies()[0].state == "Attack" && screen.enemies()[0].target == 0);
 }
 
+void testSavedMap() {
+    // A guard partway along its route saved, and read back into the map
+    // as it's first opened: the same to the byte, saved again, and going
+    // on the same as the one saved.
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=900.000000,900.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n"
+                            "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Guard\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+                            "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n"
+                            "\t\t\t\t\tPatrol=CBorgStatePatrol\n\t\t\t\t\t{\n\t\t\t\t\t\tPatrol AI=CFollowPathAI\n"
+                            "\t\t\t\t\t\t{\n\t\t\t\t\t\t\tPath Poly=Route\n\t\t\t\t\t\t\tOrder=Go To End\n"
+                            "\t\t\t\t\t\t}\n\t\t\t\t\t}\n"
+                            "\t\t\t\t\tMax Distance=100\n\t\t\t\t\tVision Cone=90\n\t\t\t\t\tCurrent State=Patrol\n"
+                            "\t\t\t\t}\n\t\t\t}\n"
+                            "\t\t\tModel=Characters/Guard\n\t\t\tPosition X=500\n\t\t\tPosition Y=500\n\t\t}\n"
+                            "\t\tLevel Part=CFreeRangePoly\n\t\t{\n\t\t\tName=Route\n\t\t\tVisible=1\n"
+                            "\t\t\tPolygon=500, 500, 300, 500\n\t\t}\n"
+                            "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember officer;
+    officer.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {officer});
+    screen.update(1000);
+    screen.update(2000);
+    screen.order(700.0f, 800.0f);
+    screen.update(2500);
+    StateIo out;
+    screen.stateRoots("Test|", out);
+    screen.state(out);
+    CHECK(out.missed() == 0);
+
+    MapScreen back(data, rules, map, options, 2500, {officer}, {}, nullptr, true);
+    StateIo in(out.data(), [&](const std::string &name) -> const TextObject * {
+        return name.starts_with("Test|") ? back.stateRoot(name.substr(5)) : nullptr;
+    });
+    back.state(in);
+    CHECK(!in.failed());
+    StateIo again;
+    back.stateRoots("Test|", again);
+    back.state(again);
+    CHECK(again.data() == out.data());
+    CHECK(back.enemies()[0].x == screen.enemies()[0].x && back.officers()[0].present &&
+          back.officers()[0].path == screen.officers()[0].path);
+    screen.update(3500);
+    back.update(3500);
+    CHECK(back.enemies()[0].x == screen.enemies()[0].x && back.officers()[0].x == screen.officers()[0].x &&
+          back.officers()[0].y == screen.officers()[0].y);
+    // Something cut short fails.
+    StateIo cut(std::vector<uint8_t>(out.data().begin(), out.data().begin() + 100), {});
+    MapScreen spoilt(data, rules, map, options, 2500, {officer}, {}, nullptr, true);
+    spoilt.state(cut);
+    CHECK(cut.failed());
+}
+
 void testDrawingOrder() {
     // A red wall at (100, 100) cut at its middle, its right strip sorted
     // 100 further down; a blue crate standing at (100, 150) lifted 50 by its
@@ -3154,6 +3215,7 @@ static const reluva::test::Suite
                {"scripts", [](const std::filesystem::path &) { testScripts(); }},
                {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
                {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
+               {"saved map", [](const std::filesystem::path &) { testSavedMap(); }},
                {"closest", [](const std::filesystem::path &) { testClosest(); }},
                {"foes", [](const std::filesystem::path &) { testFoes(); }},
                {"hostage", [](const std::filesystem::path &) { testHostage(); }},

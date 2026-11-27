@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 
 namespace reluva::stawayteam {
@@ -29,6 +30,20 @@ SaveGameScreen::SaveGameScreen(const Archive &data, const TextObject &rules, Mod
     : _data(data), _rules(rules),
       _def(menuDefinition(rules, mode == Mode::kSave ? "Save Game Screen" : "Load Game Screen")), _mode(mode),
       _folder(std::move(folder)), _toSave(std::move(toSave)), _name(_toSave.name) {
+    // The map's view shrunk to Image Width, as tall as keeps its shape:
+    // the picture shown, and saved with it (0x5551ab).
+    const image::Image &view = _toSave.picture;
+    const int width = std::max(1, int(_def ? _def->integer("Image Width").value_or(129) : 129));
+    if (view.w > 0 && view.h > 0) {
+        image::Image small;
+        small.w = width;
+        small.h = std::max(1, width * view.h / view.w);
+        small.rgba.resize(size_t(small.w) * size_t(small.h) * 4);
+        for (int y = 0; y < small.h; ++y)
+            for (int x = 0; x < small.w; ++x)
+                std::memcpy(small.pixel(x, y), view.pixel(x * view.w / small.w, y * view.h / small.h), 4);
+        _toSave.picture = std::move(small);
+    }
     const std::string screen = mode == Mode::kSave ? "Save Game" : "Load Game";
     _background = screenPicture(data, screen + "/Background");
     _overlay = screenPicture(data, "Load Game/Select Overlay");
@@ -96,8 +111,7 @@ SaveGameScreen::Choice SaveGameScreen::handleEvent(const Event &ev, audio::Mixer
             return Choice::kNone;
         _confirm.reset();
         if (*answer && _selected >= 0) {
-            std::error_code ec;
-            std::filesystem::remove(_saves[size_t(_selected)].first, ec);
+            removeSaveGame(_saves[size_t(_selected)].first);
             _selected = -1;
             refresh();
         }
@@ -137,7 +151,9 @@ SaveGameScreen::Choice SaveGameScreen::handleEvent(const Event &ev, audio::Mixer
         return Choice::kNone;
     }
     if (_mode == Mode::kLoad) {
-        _chosen = _saves[size_t(_selected)].second;
+        // Its state read now, being large.
+        if (readSaveGame(_saves[size_t(_selected)].first, _chosen, true))
+            return Choice::kNone;
         return Choice::kLoad;
     }
     // Saved over the one chosen if its name's kept, else a new one.
@@ -199,6 +215,13 @@ void SaveGameScreen::draw(Surface &screen, uint64_t now) {
         _font.draw(screen, sx, sy, _name + ((now / 500) % 2 ? "_" : ""));
     else if (shown)
         _font.draw(screen, sx, sy, shown->name);
+    // The map as it was saved, at Image Pos (0x5021f3).
+    if (shown && shown->picture.w > 0) {
+        int ix = 0;
+        int iy = 0;
+        readPoint(_def, "Image Pos", ix, iy);
+        image::blit(screen, shown->picture, ix, iy);
+    }
     if (shown) {
         int tx = 0;
         int ty = 0;

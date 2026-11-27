@@ -425,14 +425,7 @@ bool MapScreen::runGadgetAction(const TextObject *action, int instigator, int tr
     return true;
 }
 
-void MapScreen::runDeathBehaviors(size_t part, int instigator) {
-    // Its Default Death Type's CEntityBehaviorExecuteActions' actions, the
-    // part their $trigger: a Klingon's gives its body a process for the
-    // Teleportation Brig Controller and makes it Dead Bodies (inferred: the
-    // other behaviours, its sequences, are the combat's).
-    const std::string &type = _map.parts[part].deathType;
-    if (type.empty() || type == "!None")
-        return;
+const TextObject *MapScreen::deathBehaviors(const std::string &type) {
     auto it = _deathBehaviors.find(type);
     if (it == _deathBehaviors.end()) {
         std::unique_ptr<TextObject> object;
@@ -444,9 +437,21 @@ void MapScreen::runDeathBehaviors(size_t part, int instigator) {
         }
         it = _deathBehaviors.emplace(type, std::move(object)).first;
     }
-    if (!it->second)
+    return it->second.get();
+}
+
+void MapScreen::runDeathBehaviors(size_t part, int instigator) {
+    // Its Default Death Type's CEntityBehaviorExecuteActions' actions, the
+    // part their $trigger: a Klingon's gives its body a process for the
+    // Teleportation Brig Controller and makes it Dead Bodies (inferred: the
+    // other behaviours, its sequences, are the combat's).
+    const std::string &type = _map.parts[part].deathType;
+    if (type.empty() || type == "!None")
         return;
-    for (const TextField &f : it->second->fields)
+    const TextObject *behaviors = deathBehaviors(type);
+    if (!behaviors)
+        return;
+    for (const TextField &f : behaviors->fields)
         if (f.key == "Death Behaviors" && f.object && f.value == "CEntityBehaviorExecuteAction")
             runAction(f.object->object("Action"), instigator, int(part));
 }

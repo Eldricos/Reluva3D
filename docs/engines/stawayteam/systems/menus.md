@@ -533,6 +533,13 @@ Game/Background`:
   Size`; loading, the chosen one's at `Static Pos`; its time at `Time
   Pos`, `Time Size` ("Total Game Time"); a picture at `Image Pos`,
   `Image Width` (129); loading, `GameInfo Pos`.
+- **The picture:** the save screen takes a copy of the map's view as it
+  opens, shrunk to `Image Width` across and as many down as keep the
+  view's shape (`0x5550ef`, `0x5551ab`); saving writes a `<name>.DSC`
+  and the picture under the same name beside it (`0x5c7ac0`,
+  `0x5c7c25`, `0x5c7c97`). The load screen reads the chosen save's (`0x502626` to
+  `0x502675`), and both draw it at `Image Pos` (464, 76; `0x5021f3` to
+  `0x50220d`).
 - **Their words:** "NO SAVE GAMES" with none (`0x5017a1`), and "Are you
   sure you want to delete this game?" (`0x5017b5`).
 - **The files:** `Save Games` (`0x501a4a`), each a `.sav`
@@ -588,14 +595,14 @@ Game/Background`:
   action, then keys, bind it as the game does, a key held before
   another with it; Esc while waiting gives up,
   Delete clears it; Delete or Backspace takes the chosen action's key
-  away; EXIT, Enter or Esc closes it. The bindings aren't used yet,
-  as there's no game to play. A slider
+  away; EXIT, Enter or Esc closes it. The maps take their keys from
+  the bindings, and a joystick's buttons too. A slider
   clicked takes the keys: Home, End, Left and Right. Play
   Network Game opens Choose Netgame ([network.md](network.md)).
 - **The toolkit's widgets:** `PictureButton`, `Toggle`, `Slider`,
   `CheckBox` and the frames' `drawBevel` (`ui/widgets.cpp`), as above, placed where the program's layout puts
   them, worked out by hand for each window. A picture button's click plays
-  `Button Action`; a toggle's plays nothing yet.
+  `Button Action`; a toggle's and a tab's change, `Button Switch`.
 
 - **Saved games:** `SaveGameScreen` (`ui/save_menu.cpp`), the screens as
   above, the list's rows a line of the menu's font each, the chosen one
@@ -608,8 +615,19 @@ Game/Background`:
   briefing's do ([briefing.md](briefing.md#the-screen)). Saves are Reluva's own
   (`game/campaign.cpp`), `.sav` files of text in `Save Games` where
   Reluva keeps the game's files: the mission, as it began, its score,
-  time and difficulty, and the items found. Loading one begins its
-  mission again from its briefing.
+  time and difficulty, and the items found. Beside each, the game as it
+  stands (`.state`) and the map's picture (`.png`, shrunk as the
+  game's, nearest pixel *(inferred)*), shown at Image Pos; DELETE GAME
+  deletes all three. The state (`game/state_io.cpp`, `ui/map_state.cpp`,
+  `MainMenu::gameState`) is each map opened, as `MapScreen::state` has
+  it: its parts, the team on it, the enemies, the triggers, what's in
+  flight and its particles; the mission's progress, the team it began
+  with, and the map shown. What points into the game's files (an AI, an
+  action) is saved as its file and its place there, object by object.
+  Loading one opens its maps again as they're first opened, without
+  their spawn actions, and reads it back over them: the voices playing
+  and the windows open aren't kept. A save without it (or one that won't
+  read) begins its mission again from its briefing.
 
 ## Sources and checks
 

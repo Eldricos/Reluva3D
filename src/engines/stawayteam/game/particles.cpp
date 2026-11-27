@@ -154,6 +154,27 @@ void ParticleSystem::turn(bool on) {
         restart();
 }
 
+void ParticleSystem::state(StateIo &s) {
+    s.list(_particles, [&](Particle &p) {
+        s.io(p.kind);
+        for (float *f : {&p.u, &p.v, &p.z, &p.vu, &p.vv, &p.vz, &p.age, &p.life, &p.omega})
+            s.io(*f);
+    });
+    for (Envelope *e :
+         {&_outerCone, &_innerCone, &_faceAngle, &_trajectory, &_speed, &_age, &_inside, &_outside, &_length}) {
+        s.io(e->value);
+        s.io(e->direction);
+        s.io(e->toEnd);
+    }
+    s.io(_enabled);
+    s.io(_bursts);
+    s.io(_rate);
+    s.io(_made);
+    s.io(_lastMade);
+    s.io(_lastMost);
+    s.io(_random);
+}
+
 float ParticleSystem::random(float low, float high) {
     _random = _random * 1103515245u + 12345u;
     const float t = float((_random >> 8) & 0xffffff) / float(0xffffff);

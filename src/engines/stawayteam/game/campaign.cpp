@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 
 namespace reluva::stawayteam {
@@ -61,10 +62,37 @@ Error writeSaveGame(const std::filesystem::path &path, const SaveGame &save) {
     if (!file)
         return Error::fail("can't write " + path.string());
     file << out.str();
-    return file ? Error::success() : Error::fail("can't write " + path.string());
+    if (!file)
+        return Error::fail("can't write " + path.string());
+    // What's beside it: none left of a save written over.
+    const auto beside = [&](const char *extension, const std::vector<uint8_t> &bytes) {
+        std::filesystem::path to = path;
+        to.replace_extension(extension);
+        if (bytes.empty()) {
+            std::filesystem::remove(to, ec);
+            return true;
+        }
+        std::ofstream f(to, std::ios::binary);
+        f.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
+        return bool(f);
+    };
+    if (!beside(".state", save.state) ||
+        !beside(".png", save.picture.w > 0 ? image::encodePng(save.picture) : std::vector<uint8_t>{}))
+        return Error::fail("can't write beside " + path.string());
+    return Error::success();
 }
 
-Error readSaveGame(const std::filesystem::path &path, SaveGame &out) {
+void removeSaveGame(const std::filesystem::path &path) {
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    for (const char *extension : {".state", ".png"}) {
+        std::filesystem::path beside = path;
+        beside.replace_extension(extension);
+        std::filesystem::remove(beside, ec);
+    }
+}
+
+Error readSaveGame(const std::filesystem::path &path, SaveGame &out, bool withState) {
     std::ifstream file(path, std::ios::binary);
     std::string line;
     if (!file || !std::getline(file, line) || line != kMagic)
@@ -99,6 +127,18 @@ Error readSaveGame(const std::filesystem::path &path, SaveGame &out) {
     }
     if (out.campaign.mission < 1)
         return Error::fail(path.string() + " has no mission");
+    const auto beside = [&](const char *extension, std::vector<uint8_t> &bytes) {
+        std::filesystem::path from = path;
+        from.replace_extension(extension);
+        std::ifstream f(from, std::ios::binary);
+        bytes.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    };
+    std::vector<uint8_t> png;
+    beside(".png", png);
+    if (!png.empty())
+        (void)image::decode(png, out.picture);
+    if (withState)
+        beside(".state", out.state);
     return Error::success();
 }
 

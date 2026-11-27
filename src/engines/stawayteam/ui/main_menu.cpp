@@ -540,15 +540,24 @@ void MainMenu::playMissionMusic() {
 }
 
 void MainMenu::openSaveScreen(SaveGameScreen::Mode mode) {
-    // What's saved is the mission as it began: loaded, it starts again
-    // from its briefing (Reluva's own saves; the game's are of the map as
-    // it stands).
+    // What's saved is the mission as it stands, its maps and all, and a
+    // picture of the one shown; and the mission as it began, its score
+    // and time.
     SaveGame save;
     char name[160];
     std::snprintf(name, sizeof name, "Mission %02d: %s", _mission.number, _mission.name.c_str());
     save.name = name;
     save.missionName = name;
     save.campaign = _missionStart;
+    if (_mapScreen && mode == SaveGameScreen::Mode::kSave) {
+        StateIo state;
+        if (gameState(state)) {
+            if (state.missed())
+                log::warning("Saving: %zu of the game's pointers are into nothing kept", state.missed());
+            save.state = state.data();
+            save.picture = _mapScreen->viewPicture();
+        }
+    }
     _saveScreen = std::make_unique<SaveGameScreen>(_data, _rules, mode, _saves, std::move(save));
     _sys.setTextInput(mode == SaveGameScreen::Mode::kSave);
 }
@@ -560,7 +569,88 @@ void MainMenu::loadGame(const SaveGame &save) {
     _debriefing.reset();
     _campaign = save.campaign;
     _difficulty = save.campaign.difficulty == int(Difficulty::kEasy) ? Difficulty::kEasy : Difficulty::kNormal;
+    if (!save.state.empty()) {
+        StateIo state(save.state, [this](const std::string &name) -> const TextObject * {
+            if (name == "rules")
+                return &_rules;
+            if (name == "mission")
+                return _maps.empty() ? nullptr : _maps.begin()->second->progress()->mission.manager.get();
+            const size_t bar = name.find('|');
+            const auto it = bar == std::string::npos ? _maps.end() : _maps.find(name.substr(0, bar));
+            return it == _maps.end() ? nullptr : it->second->stateRoot(name.substr(bar + 1));
+        });
+        if (gameState(state))
+            return;
+        log::warning("%s won't read; its mission starts again", save.name.c_str());
+        endMaps();
+        _campaign = save.campaign;
+    }
     beginMission(_campaign.mission);
+}
+
+namespace {
+
+// The version of what gameState writes.
+constexpr int kStateVersion = 1;
+
+void stateOf(StateIo &s, Campaign &c) {
+    s.io(c.mission);
+    s.io(c.score);
+    s.io(c.time);
+    s.io(c.difficulty);
+    s.io(c.discovered);
+    s.io(c.toDescribe);
+}
+
+} // namespace
+
+bool MainMenu::gameState(StateIo &s) {
+    if (!s.reading()) {
+        s.addRoot("rules", &_rules);
+        if (!_maps.empty())
+            s.addRoot("mission", _maps.begin()->second->progress()->mission.manager.get());
+        for (auto &[key, map] : _maps)
+            map->stateRoots(key + "|", s);
+    }
+    int version = kStateVersion;
+    s.io(version);
+    int mission = _mission.number;
+    s.io(mission);
+    if (s.reading() && (s.failed() || version != kStateVersion || loadMission(_data, mission, _mission)))
+        return false;
+    stateOf(s, _campaign);
+    stateOf(s, _missionStart);
+    s.io(_difficulty);
+    s.list(_missionTeam, [&](TeamMember &m) { stateOf(s, m); });
+    // The maps opened, by their names, and the one shown.
+    std::vector<std::string> names;
+    std::string shown;
+    for (auto &[key, map] : _maps) {
+        names.push_back(key);
+        if (map.get() == _mapScreen)
+            shown = key;
+    }
+    s.io(names);
+    s.io(shown);
+    if (s.reading()) {
+        endMaps();
+        for (const std::string &name : names)
+            if (s.failed() || !openMap(name, true))
+                return false;
+        if (_maps.empty() || !_maps.count(shown))
+            return false;
+        _maps.begin()->second->setObjectives(readMissionObjectives(_mission.objectives));
+    }
+    for (auto &[key, map] : _maps)
+        map->state(s);
+    if (!_maps.empty())
+        stateOf(s, *_maps.begin()->second->progress());
+    if (!s.reading())
+        return true;
+    if (s.failed())
+        return false;
+    showMap(_maps[shown].get());
+    return true;
 }
 
 void MainMenu::startGame() {

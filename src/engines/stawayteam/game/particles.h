@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/stawayteam/formats/text_object.h"
+#include "engines/stawayteam/game/state_io.h"
 
 #include <cstdint>
 #include <string>
@@ -118,6 +119,8 @@ public:
      * 0x524870). Off, it makes no more.
      */
     void turn(bool on);
+    /** What changes as it runs, saved or read back (Reluva's saves): not what it's read from. */
+    void state(StateIo &s);
 
     /** The map's foreshortening, the ground's Y To X Ratio (0x616fbc). */
     static constexpr float kYToX = 0.71276593f;

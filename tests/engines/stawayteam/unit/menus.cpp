@@ -737,6 +737,20 @@ void testCampaign(const std::filesystem::path &tmp) {
     CHECK(!writeSaveGame(folder / "b.sav", save));
     const auto saves = listSaveGames(folder);
     CHECK(saves.size() == 2 && saves[0].second.name == "Later");
+    // The game as it stands and its picture, beside it; its state read
+    // only when it's asked for; deleted with it.
+    save.state = {1, 2, 3};
+    save.picture.w = 2;
+    save.picture.h = 1;
+    save.picture.rgba = {255, 0, 0, 255, 0, 0, 255, 255};
+    CHECK(!writeSaveGame(folder / "c.sav", save));
+    CHECK(std::filesystem::exists(folder / "c.state") && std::filesystem::exists(folder / "c.png"));
+    CHECK(!readSaveGame(folder / "c.sav", back));
+    CHECK(back.state.empty() && back.picture.w == 2 && back.picture.rgba == save.picture.rgba);
+    CHECK(!readSaveGame(folder / "c.sav", back, true) && back.state == save.state);
+    removeSaveGame(folder / "c.sav");
+    CHECK(!std::filesystem::exists(folder / "c.sav") && !std::filesystem::exists(folder / "c.state") &&
+          !std::filesystem::exists(folder / "c.png"));
 }
 
 void testSaveScreen(const std::filesystem::path &tmp) {
@@ -755,6 +769,11 @@ void testSaveScreen(const std::filesystem::path &tmp) {
     SaveGame toSave;
     toSave.name = "Mission 03: The";
     toSave.campaign.mission = 3;
+    toSave.state = {7};
+    // The map's view, shrunk to Image Width (129), as tall as keeps its shape.
+    toSave.picture.w = 258;
+    toSave.picture.h = 194;
+    toSave.picture.rgba.assign(size_t(258) * 194 * 4, 200);
     // Saving: the name offered, typed on, saved by Enter.
     SaveGameScreen save(data, rules, SaveGameScreen::Mode::kSave, folder, toSave);
     Event typed;
@@ -768,7 +787,9 @@ void testSaveScreen(const std::filesystem::path &tmp) {
     // Loading: it's listed and chosen.
     SaveGameScreen load(data, rules, SaveGameScreen::Mode::kLoad, folder);
     CHECK(load.saves().size() == 1 && load.saves()[0].second.name == "Mission 03: The Tower");
-    CHECK(load.handleEvent(enter, nullptr) == SaveGameScreen::Choice::kLoad && load.chosen().campaign.mission == 3);
+    CHECK(load.saves()[0].second.picture.w == 129 && load.saves()[0].second.picture.h == 97);
+    CHECK(load.handleEvent(enter, nullptr) == SaveGameScreen::Choice::kLoad && load.chosen().campaign.mission == 3 &&
+          load.chosen().state == std::vector<uint8_t>{7});
 }
 
 void testEscapeMenu() {

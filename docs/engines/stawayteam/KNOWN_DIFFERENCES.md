@@ -35,9 +35,9 @@ None yet.
   the program's DirectPlay, so the original can't be met; there's no IPX;
   and the missions aren't played over the network yet: the lobby's
   countdown runs out in it ([systems/network.md](systems/network.md)).
-- **Saved games** are Reluva's own, not the game's: a save keeps the
-  mission as it began, and loading one starts that mission again from
-  its briefing; the save screens' picture isn't shown ([systems/menus.md](systems/menus.md#saved-games)).
+- **Saved games** are Reluva's own, not the game's, so neither reads the
+  other's; a voice-over playing as the game's saved isn't heard again
+  as it's loaded ([systems/menus.md](systems/menus.md#saved-games)).
 - **Keys' names** are Reluva's table of the US keyboard's, not what
   Windows gives for the player's own keyboard. A joystick's buttons work
   as bound, but its sticks do nothing
