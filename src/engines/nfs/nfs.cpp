@@ -82,7 +82,7 @@ public:
 
     // The settings the game reads (ui/play_page.cpp, makePlayPage), for
     // every NFS game and each: the first choice of each is what the
-    // engine does when it's set nowhere. The others (cdpath, serial, modem,
+    // engine does when it's set nowhere. The others (cdpath, serial, modem, broadcast,
     // wheelpedals, glidedll, glideboard) name things of the machine's, and
     // are set in reluva.ini.
     std::vector<GameOption> engineOptions() const override {

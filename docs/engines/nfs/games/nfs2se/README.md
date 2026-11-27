@@ -75,6 +75,26 @@ feedback plays once the wheel is the game's controller: in *options*,
 software with `glide=software`), the others its software one. `reluva-viewer
 <its name in the launcher>` shows its files.
 
+Two players race each other (*game setup*, *game type*) over:
+
+- **a serial link:** `serial=listen:2300` in one copy's section of
+  `reluva.ini` and `serial=<host>:2300` in the other's (an address or a
+  host name) make the link one TCP connection, across the internet as
+  well, the listening machine's port reachable (forwarded by its
+  router);
+- **a modem:** the same with `modem=`, the listening copy answering and
+  the other dialling any number;
+- **a network (IPX):** on the local network as it is. `broadcast=<host>`
+  (addresses or host names, by commas) sends the game's searches there
+  instead, for a machine outside it; the game addresses its packets by
+  each machine's own address, so across the internet the two need to
+  share a network, a VPN, rather than a router between them.
+
+Each player gives a name of their own (two alike, connecting at the
+same moment, give up: [research/network-play.md](research/network-play.md),
+Who hosts a link). `network=off` leaves the network out. Play between two
+machines hasn't been tried yet.
+
 ## This folder
 
 | Page | What's in it |

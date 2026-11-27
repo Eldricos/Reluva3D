@@ -69,6 +69,13 @@ public:
      */
     void setPositionalUpdates(bool on) { _positionalUpdates = on; }
     /**
+     * Where the game's IPX broadcasts go instead of the local network
+     * (reluva.ini's broadcast=: addresses or host names, by commas; the
+     * nfs host tool's -broadcast): for network play with machines outside
+     * it. Set before the page is first shown.
+     */
+    void setBroadcast(std::string to) { _broadcast = std::move(to); }
+    /**
      * The program to run: "nfs3.exe" unless set, from `file` if given (NFS
      * II SE's CD's), else from the install folder. Only NFS III's draws
      * through THRASH, so only it takes the GPU and the renderer settings.
@@ -134,6 +141,7 @@ private:
     // its COM ports' and modem's links (GameHost::Options)
     std::string _serial;
     std::string _modem;
+    std::string _broadcast;
     bool _fillMovies = true; // the black lines between a movie's filled in
     std::string _wheelPedals;
     std::string _keysLine = "Keys and mouse go to the game   Ctrl+F5: launcher";

@@ -3,6 +3,7 @@
 
 #include "engines/nfs/ui/play_page.h"
 
+#include "common/net.h"
 #include "graphics/glide/pipeline.h"
 #include "image/image.h"
 #include "engines/nfs/host/game_host.h"
@@ -265,6 +266,19 @@ void PlayPage::start() {
         options.sockets = _sys->sockets();
         options.serial = _serial;
         options.modem = _modem;
+        for (size_t at = 0; at < _broadcast.size();) {
+            size_t end = _broadcast.find(',', at);
+            if (end == std::string::npos)
+                end = _broadcast.size();
+            const std::string host = _broadcast.substr(at, end - at);
+            net::Address address;
+            uint32_t ip = 0;
+            if (net::parseAddress(host, 0, address))
+                options.broadcastTo.push_back(address.ip);
+            else if (!host.empty() && _sys->resolveHost(host, ip))
+                options.broadcastTo.push_back(ip);
+            at = end + 1;
+        }
     }
     // A controller connected now is offered to the game as a joystick (it
     // looks for them once, as it starts).
@@ -600,6 +614,7 @@ std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::fi
         setting("renderer") == "glide", setting("renderer") == "direct3d", setting("glide") == "software",
         setting("glidedll"), setting("glideboard"));
     play->setPositionalUpdates(setting("positionalupdates") == "on");
+    play->setBroadcast(setting("broadcast"));
     if (!program.empty()) {
         // By its name in lower case (the CD's is NFS2SEA.EXE); from where
         // it is unless that's the install.

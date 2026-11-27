@@ -63,7 +63,9 @@ accelerator and brake axes if they aren't found.
 
 Its network play (Connect Players,
 Network (TCP)) uses the machine's network, other players joining on TCP port 1030
-(`network=off` leaves it out); Network (IPX) works on the local network too.
+(`network=off` leaves it out); Network (IPX) works on the local network too, and
+`broadcast=<host>` (addresses or host names, by commas) sends its searches to
+machines outside it, such as over a VPN.
 `serial=listen:2300` on one machine and `serial=host:2300` on the other make
 Serial a link between them, and `modem=listen:2400` / `modem=host:2400` do the
 same for Modem (Answer and Dial). `positionalupdates=on` has network races use the
