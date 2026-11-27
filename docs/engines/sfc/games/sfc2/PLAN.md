@@ -144,7 +144,7 @@ on their pages in `formats/` and `systems/`.
     the game from its CDs, against records
     ([TESTING.md](TESTING.md#the-game-files-test)). The playthrough waits
     on a campaign that goes on past a loaded save; of the tutorials,
-    all but Science 310 are passed.
+    all six are passed.
 
 ## Decisions
 

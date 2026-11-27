@@ -262,7 +262,7 @@ frames instead, without red alert, kept changing the target before the
 phasers, never charged, could destroy one, and the course went on with
 nothing destroyed.
 
-The others, passed the same way, headless with `-fixed-clock` (frames
+The other five, passed the same way, headless with `-fixed-clock` (frames
 counted from the program's start, the course chosen at frame 2,800):
 
 - **Command 290, Intermediate Helm Controls** (Captain Wells): red alert
@@ -274,6 +274,21 @@ counted from the program's start, the course chosen at frame 2,800):
   the keypad's *, Z every 60 frames) once told to; firing before that is
   failing. "You have passed course Command 290 ... promoted to Acting
   Lieutenant Commander", 20 asteroids destroyed.
+- **Science 310, Science Station** (Captain Wells): no time limits but
+  the first, and firing fails it. Speed raised (S), the panel hidden and
+  shown again (D), the Science panel (183,55); a cargo box targeted (T)
+  and a probe launched at it (P), followed (the keypad's *), deep scans
+  on (I), speed 8 into the asteroid field; four presses of T at once
+  reach the next box past the ones already scanned (one press at a time
+  steered the ship into asteroids three times: their collisions end
+  the course); "This container holds starship repair parts". The
+  Transporter panel (12,280), the spare part under BEAM IN (150,428) and
+  ENERGIZE (62,380); a transporter mine laid; the Tractor Beam panel
+  (12,298), HOLD (52,403) and ENGAGE (57,381) on the box, then a click
+  on the 3D view's right to turn and S twice, pushing it into an
+  asteroid. "You have received a passing score in course Science 310",
+  at 18:01. Turning the other way, or faster, didn't end the course in
+  the time run.
 - **Weapons 380, Weapons Station** (Captain Sulu): each order waits to
   be followed. Red alert and speed 15; the blinking All Weapons button
   (the ship panel's corner, 187,341); Ctrl+3 to keep that group; the

@@ -62,9 +62,9 @@ Detection signatures (MD5 of each file's start, and its size, as
   lost, a mission forfeited; the Klingons' campaign's Monster; on
   2.0.3.6, a skirmish, the new Scan mission and a multiplayer battle
   ([systems/hosting.md](systems/hosting.md#its-missions)).
-- **Tutorials:** Command 190 and 290, Weapons 380, Weapons Advanced 480 and Command 590 passed
+- **Tutorials:** all six passed
   ([systems/hosting.md](systems/hosting.md#its-missions)).
-- **Not yet:** Science 310 passed; a multiplayer game between two physical machines (tried between
+- **Not yet:** a multiplayer game between two physical machines (tried between
   copies on one, each with a network and address of its own); a ship
   bought at a shipyard; the fields of the objects in `sprites.q3` past
   their kinds and names; data viewer pages for the settings and maps.
