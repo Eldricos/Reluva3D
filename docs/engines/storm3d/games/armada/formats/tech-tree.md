@@ -7,9 +7,9 @@
 A tech tree says what a player must have before building each unit. A
 map names its own in its header ([bzn.md](bzn.md)): the 20 maps in the
 install's `bzn` folder all name `tech1.tt`; the campaign's missions name
-their own (`fed1.tt`, `kling3.tt`...), and others are for particular
-games (`fulltech.tt`, where nothing needs anything; `nosuper.tt`,
-`scionly.tt`).
+their own (`fed1.tt`, `kling3.tt`...). A skirmish doesn't use the map's:
+the Game Setup's tech level chooses one of seven from `techlvl.odf`
+(below).
 
 ## Layout
 
@@ -29,6 +29,21 @@ fyard2.odf   2 fyard.odf fresear.odf
 
 ## Behaviour
 
+At a skirmish's launch (0x43ea06) the program reads `techlvl.odf`'s
+`techfile<level>`, the level the Game Setup's tech list holds (its
+setup's +0x64), `tech1.tt` if there's no such key, and gives that tree
+to every player *(from the code)*:
+
+| Level | The list says | `techlvl.odf` |
+|---|---|---|
+| 0 | Standard Tech | `tech1.tt` |
+| 1 | No Super Weapons | `nosuper.tt` |
+| 2 | No Science ships | `nosci.tt` |
+| 3 | No Special Weapons | `nospweap.tt` |
+| 4 | John's Special | `scionly.tt` |
+| 5 | Free Tech | `freetech.tt` |
+| 6 | Super Side Tech | `supersid.tt` |
+
 A unit is built only once its player has every unit its line names
 *(inferred)*. Against the original's menus with a skirmish's starting
 units (a starbase and two construction ships, [building.md](../systems/building.md)):
@@ -43,14 +58,16 @@ needs that yard.
 
 ## In Reluva
 
-`TechTree` reads one; a skirmish reads its map's, and its build menus
-light an item only when the player has all it needs
+`TechTree` reads one; a skirmish reads the one its tech level names in
+`techlvl.odf` (`MissionView::startSkirmish`), and its build menus light
+an item only when the player has all it needs
 (`MissionView::buildMenuOf`).
 
 ## Sources and checks
 
 - **Where the facts come from:** the 27 files themselves; the original's
-  build menus in a skirmish's first minutes.
+  build menus in a skirmish's first minutes; its launch's code for the
+  tech level (0x43ea06, the setup's level at 0x4ba8e0).
 - **How it was checked:** the unit tests (`storm3d.unit.play`) give it
   `tech1.tt`'s Federation lines and check the construction ship's menu
   as the original had it.
@@ -58,4 +75,3 @@ light an item only when the player has all it needs
 ## Open questions
 
 - Whether a unit under construction counts as had.
-- Whether the Game Setup's tech level chooses another tree.

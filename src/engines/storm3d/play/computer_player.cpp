@@ -65,4 +65,31 @@ std::optional<size_t> ComputerPlayer::nextOf(const std::vector<Element> &list,
     return std::nullopt;
 }
 
+std::optional<std::pair<float, float>> ComputerPlayer::siteNear(const std::function<bool(float dx, float dz)> &fits) {
+    int ring = 0;
+    int side = 0; // the ring's width in spots, less one
+    int column = 0;
+    int row = 0;
+    for (int tried = 0; tried < kSiteTries; ++tried) {
+        const float dx = float(column - ring) * kSiteStep;
+        const float dz = float(row - ring) * kSiteStep;
+        if (fits(dx, dz))
+            return std::pair{dx, dz};
+        // Between the first row and the last only the two ends are on the ring.
+        if (row != 0 && row != side && column <= 0)
+            column = side;
+        else if (++column > side) {
+            column = 0;
+            ++row;
+        }
+        if (row == side + 1) {
+            ++ring;
+            side += 2;
+            column = 0;
+            row = 0;
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace reluva::storm3d

@@ -5,6 +5,7 @@
 
 #include "engines/storm3d/formats/config_file.h"
 
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -33,8 +34,20 @@ public:
     struct Element {
         std::string type; // a definition: "fmining"
         int count = 0;    // how many more of it
-        int base = 0;     // for a station, which of its kind it's by: a mining station's moon, the nearest 1
+        int base = 0;     // for a station, which of its bases it goes by: 0 its starbase's, then moons
     };
+    /** How far apart the spots a station is tried at are (0x4182f0). */
+    static constexpr float kSiteStep = 65;
+    /** How many spots it tries round a base before the next base. */
+    static constexpr int kSiteTries = 300;
+    /**
+     * Where a station goes by a base's middle (0x4182f0): spots on a grid
+     * kSiteStep apart, in square rings out from the middle, each ring walked
+     * from its corner at (-r, -r), along -z's row, then up its two sides, then
+     * along +z's row, x first; the first of kSiteTries that `fits`.
+     * @return x and z offsets from the middle, in units; none if nothing fits
+     */
+    static std::optional<std::pair<float, float>> siteNear(const std::function<bool(float dx, float dz)> &fits);
     /**
      * The build list's file for a race's definition and a stance ("fed":
      * federation_build_list.aip, federation_defensive_list.aip,

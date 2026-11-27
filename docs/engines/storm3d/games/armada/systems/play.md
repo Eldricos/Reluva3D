@@ -416,8 +416,13 @@ before and after each ([camera.md](camera.md#the-overview)):
   Borg, Romulan, Klingon. The game seeds its generator from the clock,
   so every game differs; Reluva's too, but for a `seed` setting, which
   `engine-shot` sets to 86 to roll as the original's runs in the
-  emulator did. With Fixed Placement slot *n* starts on `Camera_<n+1>`
-  *(guessed)*. The scene draws each player's units in their own colour.
+  emulator did. With Fixed Placement no roll is made: each player keeps
+  the start the setup gave them, and one with none, in slot order, takes
+  the lowest not taken (0x4bb9e0, 0x4ba70b) *(from the code)*, so with
+  none chosen the first player starts at the map's first start, the
+  next at its second. The setup also lets a start be set by hand
+  (0x51a6e8), which the Game Setup screen here doesn't offer. The scene
+  draws each player's units in their own colour.
 
 ## Sources and checks
 
@@ -447,7 +452,6 @@ before and after each ([camera.md](camera.md#the-overview)):
   the input's clock, and the frames fall between.
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
-- Where Fixed Placement puts each player.
 - How the original ends a skirmish that's won or lost, rather than
   surrendered: what it shows first, and when a player counts as out.
   In a run of it with the computer's starbase killing both the
@@ -463,7 +467,9 @@ before and after each ([camera.md](camera.md#the-overview)):
   edge is made.
 - The cinematic view's director: how it picks the next unit and how
   long, its wider shots, when it turns to a fight, and the starbase's
-  own shot.
+  own shot. It's the program's `ShotDirector` (its methods 0x476bd0 to
+  0x479520); its timings aren't constants there (its only ones are 0,
+  1, 1.5, 50 and 1/√2) but globals set elsewhere, not yet traced.
 - What makes the crew grow: one starbase gave 3.5 a second; more, or
   none, haven't been seen.
 - Which point of a unit the box has to hold, and how a group's orders

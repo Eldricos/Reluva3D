@@ -91,11 +91,12 @@ public:
      * Starts a skirmish on `map`: each player's starting units as the game
      * makes them, in their colour; the camera over the human player's
      * Camera_<slot>; `cover`'s shroud and fog over what their units don't
-     * see (its slot is theirs).
+     * see (its slot is theirs). Every player builds by the tech tree that
+     * techlvl.odf names for `techLevel` (`techfile<level>`), not the map's.
      * @return a failure if the map can't be read
      */
     Error startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
-                        MapScene::Cover cover, const Hud::Resources &start, uint64_t millis);
+                        MapScene::Cover cover, const Hud::Resources &start, uint64_t millis, int techLevel = 0);
     /**
      * The player's counters at the start: `start`'s dilithium and crew; the
      * officers their units cost (officerCost), of `start`'s most and what
@@ -517,7 +518,6 @@ private:
     bool placeable(const gfx::Vec3 &site, const Footprint &station) const;
     Hud::Resources *bankOf(int slot); // a player's counters: the player's, or a computer's
     void startSite(size_t builder, const gfx::Vec3 &at, const std::string &item, const Footprint &station);
-    std::optional<gfx::Vec3> siteFor(int slot, const ComputerPlayer::Element &e, const Footprint &station);
     void think(double seconds);             // the computer players'
     Combat::Pace paceOf(size_t unit) const; // how it moves, for a shot's chance
     // A computer player: its slot, its build list, its counters.
@@ -533,9 +533,19 @@ private:
         double plan = 0;  // seconds to its next goals
         Strategy::Personality personality;
         std::vector<bool> explored; // by strategic cell, row by row: seen
+        // Where its stations go by (AI_Base_Building's m_base_x, m_base_z):
+        // its starbase's spot, then a moon for each mining station's base.
+        std::vector<gfx::Vec3> bases;
+        std::vector<size_t> baseMoons; // into _moons, by base past the first
+        size_t lastBase = 0;           // the base it built by last (m_current_base)
+        // Spots lately taken, by base and their place in its rings: the looks
+        // left before they're tried again (m_location_off_limits).
+        std::map<std::pair<size_t, int>, int> offLimits;
     };
     void plan(Computer &c); // its ships' goals
-    void weighStances();    // each Medium or Hard one's, by its strength against the others'
+    // Where its station goes, by the base `e` names (0x4182f0).
+    std::optional<gfx::Vec3> siteFor(Computer &c, const ComputerPlayer::Element &e, const Footprint &station);
+    void weighStances(); // each Medium or Hard one's, by its strength against the others'
     void takeStance(Computer &c, ComputerPlayer::Stance stance);
     ConfigFile::Loader aiLoader() const; // reads AI/AIPs
     double _stanceClock = 0;             // seconds to the next weighing

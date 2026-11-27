@@ -34,6 +34,31 @@ for stations"):
 
 Its counts add up by type: the second `fmining` asks for two in all.
 
+### Where it builds a station
+
+A computer player keeps up to ten bases, each a middle where its
+stations go (the program's `AI_Base_Building`: `m_base_x`, `m_base_z`,
+`m_base_center_id`) *(from the code)*, 0x4180f0 to 0x4186b0:
+
+- **Base 0** is its starbase's spot, taken when it first builds.
+- **A base past those it has**, asked for by a mining station, is the
+  moon nearest base 0 that isn't a base yet (0x418580), the moon's
+  middle its middle. An entry's `m_base_num` is the base it goes by:
+  `fmining 1,1` makes base 1 and stands by it; `fturret 1,1` then
+  stands by the same moon.
+- **The spot** (0x4182f0): tried on a grid 65 apart round the base's
+  middle, in square rings out from it, each ring from its corner at
+  (−r, −r) along that row of x, then the two ends of each row between,
+  then the far row; the first of 300 where the station fits and that's
+  more than 100 inside the map's edges. A spot taken is passed over for
+  the next 20 tries; if none fits it tries round the next base, and
+  the next, back to its own.
+
+Against what was seen: the moon at (5927, 960), the mining station's
+first fit is ring 4's first corner, (−260, −260) from it, (5667, 700):
+seen at about (5673, 709). The Pulse Cannon's is ring 2's, (5797, 830):
+seen at (5803, 839).
+
 ### Its stance
 
 A skirmish's computer player starts as every player does (0x4313ca):
@@ -123,12 +148,10 @@ puts it), so a camera a little off didn't move them.
   it orders from a builder of its with nothing on order, if it can pay;
   a station it gives to an idle construction ship, which flies there and
   pays as it starts, as the player's.
-- **Where a station goes:** the nearest free site (by the footprints'
-  rule, [building.md](building.md)) going round from the side of its
-  home: a mining station from its base-th moon out, 150 first
-  *(guessed)*; a station for a base (`m_base_num` past 0) at the middle
-  of that mining station and its moon, as the original's cannon; others
-  from its starbase out.
+- **Where a station goes:** by its bases, as the original's, above
+  (`ComputerPlayer::siteNear`, `MissionView::siteFor`): a spot fits
+  where the footprints' rule allows a station ([building.md](building.md)),
+  a spot taken passed over for its next 20 looks.
 
 ### Its ships' goals
 
@@ -157,6 +180,16 @@ shields committed than the enemy has there (one ship, to explore); the
 ships at goals still short are taken back and tried at others, and
 those committed told to go to their goal's cell.
 
+How its ships fight once sent: the scheduler only commits them to a
+goal's cell; the fighting is each craft's own (`CraftProcess`). One
+whose target is gone or dead takes another (0x429e60, 0x42a860):
+the nearest unit of another player anywhere the player sees (a radius of
+100,000), and, for a computer player's craft only (its player's
+record's +0xa8), not one with three units or more within 125 of it, the
+searcher aside, the target itself among them, which spreads its attacks
+(0x433360) *(from the code)*. That the units counted are ships (their
+flag 0x80) is *(inferred)*.
+
 In Reluva each computer player plans so every ten seconds *(guessed)*: its personality's `recompute_strategy_period`, 200,
 may count the same updates as its stance, but that isn't known;
 with the personality of its stance. A cell's threat is its enemy
@@ -165,7 +198,8 @@ say how it's measured; a cell is seen once one of the
 player's units has come within its `rangeScan` of its middle. Its armed
 ships that aren't builders or freighters are sent; escorting isn't
 made. And any armed unit, the player's too, with nothing to attack,
-takes the nearest enemy in its weapons' reach *(guessed)*.
+takes the nearest enemy in its weapons' reach *(guessed)*; a computer
+player's passes over one with three ships or more within 125, as above.
 
 In Reluva (`ComputerPlayer::stanceFor`, `MissionView::weighStances`),
 each Medium or Hard computer weighs its stance every 200 / 86 seconds,
@@ -176,7 +210,9 @@ other difficulty settings (`EASY_DAMAGE` and the like) aren't made yet.
 ## Sources and checks
 
 - **Where the facts come from:** the build lists, `aipdef.h`, the
-  scheduler's README and `strategic_AI_config.txt`; the original's
+  scheduler's README and `strategic_AI_config.txt`; its code for where
+  stations go (0x4180f0 to 0x4186b0, the fields' names from its
+  saving them, 0x417f90); the original's
   frames and draws over three and a half minutes of its computer
   player; its code (the stance, 0x430600 to 0x430b97, and the start,
   0x4313ca) and two dumps of its memory, 10 seconds apart, for the
@@ -184,7 +220,8 @@ other difficulty settings (`EASY_DAMAGE` and the like) aren't made yet.
   computer 4) and the updates' rate; the AI folder's DLLs, disassembled.
 - **How it was checked:** the unit tests (`storm3d.unit.play`) read a
   build list as the game's and pick its next entries from the starting
-  units on, take each stance at its bounds, and give the scheduler a small map: its goals where the
+  units on, find the original's two spots by a moon and the rings'
+  order, take each stance at its bounds, and give the scheduler a small map: its goals where the
   README puts them, and two ships committed together to beat one
   enemy's shields that one alone couldn't; `engine-shot` of a skirmish without the shroud: the computer
   player's construction ship off to build, and more of its units by two
@@ -192,10 +229,9 @@ other difficulty settings (`EASY_DAMAGE` and the like) aren't made yet.
 
 ## Open questions
 
-- How the original chooses a mining station's site: 357 from the moon
-  isn't the nearest free one.
-- The period of its plans, how it measures threat, and how its ships
-  fight once there: none of its warships were seen in the minutes
-  watched.
+- The period of its plans and how it measures threat; when a craft
+  looks for a target as far as its player sees, rather than in its
+  weapons' reach (its alert, its orders); none of its warships were
+  seen in the minutes watched.
 - Whether the game's updates run at 86 a second on any machine, or as
   fast as it draws.

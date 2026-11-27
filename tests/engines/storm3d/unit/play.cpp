@@ -593,6 +593,26 @@ void testCombat() {
 // entry the first not yet met, counting each type's entries together.
 void testBuildList() {
     using reluva::storm3d::ComputerPlayer;
+    // Round a moon (5927, 960) whose station must stand 300 off: the
+    // original's mining station at about (5673, 709), its cannon, which may
+    // stand 170 off, at about (5803, 839).
+    auto spotOff = [](float clear) {
+        return ComputerPlayer::siteNear([clear](float dx, float dz) { return std::hypot(dx, dz) >= clear; });
+    };
+    const auto station = spotOff(300);
+    CHECK(station && station->first == -260 && station->second == -260);
+    const auto cannon = spotOff(170);
+    CHECK(cannon && cannon->first == -130 && cannon->second == -130);
+    // The rings' order: the middle, then the first ring's -z row, its sides, its +z row.
+    std::vector<std::pair<float, float>> order;
+    (void)ComputerPlayer::siteNear([&order](float dx, float dz) {
+        order.emplace_back(dx, dz);
+        return order.size() == 9;
+    });
+    const std::vector<std::pair<float, float>> ring = {{0, 0},  {-65, -65}, {0, -65}, {65, -65}, {-65, 0},
+                                                       {65, 0}, {-65, 65},  {0, 65},  {65, 65}};
+    CHECK(order == ring);
+    CHECK(!ComputerPlayer::siteNear([](float, float) { return false; }));
     CHECK(ComputerPlayer::buildListFileOf("kling") == "klingon_build_list.aip");
     const std::map<std::string, std::string> files = {
         {"aipdef.h", "struct Better_Build_List_Element\n{\n char unit_type_name[80];\n double units_to_build;\n"

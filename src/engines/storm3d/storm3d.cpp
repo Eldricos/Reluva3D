@@ -346,10 +346,13 @@ public:
                             if (slot.side == 0)
                                 slot.side = GameSetupScreen::randomSide(below(4));
                             // A player's number is its start position, as the
-                            // game's; with Fixed Placement slot n starts at
-                            // Camera_<n+1> *(guessed)*.
+                            // game's; with Fixed Placement each player in slot
+                            // order takes the lowest start not taken (0x4bb9e0).
                             MissionView::Player p;
-                            p.slot = skirmish.size() < places.size() ? places[skirmish.size()] : int(i) + 1;
+                            const size_t k = skirmish.size();
+                            p.slot = k < places.size()           ? places[k]
+                                     : k < setup.starts().size() ? setup.starts()[k]
+                                                                 : int(k) + 1;
                             p.race = GameSetupScreen::raceOf(slot, i);
                             p.colour = MapScene::teamColourOf(GameSetupScreen::colourName(slot.colour), _files.files())
                                            .value_or(gfx::Vec3{0.5f, 0.5f, 0.5f});
@@ -543,7 +546,7 @@ public:
                     loadingOn = false;
                     Error err = skirmish.empty() ? mission.start(renderer3D, single.mission(), 1, -1, now)
                                                  : mission.startSkirmish(renderer3D, setup.map(), skirmish,
-                                                                         {shroud, fog}, start, now);
+                                                                         {shroud, fog}, start, now, setup.techLevel());
                     if (err) {
                         stopAll();
                         return err;

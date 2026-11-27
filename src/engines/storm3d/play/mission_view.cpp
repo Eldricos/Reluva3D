@@ -653,64 +653,74 @@ void MissionView::startSite(size_t builder, const gfx::Vec3 &at, const std::stri
     _ships[builder].waiting = Movement::kSetOff;
 }
 
-std::optional<gfx::Vec3> MissionView::siteFor(int slot, const ComputerPlayer::Element &e, const Footprint &station) {
+std::optional<gfx::Vec3> MissionView::siteFor(Computer &c, const ComputerPlayer::Element &e, const Footprint &station) {
     const std::vector<MapScene::Unit> &units = _scene.units();
-    // Its home: its first starbase standing, else its first unit.
-    std::optional<gfx::Vec3> home;
-    for (size_t i = 0; i < units.size() && !home; ++i)
-        if (units[i].slot == slot && !_dead[i] && _classes[i] == "starbase")
-            home = units[i].at;
-    for (size_t i = 0; i < units.size() && !home; ++i)
-        if (units[i].slot == slot && !_dead[i])
-            home = units[i].at;
-    if (!home)
-        return std::nullopt;
+    if (c.bases.empty()) {
+        // Its first base: its starbase's spot, else its first unit's (0x4180f0).
+        std::optional<gfx::Vec3> home;
+        for (size_t i = 0; i < units.size() && !home; ++i)
+            if (units[i].slot == c.slot && !_dead[i] && _classes[i] == "starbase")
+                home = units[i].at;
+        for (size_t i = 0; i < units.size() && !home; ++i)
+            if (units[i].slot == c.slot && !_dead[i])
+                home = units[i].at;
+        if (!home)
+            return std::nullopt;
+        c.bases.push_back(*home);
+    }
     Odf def;
     const bool mining = !def.load(e.type + ".odf", loaderOf(_files.files())) &&
                         text::equalsIgnoreCase(def.string("classLabel"), "mining");
-    auto nearestMoon = [this](const gfx::Vec3 &to) {
-        const gfx::Vec3 *best = nullptr;
-        for (const gfx::Vec3 &m : _moons)
-            if (!best || std::hypot(m[0] - to[0], m[2] - to[2]) < std::hypot((*best)[0] - to[0], (*best)[2] - to[2]))
-                best = &m;
-        return best;
-    };
-    gfx::Vec3 anchor = *home;
-    float from = 150;
-    if (mining && !_moons.empty()) {
-        // A mining station near its base-th moon from home, the nearest 1:
-        // the original's first stood 357 from the nearest (guessed).
-        std::vector<gfx::Vec3> moons = _moons;
-        std::sort(moons.begin(), moons.end(), [&home](const gfx::Vec3 &a, const gfx::Vec3 &b) {
-            return std::hypot(a[0] - (*home)[0], a[2] - (*home)[2]) < std::hypot(b[0] - (*home)[0], b[2] - (*home)[2]);
-        });
-        anchor = moons[size_t(std::clamp(e.base - 1, 0, int(moons.size()) - 1))];
-        anchor[1] = (*home)[1];
-    } else if (e.base > 0) {
-        // Another station "for" a base: at the middle of the base-th mining
-        // station and its moon, as the original's pulse cannon stood.
-        int seen = 0;
-        for (size_t i = 0; i < units.size(); ++i)
-            if (units[i].slot == slot && !_dead[i] && _classes[i] == "mining" && ++seen == e.base)
-                if (const gfx::Vec3 *moon = nearestMoon(units[i].at)) {
-                    anchor = {(units[i].at[0] + (*moon)[0]) / 2, (*home)[1], (units[i].at[2] + (*moon)[2]) / 2};
-                    from = 0;
-                }
-    }
-    // The nearest site to it that's free, going round from the side of home.
-    const float toward = std::atan2((*home)[0] - anchor[0], (*home)[2] - anchor[2]);
-    for (float r = from; r <= from + 1500; r += 50) {
-        const int around = r <= 0 ? 1 : std::max(8, int(2 * std::numbers::pi * r / 50));
-        for (int k = 0; k < around; ++k) {
-            // 0, +1, -1, +2, -2, ... steps either side of the way home.
-            const int step = (k + 1) / 2 * (k % 2 ? 1 : -1);
-            const float angle = toward + float(step) * 2 * std::numbers::pi_v<float> / float(around);
-            const gfx::Vec3 at{anchor[0] + std::sin(angle) * r, anchor[1], anchor[2] + std::cos(angle) * r};
-            if (placeable(at, station))
-                return at;
+    size_t base = c.lastBase;
+    if (e.base >= 0 && size_t(e.base) < c.bases.size()) {
+        base = size_t(e.base);
+    } else if (mining) {
+        // A base past those it has, for a mining station: the moon nearest its
+        // first base that isn't one of its bases yet (0x418580).
+        std::optional<size_t> best;
+        float bestDistance = 0;
+        for (size_t m = 0; m < _moons.size(); ++m) {
+            if (std::find(c.baseMoons.begin(), c.baseMoons.end(), m) != c.baseMoons.end())
+                continue;
+            const float d = std::hypot(_moons[m][0] - c.bases[0][0], _moons[m][2] - c.bases[0][2]);
+            if (!best || d < bestDistance)
+                best = m, bestDistance = d;
+        }
+        if (best) {
+            c.bases.push_back({_moons[*best][0], c.bases[0][1], _moons[*best][2]});
+            c.baseMoons.push_back(*best);
+            base = c.bases.size() - 1;
         }
     }
-    return std::nullopt;
+    // Round its base, then each of the others in turn, till a spot fits;
+    // within 100 of the map's edges, and not one taken in its last 20 looks.
+    const BznMap &map = _scene.map();
+    std::optional<gfx::Vec3> found;
+    for (size_t k = 0; k < c.bases.size() && !found; ++k) {
+        const size_t b = (base + k) % c.bases.size();
+        const gfx::Vec3 middle = c.bases[b];
+        int tried = -1;
+        int taken = 0;
+        const auto spot = ComputerPlayer::siteNear([&](float dx, float dz) {
+            ++tried;
+            if (auto off = c.offLimits.find({b, tried}); off != c.offLimits.end() && off->second > 0)
+                return false;
+            const float x = middle[0] + dx;
+            const float z = middle[2] + dz;
+            if (x <= map.area[0] + 100 || x >= map.area[1] - 100 || z <= map.area[4] + 100 || z >= map.area[5] - 100)
+                return false;
+            taken = tried;
+            return placeable({x, middle[1], z}, station);
+        });
+        if (spot) {
+            c.lastBase = b;
+            found = gfx::Vec3{middle[0] + spot->first, middle[1], middle[2] + spot->second};
+            c.offLimits[{b, taken}] = 21; // less the one below: 20 more looks
+        }
+    }
+    for (auto &[spot, looks] : c.offLimits)
+        looks = std::max(looks - 1, 0);
+    return found;
 }
 
 void MissionView::plan(Computer &c) {
@@ -781,11 +791,26 @@ void MissionView::plan(Computer &c) {
 
 void MissionView::engage() {
     // An armed unit with nothing to attack takes the nearest enemy in its
-    // weapons' reach *(guessed: the original's units fight back)*.
+    // weapons' reach *(guessed: the original's units fight back)*. A
+    // computer player's passes over one with three ships or more within
+    // 125 of it, itself among them if it's one, as the original's craft
+    // choosing their next target (0x433360).
+    constexpr float kCrowd = 125;
+    constexpr int kCrowded = 3;
     const std::vector<MapScene::Unit> &units = _scene.units();
+    auto crowded = [&](size_t target, size_t chooser) {
+        int near = 0;
+        for (size_t k = 0; k < units.size(); ++k)
+            if (k != chooser && !_dead[k] && k < _moves.size() && _moves[k] &&
+                std::hypot(units[k].at[0] - units[target].at[0], units[k].at[2] - units[target].at[2]) < kCrowd)
+                ++near;
+        return near >= kCrowded;
+    };
     for (size_t i = 0; i < units.size() && i < _targets.size(); ++i) {
         if (_dead[i] || _targets[i] >= 0 || _weapons[i].empty())
             continue;
+        const bool computer = std::any_of(_computers.begin(), _computers.end(),
+                                          [&](const Computer &c) { return c.slot == units[i].slot; });
         float reach = 0;
         for (const Combat::Weapon &w : _weapons[i])
             reach = std::max(reach, w.range);
@@ -798,7 +823,7 @@ void MissionView::engage() {
                 continue;
             const gfx::Vec3 to = units[j].middle();
             const float d = std::hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
-            if (d <= bestDistance) {
+            if (d <= bestDistance && !(computer && crowded(j, i))) {
                 best = int(j);
                 bestDistance = d;
             }
@@ -920,7 +945,7 @@ void MissionView::think(double seconds) {
             if (std::any_of(_sites.begin(), _sites.end(), [i](const Site &s) { return s.builder == i; }))
                 continue;
             const Footprint station = footprintOf(e.type, {}, 0).value_or(Footprint{});
-            if (auto at = siteFor(c.slot, e, station))
+            if (auto at = siteFor(c, e, station))
                 startSite(i, *at, e.type, station);
             break;
         }
@@ -1441,7 +1466,7 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
 }
 
 Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &map, const std::vector<Player> &players,
-                                 MapScene::Cover cover, const Hud::Resources &start, uint64_t millis) {
+                                 MapScene::Cover cover, const Hud::Resources &start, uint64_t millis, int techLevel) {
     stop();
     _players = players;
     BznMap parsed;
@@ -1452,9 +1477,15 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
         return Error::fail(map + ": " + err.message);
     _renderer = renderer;
     _scene.attach(renderer);
+    // The tech level's tree, not the map's techTreeFile: 0x43ea06 reads
+    // techlvl.odf's techfile<level>, tech1.tt failing that, for every player.
     _techTree = TechTree{};
+    Odf levels;
+    const std::string treeFile = levels.load("techlvl.odf", loaderOf(_files.files()))
+                                     ? std::string("tech1.tt")
+                                     : levels.string("techfile" + std::to_string(techLevel), "tech1.tt");
     std::vector<uint8_t> tree;
-    if (!parsed.techTree.empty() && !_files.read(parsed.techTree, tree))
+    if (!_files.read(treeFile, tree))
         _techTree.parse(std::string_view(reinterpret_cast<const char *>(tree.data()), tree.size()));
     std::vector<MapScene::StartUnit> units;
     std::vector<MapScene::StartUnit> mine;

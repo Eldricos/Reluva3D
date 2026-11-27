@@ -85,6 +85,8 @@ public:
     const std::vector<int> &starts() const { return _starts; }
     /** Whether players are placed at random (the option says "Random Placement", as it starts). */
     bool randomPlacement() const;
+    /** The tech level chosen, 0 (Standard Tech) to 6: which of techlvl.odf's trees every player builds by. */
+    int techLevel() const;
     /** The starting dilithium, crew and most officers chosen (their options' numbers). */
     int dilithium() const { return amount(4); }
     int crew() const { return amount(5); }
