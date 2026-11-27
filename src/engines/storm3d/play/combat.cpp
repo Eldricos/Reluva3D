@@ -165,6 +165,7 @@ void Combat::raceInto(Vitals &vitals, const Odf &unit, const Odf &race) {
     vitals.crewRed = value("crewRedStatus", 0);
     vitals.repairYellow = value("repairYellow", 1);
     vitals.repairRed = value("repairRed", 1);
+    vitals.crewRetreat = value("crewRetreatRatio", 0);
 }
 
 Combat::Boarding Combat::board(float party, float boarding, float crew, float defending) {

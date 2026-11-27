@@ -58,6 +58,7 @@ public:
         float crewRed = 0;
         float repairYellow = 1;
         float repairRed = 1;
+        float crewRetreat = 0; // crewRetreatRatio: the share of its crew its transporters keep aboard
         std::array<SystemState, kSystems> systems{};
         bool alive() const { return !destroyed; }
         /** Without crew: its systems off, it neither moves nor fires, and its player is out with only such (0x463410). */

@@ -19,10 +19,13 @@ namespace reluva::storm3d {
 namespace {
 
 // RTS_CFG.h's: how far a transporter reaches, how long between parties and
-// before one arrives.
+// before one lands on another's, and a party's crew (TRANSPORTER_MAX).
 constexpr float kTransporterRange = 500;
 constexpr double kTransporterDelay = 1;
 constexpr double kTransporterActionDelay = 1;
+constexpr float kTransporterMax = 5;
+// Another's shields must be down to this share for a party to go (0x463803).
+constexpr float kBoardableShields = 0.01f;
 
 float distanceOf(const gfx::Vec3 &a, const gfx::Vec3 &b) {
     return std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -95,9 +98,11 @@ void MissionView::fromPool(size_t unit, Hud::Resources &bank, double seconds) {
 void MissionView::runCrew(double seconds) {
     const std::vector<MapScene::Unit> &units = _scene.units();
     const double now = double(_last) / 1000;
-    // Transporting: near enough first, then a party each second, a fifth
-    // of its crew, while it keeps its race's crewRetreatRatio and the
-    // target's still to take or short of crew *(guessed: a party's size)*.
+    // Transporting, as the program's (0x463710): near enough first, then
+    // each TRANSPORTER_DELAY a party of TRANSPORTER_MAX; to another's only
+    // with its shields down, landing TRANSPORTER_ACTION_DELAY later; to an
+    // ally's at once, while it's short of crew. It stops when the next
+    // party would leave less than its race's crewRetreatRatio aboard.
     for (auto it = _transportTo.begin(); it != _transportTo.end();) {
         const size_t unit = it->first;
         const size_t target = it->second;
@@ -108,7 +113,9 @@ void MissionView::runCrew(double seconds) {
         Combat::Vitals &mine = _vitals[unit];
         const Combat::Vitals &theirs = _vitals[target];
         const bool ally = units[target].slot == units[unit].slot;
-        if (mine.crew <= std::max(1.0f, mine.maxCrew * 0.1f) || (ally && theirs.crew >= theirs.maxCrew)) {
+        const bool shielded = !ally && theirs.maxShields > 0 && theirs.shields / theirs.maxShields > kBoardableShields;
+        if (mine.crew <= kTransporterMax || (ally && theirs.crew >= theirs.maxCrew && !theirs.derelict()) ||
+            (mine.maxCrew > 0 && (mine.crew - kTransporterMax) / mine.maxCrew < mine.crewRetreat)) {
             it = _transportTo.erase(it);
             continue;
         }
@@ -122,15 +129,20 @@ void MissionView::runCrew(double seconds) {
             continue;
         }
         if (now >= _nextParty[unit]) {
-            const float party = std::max(1.0f, std::floor(mine.crew * 0.2f));
-            mine.crew -= party;
-            _parties.push_back({unit, target, units[unit].slot, party, mine.boarding, now + kTransporterActionDelay});
+            if (shielded) {
+                it = _transportTo.erase(it);
+                continue;
+            }
+            mine.crew -= kTransporterMax;
+            _parties.push_back({unit, target, units[unit].slot, kTransporterMax, mine.boarding,
+                                ally ? now : now + kTransporterActionDelay});
             _nextParty[unit] = now + kTransporterDelay;
         }
         ++it;
     }
-    // Parties arriving: reinforcing an ally, or fighting the crew, the
-    // stronger side left with what's over (Combat::board).
+    // Parties landing (0x555400): on a derelict, its crew now, and it theirs;
+    // reinforcing an ally; or fighting the crew, the stronger side left with
+    // what's over (Combat::board), a tie leaving it derelict.
     for (size_t p = 0; p < _parties.size();) {
         Party &party = _parties[p];
         if (now < party.arrives) {
@@ -139,14 +151,19 @@ void MissionView::runCrew(double seconds) {
         }
         if (party.target < units.size() && !_dead[party.target]) {
             Combat::Vitals &v = _vitals[party.target];
-            if (units[party.target].slot == party.slot) {
+            if (v.derelict()) {
+                if (units[party.target].slot == party.slot)
+                    v.crew = std::min(v.maxCrew, party.crew);
+                else
+                    capture(party.target, party.slot, std::min(v.maxCrew, party.crew));
+            } else if (units[party.target].slot == party.slot) {
                 v.crew = std::min(v.maxCrew, v.crew + party.crew);
             } else {
                 const Combat::Boarding fight = Combat::board(party.crew, party.boarding, v.crew, v.boarding);
                 if (fight.taken)
-                    capture(party.target, party.slot, std::min(v.maxCrew, std::max(1.0f, fight.left)));
+                    capture(party.target, party.slot, std::min(v.maxCrew, fight.left));
                 else
-                    v.crew = fight.left;
+                    v.crew = fight.left < 1 ? 0 : fight.left;
             }
         }
         _parties.erase(_parties.begin() + std::ptrdiff_t(p));

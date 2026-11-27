@@ -134,6 +134,25 @@ gives it.
 
 ### Boarding, capture and repair
 
+From the code *(from the code)*:
+
+- **The transporters** (0x463630, 0x463710): a ship with more than
+  `TRANSPORTER_MAX` (5) crew can start. Each `TRANSPORTER_DELAY` (1
+  second), while its target is within `TRANSPORTER_RANGE` (500), it
+  sends a party of `TRANSPORTER_MAX` crew: to another player's only
+  while that unit's shields are at 1% of their most or less (else it
+  stops), the party landing `TRANSPORTER_ACTION_DELAY` (1 second) later;
+  to its own player's at once, while that one is short of crew. It
+  stops once a party would leave it under its race's `crewRetreatRatio`
+  of its most crew (0.1 for the Federation).
+- **A party landing** (0x555400): on a derelict, its crew aboard and the
+  unit its player's; on a unit of its own player, its crew added; on
+  another's, a fight: the party's crew times its race's
+  `boardingStrength` against the crew's times theirs, the bigger side
+  keeping the difference over its strength in crew. The defenders
+  beaten, the unit is the party's player's, its survivors its crew; a
+  tie leaves it derelict.
+
 From the files: the order buttons' tooltips (`Dynamic_Localized_Strings.h`)
 say what they do. Transport, the rail's last button, "sends a boarding
 party over to another vessel. On enemy vessels, the boarding party will
@@ -306,17 +325,14 @@ From the same run's frames and draws:
   panel shows the crew so, and each system's icon from green, whole, to
   red, out. A unit burns while one of its systems is out, as the
   original's caught fire after the first volley on its hull.
-- **Boarding:** the transport button, then a unit: the ship goes within
-  500 of it, then sends a party each second, a fifth of its crew
-  *(guessed)*, while it keeps its race's `crewRetreatRatio` of its crew
-  *(guessed)*; a party lands a second later. On an ally it adds to the
-  crew, to its most; on another's it fights the crew, each side's crew
-  times its race's `boardingStrength`, the stronger left with the
-  difference *(guessed)*; a crew beaten, the unit is the boarders'
-  player's, in their colour, counted lost and destroyed as a kill is.
-  A unit with no crew neither moves nor fires, its repairs stopped.
-  `engine-shot` sent a construction ship's crew to its starbase: 500 to
-  205 in four parties, the starbase's 800 to 1136.
+- **Boarding,** as the code below: the transport button, then a unit:
+  the ship goes within 500 of it, then sends a party of 5 a second; to
+  another's only while its shields are at 1% or less, landing a second
+  later; to an ally's at once, while it's short of crew. It stops when a
+  party would leave less than its race's `crewRetreatRatio` of its most
+  aboard. On another's, the fight is `Combat::board`; a crew beaten,
+  the unit is the boarders' player's, in their colour, counted lost and
+  destroyed as a kill is; a derelict is the first party's.
 - **Repair:** systems mend by themselves faster by the race's
   `repairStrength` and slower by `repairYellow` or `repairRed` with the
   crew below those shares *(inferred)*: the keys' names say so. Repair
@@ -401,9 +417,8 @@ From the same run's frames and draws:
   fight.
 - Which pod node the original takes first (its Antimatter Mines went
   to an arm, not known which), and the pod growing as it's built.
-- How the original's boarding runs: a party's size, how the fight is
-  reckoned, `TRANSPORTER_MAX`, and how fast a yard repairs and recrews;
-  whether a starbase repairs too; what `crewRetreatRatio` does.
+- How fast a yard repairs and recrews, and whether a starbase repairs
+  too.
 - When ships circle their centre of combat
   ([movement.md](movement.md#height-and-moving-in-a-fight)): neither the
   destroyer chasing a construction ship nor the Defiant against the
