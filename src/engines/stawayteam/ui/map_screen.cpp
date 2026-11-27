@@ -1361,6 +1361,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         order.push_back({sortY * 8.0f, -1, i, INT_MIN, INT_MAX, Look{}});
     }
     std::stable_sort(order.begin(), order.end(), [](const Piece &a, const Piece &b) { return a.key < b.key; });
+    _drawn.clear();
     for (const Piece &piece : order) {
         if (piece.part < 0) {
             drawOfficer(view, _officers[piece.officer], left, top, now);
@@ -1390,14 +1391,20 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             blitBy(view, shadow.frame(look.frame, look.direction), x, y, 1.0f, look.shown, piece.clipLeft,
                    piece.clipRight);
         }
+        // Kept to pick by: each picture drawn, a strip within its clip.
+        const auto drawn = [&](const Animation::Picture *picture, int at, int up) {
+            blitBy(view, picture, at, up, 1.0f, look.shown, piece.clipLeft, piece.clipRight);
+            if (picture)
+                _drawn.push_back({size_t(piece.part), picture, at + left, up + top,
+                                  piece.clipLeft == INT_MIN ? INT_MIN : piece.clipLeft + left,
+                                  piece.clipRight == INT_MAX ? INT_MAX : piece.clipRight + left});
+        };
         place(*look.body, x, y);
-        blitBy(view, look.body->frame(look.frame, look.direction), x, y, 1.0f, look.shown, piece.clipLeft,
-               piece.clipRight);
+        drawn(look.body->frame(look.frame, look.direction), x, y);
         if (!p.overlay.empty()) {
             const Animation &head = animation(p.overlay, look.sequence);
             place(head, x, y);
-            blitBy(view, head.frame(look.frame, look.direction), x, y, 1.0f, look.shown, piece.clipLeft,
-                   piece.clipRight);
+            drawn(head.frame(look.frame, look.direction), x, y);
         }
     }
     drawVision(view, left, top);

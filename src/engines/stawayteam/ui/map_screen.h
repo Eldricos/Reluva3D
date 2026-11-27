@@ -453,6 +453,12 @@ public:
     bool partPosition(const std::string &name, float &x, float &y) const;
     /** Whether the objectives window is open. */
     bool objectivesShown() const { return _objectivesWindow != nullptr; }
+    /**
+     * The part clicked at (x, y) on the map: the one whose picture, as last
+     * drawn, is on top there, or else a polygon with processes it's in.
+     * @return its index, or -1 for none.
+     */
+    int partAt(float x, float y) const;
 
     /** Whether time's stopped (the pause button): orders can still be given. */
     bool paused() const { return _paused; }
@@ -667,9 +673,6 @@ private:
     // Takes item `index` from officer `o`, choosing their weapon again.
     void removeItem(Officer &o, size_t index);
     void updateMines(float seconds);
-    // The part with a model nearest (x, y), close enough to be what's
-    // clicked, or else a polygon with processes (x, y) is in; -1 for none.
-    int partAt(float x, float y) const;
     // The pointer over (x, y) on the map: a process there that runs on
     // hovering is started as it comes onto its part.
     void hoverAt(float x, float y);
@@ -770,8 +773,19 @@ private:
     std::vector<std::vector<size_t>> _cellPolygons; // the ground polygons over each cell
     std::map<std::string, Animation> _models;       // by model and sequence
     std::vector<size_t> _standing;                  // the models, back to front
-    std::vector<size_t> _overlays;                  // the Trans polygons
-    std::vector<size_t> _warped;                    // the Warped polygons: water
+    // A part's picture as last drawn, on the map: its origin at (x, y),
+    // only between clipLeft and clipRight; back to front.
+    struct Drawn {
+        size_t part = 0;
+        const Animation::Picture *picture = nullptr;
+        int x = 0;
+        int y = 0;
+        int clipLeft = 0;
+        int clipRight = 0;
+    };
+    std::vector<Drawn> _drawn;
+    std::vector<size_t> _overlays; // the Trans polygons
+    std::vector<size_t> _warped;   // the Warped polygons: water
     // A Water Warp Effects file's warp, its texture and what it warped to.
     struct Water {
         bool loaded = false;

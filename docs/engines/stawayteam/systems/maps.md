@@ -511,7 +511,15 @@ The 5 without a model are polygons: Mission 16's four gas clouds, each
 with a tricorder `Scan` ("Gas in Area") and a `Medical Scan` ("Dead
 Borg"), and Mission 10's `Holocontrol activate poly`, whose list is
 empty: it's the `Hot Spot` of the holo control panel's list. What's
-under the pointer is picked by the parts' shapes; one whose list names a
+under the pointer is picked by the pictures drawn: the program gathers
+the drawn pictures of the parts there (`0x5c01bf`) and goes through
+them from the one drawn last, at the pointer and then the 8 pixels
+round it, in the order of its table at `0x649ac0` (here, up, left,
+right, then the corners and down); first for a character or a part
+with a process list (`0x5cb520`), then for any part (`0x5cb4b0`). A
+picture is there by its strip's bounds (`0x4834d0`) and then the
+image's own test of that pixel (taken as its not being see-through
+*(inferred)*). One whose list names a
 `Hot Spot` is kept only with the pointer in that part's shape
 (`0x5c0396`, `0x53c620`), so the panel is used by its polygon beside
 it, as is Mission 10's last panel by its own. A process with `Execute if
@@ -1098,11 +1106,11 @@ and adds them back (`CAddToTeamAction` on `$trigger`): the same officer,
 where the part was, the part gone *(inferred: the program keeps the one
 character)*. `CPlayAnimationAction` plays its `Animation` once, then
 its `End Sequence Name`. A polygon with processes is picked with the
-pointer in it, when there's no model in reach or the one there has none,
+pointer in it, when no picture's there or the one there has none,
 and an item's range is measured to where it's pointed at; a process run
 on hovering starts once as the pointer comes onto its part *(inferred)*.
-A click in reach of a part with processes is
-on it before any other *(inferred)*. A paused actor's held still till
+A part's picked by its pictures as last drawn, its body's and its
+head's, not its shadow's *(inferred)*, as the program does (above). A paused actor's held still till
 unpaused. A touching
 trigger on a character goes where they go. A class check is of the
 officer's field.

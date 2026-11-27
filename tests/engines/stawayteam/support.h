@@ -158,6 +158,7 @@ struct ModelLook {
     float minBounce = 0.0f;
     float bounceFriction = 0.0f;
     float minBounceFriction = 0.0f;
+    std::string sequence = "Idle"; // its one sequence's name
 };
 
 /** How the game's grenades bounce (their models', "Player Shots/Concussion Grenade"). */
@@ -195,7 +196,7 @@ inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, in
     for (const auto &[x, y] : footprint)
         w.f32(x).f32(y);
     w.str("").str("");
-    w.i32(1).str("").u8(1).str("Idle").u8(0);
+    w.i32(1).str("").u8(1).str(look.sequence).u8(0);
     const int count = rotations * frames;
     w.object(30575.0f);
     sequenceProperties(w, count, 10.0f);

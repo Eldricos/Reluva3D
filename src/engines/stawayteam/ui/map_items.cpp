@@ -28,8 +28,6 @@ constexpr float kDefaultGravity = 17.0f;
 // Near enough an officer to use an item on them: about the items' Strike
 // Damage Radius (20) and a figure's width (inferred).
 constexpr float kUseReach = 30.0f;
-// A part this near where's clicked is what's clicked (inferred).
-constexpr float kPartReach = 30.0f;
 // A tricorder's words typed at its Text Speed, characters a second,
 // without one (the items' 30).
 constexpr float kScanSpeed = 30.0f;
@@ -698,40 +696,56 @@ int MapScreen::partAt(float x, float y) const {
         const TextObject *items = list ? list->object("Process") : nullptr;
         return items && !items->items().empty();
     };
-    int best = -1;
-    float nearest = kPartReach;
+    // One whose processes name a Hot Spot is under the pointer only in that
+    // part's shape, the pick dropped if it isn't (0x5c0396): Mission 10's
+    // holo control panel by its polygon (inferred: the polygon taken
+    // first, as the panel's used by it beside it).
     for (size_t i = 0; i < _map.parts.size(); ++i) {
         const MapPart &p = _map.parts[i];
-        if (p.model.empty() || !shown(i))
-            continue;
-        // One whose processes name a Hot Spot is under the pointer only in
-        // that part's shape, the pick dropped if it isn't (0x5c0396): Mission
-        // 10's holo control panel by its polygon; in it, it's this one
-        // (inferred: the program picks by the models' shapes, Reluva by
-        // their distance).
-        if (const TextObject *list = processes(p)) {
-            const std::string spot = readText(list, "Hot Spot");
-            const std::vector<size_t> found = spot.empty() ? std::vector<size_t>{} : partsNamed(spot);
-            if (!found.empty() && _map.parts[found.front()].polygon.size() >= 3) {
-                if (inside(_map.parts[found.front()].polygon, x, y))
-                    return int(i);
-                continue;
-            }
-        }
-        float px = 0.0f;
-        float py = 0.0f;
-        placeOf(i, px, py);
-        // One with processes before any other in reach (a hostage before
-        // the mark under them; inferred).
-        float d = std::hypot(px - x, py - y);
-        if (d < kPartReach && std::any_of(p.activities.begin(), p.activities.end(),
-                                          [](const TextObject *a) { return a->className == "CProcessListAI"; }))
-            d -= kPartReach;
-        if (d < nearest) {
-            nearest = d;
-            best = int(i);
-        }
+        const TextObject *list = p.model.empty() || !shown(i) ? nullptr : processes(p);
+        const std::string spot = list ? readText(list, "Hot Spot") : std::string();
+        const std::vector<size_t> found = spot.empty() ? std::vector<size_t>{} : partsNamed(spot);
+        if (!found.empty() && _map.parts[found.front()].polygon.size() >= 3 &&
+            inside(_map.parts[found.front()].polygon, x, y))
+            return int(i);
     }
+    const auto spotted = [&](size_t i) {
+        const TextObject *list = processes(_map.parts[i]);
+        const std::string spot = list ? readText(list, "Hot Spot") : std::string();
+        return !spot.empty() && !partsNamed(spot).empty();
+    };
+    // Else the picture drawn on top there, or at one of the 8 pixels round
+    // it, in the program's order (0x649ac0): first one with a process list,
+    // then any (0x5cb520, 0x5cb4b0); a picture's there by its strip's
+    // bounds (0x4834d0) and its pixel's not being see-through (inferred:
+    // the image's own test isn't traced).
+    constexpr std::array<std::array<int, 2>, 9> kAround = {
+        {{0, 0}, {0, -1}, {-1, 0}, {1, 0}, {-1, -1}, {1, -1}, {-1, 1}, {0, 1}, {1, 1}}};
+    const int px = int(std::floor(x));
+    const int py = int(std::floor(y));
+    const auto on = [](const Drawn &d, int at, int up) {
+        if (at < d.clipLeft || at >= d.clipRight)
+            return false;
+        const int u = at - d.x + d.picture->originX;
+        const int v = up - d.y + d.picture->originY;
+        const image::Image &img = d.picture->image;
+        return u >= 0 && v >= 0 && u < img.w && v < img.h && img.pixel(u, v)[3] != 0;
+    };
+    int best = -1;
+    for (const bool needList : {true, false}) {
+        for (const auto &[dx, dy] : kAround) {
+            for (auto d = _drawn.rbegin(); d != _drawn.rend() && best < 0; ++d)
+                if (d->part < _map.parts.size() && shown(d->part) && (!needList || processes(_map.parts[d->part])) &&
+                    on(*d, px + dx, py + dy))
+                    best = int(d->part);
+            if (best >= 0)
+                break;
+        }
+        if (best >= 0)
+            break;
+    }
+    if (best >= 0 && spotted(size_t(best)))
+        best = -1;
     // Else, or over a model with none, a polygon with processes it's in:
     // Mission 16's gas, scanned by the tricorder, over its carpets
     // (inferred: which comes first, a model or a polygon, isn't traced).

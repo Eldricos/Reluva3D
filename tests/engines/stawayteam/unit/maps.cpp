@@ -23,6 +23,13 @@ using namespace reluva::stawayteam;
 
 namespace {
 
+// Draws the map once: what's picked is what was last drawn.
+void drawOnce(MapScreen &screen, uint64_t now) {
+    Surface view;
+    view.create(640, 480, PixelFormat::kRGBA32);
+    screen.draw(view, now);
+}
+
 // A 200 x 200 map, its view kept to 128 x 128: a 3 x 3 grid of values, so
 // 2 x 2 cells; a model, and a black polygon over the first cell's top left.
 const char *const kMap = "CLayerSaveData\n{\n\tWidth=200\n\tHeight=200\n\tView Position=100.000000,20.000000\n"
@@ -428,6 +435,12 @@ void testDrawingOrder() {
     CHECK(pixel(95, 100)[2] > 200 && pixel(95, 100)[0] < 50);
     CHECK(pixel(105, 100)[0] > 200 && pixel(105, 100)[2] < 50);
     CHECK(pixel(85, 100)[2] > 200 && pixel(100, 150)[2] < 50);
+    // Picked by what's drawn on top: the crate over the wall's left
+    // strip, the wall's right strip over the crate, and the wall's own
+    // picture where the crate isn't; the ground beside them, nothing.
+    CHECK(screen.partAt(95.0f, 100.0f) == 1 && screen.partAt(105.0f, 100.0f) == 0);
+    CHECK(screen.partAt(100.0f, 85.0f) == 1 && screen.partAt(100.0f, 112.0f) == 1);
+    CHECK(screen.partAt(130.0f, 100.0f) == -1);
 }
 
 void testSpawnPoints() {
@@ -612,7 +625,9 @@ void testHostage() {
         spawn + "}\n}\nPosition X=600\nPosition Y=500\n}\n}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
-    data.files["Cache/Models/Characters/Body.mdl16"] = modelFile("Body", 1, 1);
+    ModelLook laid;
+    laid.sequence = "dead";
+    data.files["Cache/Models/Characters/Body.mdl16"] = modelFile("Body", 1, 1, 100.0f, {}, 0.0f, false, 0.0f, laid);
     const std::string hypospray = "CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\n"
                                   "Discharge Action=CGiveHealthWeaponAction\n{\nHealth action=CGiveHealthAction\n{\n"
                                   "Health=30\n}\n}\n}\n";
@@ -637,6 +652,7 @@ void testHostage() {
     CHECK(!officers[1].present && officers[1].standIn >= 0 && screen.partPosition("Bea", x, y) && x == 600.0f);
     screen.choose(0);
     screen.chooseItem(0, 0);
+    drawOnce(screen, 0);
     CHECK(screen.useItem(600.0f, 500.0f));
     uint64_t now = 0;
     while (now < 10000 && !officers[1].present)
@@ -1724,6 +1740,7 @@ void testGadgets() {
     CHECK(screen.mines().empty() && guard.health >= 40.0f && guard.health < 100.0f && a.health == 100.0f);
     // The tricorder on the guard: the description of its model.
     screen.chooseItem(0, 2);
+    drawOnce(screen, now);
     CHECK(screen.useItem(500.0f, 300.0f));
     run(17000);
     CHECK(screen.scanText() == "A guard, armed.");
@@ -1841,6 +1858,7 @@ void testProcesses() {
     screen.handleEvent(mv, nullptr, now);
     CHECK(screen.cursorName() == "Phaser");
     screen.moveCamera(600.0f, 300.0f);
+    drawOnce(screen, now);
     mv.mouseX = int(600.0f - screen.mapX(0));
     mv.mouseY = int(300.0f - screen.mapY(0));
     screen.handleEvent(mv, nullptr, now);
