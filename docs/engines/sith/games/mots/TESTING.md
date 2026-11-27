@@ -15,6 +15,7 @@ check this game too:
 | `common.unit.files` | Disc images read: ISO 9660 on a raw track through a cue sheet and on an `.iso` |
 | `common.unit.video` (smush) | A SMUSH file built in the test: runs and a table of averages, blocks moved, filled and averaged, a palette fade, sound split across chunks, a subtitle |
 | `sith.unit.levels` (coloured light) | Surfaces with four lights a corner |
+| `sith.unit.render` (coloured light) | A polygon lit by colour: each channel of the texel times the corners', made a byte, held at 1 |
 | `sith.unit.formats`, `sith.unit.models` | Sound class numbers as the game reads them; an animation's lines after its nodes left alone |
 
 ### The basic engine test
@@ -72,3 +73,4 @@ after four seconds.
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith host -skim` from *New Game*, in software at the game's own rate | The whole single-player episode in 25 minutes: its 14 levels in order (`s1l1_rebelbase.jkl` to `s5l4_lowersith.jkl`, both halves of Katraasii), each loaded, drawn and played a few seconds; all 23 of the CD's cut scenes started where the game plays them (the opening, each level's opening and closing scenes from inside the level, the finale); the credits run to their end; nothing stopped, no message box, no Windows call without a stand-in |
 | November 2026 | US retail, from its CD's image | Linux, `sith host` with a player's `fullsubtitles 1`, `takemeto 12` and `gameover` typed | The subtitles of `S1L1ECS.SAN` and `S5L3ECS.SAN` as the game shows them, against the viewer's: the same pixels below the picture, one line and two |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith movies -all`, `sith page`, and frames from `sith host` | Every cut scene decoded with its sound; the opening's frames against the game's own, the same pixels ([smush.md](../../../../common/video/smush.md#sources-and-checks)); a frame on the Cut scenes page the same as the prototype's, with its subtitle; the first level drawn from the player's start |
+| November 2026 | US retail, from its CD's image | Linux, `sith host -d3d -gpu` and `sith page` | A Direct3D scene of the first level captured from the game: its corners' vertex colours the level's red, green and blue times 255; the viewer's Levels page drawing the level so, beside the game's frame |

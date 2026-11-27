@@ -46,7 +46,9 @@ soft3d::OrbitCamera flyCamera(const Vec3 &eye, float yaw, float pitch, int w, in
  * draws them; from the player's start, moved about with W/S A/D R/F T/G,
  * or seen whole from above (V). M marks the surfaces or sectors with each
  * flag in turn (jkl.md, Behaviour), and J moves the camera to the next
- * sector marked, or holding a surface marked.
+ * sector marked, or holding a surface marked. A level with coloured light
+ * (Mysteries of the Sith's) is lit by it as the game's Direct3D lights it;
+ * C turns that to the colormaps' light, as its software renderer.
  */
 class LevelPage : public Page {
 public:
@@ -61,7 +63,7 @@ public:
     size_t count() const override { return _files.size(); }
     const char *keys() const override {
         return "Left/Right: level, W/S: forward/back, A/D: turn, R/F: up/down, T/G: look up/down, Q/E: sideways, "
-               "V: overview, H: things, M: mark a flag, J: to the next marked sector";
+               "V: overview, H: things, M: mark a flag, J: to the next marked sector, C: coloured light";
     }
 
     bool handleKey(uint32_t pressed) override {
@@ -94,6 +96,8 @@ public:
             _pitch = std::max(-1.5f, _pitch - kTurn);
         else if (pressed == 'v')
             _overview = !_overview;
+        else if (pressed == 'c')
+            _colourLight = !_colourLight;
         else if (pressed == 'h')
             _showThings = !_showThings;
         else if (pressed == 'm')
@@ -182,6 +186,9 @@ public:
                         corner.v = _level.texVertices[size_t(t)][1];
                     }
                     corner.light = cornerLight(sector, surf, surf.intensities[c]);
+                    if (_colourLight && _hasColour)
+                        corner.colour = c < surf.colours.size() ? cornerColour(sector, surf, surf.colours[c])
+                                                                : Vec3{corner.light, corner.light, corner.light};
                     corners.push_back(corner);
                 }
                 if (isMarked) {
@@ -219,6 +226,8 @@ public:
                           double(s.tint.x), double(s.tint.y), double(s.tint.z));
             line += where;
         }
+        if (_hasColour)
+            line += _colourLight ? "  coloured light (as Direct3D);" : "  colormap light (as software);";
         char info[200];
         std::snprintf(info, sizeof(info),
                       "  %zu sectors, %zu surfaces (%d drawn), %zu things (%d drawn); %s at %.2f %.2f %.2f",
@@ -344,6 +353,13 @@ private:
         return std::max(own, std::clamp(sector.extraLight, 0.0f, 1.0f));
     }
 
+    // A corner's red, green and blue light, each as cornerLight takes a
+    // light: the surface's extra light added, the sector's where that's more.
+    static Vec3 cornerColour(const Level::Sector &sector, const Level::Surface &surf, const Vec3 &corner) {
+        return {cornerLight(sector, surf, corner.x), cornerLight(sector, surf, corner.y),
+                cornerLight(sector, surf, corner.z)};
+    }
+
     // The things with a model or a sprite, each at its place, lit through
     // its sector's colormap; in the player's own view, not the player.
     int drawThings(Draw3D &draw) {
@@ -431,6 +447,8 @@ private:
             hi = {std::max(hi.x, v.x), std::max(hi.y, v.y), std::max(hi.z, v.z)};
         }
         _centre = {(lo.x + hi.x) / 2, (lo.y + hi.y) / 2, (lo.z + hi.z) / 2};
+        _hasColour = std::any_of(_level.surfaces.begin(), _level.surfaces.end(),
+                                 [](const Level::Surface &surf) { return !surf.colours.empty(); });
         _radius = std::max(1.0f, std::hypot(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z) / 2);
 
         // The player's start: the first thing of type player, its eye a
@@ -461,6 +479,8 @@ private:
     float _yaw = 0;
     float _pitch = 0;
     bool _overview = false;
+    bool _colourLight = true;
+    bool _hasColour = false; // a surface of the level has coloured light
     bool _showThings = true;
     size_t _marking = 0;
     size_t _jumped = 0;

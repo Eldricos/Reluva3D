@@ -78,6 +78,31 @@ void testTranslucent() {
     CHECK(middle(screen)[0] == 255 && middle(screen)[2] == 0);
 }
 
+// A polygon lit by colour: each channel of its colour times the corners',
+// made a byte; the light alone where the corners have none.
+void testColouredLight() {
+    Colormap cmp = plainColormap();
+    cmp.palette[3] = {200, 100, 50};
+    const soft3d::OrbitCamera cam = camera();
+    Surface screen;
+    screen.create(kSize, kSize, PixelFormat::kRGBA32);
+    Draw3D draw(screen, cam, cmp);
+    Paint paint;
+    paint.color = 3;
+    std::vector<Corner> c = square(2);
+    for (Corner &corner : c)
+        corner.colour = Vec3{1.0f, 0.5f, 0.0f};
+    draw.polygon(c, paint);
+    const uint8_t *p = middle(screen);
+    CHECK(p[0] == 200 && p[1] == 100 * 127 / 255 && p[2] == 0);
+    // Over 1, a channel is held at 1.
+    for (Corner &corner : c)
+        corner.colour = Vec3{2.0f, 1.0f, 0.2f};
+    Draw3D again(screen, cam, cmp);
+    again.polygon(c, paint);
+    CHECK(p[0] == 200 && p[1] == 100 && p[2] == 50 * 51 / 255);
+}
+
 // A model's face turned from the camera isn't drawn, unless it's double-sided.
 void testCulling() {
     const Colormap cmp = plainColormap();
@@ -290,10 +315,11 @@ void testSceneScaled() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("sith.unit.render",
-                                        {
-                                            {"translucent", [](const std::filesystem::path &) { testTranslucent(); }},
-                                            {"culling", [](const std::filesystem::path &) { testCulling(); }},
-                                            {"horizon sky", [](const std::filesystem::path &) { testHorizonSky(); }},
-                                            {"scene scaled", [](const std::filesystem::path &) { testSceneScaled(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("sith.unit.render", {
+                                   {"translucent", [](const std::filesystem::path &) { testTranslucent(); }},
+                                   {"culling", [](const std::filesystem::path &) { testCulling(); }},
+                                   {"coloured light", [](const std::filesystem::path &) { testColouredLight(); }},
+                                   {"horizon sky", [](const std::filesystem::path &) { testHorizonSky(); }},
+                                   {"scene scaled", [](const std::filesystem::path &) { testSceneScaled(); }},
+                               });

@@ -12,6 +12,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,12 @@ struct Corner {
     float v = 0;
     /** Light, 0 (dark) to 1 (the colormap's brightest). */
     float light = 1;
+    /**
+     * Where it's set, the polygon is lit by colour instead, as the games'
+     * Direct3D lights it: each texel's colour times this, each channel 0
+     * to 1 (Mysteries of the Sith's surfaces' red, green and blue light).
+     */
+    std::optional<Vec3> colour;
 };
 
 /**

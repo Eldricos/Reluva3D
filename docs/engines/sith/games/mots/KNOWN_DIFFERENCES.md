@@ -20,9 +20,6 @@ None yet.
 
 ## Not yet as the original
 
-- **The data viewer's levels** are lit by each corner's light alone, as
-  the game's software renderer draws them; its Direct3D draws their
-  colours too ([jkl.md](../jk/formats/jkl.md#in-reluva)).
 
 ## Additions outside the game
 

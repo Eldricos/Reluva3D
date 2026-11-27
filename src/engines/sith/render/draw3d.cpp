@@ -112,6 +112,11 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
     for (const Corner &c : corners) {
         soft3d::ViewVertex v = _camera.toView(toSoft(c.at), c.u, c.v);
         v.s = c.light;
+        if (c.colour) {
+            v.r = c.colour->x;
+            v.g = c.colour->y;
+            v.b = c.colour->z;
+        }
         view.push_back(v);
     }
     view = soft3d::clipNear(view, _camera.nearZ);
@@ -133,7 +138,10 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
     // (0x4f2f60).
     const float horizonScale = sky ? sky->horizonDistance / _camera.focal : 0;
     const float perDegree = sky ? sky->pixelsPerRev / 360 : 0;
-    auto shade = [&](int px, int py, float u, float v, float light, uint8_t *rgba) {
+    // Lit by colour when the first corner is (the page gives every corner
+    // of a polygon one or none).
+    const bool byColour = corners[0].colour.has_value();
+    auto shade = [&](int px, int py, float u, float v, float light, float r, float g, float b, uint8_t *rgba) {
         if (sky && sky->kind == Sky::kHorizon) {
             // The camera has no roll, so the screen's offsets aren't turned.
             u = (float(px) + 0.5f - _camera.halfW) * horizonScale - sky->yaw * perDegree + sky->horizonOffset[0];
@@ -162,8 +170,18 @@ void Draw3D::polygon(const std::vector<Corner> &corners, const Paint &paint) {
             if (keyed && index == tex->transparentColor)
                 return false;
         }
-        const int level = std::clamp(int(light * (Colormap::kLightLevels - 1) + 0.5f), 0, Colormap::kLightLevels - 1);
-        Color c = pal[cmap.lit(level, index)];
+        Color c;
+        if (byColour) {
+            // As Direct3D modulates a texel by a vertex colour, its
+            // channels made bytes as the game makes them, truncated.
+            const Color t = pal[index];
+            auto mul = [](uint8_t x, float k) { return uint8_t(x * int(std::clamp(k, 0.0f, 1.0f) * 255) / 255); };
+            c = {mul(t.r, r), mul(t.g, g), mul(t.b, b)};
+        } else {
+            const int level =
+                std::clamp(int(light * (Colormap::kLightLevels - 1) + 0.5f), 0, Colormap::kLightLevels - 1);
+            c = pal[cmap.lit(level, index)];
+        }
         if (paint.mark)
             c = {uint8_t((c.r + paint.mark->r) / 2), uint8_t((c.g + paint.mark->g) / 2),
                  uint8_t((c.b + paint.mark->b) / 2)};

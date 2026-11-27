@@ -339,10 +339,15 @@ template's bases. Mysteries of the Sith's levels give four values for
 each corner of a surface where Jedi Knight's give one: its light, then
 red, green and blue (`JKM.EXE` reads them at `0x533965`; where every
 corner's three are grey it keeps the light alone, else all four and the
-surface's flag `0x1000000`) *(from the code)*. The reader keeps the
-colours as `Surface::colours`; the viewer lights by the light alone, as
-the game's software renderer does (its Direct3D draws the colours)
-*(confirmed)*. The data viewer's Levels page draws a level from the
+surface's flag `0x1000000`) *(from the code)*. Its software renderer
+lights by the light alone; its Direct3D gives each corner its red,
+green and blue, each times 255 and truncated, as the vertex's colour,
+which the texture is multiplied by *(confirmed: a scene of the first
+level's, captured from the game, holds those colours)*. The reader keeps
+the colours as `Surface::colours`; the viewer's Levels page lights such
+a level as Direct3D does, each corner's colour taken as its light is
+(the surface's extra light added, the sector's where that's more), and
+C turns it to the colormaps' light, as the software renderer. The data viewer's Levels page draws a level from the
 player's start (its position, 0.04 higher, facing its yaw), as the game's
 camera sees: 90 degrees across the view (`0x4c4deb`), the focal length
 half the view's width over tan 45° (`0x4436ad` to `0x443721`) *(from the

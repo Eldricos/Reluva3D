@@ -22,6 +22,10 @@ struct ScreenVertex {
     float u;
     float v;
     float s = 1; // light level, interpolated for smooth shading
+    // a colour to light by, each channel 0 to 1, interpolated as the light
+    float r = 1;
+    float g = 1;
+    float b = 1;
 };
 
 /**
@@ -40,8 +44,9 @@ public:
 
     /**
      * Draws a triangle of either winding, nearer than what's drawn.
-     * shade(u, v, rgba), shade(u, v, light, rgba), or shade(x, y, u, v,
-     * light, rgba) for one that needs the pixel's place, sets the pixel's colour
+     * shade(u, v, rgba), shade(u, v, light, rgba), shade(x, y, u, v,
+     * light, rgba) for one that needs the pixel's place, or shade(x, y, u,
+     * v, light, r, g, b, rgba) with the colour too, sets the pixel's colour
      * (4 bytes, R G B A; it may blend with what's there) and returns whether to
      * record its depth: false for a transparent or translucent texel, so it
      * doesn't hide faces drawn later.
@@ -88,7 +93,14 @@ public:
                 const float u = (b0 * v0->u * v0->invZ + b1 * v1->u * v1->invZ + b2 * v2->u * v2->invZ) / invZ;
                 const float v = (b0 * v0->v * v0->invZ + b1 * v1->v * v1->invZ + b2 * v2->v * v2->invZ) / invZ;
                 bool opaque;
-                if constexpr (std::is_invocable_v<Shade, int, int, float, float, float, uint8_t *>) {
+                auto at = [&](float ScreenVertex::*f) {
+                    return (b0 * v0->*f * v0->invZ + b1 * v1->*f * v1->invZ + b2 * v2->*f * v2->invZ) / invZ;
+                };
+                if constexpr (std::is_invocable_v<Shade, int, int, float, float, float, float, float, float,
+                                                  uint8_t *>) {
+                    opaque = shade(x, y, u, v, at(&ScreenVertex::s), at(&ScreenVertex::r), at(&ScreenVertex::g),
+                                   at(&ScreenVertex::b), row + x * 4);
+                } else if constexpr (std::is_invocable_v<Shade, int, int, float, float, float, uint8_t *>) {
                     const float light = (b0 * v0->s * v0->invZ + b1 * v1->s * v1->invZ + b2 * v2->s * v2->invZ) / invZ;
                     opaque = shade(x, y, u, v, light, row + x * 4);
                 } else if constexpr (std::is_invocable_v<Shade, float, float, float, uint8_t *>) {

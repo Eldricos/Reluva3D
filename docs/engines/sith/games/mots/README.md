@@ -101,7 +101,8 @@ The game keeps `InstallData` in its registry (the save folder's
 - **The data viewer:** reads its archives (`.goo`, the `.gob` format) and
   every file in them as Jedi Knight's ([Its files](#its-files)), and shows
   them as it does Jedi Knight's; its levels drawn from the player's
-  start as the game's software renderer draws them. Its cut scenes play
+  start, lit by their coloured light as the game's Direct3D lights them
+(or, with C, as its software renderer does). Its cut scenes play
   on the Cut scenes page with their sound and subtitles: SMUSH, decoded
   by Reluva ([smush.md](../../../../common/video/smush.md)), each frame
   the same as the game shows it *(confirmed)*.
