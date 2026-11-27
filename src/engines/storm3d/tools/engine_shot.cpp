@@ -149,7 +149,10 @@ int cmdEngineShot(int argc, char **argv) {
     const MetaEngine *engine = findEngine("storm3d");
     if (!engine)
         return 1;
-    GameTarget target{"armada", "storm3d", "armada", "Star Trek: Armada", argv[2], save, {}};
+    // Seed 86 rolls a skirmish's Random sides and places as the original's
+    // runs in the emulator had them: the player at Camera_1, the computer
+    // at Camera_4, both Federation.
+    GameTarget target{"armada", "storm3d", "armada", "Star Trek: Armada", argv[2], save, {{"seed", "86"}}};
     if (Error err = engine->create(sys, target)->run()) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;

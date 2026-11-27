@@ -12,6 +12,7 @@
 #include "image/image.h"
 
 #include <array>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -62,9 +63,28 @@ public:
     static const char *colourName(int colour);
     /**
      * A slot's race's definition ("fed"): its side's, or for Random one of
-     * the four in turn by the slot (the game's own choice isn't known).
+     * the four in turn by the slot, until launch rolls it (randomSide).
      */
     static std::string raceOf(const Slot &slot, size_t index);
+    /**
+     * The side, into sides(), a Random slot becomes at launch, as the game
+     * rolls it (0x43e8ad): `roll` 0 to 3, its Federation, Borg, Romulan
+     * and Klingon.
+     */
+    static int randomSide(int roll);
+    /**
+     * Start positions for `players` in turn at launch, as the game deals
+     * them (0x43e7ee): each, by `below(n)` (0 to n - 1), one of `starts`
+     * not yet taken.
+     */
+    static std::vector<int> placeAtRandom(std::vector<int> starts, size_t players,
+                                          const std::function<int(int)> &below);
+    /** The map's start positions: the n of its Camera_<n> paths, 1 to 8. */
+    static std::vector<int> startsOf(const BznMap &map);
+    /** The map chosen's start positions. */
+    const std::vector<int> &starts() const { return _starts; }
+    /** Whether players are placed at random (the option says "Random Placement", as it starts). */
+    bool randomPlacement() const;
     /** The starting dilithium, crew and most officers chosen (their options' numbers). */
     int dilithium() const { return amount(4); }
     int crew() const { return amount(5); }
@@ -74,7 +94,7 @@ public:
     /** Whether the fog is on (its option says "Fog On"). */
     bool fog() const;
     /** How many players a map takes: its `Camera_<n>` paths. */
-    static int playersOf(const BznMap &map);
+    static int playersOf(const BznMap &map) { return int(startsOf(map).size()); }
 
     /**
      * Reads its pictures, text and the map, `name` the player's.
@@ -103,6 +123,7 @@ public:
 
 private:
     int amount(size_t option) const; // the number an option's value says
+    std::vector<int> _starts;
 
     image::Image _background;
     std::array<std::array<image::Image, 3>, 3> _slotLooks;   // who, side, team: at rest, lit, pressed

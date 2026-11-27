@@ -304,7 +304,21 @@ std::vector<std::string> MissionView::buildListOf(const std::string &odf, const 
 }
 
 Hud::Unit MissionView::buildMenuOf(const std::vector<std::string> &items, const Odf::Loader &loader,
-                                   const std::vector<std::string> &owned) {
+                                   const std::vector<std::string> &owned, const TechTree &tree) {
+    if (!tree.empty()) {
+        // As the map's tech tree has it: the original's dark items, the
+        // starbase's freighter and the construction ship's last four, are
+        // those whose needs the starting units don't meet.
+        std::set<std::string> have;
+        for (const std::string &o : owned)
+            have.insert(text::toLower(o));
+        Hud::Unit menu;
+        for (size_t i = 0; i < items.size() && i < 11; ++i)
+            menu.controls.push_back(
+                {int(i) + 1, "b_" + text::toLower(items[i]), "bb_build", tree.allows(items[i], have)});
+        menu.controls.push_back({12, "b_back", "bb_standard", true});
+        return menu;
+    }
     // What an item needs the player to have, by class. A freighter has
     // nothing to carry without a mining station: the original's was dark
     // with none, and the computer player builds one first (inferred). The
@@ -536,7 +550,7 @@ void MissionView::pressControl(int slot) {
         for (const Hud::Unit::Button &b : _orders.controls)
             if (b.slot == slot && b.sprite == "b_build" && b.enabled) {
                 _buildItems = buildListOf(_scene.units()[size_t(_selection.front())].odf, loaderOf(_files.files()));
-                _buildMenu = buildMenuOf(_buildItems, loaderOf(_files.files()), ownedOdfs());
+                _buildMenu = buildMenuOf(_buildItems, loaderOf(_files.files()), ownedOdfs(), _techTree);
                 // A pod researched goes dark, as the original's Antimatter
                 // Mines did once built.
                 for (Hud::Unit::Button &b : _buildMenu.controls)
@@ -546,12 +560,13 @@ void MissionView::pressControl(int slot) {
                             text::equalsIgnoreCase(item.string("classLabel"), "pod") &&
                             _researched[_slot].count(Combat::researchKeyOf(item.string("tooltip"))))
                             b.enabled = false;
-                        // And one for a ship whose yard can't be built yet
-                        // *(inferred)*: the original's Corbomite Reflector,
-                        // for the Sovereign of the Advanced Starship Yard,
-                        // was dark with no shipyard; the four for the
-                        // shipyard's ships were lit.
-                        if (b.enabled && text::equalsIgnoreCase(item.string("classLabel"), "pod") &&
+                        // Without a tech tree, one for a ship whose yard
+                        // can't be built yet *(inferred)*: the original's
+                        // Corbomite Reflector, for the Sovereign of the
+                        // Advanced Starship Yard, was dark with no shipyard
+                        // (tech1.tt has it need that yard).
+                        if (b.enabled && _techTree.empty() &&
+                            text::equalsIgnoreCase(item.string("classLabel"), "pod") &&
                             !yardReady(item.string("tooltip")))
                             b.enabled = false;
                     }
@@ -1437,6 +1452,10 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
         return Error::fail(map + ": " + err.message);
     _renderer = renderer;
     _scene.attach(renderer);
+    _techTree = TechTree{};
+    std::vector<uint8_t> tree;
+    if (!parsed.techTree.empty() && !_files.read(parsed.techTree, tree))
+        _techTree.parse(std::string_view(reinterpret_cast<const char *>(tree.data()), tree.size()));
     std::vector<MapScene::StartUnit> units;
     std::vector<MapScene::StartUnit> mine;
     int slot = 1;
@@ -1928,6 +1947,8 @@ void MissionView::stop() {
     _poolCarry.clear();
     _revealedUntil.clear();
     _selfDestructAt.clear();
+    _cineUnit = -1;
+    _cineUntil = 0;
     _holds.clear();
     _pods.clear();
     _researched.clear();
@@ -2057,7 +2078,6 @@ void MissionView::handleEvent(const Event &ev) {
                 const int unit = liveUnitAt(viewProj, ev.mouseX, ev.mouseY);
                 _selection = unit < 0 ? std::vector<int>{} : std::vector<int>{unit};
             }
-            _clicked = !_dragging;
             _pressX = _pressY = -1;
             _dragging = false;
         }
@@ -2158,7 +2178,7 @@ bool MissionView::yardReady(const std::string &podTooltip) const {
             if (unit.load(item + ".odf", loader) || text::toLower(unit.string("unitName")).rfind(ship, 0) != 0)
                 continue;
             // Its yard can be built now: buildMenuOf lights it.
-            const Hud::Unit menu = buildMenuOf({yard}, loader, ownedOdfs());
+            const Hud::Unit menu = buildMenuOf({yard}, loader, ownedOdfs(), _techTree);
             return !menu.controls.empty() && menu.controls.front().enabled;
         }
     return true;
@@ -2473,6 +2493,11 @@ void MissionView::draw(uint64_t millis) {
     const gfx::Mat4 viewProj = MapScene::viewProjOf(view, kRange);
     const std::vector<MapScene::Unit> &units = _scene.units();
     _hover = _hud.covers(_mouseX, _mouseY) ? -1 : liveUnitAt(viewProj, _mouseX, _mouseY);
+    // The pointer resting on a player's units, the same player's frame
+    // after frame, builds up a second's worth (0x496347).
+    const int over = _hover >= 0 ? units[size_t(_hover)].slot : -1;
+    _barLevel = over >= 0 && over == _barPlayer ? std::min(1.0, _barLevel + seconds) : 0;
+    _barPlayer = over;
     std::vector<const MapScene::Unit *> chosen;
     for (int i : _selection)
         if (i >= 0 && size_t(i) < units.size())
@@ -2501,12 +2526,35 @@ void MissionView::draw(uint64_t millis) {
     drawShots(view);
     drawEffects(double(millis) / 1000);
     drawPlacement(view);
-    // The cinematic view: the unit selected first, or the player's first
-    // that moves, close up.
+    // The cinematic view: the unit selected first; with none, as the
+    // original's did, one of the player's units after another, each for 2
+    // to 6 seconds, starting on its first ship *(inferred)*, from a run's
+    // frames.
     int shown = _selection.empty() ? -1 : _selection.front();
-    for (size_t i = 0; shown < 0 && i < units.size(); ++i)
-        if (i < _moves.size() && _moves[i] && units[i].slot == _slot && !_dead[i])
-            shown = int(i);
+    if (shown < 0) {
+        const double now = double(millis) / 1000;
+        const bool gone = _cineUnit < 0 || size_t(_cineUnit) >= units.size() || _dead[size_t(_cineUnit)] ||
+                          units[size_t(_cineUnit)].slot != _slot;
+        if (gone || now >= _cineUntil) {
+            std::vector<int> mine;
+            for (size_t i = 0; i < units.size() && i < _dead.size(); ++i)
+                if (units[i].slot == _slot && !_dead[i])
+                    mine.push_back(int(i));
+            auto roll = [this] {
+                _cineRoll = _cineRoll * 1664525u + 1013904223u;
+                return double(_cineRoll >> 8) / double(1u << 24);
+            };
+            if (_cineUnit < 0) {
+                for (size_t i = 0; _cineUnit < 0 && i < units.size(); ++i)
+                    if (i < _moves.size() && _moves[i] && units[i].slot == _slot && !_dead[i])
+                        _cineUnit = int(i);
+            } else if (!mine.empty()) {
+                _cineUnit = mine[std::min(mine.size() - 1, size_t(roll() * double(mine.size())))];
+            }
+            _cineUntil = now + 2 + 4 * roll();
+        }
+        shown = _cineUnit;
+    }
     _hud.setCinematicShown(shown >= 0);
     if (shown >= 0) {
         const std::array<int, 4> area = _hud.cinematicArea();
@@ -2516,15 +2564,18 @@ void MissionView::draw(uint64_t millis) {
     if (_overlay.w != 640)
         _overlay.create(640, 480, PixelFormat::kRGBA32);
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
-    // A unit clicked on has its bar, and so has one under attack; the
-    // original drew none over units a box selected. The bar is its
+    // Bars as the original draws them (0x4977a6): the unit under the
+    // pointer's, and once the pointer has rested half a second on a
+    // player's units, all of theirs, fading in over the next half second
+    // (drawn whole here); not the selection's as such. The bar is the
     // shields'.
     std::set<int> barred;
-    if (_clicked && _selection.size() == 1)
-        barred.insert(_selection.front());
-    for (size_t i = 0; i < _targets.size(); ++i)
-        if (_targets[i] >= 0 && !_dead[i])
-            barred.insert(_targets[i]);
+    if (_hover >= 0)
+        barred.insert(_hover);
+    if (_barLevel > 0.5)
+        for (size_t i = 0; i < units.size(); ++i)
+            if (units[i].slot == _barPlayer)
+                barred.insert(int(i));
     for (int b : barred) {
         if (b < 0 || size_t(b) >= units.size() || _dead[size_t(b)] || !_scene.shown(size_t(b)))
             continue;

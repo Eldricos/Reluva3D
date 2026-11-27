@@ -94,8 +94,9 @@ library's debugging checks (221 KB against 40).
 ### Watching the original
 
 With the shroud off (Game Setup's shroud list held open and let go on
-"Shroud Off, Fog Off"), the computer player started at `Camera_4`, its
-units red on the minimap; the camera was taken there by a click on it.
+"Shroud Off, Fog Off"), the computer player started at `Camera_4` (placed
+there at random, as [play.md](play.md#in-reluva) has it), its units red on
+the minimap; the camera was taken there by a click on it.
 
 - **First,** before 44 seconds, one of its construction ships was
   building a Mining Station: the list's first entry it didn't meet (it
@@ -198,5 +199,3 @@ other difficulty settings (`EASY_DAMAGE` and the like) aren't made yet.
   watched.
 - Whether the game's updates run at 86 a second on any machine, or as
   fast as it draws.
-- Where Random Placement puts the computer player (`Camera_4` in the
-  game seen; Reluva puts slot n on `Camera_<n+1>`).

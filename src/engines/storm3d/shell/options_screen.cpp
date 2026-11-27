@@ -3,6 +3,9 @@
 
 #include "engines/storm3d/shell/options_screen.h"
 
+#include <string>
+#include <utility>
+
 namespace reluva::storm3d {
 
 namespace {
@@ -19,6 +22,21 @@ constexpr float kButtonText = 16;
 constexpr float kTitleText = 20;
 constexpr Color kButtonColour{0, 0, 0};
 constexpr Color kTitleColour{255, 255, 255};
+// Abort Mission's box, as the original's frame has it: the picture at
+// (140, 150), Yes (Previous Menu's plate) and No (the right plate's)
+// along its foot, its words label.map's abort_mission_popup in the
+// debriefing's gold, the tops of their lines 3 over their capitals.
+constexpr int kBoxX = 140;
+constexpr int kBoxY = 150;
+constexpr int kBoxWidth = 359;
+constexpr int kYesX = 163;
+constexpr int kNoX = 357;
+constexpr int kAskButtonY = 250;
+constexpr int kWarningX = 232;
+constexpr int kWarningY = 151;
+constexpr int kMessageY = 195;
+constexpr Color kAskColour{255, 190, 0};
+constexpr float kAskButtonText = 12; // Yes and No smaller than the menu's words
 
 } // namespace
 
@@ -61,12 +79,33 @@ Error OptionsScreen::load(const GameFiles &files, bool inGame) {
         return err;
     if (Error err = _text.parse(std::string_view(reinterpret_cast<const char *>(data.data()), data.size())))
         return Error::fail("label.map: " + err.message);
+    if (inGame) {
+        if (Error err = loadPicture(files, "bitmaps/misc/DBsmall2BG.bmp", _box))
+            return err;
+        if (Error err = _yes.load(files, "bitmaps/multiset", "navback", kYesX, kAskButtonY))
+            return err;
+        if (Error err = _no.load(files, "bitmaps/multiset", "navmain", kNoX, kAskButtonY))
+            return err;
+    }
     _font.load();
     _hover = _pressed = OptionsChoice::kNone;
+    _asking = false;
+    _askHover = _askPressed = 0;
     return Error::success();
 }
 
+int OptionsScreen::askAt(int x, int y) const {
+    return _yes.contains(x, y) ? 1 : _no.contains(x, y) ? 2 : 0;
+}
+
 bool OptionsScreen::pointerAt(int x, int y) {
+    if (_asking) {
+        const int now = askAt(x, y);
+        if (now == _askHover)
+            return false;
+        _askHover = now;
+        return now != 0;
+    }
     const OptionsChoice now = choiceAt(x, y, _inGame);
     if (now == _hover)
         return false;
@@ -75,14 +114,33 @@ bool OptionsScreen::pointerAt(int x, int y) {
 }
 
 void OptionsScreen::press(int x, int y) {
-    _pressed = choiceAt(x, y, _inGame);
+    if (_asking)
+        _askPressed = askAt(x, y);
+    else
+        _pressed = choiceAt(x, y, _inGame);
 }
 
 OptionsChoice OptionsScreen::release(int x, int y) {
+    if (_asking) {
+        // Yes aborts; No puts the box away, back to the menu.
+        const int pressed = std::exchange(_askPressed, 0);
+        const int at = askAt(x, y);
+        if (at != pressed || at == 0)
+            return OptionsChoice::kNone;
+        _asking = false;
+        _askHover = 0;
+        return at == 1 ? OptionsChoice::kAbort : OptionsChoice::kNone;
+    }
     const OptionsChoice pressed = _pressed;
     _pressed = OptionsChoice::kNone;
     const OptionsChoice at = choiceAt(x, y, _inGame);
-    return at == pressed ? at : OptionsChoice::kNone;
+    if (at != pressed)
+        return OptionsChoice::kNone;
+    if (at == OptionsChoice::kAbort) {
+        _asking = true;
+        return OptionsChoice::kNone;
+    }
+    return at;
 }
 
 void OptionsScreen::draw(Surface &screen) {
@@ -90,7 +148,8 @@ void OptionsScreen::draw(Surface &screen) {
     for (size_t i = 0; i < _settings.size(); ++i) {
         const ShellButton &b = _settings[i];
         const OptionsChoice choice = buttons(_inGame)[i].choice;
-        b.draw(screen, _hover == choice, _pressed == choice, true);
+        // Abort Mission stays pressed while its box asks.
+        b.draw(screen, _hover == choice, _pressed == choice || (_asking && choice == OptionsChoice::kAbort), true);
         _font.drawCentred(screen, b.x, b.y, b.looks[0].w, b.looks[0].h,
                           _text.text("escape_menu", buttons(_inGame)[i].key), kButtonText, kButtonColour);
     }
@@ -99,6 +158,20 @@ void OptionsScreen::draw(Surface &screen) {
     _bar.draw(screen, _font, _inGame ? std::string() : _text.text("multiplayer_connection", "previous_menu"),
               _hover == OptionsChoice::kPreviousMenu, _pressed == OptionsChoice::kPreviousMenu);
     _font.draw(screen, kTitleX, kTitleY, _text.text("escape_menu", "title"), kTitleText, kTitleColour);
+    if (!_asking)
+        return;
+    static constexpr const char *kSection = "abort_mission_popup";
+    drawPicture(screen, _box, kBoxX, kBoxY, false);
+    _font.draw(screen, kWarningX, kWarningY, _text.text(kSection, "warning"), kButtonText, kAskColour);
+    const std::string message = _text.text(kSection, "message");
+    _font.draw(screen, kBoxX + (kBoxWidth - _font.width(message, kButtonText)) / 2, kMessageY, message, kButtonText,
+               kAskColour);
+    _yes.draw(screen, _askHover == 1, _askPressed == 1, true);
+    _no.draw(screen, _askHover == 2, _askPressed == 2, true);
+    _font.drawCentred(screen, _yes.x, _yes.y, _yes.looks[0].w, _yes.looks[0].h, _text.text(kSection, "ok_button"),
+                      kAskButtonText, kButtonColour);
+    _font.drawCentred(screen, _no.x, _no.y, _no.looks[0].w, _no.looks[0].h, _text.text(kSection, "cancel_button"),
+                      kAskButtonText, kButtonColour);
 }
 
 } // namespace reluva::storm3d

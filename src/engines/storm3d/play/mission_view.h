@@ -8,6 +8,7 @@
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/play/combat.h"
+#include "engines/storm3d/formats/tech_tree.h"
 #include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
 #include "engines/storm3d/play/movement.h"
@@ -175,11 +176,13 @@ public:
     /**
      * The control panel while a unit's build menu is open: its items, a
      * button each from the first place on, its icon b_<item> in the build
-     * border, dark where the player can't yet (a freighter without a
-     * mining station); the back button in the last place.
+     * border, dark where the player can't yet: where the map's tech tree
+     * says the player hasn't all it needs (without one, a freighter
+     * without a mining station, and a guess for the construction ship's
+     * last four); the back button in the last place.
      */
     static Hud::Unit buildMenuOf(const std::vector<std::string> &items, const Odf::Loader &loader,
-                                 const std::vector<std::string> &owned);
+                                 const std::vector<std::string> &owned, const TechTree &tree = TechTree{});
     /** An item a unit builds: what, how long it takes, and what it costs. */
     struct Order {
         std::string item;
@@ -299,7 +302,8 @@ private:
     int _pressY = -1;
     std::vector<int> _selection;
     bool _dragging = false; // the left button held and moved past a click
-    bool _clicked = false;  // the selection is a click's, which has a health bar
+    int _barPlayer = -1;    // the player whose unit the pointer was on last frame
+    double _barLevel = 0;   // how long it's rested on their units, at most a second
     int _hover = -1;
     int _slot = -1;           // the player's, whose units a box selects; -1: anyone's
     std::vector<bool> _moves; // by unit: whether it has engines
@@ -313,6 +317,7 @@ private:
     bool _building = false; // the build menu open, in place of the orders
     std::vector<std::string> _buildItems;
     Hud::Unit _buildMenu;                         // buildMenuOf's, made as it opens
+    TechTree _techTree;                           // the map's
     std::map<size_t, std::vector<Order>> _queues; // by builder: what it's building, first first
     std::optional<std::string> _placing;          // a station being placed, from the build menu
     Footprint _placingFootprint;                  // its, about its site
@@ -455,8 +460,11 @@ private:
     std::map<int, Tally> _tallies; // by slot
     bool _surrendered = false;
     bool _menuWanted = false;
-    bool _targeting = false; // the attack button pressed: the next click picks the target
-    uint32_t _roll = 12345;  // the shots' damage rolls
+    bool _targeting = false;   // the attack button pressed: the next click picks the target
+    uint32_t _roll = 12345;    // the shots' damage rolls
+    int _cineUnit = -1;        // the cinematic view's unit while none is selected
+    double _cineUntil = 0;     // the game's second it moves on from it
+    uint32_t _cineRoll = 2024; // its choices' rolls
     std::vector<Site> _sites;
     gfx::MeshId _cellMesh = 0;
     gfx::TextureId _cellTaken = 0;

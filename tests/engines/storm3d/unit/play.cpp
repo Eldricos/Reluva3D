@@ -5,6 +5,7 @@
 // the keys as the camera in the game's memory moved (camera.md).
 
 #include "engines/storm3d/formats/gui_config.h"
+#include "engines/storm3d/formats/tech_tree.h"
 #include "engines/storm3d/play/combat.h"
 #include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
@@ -362,6 +363,7 @@ void testCloseUp() {
 
 // The starbase's build menu: its ships, not the officers' upgrades; the
 // freighter dark until there's a mining station; the back button last.
+// Items lit by a map's tech tree.
 void testBuildMenu() {
     const std::map<std::string, std::string> files = {
         {"fbase.odf", "[S]\nbuildItem0 = \"fconst\"\nbuildItem1 = \"ffreight\"\nbuildItem2 = \"fedoff\"\n"},
@@ -384,6 +386,23 @@ void testBuildMenu() {
     CHECK(menu.controls[0].border == "bb_build" && !menu.controls[1].enabled);
     CHECK(menu.controls[2].slot == 12 && menu.controls[2].sprite == "b_back");
     CHECK(MissionView::buildMenuOf(items, loader, {"fbase", "fmining"}).controls[1].enabled);
+
+    // With the map's tech tree (tech1.tt's lines): the construction ship's
+    // six firsts lit with the starting units, its last four dark, as the
+    // original's; the advanced yard lit once there's a yard and research.
+    reluva::storm3d::TechTree tree;
+    tree.parse("fbase.odf    0\nfmining.odf  0\nfyard.odf    1 fbase.odf\nfsensor.odf  1 fbase.odf\n"
+               "fturret.odf  1 fbase.odf\nfresear.odf  1 fbase.odf\nfturret2.odf 1 fyard.odf\n"
+               "fyard2.odf   2 fyard.odf fresear.odf\nfresear2.odf 2 fyard.odf fresear.odf\n"
+               "fsuperbl.odf 3 fbase.odf fyard2.odf fresear2.odf\n\nffreight.odf 2 fbase.odf fmining.odf\n");
+    CHECK(tree.needsOf("FYARD2") && tree.needsOf("fyard2")->size() == 2 && !tree.needsOf("fconst"));
+    const std::vector<std::string> builds = {"fbase",   "fyard",    "fsensor", "fturret",  "fmining",
+                                             "fresear", "fresear2", "fyard2",  "fturret2", "fsuperbl"};
+    const Hud::Unit start = MissionView::buildMenuOf(builds, loader, {"fbase", "fconst"}, tree);
+    for (size_t i = 0; i < builds.size(); ++i)
+        CHECK(start.controls[i].enabled == (i < 6));
+    CHECK(MissionView::buildMenuOf({"fyard2"}, loader, {"fbase", "fyard", "fresear"}, tree).controls[0].enabled);
+    CHECK(!MissionView::buildMenuOf({"ffreight"}, loader, {"fbase"}, tree).controls[0].enabled);
 }
 
 // A construction ship's order, as the original took it: 500 dilithium

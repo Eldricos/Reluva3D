@@ -166,6 +166,22 @@ void testConnection() {
     CHECK(MultiplayerScreen::typed(std::string(30, 'x'), "yz") == std::string(30, 'x') + "y");
 }
 
+// Launch's rolls, as the game deals them: each player in turn a start
+// not yet taken, by its roll among those left; a Random side the
+// game's race for its roll, Federation, Borg, Romulan, Klingon.
+void testLaunchRolls() {
+    const std::vector<int> rolls = {0, 2};
+    size_t next = 0;
+    const auto below = [&](int n) { return rolls[next++] % n; };
+    CHECK(GameSetupScreen::placeAtRandom({1, 2, 3, 4}, 2, below) == std::vector<int>({1, 4}));
+    CHECK(GameSetupScreen::placeAtRandom({1, 2}, 3, [](int) { return 0; }) == std::vector<int>({1, 2}));
+    const auto &sides = GameSetupScreen::sides();
+    CHECK(std::string(sides[size_t(GameSetupScreen::randomSide(0))]) == "federation");
+    CHECK(std::string(sides[size_t(GameSetupScreen::randomSide(1))]) == "borg");
+    CHECK(std::string(sides[size_t(GameSetupScreen::randomSide(2))]) == "romulan");
+    CHECK(std::string(sides[size_t(GameSetupScreen::randomSide(3))]) == "klingon");
+}
+
 // The Game Setup screen's controls where the game's frame has them: the
 // slots' three lists, the options, the bottom bar a pixel right and down.
 void testGameSetup() {
@@ -218,5 +234,6 @@ static const reluva::test::Suite
                                      {"settings", [](const std::filesystem::path &) { testSettings(); }},
                                      {"connection", [](const std::filesystem::path &) { testConnection(); }},
                                      {"game setup", [](const std::filesystem::path &) { testGameSetup(); }},
+                                     {"launch rolls", [](const std::filesystem::path &) { testLaunchRolls(); }},
                                      {"loading files", [](const std::filesystem::path &) { testLoadingFiles(); }},
                                  });

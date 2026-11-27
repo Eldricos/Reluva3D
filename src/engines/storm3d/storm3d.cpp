@@ -25,6 +25,10 @@
 #include "engines/storm3d/shell/options_screen.h"
 #include "engines/storm3d/shell/single_player.h"
 
+#include <algorithm>
+#include <cstdlib>
+#include <random>
+
 namespace reluva::storm3d {
 
 namespace {
@@ -231,15 +235,12 @@ public:
                                 return err;
                             }
                         } else if (choice == OptionsChoice::kAbort) {
-                            // Out of the game without a debriefing, back where
-                            // it was launched from *(guessed)*.
-                            if (Error err = endLoading()) {
+                            // Its box's Yes: to the debriefing, as Surrender
+                            // goes, as the original went.
+                            if (Error err = openDebriefing()) {
                                 stopAll();
                                 return err;
                             }
-                            setupOn = false;
-                            _sys.setTextInput(true);
-                            connectionOn = true;
                         } else if (choice == OptionsChoice::kGraphics || choice == OptionsChoice::kSound ||
                                    choice == OptionsChoice::kGame) {
                             if (Error err = settings.load(_files, &_preferences)) {
@@ -324,14 +325,31 @@ public:
                         connectionOn = leaveConnection();
                     } else if (choice == SetupChoice::kLaunch) {
                         skirmish.clear();
+                        // Random sides and places rolled as the game rolls
+                        // them at launch, its generator's own numbers aside;
+                        // a "seed" setting makes them the same each time.
+                        auto seed = _target.settings.find("seed");
+                        std::mt19937 rolls(seed != _target.settings.end()
+                                               ? uint32_t(std::strtoul(seed->second.c_str(), nullptr, 10))
+                                               : std::random_device{}());
+                        auto below = [&rolls](int n) { return int(rolls() % uint32_t(std::max(n, 1))); };
+                        size_t playing = 0;
+                        for (const GameSetupScreen::Slot &slot : setup.slots())
+                            playing += slot.who != GameSetupScreen::Who::kEmpty;
+                        const std::vector<int> places =
+                            setup.randomPlacement() ? GameSetupScreen::placeAtRandom(setup.starts(), playing, below)
+                                                    : std::vector<int>{};
                         for (size_t i = 0; i < setup.slots().size(); ++i) {
-                            const GameSetupScreen::Slot &slot = setup.slots()[i];
+                            GameSetupScreen::Slot slot = setup.slots()[i];
                             if (slot.who == GameSetupScreen::Who::kEmpty)
                                 continue;
-                            // Slot n starts at Camera_<n+1>: what Random
-                            // Placement does isn't known.
+                            if (slot.side == 0)
+                                slot.side = GameSetupScreen::randomSide(below(4));
+                            // A player's number is its start position, as the
+                            // game's; with Fixed Placement slot n starts at
+                            // Camera_<n+1> *(guessed)*.
                             MissionView::Player p;
-                            p.slot = int(i) + 1;
+                            p.slot = skirmish.size() < places.size() ? places[skirmish.size()] : int(i) + 1;
                             p.race = GameSetupScreen::raceOf(slot, i);
                             p.colour = MapScene::teamColourOf(GameSetupScreen::colourName(slot.colour), _files.files())
                                            .value_or(gfx::Vec3{0.5f, 0.5f, 0.5f});

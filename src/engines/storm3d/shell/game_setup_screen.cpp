@@ -3,6 +3,10 @@
 
 #include "engines/storm3d/shell/game_setup_screen.h"
 
+#include <functional>
+
+#include <algorithm>
+
 #include "engines/storm3d/formats/odf.h"
 
 #include <cstdio>
@@ -31,6 +35,7 @@ constexpr int kSwatchH = 16;
 constexpr int kScrollX = 325;
 constexpr int kBulletX = 15;
 constexpr size_t kShroudOption = 18; // into options()
+constexpr size_t kPlacementOption = 17;
 constexpr float kBullet = 20;
 constexpr std::array<uint8_t, 3> kTaken = {25, 24, 25};
 // Arial Bold as the game asks GDI for it, fitted to the frame's text: 12
@@ -183,15 +188,36 @@ bool GameSetupScreen::fog() const {
     return _values[kShroudOption] < 2;
 }
 
-int GameSetupScreen::playersOf(const BznMap &map) {
-    int players = 0;
+std::vector<int> GameSetupScreen::startsOf(const BznMap &map) {
+    std::vector<int> starts;
     for (int n = 1; n <= 8; ++n)
         for (const BznMap::Path &p : map.paths)
             if (p.name == "Camera_" + std::to_string(n)) {
-                ++players;
+                starts.push_back(n);
                 break;
             }
-    return players;
+    return starts;
+}
+
+bool GameSetupScreen::randomPlacement() const {
+    return _values[kPlacementOption] == 0;
+}
+
+int GameSetupScreen::randomSide(int roll) {
+    // The game's races in its order, as sides() has them.
+    static constexpr int kSides[4] = {1, 4, 3, 2};
+    return kSides[std::clamp(roll, 0, 3)];
+}
+
+std::vector<int> GameSetupScreen::placeAtRandom(std::vector<int> starts, size_t players,
+                                                const std::function<int(int)> &below) {
+    std::vector<int> placed;
+    for (size_t i = 0; i < players && !starts.empty(); ++i) {
+        const int at = std::clamp(below(int(starts.size())), 0, int(starts.size()) - 1);
+        placed.push_back(starts[size_t(at)]);
+        starts.erase(starts.begin() + at);
+    }
+    return placed;
 }
 
 Error GameSetupScreen::load(const GameFiles &files, const std::string &name) {
@@ -245,7 +271,8 @@ Error GameSetupScreen::load(const GameFiles &files, const std::string &name) {
     // player and a computer.
     _map = "4first.bzn";
     BznMap map;
-    _players = !files.read("bzn/" + _map, data) && !map.parse(data) ? playersOf(map) : 0;
+    _starts = !files.read("bzn/" + _map, data) && !map.parse(data) ? startsOf(map) : std::vector<int>{};
+    _players = int(_starts.size());
     _slots = {};
     _slots[0] = {Who::kPlayer, 0, 0, 1};
     _slots[1] = {Who::kComputerMedium, 0, 1, 2};

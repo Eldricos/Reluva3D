@@ -23,7 +23,9 @@ enum class OptionsChoice { kNone, kPreviousMenu, kGraphics, kSound, kGame, kSurr
  * a button for each of the three settings screens, and along the bottom
  * Previous Menu beside two empty plates. In a game (its MENU button) it
  * also has Surrender above them and Abort Mission and Return to Game
- * below, and the bottom's plates are all empty. See
+ * below, and the bottom's plates are all empty; Abort Mission asks first,
+ * in a box over it (`bitmaps/misc/DBsmall2BG.bmp`), and is chosen by its
+ * Yes. See
  * docs/engines/storm3d/games/armada/systems/front-end.md.
  */
 class OptionsScreen {
@@ -38,6 +40,8 @@ public:
     static const std::vector<Button> &buttons(bool inGame);
     /** The choice under a point, the buttons' sizes as the install's: kNone if none. */
     static OptionsChoice choiceAt(int x, int y, bool inGame);
+    /** Whether Abort Mission's box is up, asking. */
+    bool asking() const { return _asking; }
 
     /**
      * Reads its pictures and text.
@@ -62,6 +66,15 @@ private:
     ShellFont _font;
     OptionsChoice _hover = OptionsChoice::kNone;
     OptionsChoice _pressed = OptionsChoice::kNone;
+    // Abort Mission's box: its picture, Yes and No, which is under the
+    // pointer and pressed (0 none, 1 Yes, 2 No).
+    bool _asking = false;
+    image::Image _box;
+    ShellButton _yes;
+    ShellButton _no;
+    int _askHover = 0;
+    int _askPressed = 0;
+    int askAt(int x, int y) const;
 };
 
 } // namespace reluva::storm3d

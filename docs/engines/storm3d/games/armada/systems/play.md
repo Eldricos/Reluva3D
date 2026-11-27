@@ -93,6 +93,14 @@ frame after a click on the starbase, and after `N`:
   its health. It spans the unit's box as it falls on the screen, all
   eight corners: the starbase's bar from 381 to 490, its box from 381.4
   to 489.4. Its top is 6 pixels above the box's top there.
+- **When it shows** *(from the code)*, 0x496347 and 0x4977a6: over the
+  unit under the pointer; and once the pointer has rested on one
+  player's units, frame after frame, half a second, over every one of
+  that player's units, fading in over the next half second, gone as soon
+  as the pointer leaves them. Selection alone gives none: the original's
+  starbase, selected, had none once the pointer was on the panel. Its
+  other way to draw them all answers to debugging settings
+  (`DEBUG_SHOW_OBJECT_BOUNDING_BOX` and the like).
 
 ### The selected unit's display
 
@@ -227,6 +235,21 @@ frames every second:
   behind, from its side, from further off, with the planets behind it.
 - **After,** the starbase close up, though the ship was still selected.
 
+Over a longer run (frames every two seconds, 42 to 250 seconds, a
+shipyard and a Defiant built and the Defiant sent off):
+
+- **With a unit selected,** it stays on it, cutting every few seconds
+  between a close-up and a wider shot (the shipyard going up, 58 to 118
+  seconds).
+- **With none,** it goes from one of the player's units to another, the
+  starbase, the shipyard, either construction ship, the Defiant, each
+  for 2 to 6 seconds, in no order seen; the ship flying in wider shots.
+- **In a fight,** the enemy starbase the Defiant fought, close up.
+
+The events' `CinematicPriority` and `CinematicTime` in `events.odf`
+(a base under attack's 5 for 10 seconds) are commented out, so the
+retail game doesn't cut to them.
+
 The steady shot, fitted to the original's draws: the construction
 ship's hull in the panel, against the same hull placed back in the world
 from the main view, aligned by its nearest points (no vertex is drawn
@@ -257,7 +280,14 @@ Settings, Sound Settings, Game Settings, Abort Mission, Return to Game;
 the bottom bar's three plates empty.
 
 Surrender went straight to the debriefing, no word of defeat between,
-within a second. Over `bitmaps\credit\creditsBG.bmp`, its title
+within a second. Abort Mission asks first: a box over the menu
+(`bitmaps/misc/DBsmall2BG.bmp` at (140, 150)), "Warning:" at (232, 151)
+and "Are you sure you want to abort the mission?" centred on it, in the
+debriefing's gold (`label.map`'s `abort_mission_popup`), Abort Mission
+left pressed beneath; Yes on Previous Menu's plate (`navback`) at
+(163, 250), No on the right one's (`navmain`) at (357, 250), their words
+12 pixels. Yes went to the debriefing, as Surrender does; No puts the
+box away. Over `bitmaps\credit\creditsBG.bmp`, its title
 "DEBRIEFING" where the Options screen's is, it has a row for each
 player and eight columns, `label.map`'s `multiplayer_debriefing` words
 in Arial Bold, as measured on its frame:
@@ -323,8 +353,11 @@ before and after each ([camera.md](camera.md#the-overview)):
   of the view on the screen's bottom corners. The cinematic view shows
   the unit selected first, or the player's first ship, in the
   construction ship's steady shot: 1.53 of its ring's half side from its
-  box's middle, turned with its heading *(inferred)*. Its cuts aren't
-  made. In a skirmish the crew
+  box's middle, turned with its heading *(inferred)*. With nothing
+  selected it starts on the player's first ship, then moves to one of
+  the player's units after another, chosen at random, each for 2 to 6
+  seconds *(inferred)*, from the frames above; its wider shots, and the
+  fight's, aren't made. In a skirmish the crew
   grows by 3.5 a second for each of the player's starbases.
 - **Selecting:** a click picks the unit whose middle is nearest the
   pointer, of those whose box reaches it on the screen (the game's own
@@ -339,8 +372,10 @@ before and after each ([camera.md](camera.md#the-overview)):
   player's units whose middles it holds, only those that move if any
   do. A group shows each ship on the info panel, and its orders: each
   button any of them has, lit if any of them can, build dark
-  *(guessed)*; their special weapons once each. A unit clicked on has
-  its health bar; units a box selected don't.
+  *(guessed)*; their special weapons once each.
+- **Health bars** as the original's, above: the unit under the pointer's,
+  and all of a player's once the pointer has rested on their units half
+  a second, drawn whole rather than fading in.
 - **Moving:** the right button sends the ships selected to a point, as
   [movement.md](movement.md) has it.
 - **Building:** the build button opens a unit's build menu, as
@@ -364,17 +399,25 @@ before and after each ([camera.md](camera.md#the-overview)):
   does the end: the player lost once they've no unit left, or won once
   no player on another team has any *(guessed: the original wasn't
   played to an end; whether it counts freighters, or Allied Victory's
-  part, isn't known)*. Abort Mission goes back to the Multiplayer
-  Connection screen without a debriefing *(guessed)*. The debriefing
+  part, isn't known)*. Abort Mission asks first, in the original's box,
+  and its Yes opens the debriefing, as the original's did. The debriefing
   counts each player's dilithium brought in by freighters and spent
   (given back as a build is cancelled), the ships and stations they
   built, those they lost, and those of other players their shots
   destroyed.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
-  Setup screen's slots: each player's race (one left Random takes the
-  races in turn by its slot *(guessed)*), their colour, and slot *n* on
-  `Camera_<n+1>` *(guessed)*, as what Random Placement does isn't known.
-  The scene draws each player's units in their own colour.
+  Setup screen's slots: each player's race, their colour and their
+  start, rolled at launch as the original rolls them (0x43e7ee,
+  0x43e8ad) *(from the code)*: with Random Placement, the setting it
+  starts on, each player in slot order takes a start at random among the
+  map's `Camera_<n>` paths not yet taken, and its number is its start's
+  (the original's computer was player 4, at `Camera_4`); a side left
+  Random becomes one of the four at random, the game's Federation,
+  Borg, Romulan, Klingon. The game seeds its generator from the clock,
+  so every game differs; Reluva's too, but for a `seed` setting, which
+  `engine-shot` sets to 86 to roll as the original's runs in the
+  emulator did. With Fixed Placement slot *n* starts on `Camera_<n+1>`
+  *(guessed)*. The scene draws each player's units in their own colour.
 
 ## Sources and checks
 
@@ -404,20 +447,20 @@ before and after each ([camera.md](camera.md#the-overview)):
   the input's clock, and the frames fall between.
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
-- How Random sides and Random Placement choose.
+- Where Fixed Placement puts each player.
 - How the original ends a skirmish that's won or lost, rather than
   surrendered: what it shows first, and when a player counts as out.
-- Where Abort Mission goes.
-- Whether the fog hides the asteroid fields and nebulae, and what of an
+- Whether the fog, over what's been seen, hides the asteroid fields and
+  nebulae (the shroud hides both: the original's view over a field and
+  a nebula never seen was its grey alone, as Reluva's), and what of an
   enemy's station once seen (a last sight of it, or nothing).
 - The minimap's grey pixel, and how the view's bottom
   edge is made.
-- The cinematic view's director: what it shows when, its shots and
-  cuts, and the starbase's own shot.
+- The cinematic view's director: how it picks the next unit and how
+  long, its wider shots, when it turns to a fight, and the starbase's
+  own shot.
 - What makes the crew grow: one starbase gave 3.5 a second; more, or
   none, haven't been seen.
-- When the health bars show: why the unselected ships had theirs, and
-  the ship chosen with `N`, or a box, none yet.
 - Which point of a unit the box has to hold, and how a group's orders
   are lit when its ships can do different things.
 - How the info panel shows more than eight ships.
