@@ -68,6 +68,8 @@ private:
     image::Image _background;
     image::Image _overlay; // the chosen row's
     std::vector<StaticText> _texts;
+    std::vector<RandomNumbers> _numbers; // its random-number nernies
+    uint64_t _last = 0;
     Font _font;
     std::vector<Font> _buttonFonts;
     ButtonGroup _buttons;

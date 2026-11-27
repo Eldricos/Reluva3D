@@ -34,10 +34,11 @@
 namespace reluva::stawayteam {
 
 /**
- * Brightens `screen` as the game's brightness `gamma` (1 to 1.5) does in
- * 16-bit colour: (gamma - 1) x 128 added to each colour, in the steps a
- * 5-bit red and blue and a 6-bit green have, kept to 255, and nothing
- * under 8 (0x5587a2, 0x455c50).
+ * Brightens `screen` as the game's brightness `gamma` (1 to 1.5, times the
+ * screen's fade) does in 16-bit colour: (gamma - 1) x 128 added to each
+ * colour, in the steps a 5-bit red and blue and a 6-bit green have, kept
+ * to 0-255, nothing under 8 either way, and taken away when it's below 0
+ * (0x5587a2, 0x455c50, 0x455d80).
  */
 void brightenScreen(Surface &screen, float gamma);
 
@@ -159,7 +160,9 @@ private:
     std::shared_ptr<audio::Sound> _briefingMusic;
     audio::SoundHandle _briefingSong = audio::kNoSound;
     int _songsPlayed = 0;
-    std::optional<uint64_t> _songFadeStart; // ms; the song before the maps' first fading out
+    std::optional<uint64_t> _songFadeStart;  // ms; the song before the maps' first fading out
+    std::optional<uint64_t> _fadeOutStart;   // ms; the briefing's EXIT fading the screen out
+    std::optional<uint64_t> _briefingQueued; // ms; the briefing music queued, the song before fading out
     unsigned _songRandom = 1;
     // The mission's Random Songs shuffled, and the next of them to play.
     std::vector<std::string> _playlist;

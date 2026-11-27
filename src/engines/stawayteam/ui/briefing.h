@@ -75,9 +75,10 @@ private:
     image::Image _portraitBackground;
     image::Image _portrait;
     std::vector<StaticText> _texts;
-    Font _textFont;   // Briefing Text Font
-    Font _titleFont;  // Placar Blue
-    Font _promptFont; // Trek Small
+    std::vector<RandomNumbers> _numbers; // its random-number nernies
+    Font _textFont;                      // Briefing Text Font
+    Font _titleFont;                     // Placar Blue
+    Font _promptFont;                    // Trek Small
     std::vector<Font> _buttonFonts;
     ButtonGroup _buttons; // EXIT, REPLAY, CONTINUE, END BRIEFING
     std::string _title;
@@ -93,6 +94,26 @@ private:
     float _typed = 0.0f; // characters typed out
     bool _advance = false;
     int _scroll = 0; // lines scrolled past
+    // The scroll bar, made only while the text's taller than its window
+    // (0x47331c): its pictures, its place on the screen and how far it
+    // scrolls, as last drawn.
+    struct ScrollBar {
+        image::Image background;
+        image::Image upDefault;
+        image::Image upPress;
+        image::Image downDefault;
+        image::Image downPress;
+        image::Image thumb;
+        bool shown = false;
+        int x = 0;
+        int y = 0;
+        int most = 0;    // lines it scrolls past at most
+        int page = 1;    // lines the window shows
+        int pressed = 0; // -1 its up arrow held, 1 its down arrow
+    };
+    ScrollBar _bar;
+    // What a click at (x, y) does to the scroll bar; true if it was on it.
+    bool clickBar(int x, int y);
     uint64_t _last = 0;
     std::unique_ptr<ConfirmDialog> _confirm;
 };

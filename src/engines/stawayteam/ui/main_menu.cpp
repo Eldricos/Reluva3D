@@ -30,6 +30,18 @@ struct MainMenu::Part {
 
 namespace {
 
+// How long the briefing's EXIT fades the screen out (0x474a6d: 0.5 s).
+constexpr uint64_t kFadeOutMs = 500;
+// The briefing music's queue fade (0x5c3104: 0.1 s).
+constexpr uint64_t kBriefingFadeMs = 100;
+
+// A song fading out as another's queued: down to -33.33 dB over the
+// fade, evenly in dB (0x4d5cb0, -3333 at 0x621ba0).
+int queueFadeVolume(uint64_t gone, uint64_t fade) {
+    const float t = float(gone) / float(fade);
+    return int(float(audio::kMaxVolume) * std::pow(10.0f, -33.33f * t / 20.0f));
+}
+
 const char *const kPointer = "Cache/Interface/Cursors/Pointer.seq16";
 
 // The main menu's buttons, top to bottom, as the program names them
@@ -198,6 +210,9 @@ bool MainMenu::run() {
                 stopSong();
                 return false;
             }
+            // Nothing's answered while the screen fades out.
+            if (_fadeOutStart)
+                continue;
             if (_dialog) {
                 const std::optional<bool> answer = _dialog->handleEvent(ev, _mixer);
                 if (answer && *answer) {
@@ -326,8 +341,9 @@ bool MainMenu::run() {
             if (_briefing) {
                 const BriefingScreen::Choice choice = _briefing->handleEvent(ev, _sys.getMillis());
                 if (choice == BriefingScreen::Choice::kExit) {
-                    _briefing.reset();
-                    _teamSelection.reset();
+                    // Yes to EXIT fades the screen out over half a second,
+                    // then the main menu (0x474a6d).
+                    _fadeOutStart = _sys.getMillis();
                 } else if (choice == BriefingScreen::Choice::kEndBriefing) {
                     _briefing.reset();
                     // On to the team selection; without one, the mission.
@@ -379,10 +395,19 @@ bool MainMenu::run() {
         // own music, and comes back with the menu (inferred).
         const bool inGame = _briefing || _teamSelection || _mapScreen || _debriefing;
         if (inGame && song != audio::kNoSound) {
-            stopSong();
-            song = audio::kNoSound;
+            if (_briefingQueued && _sys.getMillis() - *_briefingQueued < kBriefingFadeMs) {
+                _mixer->setVolume(song, queueFadeVolume(_sys.getMillis() - *_briefingQueued, kBriefingFadeMs));
+            } else {
+                stopSong();
+                song = audio::kNoSound;
+            }
         } else if (!inGame && song == audio::kNoSound && _mixer && _song) {
             song = _mixer->play(_song, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
+        }
+        if (_fadeOutStart && _sys.getMillis() - *_fadeOutStart >= kFadeOutMs) {
+            _fadeOutStart.reset();
+            _briefing.reset();
+            _teamSelection.reset();
         }
         playMissionMusic();
         updateNetScreens(_sys.getMillis());
@@ -430,6 +455,22 @@ void MainMenu::playMissionMusic() {
     // the maps are left.
     if (!_mixer)
         return;
+    // The briefing music, queued, starts once the song before has faded;
+    // a briefing music still playing fades too.
+    if (_briefingQueued) {
+        const uint64_t gone = _sys.getMillis() - *_briefingQueued;
+        if (gone < kBriefingFadeMs) {
+            if (_briefingSong != audio::kNoSound)
+                _mixer->setVolume(_briefingSong, queueFadeVolume(gone, kBriefingFadeMs));
+        } else {
+            _briefingQueued.reset();
+            if (_briefingSong != audio::kNoSound)
+                _mixer->stop(_briefingSong);
+            _briefingSong = _briefingMusic
+                                ? _mixer->play(_briefingMusic, audio::SoundType::kMusic, audio::kMaxVolume, 0, true)
+                                : audio::kNoSound;
+        }
+    }
     const bool briefed = _briefing || _teamSelection;
     if (_briefingSong != audio::kNoSound && !_mapScreen && !briefed) {
         _mixer->stop(_briefingSong);
@@ -440,16 +481,13 @@ void MainMenu::playMissionMusic() {
         // what's playing goes down to -33.33 dB, evenly in dB, and the
         // song starts at full once the time's up, playing or not
         // (0x4d5640, 0x4d5cb0).
-        constexpr float kFade = 0.2f;
-        constexpr float kDown = -33.33f;
+        constexpr uint64_t kFadeMs = 200;
         const uint64_t now = _sys.getMillis();
         if (!_songFadeStart)
             _songFadeStart = now;
-        const float t = float(now - *_songFadeStart) / 1000.0f;
-        if (t < kFade) {
+        if (now - *_songFadeStart < kFadeMs) {
             if (_briefingSong != audio::kNoSound)
-                _mixer->setVolume(_briefingSong,
-                                  int(float(audio::kMaxVolume) * std::pow(10.0f, kDown * t / kFade / 20.0f)));
+                _mixer->setVolume(_briefingSong, queueFadeVolume(now - *_songFadeStart, kFadeMs));
             return;
         }
         if (_briefingSong != audio::kNoSound)
@@ -565,10 +603,10 @@ void MainMenu::beginMission(int number) {
     auto music = std::make_shared<audio::Sound>();
     if (_mixer && !_mission.briefingMusic.empty() && !_data.read("Music/" + _mission.briefingMusic, bytes) &&
         !audio::decodeSound(bytes, *music)) {
-        if (_briefingSong != audio::kNoSound)
-            _mixer->stop(_briefingSong);
+        // Queued with a tenth of a second's fade (0x5c3104): the song
+        // playing fades out, then this starts (0x4d5cb0).
         _briefingMusic = std::move(music);
-        _briefingSong = _mixer->play(_briefingMusic, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
+        _briefingQueued = _sys.getMillis();
     }
     if (_mission.showBriefing)
         _briefing =
@@ -850,24 +888,32 @@ void MainMenu::updateNetScreens(uint64_t now) {
 }
 
 void brightenScreen(Surface &screen, float gamma) {
-    // Truncated, as the program's float to int is (0x6076f8).
-    const int amount = std::min(int((gamma - 1.0f) * 128.0f), 255);
+    // Truncated, as the program's float to int is (0x6076f8); below 0
+    // taken away instead, in the same steps (0x455d80).
+    const int signedAmount = int((gamma - 1.0f) * 128.0f);
+    const int amount = std::min(std::abs(signedAmount), 255);
     if (amount < 8)
         return;
-    const int redBlue = amount >> 3 << 3;
-    const int green = amount >> 2 << 2;
+    const int sign = signedAmount < 0 ? -1 : 1;
+    const int redBlue = sign * (amount >> 3 << 3);
+    const int green = sign * (amount >> 2 << 2);
     for (int y = 0; y < screen.h; ++y) {
         uint8_t *p = screen.row(y);
         for (int x = 0; x < screen.w; ++x, p += 4) {
-            p[0] = uint8_t(std::min(255, p[0] + redBlue));
-            p[1] = uint8_t(std::min(255, p[1] + green));
-            p[2] = uint8_t(std::min(255, p[2] + redBlue));
+            p[0] = uint8_t(std::clamp(p[0] + redBlue, 0, 255));
+            p[1] = uint8_t(std::clamp(p[1] + green, 0, 255));
+            p[2] = uint8_t(std::clamp(p[2] + redBlue, 0, 255));
         }
     }
 }
 
 void MainMenu::brighten() {
-    brightenScreen(_screen, _options.brightness);
+    // The screen's own fade times the gamma (0x558780), the fade going
+    // evenly from 1 to 0 as it fades out (inferred).
+    float fade = 1.0f;
+    if (_fadeOutStart)
+        fade = 1.0f - std::min(1.0f, float(_sys.getMillis() - *_fadeOutStart) / float(kFadeOutMs));
+    brightenScreen(_screen, _options.brightness * fade);
 }
 
 } // namespace reluva::stawayteam

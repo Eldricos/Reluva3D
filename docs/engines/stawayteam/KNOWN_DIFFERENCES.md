@@ -37,12 +37,7 @@ None yet.
   countdown runs out in it ([systems/network.md](systems/network.md)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from
-  its briefing; the save screens' picture and random numbers aren't
-  shown ([systems/menus.md](systems/menus.md#saved-games)).
-- **The briefing:** the text has no scroll bar (the mouse wheel
-  scrolls it), the random numbers aren't there, the briefing music
-  starts at once, not after the tenth of a second's fade of the song before, and EXIT doesn't fade out
-  ([systems/briefing.md](systems/briefing.md#in-reluva)).
+  its briefing; the save screens' picture isn't shown ([systems/menus.md](systems/menus.md#saved-games)).
 - **The team selection:** the transporter's random numbers and the
   effect the figures are drawn through aren't there yet
   ([systems/team-selection.md](systems/team-selection.md#in-reluva)).

@@ -33,6 +33,7 @@ SaveGameScreen::SaveGameScreen(const Archive &data, const TextObject &rules, Mod
     _background = screenPicture(data, screen + "/Background");
     _overlay = screenPicture(data, "Load Game/Select Overlay");
     _texts = readStaticTexts(data, _def);
+    _numbers = readRandomNumbers(data, _def, 1);
     // Its Menu Font, the list's and the name's (inferred).
     (void)_font.load(data, mode == Mode::kSave ? "Bach White" : "Trek Small");
     const char *const keys[] = {mode == Mode::kSave ? "SaveButton" : "LoadButton", "DeleteButton", "ExitButton"};
@@ -160,10 +161,15 @@ SaveGameScreen::Choice SaveGameScreen::handleEvent(const Event &ev, audio::Mixer
 }
 
 void SaveGameScreen::draw(Surface &screen, uint64_t now) {
-    (void)now;
+    const float dt = _last ? float(now - std::min(now, _last)) / 1000.0f : 0.0f;
+    _last = now;
     image::blit(screen, _background, 0, 0);
     for (const StaticText &t : _texts)
         t.draw(screen, 0, 0);
+    for (RandomNumbers &n : _numbers) {
+        n.update(dt);
+        n.draw(screen, 0, 0);
+    }
     _buttons.draw(screen);
     if (!_font.loaded())
         return;

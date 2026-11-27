@@ -10,6 +10,7 @@
 #include "engines/stawayteam/ui/escape_menu.h"
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/save_menu.h"
+#include "engines/stawayteam/ui/static_text.h"
 #include "engines/stawayteam/game/campaign.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/credits.h"
@@ -182,6 +183,33 @@ void testCredits() {
     CHECK(whole && faded);
 }
 
+void testRandomNumbers() {
+    // The briefing's: 1 number of 3 digits a row, 3 rows; idle 5 seconds,
+    // then 10 changes 0.03 seconds apart, and idle again (0x54ca10).
+    TextObject def;
+    CHECK(!readTextObject("CMenuDefinition\n{\nNernie=Array\n{\nItem Count=1\nNernie=CRandomNumberNernie\n{\n"
+                          "Position=61,161\nFont=Numbers Gold\nWidth of Numbers=3\nColumn Width=1\nColumn Height=3\n"
+                          "Space Between Columns=5\nSpace Between Rows=2\nIdle Time=5\nTime Between Changes=0.03\n"
+                          "Number of Changes=10\n}\n}\n}\n",
+                          def));
+    MemoryArchive data;
+    std::vector<RandomNumbers> numbers = readRandomNumbers(data, &def, 1);
+    CHECK(numbers.size() == 1 && numbers[0].numbers().size() == 3 && numbers[0].numbers()[0].size() == 3);
+    RandomNumbers &n = numbers[0];
+    const auto shown = n.numbers();
+    n.update(4.9f);
+    CHECK(n.numbers() == shown);
+    int changes = 0;
+    auto before = n.numbers();
+    for (int i = 0; i < 100; ++i) {
+        n.update(0.031f);
+        if (n.numbers() != before)
+            ++changes;
+        before = n.numbers();
+    }
+    CHECK(changes == 10);
+}
+
 void testWidgets() {
     MemoryArchive data;
     data.files["Cache/Fonts/Test.seq16"] = fontFile({solidFrame(3, 5, 0xffff), solidFrame(4, 5, 0xffe0)}, 65);
@@ -352,6 +380,9 @@ void testOptions(const std::filesystem::path &tmp) {
     CHECK(p[0] == 42);
     brightenScreen(screen, 1.1f);
     CHECK(p[0] == 50 && p[1] == 64);
+    // Faded to half, as the briefing's EXIT ends: 64 taken away.
+    brightenScreen(screen, 0.5f);
+    CHECK(p[0] == 0 && p[1] == 0 && p[2] == 191);
 }
 
 void testControls() {
@@ -787,6 +818,7 @@ static const reluva::test::Suite
                                         {"buttons", [](const std::filesystem::path &) { testButtons(); }},
                                         {"credits", [](const std::filesystem::path &) { testCredits(); }},
                                         {"widgets", [](const std::filesystem::path &) { testWidgets(); }},
+                                        {"random numbers", [](const std::filesystem::path &) { testRandomNumbers(); }},
                                         {"toolkit", [](const std::filesystem::path &) { testToolkit(); }},
                                         {"options", [](const std::filesystem::path &tmp) { testOptions(tmp); }},
                                         {"controls", [](const std::filesystem::path &) { testControls(); }},

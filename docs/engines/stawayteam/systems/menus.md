@@ -599,7 +599,8 @@ Game/Background`:
   SAVE GAME or Enter; loading, LOAD GAME or Enter; DELETE GAME asks
   first. Its time is the missions' total, hours and minutes saving,
   with seconds loading; loading, the chosen one's mission and score at
-  GameInfo Pos *(inferred)*. Saves are Reluva's own
+  GameInfo Pos *(inferred)*. Their random-number nernies roll as the
+  briefing's do ([briefing.md](briefing.md#the-screen)). Saves are Reluva's own
   (`game/campaign.cpp`), `.sav` files of text in `Save Games` where
   Reluva keeps the game's files: the mission, as it began, its score,
   time and difficulty, and the items found. Loading one begins its

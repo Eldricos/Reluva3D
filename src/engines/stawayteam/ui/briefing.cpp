@@ -61,7 +61,15 @@ BriefingScreen::BriefingScreen(const Archive &data, const std::filesystem::path 
     : _data(data), _rules(rules), _def(menuDefinition(rules, "Briefing Screen")), _mission(mission), _options(options),
       _mixer(mixer), _background(screenPicture(data, "Briefing/Background")),
       _portraitBackground(screenPicture(data, "Briefing/Portrait Background")), _last(now) {
+    // The scroll bar's pictures (0x4727e8).
+    _bar.background = screenPicture(data, "Briefing/Scroll Background");
+    _bar.upDefault = screenPicture(data, "Briefing/Scroll Up Default");
+    _bar.upPress = screenPicture(data, "Briefing/Scroll Up Press");
+    _bar.downDefault = screenPicture(data, "Briefing/Scroll Down Default");
+    _bar.downPress = screenPicture(data, "Briefing/Scroll Down Press");
+    _bar.thumb = screenPicture(data, "Briefing/Scroll Thumb");
     _texts = readStaticTexts(data, _def);
+    _numbers = readRandomNumbers(data, _def, 1);
     (void)_textFont.load(data, readText(_def, "Briefing Text Font"));
     (void)_titleFont.load(data, kTitleFont);
     (void)_promptFont.load(data, kPromptFont);
@@ -156,6 +164,8 @@ void BriefingScreen::showLine(size_t line) {
 void BriefingScreen::update(uint64_t now) {
     const float dt = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
+    for (RandomNumbers &n : _numbers)
+        n.update(dt);
     const double speed = _def ? _def->number("TextDisplay Text Speed").value_or(kDefaultSpeed) : kDefaultSpeed;
     _typed = std::min(float(_text.size()), _typed + dt * float(speed));
     const bool voicePlaying = _mixer && _voice != audio::kNoSound && _mixer->isPlaying(_voice);
@@ -226,6 +236,10 @@ BriefingScreen::Choice BriefingScreen::handleEvent(const Event &ev, uint64_t now
     }
     if (ev.type == EventType::kMouseWheel)
         _scroll = std::max(0, _scroll - ev.wheelY);
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && clickBar(ev.mouseX, ev.mouseY))
+        return Choice::kNone;
+    if (ev.type == EventType::kMouseUp)
+        _bar.pressed = 0;
     switch (_buttons.handleEvent(ev, _mixer)) {
     case kContinue:
         _advance = true;
@@ -272,15 +286,62 @@ void BriefingScreen::drawText(Surface &screen) {
         indent = _portraitBackground.w + 2;
         narrow = lineHeight > 0 ? _portraitBackground.h / lineHeight + 1 : 0;
     }
-    // What's been typed, broken into lines as it goes (0x568e60).
-    const std::vector<std::string> lines =
-        _textFont.wrap(std::string_view(_text).substr(0, size_t(_typed)), tw, indent, narrow);
+    // What's been typed, broken into lines as it goes (0x568e60); with the
+    // scroll bar, short of it (inferred).
     const int shown = lineHeight > 0 ? std::max(1, (th + spacing) / lineHeight) : 1;
+    const std::string_view typed = std::string_view(_text).substr(0, size_t(_typed));
+    std::vector<std::string> lines = _textFont.wrap(typed, tw, indent, narrow);
+    if (int(lines.size()) > shown && _bar.background.w > 0)
+        lines = _textFont.wrap(typed, tw - _bar.background.w, indent, narrow);
     _scroll = std::clamp(_scroll, 0, std::max(0, int(lines.size()) - shown));
     for (int i = 0; i < shown && _scroll + i < int(lines.size()); ++i) {
         const int n = _scroll + i;
         _textFont.draw(screen, x + (n < narrow ? indent : 0), y + i * lineHeight, lines[size_t(n)]);
     }
+    // The scroll bar, at Scroll Pos in the text window, only while there's
+    // more text than shows (0x47331c): its up arrow at its top, its down
+    // arrow at its bottom, the thumb between them by how far it's
+    // scrolled (inferred: its layout, 0x4e72a0, isn't traced through).
+    _bar.shown = int(lines.size()) > shown && _bar.background.h > 0;
+    if (!_bar.shown)
+        return;
+    int sx = 0;
+    int sy = 0;
+    readPoint(_def, "Scroll Pos", sx, sy);
+    _bar.x = wx + sx;
+    _bar.y = wy + sy;
+    _bar.most = int(lines.size()) - shown;
+    _bar.page = shown;
+    image::blit(screen, _bar.background, _bar.x, _bar.y);
+    image::blit(screen, _bar.pressed < 0 ? _bar.upPress : _bar.upDefault, _bar.x, _bar.y);
+    const image::Image &down = _bar.pressed > 0 ? _bar.downPress : _bar.downDefault;
+    image::blit(screen, down, _bar.x, _bar.y + _bar.background.h - down.h);
+    const int top = _bar.y + _bar.upDefault.h;
+    const int track = _bar.background.h - _bar.upDefault.h - _bar.downDefault.h - _bar.thumb.h;
+    image::blit(screen, _bar.thumb, _bar.x, top + (_bar.most > 0 ? track * _scroll / _bar.most : 0));
+}
+
+bool BriefingScreen::clickBar(int x, int y) {
+    // An arrow a line up or down; above or below the thumb, a window's
+    // worth (inferred).
+    if (!_bar.shown || x < _bar.x || x >= _bar.x + _bar.background.w || y < _bar.y || y >= _bar.y + _bar.background.h)
+        return false;
+    const int bottom = _bar.y + _bar.background.h;
+    if (y < _bar.y + _bar.upDefault.h) {
+        _bar.pressed = -1;
+        _scroll = std::max(0, _scroll - 1);
+    } else if (y >= bottom - _bar.downDefault.h) {
+        _bar.pressed = 1;
+        _scroll = std::min(_bar.most, _scroll + 1);
+    } else {
+        const int track = _bar.background.h - _bar.upDefault.h - _bar.downDefault.h - _bar.thumb.h;
+        const int thumbY = _bar.y + _bar.upDefault.h + (_bar.most > 0 ? track * _scroll / _bar.most : 0);
+        if (y < thumbY)
+            _scroll = std::max(0, _scroll - _bar.page);
+        else if (y >= thumbY + _bar.thumb.h)
+            _scroll = std::min(_bar.most, _scroll + _bar.page);
+    }
+    return true;
 }
 
 void BriefingScreen::draw(Surface &screen, uint64_t now) {
@@ -288,6 +349,8 @@ void BriefingScreen::draw(Surface &screen, uint64_t now) {
     image::blit(screen, _background, 0, 0);
     for (const StaticText &t : _texts)
         t.draw(screen, 0, 0);
+    for (const RandomNumbers &n : _numbers)
+        n.draw(screen, 0, 0);
     // The movie while it plays, its top left at MovieDisplay Pos (0x473710).
     if (_movie && _movie->frame().w && (_mission.loopMovie || !_movie->done(now))) {
         int mx = 0;

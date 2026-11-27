@@ -44,7 +44,15 @@ The mission's `.MDS` (a `CMissionDescription`) gives:
 At `Rules.txt`'s places:
 
 - **Its texts:** the definition's static texts ("SPECIAL OPS BRIEFING")
-  and two random-number nernies.
+  and two random-number nernies (`CRandomNumberNernie`): rows (`Column
+  Height`, 3 and 4) of numbers (`Column Width`, 1 a row) of `Width of
+  Numbers` (3) random digits in their `Font` (Numbers Gold, Numbers Gold
+  Dark), each the width of so many 0s and `Space Between Columns` apart,
+  the rows their font's height and `Space Between Rows` apart
+  (`0x54ca80`). Idle for `Idle Time` (5 s), they then change at once and
+  every `Time Between Changes` (0.03 s), `Number of Changes` (10) in
+  all, and go idle again (`0x54ca10`). The save and load screens have
+  two each too.
 - **The buttons** (pictures `Briefing/<name>`): EXIT, REPLAY, CONTINUE
   and END BRIEFING. HELP is in `Rules.txt` but the program doesn't make
   it.
@@ -66,7 +74,12 @@ At `Rules.txt`'s places:
   characters a second (25; 90 if `Rules.txt` had none, `0x568d68`), the
   part typed broken into lines as it grows (`0x568e60`).
 - **A scroll bar** (`Briefing/Scroll ...` pictures, at `Scroll Pos`) is
-  made only when the text is taller than the window (`0x47331c`).
+  made only when the text is taller than the window (`0x47331c`): a
+  window of its own (`0x4727a0`) on `Scroll Background` (19x188) with the
+  toolkit's vertical scroll bar (`0x4e81c0`), its arrows `Scroll Up` and
+  `Scroll Down` (19x10, Default and Press, drawn stretched to their
+  places, `0x4e82a0`) and `Scroll Thumb` (19x4). No retail line is long
+  enough to need it.
 
 ### Going through the lines
 
@@ -115,11 +128,16 @@ one line breaks it at each line break (`0x4b1670`, looking for it at
 one before (`0x4b16ce`). The items found since the last
 briefing ([objectives.md](objectives.md#the-score)) are lines after its
 own, each said by who found it, and are had from then; while they play
-the movie goes on *(inferred)*. Not there yet: the scroll bar (the mouse wheel scrolls instead), the random numbers, the
-fade, and a movie's delay. The main menu's song stops while the game's
-screens show; `MainMenu` starts the briefing music as the mission
-begins and plays it over and over, without the fade, until the maps
-start or the menu comes back.
+the movie goes on *(inferred)*. The scroll bar's up arrow at its top,
+its down arrow at its bottom and the thumb between by how far the text's
+scrolled, an arrow a line and the rest of it a window's worth, the text
+wrapped short of it *(inferred)*; the mouse wheel scrolls too. The
+random numbers are as above, and yes to EXIT fades the screen out over
+half a second, the screen's fade times the gamma going evenly from 1 to
+0 *(inferred)*. Not there yet: a movie's delay (the retail's is 0).
+`MainMenu` queues the briefing music as the mission begins: the song
+playing fades out over a tenth of a second, then it plays over and over
+until the maps start or the menu comes back.
 
 ## Sources and checks
 
