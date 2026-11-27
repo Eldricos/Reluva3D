@@ -167,6 +167,21 @@ Hud::Unit MissionView::displayOf(const std::string &odfName, const Odf::Loader &
     return u;
 }
 
+std::vector<Hud::Unit::Button> MissionView::orderPanelOf(bool ship) {
+    std::vector<Hud::Unit::Button> panel = {{1, "b_galert", "bb_standard", true},
+                                            {2, "b_yalert", "bb_standard", true},
+                                            {3, "b_ralert", "bb_standard", true}};
+    if (ship) {
+        panel.push_back({4, "b_patrol", "bb_standard", true});
+        panel.push_back({5, "b_scout", "bb_standard", true});
+        panel.push_back({6, "b_sandd", "bb_standard", true});
+        panel.push_back({7, "b_guard", "bb_standard", true});
+    }
+    panel.push_back({10, "b_decom", "bb_standard", true});
+    panel.push_back({12, "b_back", "bb_standard", true});
+    return panel;
+}
+
 void MissionView::sendTo(std::vector<Movement::Ship> &ships, const std::vector<MapScene::Unit> &units,
                          const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point,
                          const std::vector<Movement::Obstacle> &fields) {
@@ -526,7 +541,21 @@ int MissionView::grownCrew(int crew, double &carry, int starbases, double second
 void MissionView::pressControl(int slot) {
     if (slot == 0 || _selection.size() != 1)
         return;
+    if (_ordering) {
+        // Decommission, the panel left open as the original's was, or back;
+        // the alerts and a ship's standing orders aren't made yet.
+        if (slot == 10)
+            decommission(size_t(_selection.front()));
+        if (slot == 12)
+            _ordering = false;
+        return;
+    }
     if (!_building) {
+        for (const Hud::Unit::Button &b : _orders.controls)
+            if (b.slot == slot && b.sprite == "b_order" && b.enabled) {
+                _ordering = true;
+                return;
+            }
         // Repair and Recrew: to the nearest shipyard or starbase.
         const size_t one = size_t(_selection.front());
         for (const Hud::Unit::Button &b : _orders.controls)
@@ -1079,6 +1108,7 @@ void MissionView::fight(double seconds) {
     });
     runEffects(seconds);
     runCrew(seconds);
+    runDecommissions(seconds);
     // A detector's sight wears off; a cloaked unit seen shows meanwhile.
     std::erase_if(_revealedUntil, [now](const auto &r) { return now >= r.second; });
     for (size_t i = 0; i < count && i < _cloaked.size(); ++i)
@@ -1242,6 +1272,79 @@ void MissionView::destroy(size_t unit, int by) {
         if (!def.load(u.odf + ".odf", loaderOf(_files.files())))
             bank->officers = std::max(0, bank->officers - int(def.number("officerCost")));
     }
+    forget(unit);
+}
+
+void MissionView::decommission(size_t unit) {
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    if (unit >= units.size() || _dead[unit] || _decommissioning.count(unit))
+        return;
+    Decommission d;
+    // A ship must go to a repair bay, as its tooltip says; a station begins
+    // where it stands.
+    if (unit < _moves.size() && _moves[unit]) {
+        d.bay = repairStationFor(unit);
+        if (!d.bay)
+            return;
+        _ships[unit].goal = units[*d.bay].at;
+        _ships[unit].route.clear();
+        _targets[unit] = -1;
+        _repairingAt.erase(unit);
+    }
+    _decommissioning[unit] = d;
+}
+
+void MissionView::runDecommissions(double seconds) {
+    // RTS_CFG.h's DECONSTRUCT_PERCENT_TIME: the original's starbase, its
+    // buildTime 100, came apart in about 30 seconds.
+    constexpr double kDeconstructShare = 0.3;
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    const Odf::Loader loader = loaderOf(_files.files());
+    std::vector<size_t> done;
+    for (auto &[unit, d] : _decommissioning) {
+        if (_dead[unit] || (d.bay && _dead[*d.bay]))
+            continue;
+        Odf def;
+        if (def.load(units[unit].odf + ".odf", loader))
+            continue;
+        if (d.left < 0) {
+            if (d.bay) {
+                const float reach = units[*d.bay].radius() + units[unit].radius() + 60;
+                const gfx::Vec3 a = units[unit].middle();
+                const gfx::Vec3 b = units[*d.bay].middle();
+                if (std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) > reach) {
+                    if (!_ships[unit].goal)
+                        _ships[unit].goal = units[*d.bay].at;
+                    continue;
+                }
+                _ships[unit].goal.reset();
+                _ships[unit].speed = 0;
+            }
+            d.left = kDeconstructShare * def.number("buildTime");
+        }
+        d.left -= seconds;
+        if (d.left <= 0)
+            done.push_back(unit);
+    }
+    for (size_t unit : done) {
+        // Its decommissionValue, its dilithiumCost unless it says (0x466ab0),
+        // and its crew back; its officers and the officers it gave gone. Not
+        // lost, as the debriefing counts: the original's starbase wasn't.
+        Odf def;
+        (void)def.load(units[unit].odf + ".odf", loader);
+        if (Hud::Resources *bank = bankOf(units[unit].slot)) {
+            bank->dilithium += int(def.number("decommissionValue", def.number("dilithiumCost")));
+            bank->crew += int(_vitals[unit].crew);
+            bank->officers = std::max(0, bank->officers - int(def.number("officerCost")));
+            bank->maxOfficers = std::max(0, bank->maxOfficers - int(def.number("officerGain")));
+        }
+        _dead[unit] = true;
+        _scene.hideUnit(unit);
+        forget(unit);
+    }
+}
+
+void MissionView::forget(size_t unit) {
     std::erase(_selection, int(unit));
     for (int &t : _targets)
         if (t == int(unit))
@@ -1252,6 +1355,8 @@ void MissionView::destroy(size_t unit, int by) {
     }
     std::erase_if(_freighters, [unit](const Freighter &f) { return f.unit == unit || f.station == unit; });
     std::erase_if(_sites, [unit](const Site &s) { return s.builder == unit; });
+    _decommissioning.erase(unit);
+    std::erase_if(_decommissioning, [unit](const auto &d) { return d.second.bay == unit; });
 }
 
 std::optional<size_t> MissionView::addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
@@ -1949,6 +2054,7 @@ void MissionView::stop() {
     _displayed.clear();
     _queues.clear();
     _building = false;
+    _ordering = false;
     _placing.reset();
     _sites.clear();
     _footprints.clear();
@@ -1976,6 +2082,7 @@ void MissionView::stop() {
     _nextParty.clear();
     _parties.clear();
     _repairingAt.clear();
+    _decommissioning.clear();
     _recrewing.clear();
     _poolCarry.clear();
     _revealedUntil.clear();
@@ -2124,6 +2231,15 @@ void MissionView::handleEvent(const Event &ev) {
         for (int i : _selection)
             if (size_t(i) < _weapons.size() && !_weapons[size_t(i)].empty())
                 _targeting = true;
+        return;
+    }
+    // Shift+D, with Control and Alt up (Input.map's decomm): the selected
+    // units of the player's decommissioned.
+    if (ev.type == EventType::kKeyDown && ev.key == 'd' && (ev.mods & keymod::kShift) &&
+        !(ev.mods & (keymod::kCtrl | keymod::kAlt))) {
+        for (int i : obeying(_selection))
+            if (size_t(i) < _scene.units().size() && _scene.units()[size_t(i)].slot == _slot)
+                decommission(size_t(i));
         return;
     }
     const int action = actionOf(ev.key);
@@ -2639,6 +2755,7 @@ void MissionView::draw(uint64_t millis) {
         _orders = ordersOf(_display);
         _displayed = _selection;
         _building = false;
+        _ordering = false;
         _placing.reset();
     }
     // Their shields, as they are now.
@@ -2677,6 +2794,10 @@ void MissionView::draw(uint64_t millis) {
         for (Hud::Unit::Button &b : orders.controls)
             if (b.sprite == "b_repair")
                 b.enabled = needs && repairStationFor(one).has_value();
+    }
+    if (_ordering && _selection.size() == 1) {
+        const size_t one = size_t(_selection.front());
+        orders.controls = orderPanelOf(one < _moves.size() && _moves[one]);
     }
     if (_building) {
         orders.controls = _buildMenu.controls;

@@ -312,6 +312,27 @@ in Arial Bold, as measured on its frame:
 is enough to win (`Dynamic_Localized_Strings.h`), and the program has
 "%s surrendered." and "eliminated or quit" among its words.
 
+### Decommissioning
+
+The Orders button opens the Orders panel in place of the orders, as
+the original's for its starbase: green, yellow and red alert across the
+top (`b_galert`, `b_yalert`, `b_ralert`), decommission at its bottom
+left (`b_decom`, `game_cfg.h`'s place 10) and back at its bottom right
+(`b_back`, 12); a ship's has patrol, scout, search and destroy and
+guard too (4 to 7). Decommission, or Shift+D with Control and Alt up
+(`Input.map`'s `decomm`), takes a unit apart *(from the code)*:
+
+- **A station** begins where it stands (0x4624b0); **a ship** must go to
+  a repair bay first, as its tooltip says (0x458f4c).
+- **It takes** `RTS_CFG.h`'s `DECONSTRUCT_PERCENT_TIME` (0.3) of its
+  `buildTime`: the starbase's 100, 30 seconds, as seen.
+- **When done** (0x462510) its player gets its `decommissionValue` of
+  dilithium, which is its `dilithiumCost` where it doesn't say (0x466ab0;
+  only the starbases, 1000, and mining stations, 600, say), and its crew
+  back, to their most; the officers it gave go: the original's starbase,
+  3000 to 4000 dilithium, its 800 crew back, its officers' most 120 to
+  100. The panel stayed open.
+
 ### A skirmish lost
 
 The original was run to the player's end: the computer's starbase
@@ -434,7 +455,10 @@ before and after each ([camera.md](camera.md#the-overview)):
   (given back as a build is cancelled), the ships and stations they
   built, those they lost, and, as destroyed, those of theirs other
   players' shots destroyed, as the original counted them.
-  Decommissioning isn't made yet.
+- **Decommissioning** (`MissionView::decommission`): the Orders panel
+  and Shift+D, as above; the panel's alerts and a ship's standing orders
+  don't do anything yet. The unit stands whole till its time is up, then
+  goes; the original's came apart as it went.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race, their colour and their
   start, rolled at launch as the original rolls them (0x43e7ee,

@@ -154,6 +154,12 @@ public:
      */
     static Hud::Unit ordersOf(const std::vector<Hud::Unit> &units);
     /**
+     * The Orders panel's buttons, as the original's for its starbase: green,
+     * yellow and red alert; for a ship, patrol, scout, search and destroy
+     * and guard (game_cfg.h's places); decommission and back.
+     */
+    static std::vector<Hud::Unit::Button> orderPanelOf(bool ship);
+    /**
      * Sends the units selected that move to a point on the plane: each to
      * the point plus its place from the group's middle, so a group keeps
      * its shape; round a unit that doesn't move (`units`, as `ships`) in
@@ -316,6 +322,7 @@ private:
     std::vector<Hud::Unit> _display;
     Hud::Unit _orders;
     bool _building = false; // the build menu open, in place of the orders
+    bool _ordering = false; // the Orders panel open, in place of the orders
     std::vector<std::string> _buildItems;
     Hud::Unit _buildMenu;                         // buildMenuOf's, made as it opens
     TechTree _techTree;                           // the map's
@@ -503,6 +510,17 @@ private:
     void fromPool(size_t unit, Hud::Resources &bank, double seconds); // recrewing, 20 a second
     void capture(size_t unit, int slot, float crew);
     std::optional<size_t> repairStationFor(size_t ship) const;
+    // Decommissioning: a station at once, a ship once at a repair bay; then,
+    // DECONSTRUCT_PERCENT_TIME of its buildTime on, its decommissionValue
+    // and crew back to its player (0x4624b0, 0x462510, 0x458f4c).
+    struct Decommission {
+        std::optional<size_t> bay; // for a ship, the station it goes to
+        double left = -1;          // seconds to its end; less than 0 till it's begun
+    };
+    void decommission(size_t unit);
+    void runDecommissions(double seconds);
+    void forget(size_t unit); // gone from play: orders, targets and work of it dropped
+    std::map<size_t, Decommission> _decommissioning;
     bool disabled(size_t unit) const; // without crew, it neither moves nor fires
     bool active(double until) const { return double(_last) / 1000 < until; }
     std::vector<int> obeying(const std::vector<int> &selection) const; // those not scrambled
