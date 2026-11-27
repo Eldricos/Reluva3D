@@ -71,6 +71,12 @@ public:
         _framesPerSecond = framesPerSecond > 0 ? framesPerSecond : 60;
         _updateEveryFrame = updateEveryFrame;
     }
+    /**
+     * Widescreen: the game played in a mode `width` by 480, its view
+     * widened to fill it (GameProcess::useWidescreen); 0 for none. Before
+     * start().
+     */
+    void setWidescreen(int width) { _wideWidth = width; }
     /** Starts the game's thread, which loads and runs the program; call once. */
     void start();
     /**
@@ -133,6 +139,7 @@ private:
     bool _keepScenes = false;
     int _framesPerSecond = 60;
     bool _updateEveryFrame = false;
+    int _wideWidth = 0;
     std::vector<uint32_t> _frame;
     std::shared_ptr<const x86::DirectX::Scene> _scene; // the frame's
     int _width = 0;

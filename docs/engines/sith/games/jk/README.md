@@ -136,6 +136,16 @@ world moved only every other one, as it was made to. 60, 75, 85 or 100
 move its world at every frame instead, smoother at the same speed; a
 display slower than the rate shows no more than its own.
 
+*Widescreen* (off by default; 16:9, 16:10 or 21:9) plays the game on a
+wider screen at its 480 lines (854, 768 or 1120 pixels wide), seeing
+more at the sides and as much height as at 4:3. Its menus and cut
+scenes stay 640x480 in the middle, black beside them. It plays through
+the game's own 3D acceleration whatever *Setup* says, drawn in
+software or on the graphics card as *3D drawing* says; *Setup*'s
+display as it was before is what's kept for the sessions without
+([systems/hosting.md](systems/hosting.md), step 24). Mysteries of the
+Sith's is the same.
+
 `commandline` in the game's section of `reluva.ini` is what follows
 `JK.EXE` on its command line, as a Windows shortcut would give it:
 `commandline=-windowGUI` plays it windowed, drawn through Windows' GDI

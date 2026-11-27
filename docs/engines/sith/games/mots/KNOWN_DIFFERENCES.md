@@ -25,5 +25,6 @@ None yet.
 
 - The engine's settings, as for Jedi Knight
   ([../jk/KNOWN_DIFFERENCES.md](../jk/KNOWN_DIFFERENCES.md)): the 3D on the
-  graphics card, larger and smoothed, and *Frame rate*, the world moved
-  at each frame up to 100 a second ([README.md](README.md#where-reluva-reaches-into-the-program)).
+  graphics card, larger and smoothed; *Frame rate*, the world moved
+  at each frame up to 100 a second; and *Widescreen*
+  ([README.md](README.md#where-reluva-reaches-into-the-program)).

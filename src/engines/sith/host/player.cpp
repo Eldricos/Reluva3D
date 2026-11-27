@@ -109,6 +109,8 @@ std::string Player::takeOutput() {
 void Player::work() {
     GameProcess game(_folders, _saveFolder, _commandLine);
     game.directPlay().network = _network;
+    if (_wideWidth)
+        game.useWidescreen(_wideWidth);
     // Drawn on the GPU: the game's 3D acceleration on, without which it
     // draws in software and there'd be no scene to draw.
     if (_keepScenes) {

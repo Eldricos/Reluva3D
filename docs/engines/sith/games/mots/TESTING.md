@@ -35,8 +35,9 @@ The engine's, `sith.engine`, on Jedi Knight's files.
 | `movies` | Every cut scene's frames, palettes, sound and subtitle numbers, as a checksum |
 | `start` | The retail `JKM.EXE` run in the emulator from a new state for 30 seconds, the opening skipped, until it waits at *New Player*: its checks of Jedi Knight's CD 2 and its own (its `InstallData` written), the files it opens, its registry writes and debug output, as a checksum |
 | `level` | The same with a player made (`mara`), *Single Player* and *New Game* clicked at set seconds, and `-skim`: the opening and the first level's cut scenes reached, the level ended by its cheat, and every file opened up to the second level, `s1l2_astcrust.jkl` |
+| `wide` | The same into the first level in widescreen, 854 by 480 (`-wide 854`, 50 seconds): the files opened up to it, that the view was widened, and the frames' sizes, 640 by 480 and 854 by 480 |
 
-Like Jedi Knight's, the two host steps record only what a run decides
+Like Jedi Knight's, the host steps record only what a run decides
 itself: past the level a step stops at, neither the levels and cut
 scenes reached nor the debug output count, so a faster or slower machine
 gives the same record (the four host steps, Jedi Knight's and these,
@@ -67,6 +68,7 @@ after four seconds.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | Widescreen: `reluva-tool sith host -wide 854` into the first level: the view widened, the corridor at the start as tall as at 4:3 and wider; the registry file as before the run. 768 and 1120 not run |
 | November 2026 | US retail | Linux, the emulator by hand (`reluva-tool sith host`, changed for `JKM.EXE`) | The CD checks, the opening, the menus and the first level's start ([README.md](README.md#where-it-stands)) |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool import` with Jedi Knight's CD 2, then `reluva-tool sith host` on the import, its save folder new | Files the same as the install's; 13 music tracks found; on its first start both CD checks passed without a request, the opening, a new game's cut scene, and play in the first level with its music asked for |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith host` | A game saved from the in-game menu, listed and loaded; *Setup*'s settings saved when stopped; `-everyframe -fps 100`, the world moved about twice as often; `-d3d -gpu`, 154 scenes matching; two copies with `-net`, one hosting *Kill The Fool With The Ysalamiri*, the other joining with its own character, each seeing the other in the level |

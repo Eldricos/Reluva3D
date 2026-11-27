@@ -156,6 +156,14 @@ there are the US release's (`kPrograms`,
   changed only by two command-line options at `0x401760`). At 100 frames
   a second the world moved 354 times in a stretch of play where it moved
   159 and 169 times without *(confirmed)*.
+- **Widescreen** (the *Widescreen* setting): the call of the tangent
+  in its focal length (`0x447e26`, in `0x447db0`, to `0x436386`) made to
+  a trampoline that widens the view by the screen's shape, as for Jedi
+  Knight ([../jk/systems/hosting.md](../jk/systems/hosting.md), step
+  24). Its scripts set the field of view again at each level's start
+  from their zoom (`0x513670`), so the cameras' own 90° can't be the
+  place: the focal length, worked out from whatever they set, is
+  *(confirmed)*.
 - ***Setup*'s settings saved** when Reluva is closed with the game
   running: its own saving of them to the registry (`0x417560`, called
   from its end at `0x4013d5`, as Jedi Knight's at `0x4148f0`) run for it

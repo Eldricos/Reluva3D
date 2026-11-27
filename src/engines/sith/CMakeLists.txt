@@ -80,10 +80,10 @@ reluva_add_gamedata_test(sith
     GAME jk
     ENV RELUVA_JK
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release formats movies start level)
+    STEPS release formats movies start level wide)
 reluva_add_gamedata_test(sith
     NAME sith.mots
     GAME mots
     ENV RELUVA_MOTS
     SCRIPT ${tests}/gamedata_mots.cmake
-    STEPS release formats movies start level)
+    STEPS release formats movies start level wide)

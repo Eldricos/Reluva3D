@@ -9,13 +9,20 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <system_error>
+#include <tuple>
 #include <vector>
 
 namespace reluva::sith {
 
 namespace {
+
+// REG_BINARY, as the game keeps all its values.
+constexpr uint32_t kBinary = 3;
+// The values of Setup's display and 3D (setDirect3D).
+constexpr const char *kDisplayValues[] = {"b3DAccel", "displayDeviceGUID", "displayMode", "3DDeviceGUID"};
 
 // What a machine of the time without the device answers: no waveOut
 // device. The program learns it has none, as it would there. (DirectPlay's
@@ -114,6 +121,8 @@ Error GameProcess::load() {
     if (Error e = _process->load(_game.program, file, _exe))
         return Error::fail(std::string(_game.program) + ": " + e.message);
     hookCdCheck();
+    if (_widescreen)
+        hookFocalLength();
     if (smack)
         if (Error e = _process->attach(*smack))
             return e;
@@ -145,8 +154,13 @@ void GameProcess::saveRegistry() {
     std::ofstream f(_registryFile);
     for (const std::string &name : _registryNames) {
         uint32_t type = 0;
-        const auto value = _process->registryValue(_registryKey, name, &type);
-        if (!value || name == "CD Path" || name == "Install Path")
+        auto value = _process->registryValue(_registryKey, name, &type);
+        if (name == "CD Path" || name == "Install Path")
+            continue;
+        for (const auto &[kept, keptValue] : _keptValues)
+            if (name == kept)
+                value = keptValue, type = kBinary;
+        if (!value)
             continue;
         f << name << '\t' << type << '\t';
         static const char kHex[] = "0123456789abcdef";
@@ -196,6 +210,10 @@ struct ProgramCode {
     // cmp esi, eax. Unused places 0.
     uint32_t worldCheck[3];
     uint32_t lastUpdate;
+    // In the 3D's focal length, half the view's width over the tangent of
+    // half its field of view: the call of the tangent, and its function.
+    uint32_t tangentCall;
+    uint32_t tangent;
 };
 
 constexpr ProgramCode kPrograms[] = {
@@ -211,7 +229,9 @@ constexpr ProgramCode kPrograms[] = {
      0x4148f0,
      {0xa1, 0x88, 0x65, 0x55, 0x00, 0x50},
      {0x403d62, 0, 0},
-     0x552b9c},
+     0x552b9c,
+     0x4436e6, // in 0x443670
+     0x432396},
     // CD check (0x410db0): 2 for Jedi Knight's CD 2, which it asks for
     // once, 0x13 for its own; it looks from the drive after its second
     // argument's letter, so right after finding Jedi Knight's CD it would
@@ -226,7 +246,9 @@ constexpr ProgramCode kPrograms[] = {
      0x417560,
      {0xa1, 0xa0, 0x11, 0x5b, 0x00, 0x50},
      {0x403cd6, 0x404302, 0x40455f},
-     0x5ad42c},
+     0x5ad42c,
+     0x447e26, // in 0x447db0
+     0x436386},
 };
 
 } // namespace
@@ -266,19 +288,42 @@ bool GameProcess::saveSettings() {
 }
 
 bool GameProcess::useDirect3D() {
-    x86::Win32Process &p = *_process;
-    const auto on = p.registryValue(_registryKey, "b3DAccel");
+    const auto on = _process->registryValue(_registryKey, "b3DAccel");
     if (on && on->size() >= 4 && (*on)[0] != 0)
         return false;
-    // REG_BINARY, as the game keeps them all.
-    constexpr uint32_t kBinary = 3;
+    setDirect3D(3); // of the modes it lists: 640x480, 16-bit
+    return true;
+}
+
+bool GameProcess::useWidescreen(int width) {
+    if (width <= 640 || _widescreen)
+        return false;
+    // The game sorts the modes it's offered by their bits a pixel, then
+    // width, then height (0x427b00), and keeps its choice as an index
+    // into that list.
+    const x86::DirectX::Mode wide{width, 480, 16};
+    auto &modes = _directX->modes;
+    const auto before = std::count_if(modes.begin(), modes.end(), [&](const x86::DirectX::Mode &m) {
+        return std::tie(m.bits, m.width, m.height) < std::tie(wide.bits, wide.width, wide.height);
+    });
+    modes.push_back(wide);
+    // The player's own display, kept for the sessions without widescreen,
+    // where that index is another mode.
+    for (const char *name : kDisplayValues)
+        _keptValues.emplace_back(name, _process->registryValue(_registryKey, name));
+    setDirect3D(uint32_t(before));
+    _widescreen = true;
+    return true;
+}
+
+void GameProcess::setDirect3D(uint32_t mode) {
+    x86::Win32Process &p = *_process;
     p.setRegistryValue(_registryKey, "b3DAccel", kBinary, {1, 0, 0, 0});
     p.setRegistryValue(_registryKey, "displayDeviceGUID", kBinary, std::vector<uint8_t>(16, 0)); // the primary
-    p.setRegistryValue(_registryKey, "displayMode", kBinary, {3, 0, 0, 0}); // of the modes it lists: 640x480, 16-bit
+    p.setRegistryValue(_registryKey, "displayMode", kBinary, {uint8_t(mode), uint8_t(mode >> 8), 0, 0});
     // IID_IDirect3DHALDevice, {84e63de0-46aa-11cf-816f-0000c020156e}
     p.setRegistryValue(_registryKey, "3DDeviceGUID", kBinary,
                        {0xe0, 0x3d, 0xe6, 0x84, 0xaa, 0x46, 0xcf, 0x11, 0x81, 0x6f, 0, 0, 0xc0, 0x20, 0x15, 0x6e});
-    return true;
 }
 
 bool GameProcess::updateEveryFrame() {
@@ -297,6 +342,44 @@ bool GameProcess::updateEveryFrame() {
         if (at)
             _cpu->write8(at + 7, 9);
     return true;
+}
+
+// The tangent the focal length is worked out from made larger by as much
+// as the screen is wider than 4:3, so the view keeps the height a 4:3
+// screen shows and sees more at the sides. The field of view the game
+// keeps, which its zoom reads back, stays as it set it.
+void GameProcess::hookFocalLength() {
+    const auto *code = static_cast<const ProgramCode *>(this->code());
+    if (!code || !_cpu->valid(code->tangentCall, 5) || _cpu->read8(code->tangentCall) != 0xe8 ||
+        code->tangentCall + 5 + _cpu->read32(code->tangentCall + 1) != code->tangent)
+        return;
+    x86::Cpu &c = *_cpu;
+    const uint32_t trampoline = _process->memory().alloc(32);
+    const uint32_t factor = trampoline + 24;
+    // Worked out at each call: the game's Setup can change the mode.
+    const uint32_t native = c.addNative("focal length's widening", [this, factor](x86::Cpu &cpu) {
+        const x86::Win32Process &p = *_process;
+        float k = 1;
+        if (p.screenWidth > 0 && p.screenHeight > 0)
+            k = std::max(1.0f, float(p.screenWidth) * 3 / (float(p.screenHeight) * 4));
+        uint32_t bits = 0;
+        std::memcpy(&bits, &k, 4);
+        cpu.write32(factor, bits);
+        return 0u;
+    });
+    if (!native || !trampoline)
+        return;
+    // push [esp + 4]; call tangent; add esp, 4; call native; fmul [factor]; ret
+    const uint8_t bytes[] = {0xff, 0x74, 0x24, 0x04, 0xe8, 0,    0,    0, 0, 0x83, 0xc4, 0x04,
+                             0xe8, 0,    0,    0,    0,    0xd8, 0x0d, 0, 0, 0,    0,    0xc3};
+    for (uint32_t i = 0; i < sizeof bytes; ++i)
+        c.write8(trampoline + i, bytes[i]);
+    c.write32(trampoline + 5, code->tangent - (trampoline + 9));
+    c.write32(trampoline + 13, native - (trampoline + 17));
+    c.write32(trampoline + 19, factor);
+    c.write32(factor, 0x3f800000); // 1.0
+    c.write32(code->tangentCall + 1, trampoline - (code->tangentCall + 5));
+    _viewWidened = true;
 }
 
 // A trampoline at the CD check's start puts the CD it asks for in drive D

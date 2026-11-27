@@ -381,15 +381,21 @@ Windows does when it fails, and dialog boxes are made but not drawn
     and an autosave as each level starts, `_JKAUTO_<level>.jks`. *Load
     Game* leaves the autosaves out by their names, and any save whose
     title (the level's name, `~`, the save's) has no `~`.
-24. **Widescreen**, a trial, not yet an option. The game takes its
-    screen's size from the display modes DirectDraw lists, and draws
-    its 3D and status gauges for whatever size it's given. Offered
-    1280 by 720 and 1920 by 1080 (16-bit, chosen for it as
-    `displayMode`), `JK.EXE` played through Direct3D at both, two levels
-    at 1080 without a fault, its gauges in the screen's bottom corners,
-    its messages centred *(confirmed)*; `JKM.EXE` the same at 1280 by
-    720 *(confirmed)*. The menus and cut scenes are 640 by 480 pictures
-    of their own, to be shown in the middle with bars at the sides.
+24. **Widescreen** *(confirmed)*. The game takes its screen's size from
+    the display modes DirectDraw lists, and draws its 3D and status
+    gauges for whatever size it's given. Offered 1280 by 720 and 1920 by
+    1080 (16-bit, chosen for it as `displayMode`), `JK.EXE` played
+    through Direct3D at both, two levels at 1080 without a fault, its
+    gauges in the screen's bottom corners, its messages centred;
+    `JKM.EXE` the same at 1280 by 720. The menus and cut scenes are 640
+    by 480 pictures of their own.
+
+    `displayMode` is an index into the modes as the game keeps them,
+    sorted by their bits a pixel, then width, then height (`JKM.EXE`'s
+    `qsort` at `0x4258e0`, comparing with `0x427b00`), not as DirectDraw
+    listed them: a mode of 854 by 480, offered after the others, is the
+    sixth, between 800 by 600 and 1024 by 768, and the game, given the
+    index it would have unsorted, took 1024 by 768.
 
     As it is, the view is cut down from above and below: the 3D's focal
     length is half the view's width over the tangent of half its field
@@ -409,16 +415,35 @@ Windows does when it fails, and dialog boxes are made but not drawn
     own approximation: the cameras' constants alone change nothing. A
     trampoline at the setter, widening each field of view it's given by
     the formula, gave `JKM.EXE` the same height as at 4:3 and more at the
-    sides (106.44° from 90.19°) *(confirmed)*; the same at `JK.EXE`'s
-    setter covers its zooms too.
+    sides (106.44° from 90.19°) *(confirmed)*. But the game reads the
+    field of view back (`JKM.EXE`'s zoom compares with it and goes on
+    from it, `0x5136c2` and `0x51386a`), and would widen it again.
 
-    Left open: the software renderer at these sizes (its modes are 8-bit
-    and listed only up to 1024 by 768); the gauges, drawn at their own
-    pixels, small at 1080; each status bitmap and the view's sizes
-    (`viewSize`: 10 is the whole screen without gauges) at 16:9; the
-    scopes and zooms, through the same setter but never seen widened;
-    and Direct3D on the graphics card (step 21), whose scaling assumes
-    640 by 480.
+    Reluva's *Widescreen* setting (`GameProcess::useWidescreen`) widens
+    the focal length instead, leaving the field of view the game keeps
+    as it set it: the call of the tangent in the focal length's function
+    (`0x4436e6` to `0x432396`; `JKM.EXE` `0x447e26` to `0x436386`) goes
+    to a trampoline that multiplies what it returns by the screen's
+    width over 4/3 of its height, read at each call, 1 at 4:3 or
+    narrower. The clipping planes are worked out from the focal length
+    in the same function, so they follow. The mode it offers is 480
+    lines high, 854, 768 or 1120 wide (16:9, 16:10, 21:9): the gauges and
+    text keep the size they have at 640 by 480, and the menus and cut
+    scenes fill the screen's height, shown in the middle with black
+    beside them, the pointer moved by as much; on the graphics card the
+    3D is drawn larger as at 4:3 (step 21). It plays through Direct3D,
+    *Setup*'s display values set for it as `useDirect3D` sets them,
+    `displayMode` the new mode's index; the values as they were before
+    are what's saved to the registry file, since without the setting
+    that index is another mode, or none. Both games, at 854 by 480: the
+    menus, the opening and the first level's cut scenes, the first
+    level played, drawn in software and on the graphics card, the
+    pointer's clicks landing in the menus *(confirmed)*.
+
+    Left open: the game's own software renderer, never offered a wide
+    mode (it draws in 8-bit modes, 1024 by 768 at most); the scopes and
+    zooms widened, through the same function but never looked at; and
+    the levels beyond the first.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were

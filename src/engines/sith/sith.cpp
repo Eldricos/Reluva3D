@@ -87,8 +87,16 @@ public:
         int samples = 4;
         if (const auto a = _target.settings.find("antialiasing"); a != _target.settings.end())
             samples = a->second == "off" ? 1 : std::clamp(std::atoi(a->second.c_str()), 1, 4);
-        int width = 640;
+        // `widescreen` (16:9, 16:10 or 21:9): the game played that wide at
+        // its 480 lines, its view widened to fill it.
+        int wide = 0;
+        if (const auto w = _target.settings.find("widescreen"); w != _target.settings.end())
+            wide = wideWidth(w->second);
+        player.setWidescreen(wide);
+        int width = wide ? wide : 640;
         int height = 480;
+        // Where the game's frame is in the screen, a 4:3 one in widescreen.
+        int frameX = 0;
         bool gpu = false;
         auto screen = [&] {
             _scenes.setRenderer(nullptr);
@@ -155,23 +163,33 @@ public:
                     ev.moveX /= float(scale);
                     ev.moveY /= float(scale);
                 }
+                if (frameX)
+                    ev.mouseX = std::clamp(ev.mouseX - frameX, 0, width - 2 * frameX - 1);
                 player.input(ev);
             }
             pollPad();
             int w = 0;
             int h = 0;
             if (player.frame(pixels, w, h, scene)) {
-                if (w != width || h != height) {
-                    width = w;
+                // In widescreen the game's menus and cut scenes, 640 by 480,
+                // stay in the middle of the wide screen, black beside them.
+                const bool boxed = wide && h == 480 && w < wide && !scene;
+                frameX = boxed ? (wide - w) / 2 : 0;
+                if ((boxed ? wide : w) != width || h != height) {
+                    width = boxed ? wide : w;
                     height = h;
                     screen();
                 }
+                if (boxed)
+                    for (int y = 0; y < height; ++y)
+                        for (uint8_t *row = _screen.row(y), *end = row + size_t(width) * 4; row < end; row += 4)
+                            row[0] = row[1] = row[2] = 0, row[3] = 255;
                 // 0xAARRGGBB to R, G, B, A in memory: the alpha 0 where the
                 // scene shows through.
-                for (int y = 0; y < height; ++y) {
-                    uint8_t *row = _screen.row(y);
-                    for (int x = 0; x < width; ++x, row += 4) {
-                        const uint32_t v = pixels[size_t(y) * size_t(width) + size_t(x)];
+                for (int y = 0; y < h; ++y) {
+                    uint8_t *row = _screen.row(y) + size_t(frameX) * 4;
+                    for (int x = 0; x < w; ++x, row += 4) {
+                        const uint32_t v = pixels[size_t(y) * size_t(w) + size_t(x)];
                         row[0] = uint8_t(v >> 16);
                         row[1] = uint8_t(v >> 8);
                         row[2] = uint8_t(v);
@@ -196,6 +214,17 @@ public:
     }
 
 private:
+    // A widescreen setting's mode's width, at 480 lines; 0 for none.
+    static int wideWidth(const std::string &aspect) {
+        if (aspect == "16:9")
+            return 854;
+        if (aspect == "16:10")
+            return 768;
+        if (aspect == "21:9")
+            return 1120;
+        return 0;
+    }
+
     // Multiplayer over the machine's network: sessions looked for on the
     // local networks and on this machine, and at the host the joinaddress
     // setting names.
@@ -270,8 +299,9 @@ public:
         GameOption size;
         size.key = "renderscale";
         size.label = "Picture size";
-        size.tooltip = "With the 3D on the graphics card, the game's 640x480 drawn at this many times its size: "
-                       "the same picture with finer 3D. The menus and gauges are enlarged as they are.";
+        size.tooltip = "With the 3D on the graphics card, the game's 640x480 (wider in widescreen) drawn at this "
+                       "many times its size: the same picture with finer 3D. The menus and gauges are enlarged "
+                       "as they are.";
         size.choices = {
             {"2", "2x (1280x960)"}, {"1", "1x (640x480)"}, {"3", "3x (1920x1440)"}, {"4", "4x (2560x1920)"}};
         GameOption smoothing;
@@ -287,7 +317,14 @@ public:
                        "frames a second, its world moved at each (100 at most, the game's limit). A display "
                        "slower than the rate shows no more than its own.";
         rate.choices = {{"game", "As the game"}, {"60", "60"}, {"75", "75"}, {"85", "85"}, {"100", "100"}};
-        return {joystick, drawing, size, smoothing, rate};
+        GameOption widescreen;
+        widescreen.key = "widescreen";
+        widescreen.label = "Widescreen";
+        widescreen.tooltip = "The game played on a wider screen, seeing more at the sides, as tall as it is at 4:3; "
+                             "its menus and cut scenes stay 4:3 in the middle. Uses the game's 3D acceleration "
+                             "(Direct3D), whatever its Setup says.";
+        widescreen.choices = {{"off", "Off (4:3)"}, {"16:9", "16:9"}, {"16:10", "16:10"}, {"21:9", "21:9"}};
+        return {joystick, drawing, size, smoothing, rate, widescreen};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

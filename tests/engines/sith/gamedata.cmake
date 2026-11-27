@@ -25,6 +25,8 @@
 #            skipped, into Nar Shaddaa and through it by the cheat that ends
 #            a level: the cut scenes and levels reached, and every file
 #            opened, up to the second level (sith host -skim)
+#   wide     the same into Nar Shaddaa in widescreen, 854 by 480: the view
+#            widened, and the frames' sizes (sith host -wide)
 # The game runs on the machine's clock, so the host steps record only what
 # a run decides itself, cut off at a point it reaches on any machine fast
 # enough to play the game: the clicks come at set seconds.
@@ -76,6 +78,8 @@ elseif(STEP STREQUAL "start")
     record_host(start 30 "" -keys "4:esc")
 elseif(STEP STREQUAL "level")
     record_host(level 75 "02narshadda\\.jkl" -skim -keys "${new_game}")
+elseif(STEP STREQUAL "wide")
+    record_wide(45 "01narshadda\\.jkl" -skim -keys "${new_game}")
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")
 endif()

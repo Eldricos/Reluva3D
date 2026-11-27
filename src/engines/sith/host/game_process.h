@@ -17,6 +17,7 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -67,6 +68,18 @@ public:
      * @return Whether it was off.
      */
     bool useDirect3D();
+    /**
+     * Widescreen: offers the game a mode `width` by 480 in 16-bit colour
+     * and has it play there through Direct3D (as useDirect3D, the mode
+     * that one), its view seeing as much height as at 4:3 and more at the
+     * sides, where the program is a US release's
+     * (docs/engines/sith/games/jk/systems/hosting.md, step 24). The menus
+     * and cut scenes stay 640 by 480. Before load().
+     * @return False, changing nothing, if `width` isn't wider than 640.
+     */
+    bool useWidescreen(int width);
+    /** Whether load() widened the view for widescreen: the program is a US release's. */
+    bool viewWidened() const { return _viewWidened; }
     /**
      * Puts the game's CD `number` (1 or 2: GameInfo::cdMarks) in drive D,
      * if it was found; false if it wasn't.
@@ -121,7 +134,11 @@ private:
     std::unique_ptr<x86::CdAudio> _cdAudio;
     const x86::Win32Process::Module *_exe = nullptr;
     int _cdInDrive = 0;
+    bool _widescreen = false;
+    bool _viewWidened = false;
     void hookCdCheck();
+    void hookFocalLength();
+    void setDirect3D(uint32_t mode); // Setup's 3D acceleration on, in `mode` (an index of those offered)
     // The program's addresses (a ProgramCode in game_process.cpp), or null
     // where they aren't known.
     const void *code() const;
@@ -131,6 +148,9 @@ private:
     // file, and the names of the values in it.
     std::filesystem::path _registryFile;
     std::vector<std::string> _registryNames;
+    // Values saved as they were, not as the game has them now: the
+    // player's display, in widescreen.
+    std::vector<std::pair<std::string, std::optional<std::vector<uint8_t>>>> _keptValues;
     void loadRegistry();
     void saveRegistry();
 };

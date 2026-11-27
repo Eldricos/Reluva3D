@@ -26,6 +26,8 @@
 #            skipped, into the rebels' base and through it by the cheat that
 #            ends a level: the cut scenes and levels reached, and every file
 #            opened, up to the second level (sith host -skim)
+#   wide     the same into the rebels' base in widescreen, 854 by 480: the
+#            view widened, and the frames' sizes (sith host -wide)
 # As for Jedi Knight, the host steps record only what a run decides
 # itself, the clicks at set seconds (gamedata_host.cmake).
 #
@@ -81,6 +83,9 @@ elseif(STEP STREQUAL "start")
 elseif(STEP STREQUAL "level")
     # A player "mara" made at New Player, then Single Player and New Game.
     record_host(level 95 "s1l2_astcrust\\.jkl" -skim
+        -keys "4:esc,10:m,10.3:a,10.6:r,10.9:a,12:enter,16:click318x217,20:click295x108")
+elseif(STEP STREQUAL "wide")
+    record_wide(50 "s1l1_rebelbase\\.jkl" -skim
         -keys "4:esc,10:m,10.3:a,10.6:r,10.9:a,12:enter,16:click318x217,20:click295x108")
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")

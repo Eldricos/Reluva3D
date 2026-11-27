@@ -8,7 +8,8 @@
 
 # The game run in the emulator from a new state, for `seconds`, with the
 # tool's other arguments: the lines a run decides itself, up to the first
-# file opened matching `until` ("" for all of them), kept as <name>.
+# file opened matching `until` ("" for all of them), kept as <name>. The
+# tool's whole output is left in host_log.
 function(record_host name seconds until)
     set(out "${OUTPUT}/${STEP}")
     file(REMOVE_RECURSE "${out}/write")
@@ -56,4 +57,16 @@ function(record_host name seconds until)
         set(record "${record}${name}.reached: ${step}\n")
     endforeach()
     set(record "${record}" PARENT_SCOPE)
+    set(host_log "${log}" PARENT_SCOPE)
+endfunction()
+
+# Widescreen (sith host -wide): the game into its first level at 854 by
+# 480, as record_host would, with whether the view was widened and the
+# sizes of the frames shown: the menus' and cut scenes' 640 by 480, play's
+# the mode's.
+function(record_wide seconds until)
+    record_host(wide ${seconds} "${until}" -wide 854 ${ARGN})
+    string(REGEX MATCH "widescreen: [^\n]*" widened "${host_log}")
+    string(REGEX MATCH "frame sizes: [^\n]*" sizes "${host_log}")
+    set(record "${record}${widened}\n${sizes}\n" PARENT_SCOPE)
 endfunction()

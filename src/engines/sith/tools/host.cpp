@@ -111,7 +111,7 @@ int cmdHost(int argc, char **argv) {
             "usage: reluva-tool sith host <install> [-seconds N] [-args \"...\"] [-png file] "
             "[-files] [-calls] [-d3d] [-net] [-join address] [-keys \"s:key,...\"] [-skim] [-cheat word] "
             "[-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] [-peek address] [-wav file] "
-            "[-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N] [-fps N] [-everyframe]\n");
+            "[-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N] [-fps N] [-everyframe] [-wide width]\n");
         return 2;
     }
     const std::filesystem::path install = argv[2];
@@ -139,6 +139,7 @@ int cmdHost(int argc, char **argv) {
     int gpuSamples = 1;         // multisampling, as the device has it
     double framesPerSecond = 0; // the most frames a second shown; 0: as fast as they come
     bool everyFrame = false;
+    int wideWidth = 0; // widescreen, the mode this wide
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "-seconds" && i + 1 < argc)
@@ -187,6 +188,8 @@ int cmdHost(int argc, char **argv) {
             framesPerSecond = std::atof(argv[++i]);
         else if (a == "-everyframe")
             everyFrame = true;
+        else if (a == "-wide" && i + 1 < argc)
+            wideWidth = std::atoi(argv[++i]);
     }
     if (!sith::gameInstalled(install)) {
         std::fprintf(stderr, "no JK.EXE or JKM.EXE in %s\n", install.string().c_str());
@@ -207,6 +210,8 @@ int cmdHost(int argc, char **argv) {
         if (kept)
             kept(key, name);
     };
+    if (wideWidth && !game.useWidescreen(wideWidth))
+        std::printf("-wide: wider than 640\n");
     if (direct3d)
         game.useDirect3D(); // Setup's 3D acceleration, on the primary display with Direct3D's HAL device
     if (network) {
@@ -240,6 +245,9 @@ int cmdHost(int argc, char **argv) {
     }
     for (const std::string &m : process.missingImports())
         std::printf("not stood in for: %s\n", m.c_str());
+    if (wideWidth)
+        std::printf("widescreen: %dx480, the view widened: %s\n", wideWidth,
+                    game.viewWidened() ? "yes" : "not this program");
     if (everyFrame)
         std::printf("the world moved at every frame: %s\n", game.updateEveryFrame() ? "yes" : "not this program");
 
@@ -645,8 +653,11 @@ int cmdHost(int argc, char **argv) {
         std::filesystem::create_directories(framesFolder);
     // With -frames, one frame each so many seconds, named by the second,
     // or by the millisecond (00012-250.png) when they're closer together.
+    std::vector<std::pair<int, int>> sizes; // of the frames shown, in the order first shown
     directX.presented = [&](const x86::DirectX::Frame &f) {
         ++frames;
+        if (std::find(sizes.begin(), sizes.end(), std::pair(f.width, f.height)) == sizes.end())
+            sizes.emplace_back(f.width, f.height);
         // -fps: paced as the player paces them.
         if (framesPerSecond > 0) {
             using namespace std::chrono;
@@ -706,6 +717,10 @@ int cmdHost(int argc, char **argv) {
     const x86::DirectX::Frame &frame = directX.frame();
     std::printf("frames shown: %llu, the last %dx%d; %llu differing from the one before\n", (unsigned long long)frames,
                 frame.width, frame.height, (unsigned long long)changed);
+    std::printf("frame sizes:");
+    for (const auto &[w, h] : sizes)
+        std::printf(" %dx%d", w, h);
+    std::printf("\n");
     if (window && gpuPlay)
         std::printf("frames drawn on the GPU: %llu, %llu with a scene\n", (unsigned long long)played,
                     (unsigned long long)playedScenes);
@@ -785,7 +800,7 @@ const Commands kCommands(
         {"host",
          "<install> [-seconds N] [-args \"...\"] [-png file] [-files] [-calls] [-d3d] [-net] [-join address] [-keys "
          "\"s:key,...\"] [-skim] [-cheat word] [-pad \"s:control=value,...\"] [-close seconds] [-frames N folder] "
-         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N] [-fps N] [-everyframe]",
+         "[-peek address] [-wav file] [-write folder] [-gpu folder] [-gpuplay folder] [-gpuscale N] [-gpuaa N] [-fps N] [-everyframe] [-wide width]",
          "run the retail JK.EXE or JKM.EXE in the x86 emulator: how far it gets", cmdHost},
         {"disasm", "<program> <address> [count]", "the program's instructions from an address (hexadecimal) on",
          cmdDisasm},
