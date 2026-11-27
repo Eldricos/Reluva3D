@@ -1635,6 +1635,35 @@ void testFullInventory() {
     CHECK(!hud.fullInventory());
 }
 
+void testMinePlace() {
+    // Ann at (300, 500), a wall 100 to her right. A mine sent onto open
+    // ground goes there; one sent onto the wall goes off it, on her side,
+    // where she can reach it (0x48ec3e).
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,500.000000\nTree List=CSortList2D\n{\n"
+        "Level Part=CEntityBase\n{\nName=Wall\nVisible=1\nActive=1\nCollideable=1\nModel=Walls/Wall\n"
+        "Position X=400\nPosition Y=500\n}\n"
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=500\n}\n}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    data.files["Cache/Models/Walls/Wall.mdl16"] =
+        modelFile("Wall", 1, 1, 0.0f, {{-10, -80}, {10, -80}, {10, 80}, {-10, 80}, {-10, -80}});
+    data.files["Cache/Models/Shots/Mine.mdl16"] =
+        modelFile("Mine", 1, 1, 1.0f, {{-5, -4}, {5, -4}, {5, 4}, {-5, 4}, {-5, -4}});
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n}\n", rules));
+    TeamMember ann;
+    ann.firstName = "Ann";
+    GameOptions options;
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    const auto open = screen.placeFor(0, "Shots/Mine", 200.0f, 500.0f);
+    CHECK(open.first == 200.0f && open.second == 500.0f);
+    const auto [x, y] = screen.placeFor(0, "Shots/Mine", 400.0f, 500.0f);
+    CHECK(x <= 385.0f && std::hypot(x - 400.0f, y - 500.0f) <= 58.0f);
+}
+
 void testThrowRange() {
     // Ann at (300, 500), a wall 100 to her right. A grenade needs no clear
     // line: she throws over it from where she stands. One that Needs LOS
@@ -3372,6 +3401,7 @@ static const reluva::test::Suite
                {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                {"scans per officer", [](const std::filesystem::path &) { testScansPerOfficer(); }},
+               {"mine place", [](const std::filesystem::path &) { testMinePlace(); }},
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},

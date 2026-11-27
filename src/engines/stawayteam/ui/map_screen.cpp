@@ -682,6 +682,19 @@ bool MapScreen::blockedAt(size_t part, float x, float y) const {
     const std::vector<std::pair<float, float>> &shape = modelInfo(_map.parts[part].model).footprint;
     if (shape.size() < 3)
         return false;
+    return shapeBlockedAt(shape, part, x, y);
+}
+
+bool MapScreen::shapeBlockedAt(const std::vector<std::pair<float, float>> &shape, size_t ignore, float x,
+                               float y) const {
+    if (shape.size() < 3) {
+        for (const Wall &w : _walls) {
+            const PartState &state = _partStates[w.part];
+            if (w.part != ignore && state.active && !state.deleted && state.collideable && inside(w.points, x, y))
+                return true;
+        }
+        return false;
+    }
     std::vector<std::pair<float, float>> outline;
     float x0 = 1e9f;
     float y0 = 1e9f;
@@ -696,7 +709,7 @@ bool MapScreen::blockedAt(size_t part, float x, float y) const {
     }
     for (const Wall &w : _walls) {
         const PartState &state = _partStates[w.part];
-        if (w.part == part || !state.active || state.deleted || !state.collideable || w.x1 < x0 || w.x0 > x1 ||
+        if (w.part == ignore || !state.active || state.deleted || !state.collideable || w.x1 < x0 || w.x0 > x1 ||
             w.y1 < y0 || w.y0 > y1)
             continue;
         if (meet(outline, w.points))
@@ -1327,10 +1340,10 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
                 blitBy(view, animation("Interface/Selection", "Idle").at(now), int(std::lround(o.x)) - left,
                        int(std::lround(o.y)) + kMarkerY - top);
     // The mines put down, on the ground under everyone: their Deploy
-    // Sequence once as they're put down, then their model's Default
-    // Sequence over and over; set off, its Activate once, its last frame
-    // held (the proximity mine's Enter Action plays it; inferred for the
-    // rest).
+    // Sequence once as they're put down, then Idle (0x48eb9d), not their
+    // model's Default Sequence; set off, its Activate once, its last frame
+    // held till it goes (the proximity mine's Enter Action plays it, and
+    // its last frame destroys it; inferred for the remote mine).
     for (const Mine &m : _mines) {
         const ModelInfo &info = modelInfo(m.model);
         const auto once = [&](const std::string &sequence, float seconds) -> const Animation::Picture * {
@@ -1347,7 +1360,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
                  !m.item->deploySequence.empty() && d.fps > 0.0f && m.placed * d.fps < float(d.perDirection()))
             p = once(m.item->deploySequence, m.placed);
         if (!p)
-            p = animation(m.model, info.defaultSequence.empty() ? "Idle" : info.defaultSequence).at(now);
+            p = animation(m.model, "Idle").at(now);
         blitBy(view, p, int(std::lround(m.x)) - left, int(std::lround(m.y)) - top);
     }
     // The models and the officers among them, back to front: each picture,

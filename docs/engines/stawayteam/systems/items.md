@@ -140,9 +140,17 @@ does the rest by its model's own AIs:
 ### Mines
 
 A mine's Process Activity is a `CDropItemAI`: the officer walks to the
-place, and its `CDropItemAtTargetAction` puts down `Model to Create`
-("Items/Weapons/Deployed States/Proximity Mine"), with its `Deploy
-Sequence`. The proximity mine's model's Default Entity has a
+place (`Radius` 0), and its `CDropItemAtTargetAction` puts down `Model
+to Create` ("Items/Weapons/Deployed States/Proximity Mine") at the
+officer's target (`0x48f2b3`), playing its `Deploy Sequence` once and
+then `Idle` (`0x48eb9d`), not the model's Default Sequence (`Activate`).
+With `Try to find a good spot`, as both mines have, it tries 30 places
+(`0x48ec3e`): the first the target, each next 2 further out
+(`0x6197e8`) at an angle chosen by chance, taking the first where
+nothing active and collideable meets the mine's shape (`0x4f0f80`) and
+nothing's in the way from the officer (`0x4ef720`); failing all of
+them, it's put where the officer stands. Its `Inventory Definition to
+Consume` (the remote mine's) takes one from the officer. The proximity mine's model's Default Entity has a
 `CActionAI`: a `CDelayAction` of 2 seconds, then a `CAddAIAction` giving
 it a `CTouchingOvalTriggerAI` (`X Radius` 100, `YX Ratio` 0.71,
 `Triggered By Enemies`) whose Enter Action plays its `Activate`, its
@@ -193,7 +201,9 @@ on the info bar with nothing added (`0x534d61`), which puts them on it
 `Text` in `Text Size` at `Text Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
 Sequence` at `Phaser Indicator Pos`, cut to its energy's share of its
 width from the left (`0x534a1d`), with red ticks 4 pixels high along its
-top at either end and a shot's Energy Use apart (`0x534890`); its
+top at either end and a shot's Energy Use apart (`0x534890`). Its
+`Phaser Can't Fire Sequence` (+0x14 of the renderer, `0x533d8e`) is
+read with the rest but nothing draws it; its
 damage and range at `Phaser
 Damage Pos` and `Phaser Range Pos` in `Phaser Font` ("Damage: %3.0f",
 or "Damage: ---" for an item without a Discharge Action; "Range:
@@ -357,8 +367,10 @@ none left, it can't be used. The bar shows each item's uses left in its
 corner *(inferred)*.
 
 A mine chosen is put down where's clicked, the officer walking there
-first (its `CDropItemAI`'s `Move Behavior`, `Do Path Finding`); drawn on the ground, its model's Default Sequence
-over and over *(inferred)*. A proximity mine arms after its model's
+first (its `CDropItemAI`'s `Move Behavior`, `Do Path Finding`), or at
+the nearest good spot to it as above; drawn on the ground, Deploy then
+Idle. Reluva has the officer stop within 30 of the place, not on it
+*(inferred)*. A proximity mine arms after its model's
 delay, then goes when an enemy's in its oval: its Activate Sound and
 noise, and its explosion its fuse later, as a grenade's, hurting from
 twice its model's Explosion Radial Damage (150 for each of the mines)
@@ -377,8 +389,9 @@ instead, from within the tricorder's range, its line typed on the panel
 The bar shows a place for each type, the last type's first as the team
 selection has them *(inferred)*, each the item of its own the officer
 last came to; Inventory Next and Prev, and the bar's buttons, go along
-them, the item's name shown a second and a half; the More Indicator on
-a place with more than one, where it's drawn *(inferred)*. The pointer
+them, the item's name shown a second and a half; its count at the
+place's bottom left, and no More Indicator, as the program draws them
+([maps.md](maps.md#the-interface)). The pointer
 is the chosen item's cursors as it's over what it's used on, out of
 sight, or elsewhere *(inferred)*.
 
@@ -456,10 +469,10 @@ While the enemy taken over is chosen, its bar holds the Psychic Rack's
 taken, `0x5d5233`), and its panel, a `CPsycheControllerInfoRenderer`:
 the charge and BREAK CONTROL.
 
-A mine put down plays its drop action's `Deploy Sequence` once, then its
-model's Default Sequence; set off, its `Activate`, its last frame held
-*(inferred for all but the Activate the proximity mine's Enter Action
-plays)*. A part beamed away (a `CAddEffectAction` that's `Delete When
+A mine put down plays its drop action's `Deploy Sequence` once, then
+`Idle`; set off, its `Activate`, its last frame held till it goes (the
+proximity mine's Enter Action plays it, and that sequence's last frame
+destroys it; the remote mine's *(inferred)*). A part beamed away (a `CAddEffectAction` that's `Delete When
 Finished`) has its `Warp Overlay Effect` drawn over it: the overlay's
 frames are `Num Rotations` (4) directions' worth, the figure's
 direction's chosen when its own sequence has as many, else the first,
@@ -547,10 +560,7 @@ system ([particles.md](particles.md)).
 - **Grenades:** what the EM Pulse Grenade does beyond holding the
   Electronic Equipment, and how a damage type's `Unavoidable damage`
   weighs against a character's own (`0x495297`).
-- **The bar:** where a count is shown, where the More Indicator is
-  drawn, the order of its places, and whether the full inventory's
-  items are in their Item Frames.
+- **The bar:** the order of its places, and whether the full
+  inventory's items are in their Item Frames.
 - **The panels:** where each part of an item's panel is drawn, whether
-  it's over the minimap, how the phaser's switch is used, and when its
-  `Phaser Can't Fire Sequence` shows.
-- **Mines:** where one's put down, and the mines' sequences.
+  it's over the minimap, and how the phaser's switch is used.

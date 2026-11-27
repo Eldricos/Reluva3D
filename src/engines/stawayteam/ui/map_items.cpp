@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace reluva::stawayteam {
 
@@ -235,10 +236,9 @@ bool MapScreen::doTask(size_t officer) {
     o.discharge = def->dischargeSequence.empty() ? "Shoot1" : def->dischargeSequence;
     o.shooting = 1e-6f;
     if (o.task == Officer::Task::kPlace) {
-        // Put down where they stand, its model's Default Sequence playing
-        // (inferred: its Deploy first isn't).
         o.direction = directionOf(o.taskX - o.x, o.taskY - o.y);
-        _mines.push_back({def, def->deployModel, o.taskX, o.taskY, 0.0f, false, 0.0f, int(officer)});
+        const auto [mx, my] = placeFor(officer, def->deployModel, o.taskX, o.taskY);
+        _mines.push_back({def, def->deployModel, mx, my, 0.0f, false, 0.0f, int(officer)});
         return true;
     }
     if (o.task == Officer::Task::kThrow) {
@@ -679,6 +679,29 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
         ++o.taskStep;
     }
     return true;
+}
+
+std::pair<float, float> MapScreen::placeFor(size_t officer, const std::string &model, float x, float y) {
+    // The mines' Try to find a good spot (0x48ec3e): 30 tries, each 2
+    // further out at an angle by chance, the first where nothing that
+    // collides meets the mine's shape (0x4f0f80) and the officer's way
+    // there's clear (0x4ef720); failing those, where the officer stands.
+    constexpr int kTries = 30;
+    constexpr float kFurther = 2.0f; // 0x6197e8
+    const Officer &o = _officers[officer];
+    const std::vector<std::pair<float, float>> &shape = modelInfo(model).footprint;
+    float out = 0.0f;
+    for (int i = 0; i < kTries; ++i, out += kFurther) {
+        _random = _random * 1103515245u + 12345u;
+        const float angle = float((_random >> 8) & 0xffffff) / float(0x1000000) * 6.2831855f;
+        const float sx = x + std::cos(angle) * out;
+        const float sy = y + std::sin(angle) * out;
+        float vx = sx - o.x;
+        float vy = sy - o.y;
+        if (!shapeBlockedAt(shape, SIZE_MAX, sx, sy) && throwPasses(o.x, o.y, sx, sy, vx, vy))
+            return {sx, sy};
+    }
+    return {o.x, o.y};
 }
 
 const std::string &MapScreen::scanText() const {
