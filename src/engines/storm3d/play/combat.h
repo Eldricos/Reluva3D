@@ -96,8 +96,12 @@ public:
         float detect = 0; // a mine's detectRadius: how far it sees a ship to go for
         double life = 0;  // its shot's lifeSpan, seconds
         bool needTarget = false;
-        CrewCost crew{};  // what its hits take of the crew
-        double ready = 0; // seconds until it can fire again
+        float radius = 0;   // the weapon's: how far a self-destruct reaches
+        double timer = 0;   // the weapon's timer (a self-destruct's countdown), or detectTimer
+        float modifier = 0; // regenModifier, or its ordnance's specialValue
+        int maxTargets = 0; // an area missile's, within its range
+        CrewCost crew{};    // what its hits take of the crew
+        double ready = 0;   // seconds until it can fire again
     };
     /** A unit's special weapons, their ordnance read through `loader`. */
     static std::vector<Special> specialsOf(const Odf &unit, const Odf::Loader &loader);

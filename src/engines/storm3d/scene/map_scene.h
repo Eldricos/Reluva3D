@@ -223,6 +223,8 @@ public:
      */
     void drawShieldHit(size_t unit, const gfx::Vec3 &from, int frame, const std::array<float, 3> &colour,
                        const std::string &texture);
+    /** Whether a unit is under its cloak: other players' don't see it (its own player does). */
+    void setCloaked(size_t unit, bool cloaked);
     /** Whether a unit's damage emitters run (its fires). */
     void setDamaged(size_t unit, bool damaged);
     /**
@@ -306,6 +308,7 @@ private:
         bool scenery = false; // a planet or a sun: drawn first, under the cover, and never hidden
         bool hides = true;
         gfx::Vec3 at{};
+        bool cloaked = false; // hidden, if it hides, whatever the cover
     };
     std::vector<Hiding> _hiding;
     std::vector<Unit> _units;

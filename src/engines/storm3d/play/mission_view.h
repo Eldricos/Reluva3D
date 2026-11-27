@@ -337,6 +337,18 @@ private:
         float speed = 0; // now, up to its shot's
     };
     std::vector<Mine> _mines;
+    std::vector<bool> _cloaked;               // as _targets: under its cloak
+    std::map<size_t, double> _revealedUntil;  // a cloaked unit seen by a detector, until the game's seconds
+    std::map<size_t, double> _selfDestructAt; // counting down, to the game's seconds
+    // A beam holding a unit still: whose, on what, until when, at what cost a second.
+    struct Hold {
+        size_t unit = 0;
+        size_t target = 0;
+        double until = 0;
+        float cost = 0;
+        float range = 0;
+    };
+    std::vector<Hold> _holds;
     std::vector<bool> _chasing; // as _targets: its goal is its target's, set by pursue()
     std::vector<bool> _dead;
     std::vector<Combat::Shot> _shots;

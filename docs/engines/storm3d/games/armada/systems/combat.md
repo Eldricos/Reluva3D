@@ -153,8 +153,25 @@ From the same run's frames and draws:
   button pressed fires it from each selected unit that can, or, for
   one that wants a target, at the next unit clicked. Made yet: the
   Antimatter Mines, each going for the nearest ship of another's in its
-  sight and hitting it when within half its size *(guessed)*; and the
-  cannons and launchers whose ordnance does damage, as a shot. A pod
+  sight and hitting it when within half its size *(guessed)*; the
+  cannons and launchers whose ordnance does damage, as a shot; and,
+  from their definitions, each *(guessed)* past what they say:
+  - **cloaks** (`cloakingdevice`, `phasecloakdevice`): on for their
+    `specialEnergyCost`, off for nothing; a cloaked unit is drawn for
+    its own player only, isn't taken as a target, and doesn't fire;
+  - **cloak detectors** (`detectcloak`): the cloaked units of others
+    within the unit's sight shown for its `detectTimer` (10 seconds);
+  - **self-destruct**: after its `timer` (5 seconds), the unit gone,
+    and everything within its `radius` (300) hit by the unit's hull's
+    worth, less with distance;
+  - **regeneration**: its `regenModifier` (30) percent of the hull back;
+  - **the holding beam** (`toggleweapon`, its ordnance `holding_bm`):
+    the target held still for its ordnance's life (30 seconds), while in
+    the beam's range, at its cost a second;
+  - **the Energy Dissipator and Shield Disruptor** (`areamissile`, their
+    ordnance `micro` and `shieldh`): up to their `maxTargets` (4) of the
+    nearest ships of others within range, their special energy or their
+    shields taken. A pod
   built gives its player its weapon instead of a ship, its model fixed
   to the station's next pod node (`podHardpoints`), and goes dark in
   its station's menu. A mine gets up to its speed at its `shotAccel`.
@@ -227,10 +244,12 @@ From the same run's frames and draws:
 - The debris's pieces as the original's (single triangles, likely),
   the shockwave's size and fade, and the blue sparks of hull hits.
 - The hit chance's modifiers (`warpToHitModifier` and the rest).
-- The other special weapons: the cloaks, the beams, the wormholes, the
-  area weapons and the rest, each its own; and how many mines a ship
-  drops, how they move (`omegaTurn`, `shotAccel`) and what they do to
-  shields.
+- The other special weapons: the tractor beam, the wormholes, the area
+  cannons (Engine Overload, Holo-emitter, Death Chant...), the boarding
+  teams, Gemini Effect and the rest, each its own; and, for those made,
+  how they really run: what a cloak costs while on, a self-destruct's
+  damage, a holding beam's boarding (`boardingSize`), and how many mines
+  a ship drops and how they turn (`omegaTurn`).
 - Which pod node the original takes first (its Antimatter Mines went
   to an arm, not known which), the pod growing as it's built, and why
   Corbomite Reflector was dark before any research.

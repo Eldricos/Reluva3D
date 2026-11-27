@@ -238,7 +238,7 @@ bool MapScene::shown(size_t unit) const {
     if (unit >= _unitModels.size())
         return false;
     const Hiding &h = _hiding[_unitModels[unit].placed];
-    return !h.hides || !covered(h.at);
+    return !h.hides || (!h.cloaked && !covered(h.at));
 }
 
 void MapScene::see(const std::vector<Sight> &sights) {
@@ -721,6 +721,15 @@ void MapScene::drawShieldHit(size_t unit, const gfx::Vec3 &from, int frame, cons
         _meshes.drawShieldHit(*built, place, from, frame, colour, texture);
 }
 
+void MapScene::setCloaked(size_t unit, bool cloaked) {
+    if (unit >= _unitModels.size())
+        return;
+    _hiding.resize(_placed.size());
+    _hiding[_unitModels[unit].placed].cloaked = cloaked;
+    for (auto [it, end] = _attached.equal_range(unit); it != end; ++it)
+        _hiding[it->second].cloaked = cloaked;
+}
+
 void MapScene::setDamaged(size_t unit, bool damaged) {
     if (unit >= _unitModels.size())
         return;
@@ -941,7 +950,7 @@ void MapScene::drawPlaced(bool scenery) {
     _batchDamaged.clear();
     for (size_t i = 0; i < _placed.size(); ++i) {
         const Hiding &h = _hiding[i];
-        if (h.scenery != scenery || (h.hides && covered(h.at)))
+        if (h.scenery != scenery || (h.hides && (h.cloaked || covered(h.at))))
             continue;
         _batch.push_back(_placed[i]);
         _batchTeams.push_back(_teams[i]);

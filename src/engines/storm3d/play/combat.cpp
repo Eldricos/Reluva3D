@@ -89,6 +89,10 @@ std::vector<Combat::Special> Combat::specialsOf(const Odf &unit, const Odf::Load
         s.range = float(weapon.number("range"));
         s.delay = weapon.number("shotDelay");
         s.needTarget = weapon.number("needTarget", 1) != 0;
+        s.radius = float(weapon.number("radius"));
+        s.timer = weapon.number("timer", weapon.number("detectTimer"));
+        s.modifier = float(weapon.number("regenModifier"));
+        s.maxTargets = int(weapon.number("maxTargets"));
         if (shot) {
             s.ordnance = text::toLower(ordnance.string("classLabel"));
             s.energy = float(ordnance.number("specialEnergyCost"));
@@ -97,6 +101,8 @@ std::vector<Combat::Special> Combat::specialsOf(const Odf &unit, const Odf::Load
             s.speed = float(ordnance.number("shotSpeed"));
             s.detect = float(ordnance.number("detectRadius"));
             s.accel = float(ordnance.number("shotAccel"));
+            if (s.modifier <= 0)
+                s.modifier = float(ordnance.number("specialValue"));
             s.crew = {float(ordnance.number("shieldCrewModifier")), float(ordnance.number("hullCrewModifier"))};
             s.life = ordnance.number("lifeSpan");
             s.sprite = ordnance.string("Sprite");
