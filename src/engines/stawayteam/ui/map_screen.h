@@ -982,6 +982,9 @@ private:
         bool byEnemies = false;
     };
     std::map<size_t, Door> _doors;
+    // Parts told to Stop Animation: the frame, counted from the clock's
+    // start, their sequence stops on.
+    std::map<size_t, int> _stoppedAt;
     void setupDoors();
     // Opens or closes a door, for `instigator`; true if it's a door.
     bool moveDoor(size_t part, bool open, int instigator);

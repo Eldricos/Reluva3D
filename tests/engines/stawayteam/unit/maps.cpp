@@ -2705,6 +2705,48 @@ void testDoors() {
     CHECK(screen.partState(part("Gathered")).active);
 }
 
+void testStopAnimation() {
+    // A light of two frames, 10 a second; told to stop at its first frame
+    // a quarter of a second in, it plays on to the end of its time through
+    // and holds its last frame; told to start, it plays again.
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=100.000000,100.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n"
+                            "\t\tLevel Part=CEntityAnimated\n\t\t{\n\t\t\tName=Light\n\t\t\tModel=Things/Light\n"
+                            "\t\t\tPosition X=100\n\t\t\tPosition Y=100\n\t\t\tRendering Height=0\n\t\t}\n"
+                            "\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    ModelLook light;
+    light.colour = 0xf800;
+    light.size = 10;
+    data.files["Cache/Models/Things/Light.mdl16"] = modelFile("Light", 1, 2, 0.0f, {}, 0.0f, false, 0.0f, light);
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    MapScreen screen(data, rules, map, options, 0);
+    Surface surface;
+    surface.create(200, 200, PixelFormat::kRGBA32);
+    // Frame 1 is a pixel wider than frame 0: its right column shows only
+    // while it's drawn.
+    const auto wide = [&](uint64_t now) {
+        screen.draw(surface, now);
+        return surface.row(100)[105 * 4] > 200;
+    };
+    CHECK(!wide(50) && wide(150) && !wide(250));
+    TextObject stop;
+    CHECK(!readTextObject("CSendMessageAction\n{\nMessage=stop animation\nTarget=Light\n}\n", stop));
+    screen.runAction(&stop);
+    CHECK(!wide(250) && wide(350) && wide(1000));
+    TextObject start;
+    CHECK(!readTextObject("CSendMessageAction\n{\nMessage=Start Animation\nTarget=Light\n}\n", start));
+    screen.runAction(&start);
+    CHECK(!wide(1050));
+}
+
 void testTriesToCollide() {
     // Two guards sent past a crate each: the one that Tries To Collide
     // stops against it, the other walks through.
@@ -3092,6 +3134,7 @@ static const reluva::test::Suite
                {"maps", [](const std::filesystem::path &) { testMaps(); }},
                {"interface", [](const std::filesystem::path &) { testInterface(); }},
                {"warp", [](const std::filesystem::path &) { testWarp(); }},
+               {"stop animation", [](const std::filesystem::path &) { testStopAnimation(); }},
                {"tries to collide", [](const std::filesystem::path &) { testTriesToCollide(); }},
                {"team bar", [](const std::filesystem::path &) { testTeamBar(); }},
                {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},

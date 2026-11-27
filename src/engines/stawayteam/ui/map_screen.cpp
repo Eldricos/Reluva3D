@@ -1348,6 +1348,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         look.body = &body;
         look.direction = body.direction(e ? e->angle : p.angle);
         look.frame = !fighting.empty() ? fought : int(double(now) * double(body.fps) / 1000.0) % 100000;
+        if (const auto stop = _stoppedAt.find(i); stop != _stoppedAt.end() && fighting.empty())
+            look.frame = std::min(look.frame, stop->second);
         // Something put down plays its sequence from its first frame, once
         // through if it's to stop.
         for (const Deployed &d : _deployed)

@@ -1218,10 +1218,14 @@ again without them; stopping as the maps are left. The briefing's
 music fades out under the first as the game's does. Reluva's random
 numbers aren't the program's.
 
-Not there yet: the AIs'
-other messages and tasks (CSendMessageAction's to animations; the
-particle systems' are there, [particles.md](particles.md)), the enemies' own noises,
-and thrown and laid weapons.
+A `CSendMessageAction`'s messages in the maps are `particle system on`
+(51, [particles.md](particles.md)) and `stop animation` (9, to the
+door power panels of Missions 07, 13 and 16). A part's sequence
+player takes `Start Animation` and `Stop Animation` in any case
+(`0x4a5570`): start plays it, and stop lets it run on to the end of the
+time through it's in and stop there, on its last frame (`0x4a5534`).
+
+Not there yet: the enemies' own noises, and thrown and laid weapons.
 
 ## Sources and checks
 

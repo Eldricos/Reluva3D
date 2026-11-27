@@ -537,11 +537,27 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
             _partStates[part].collideable = flag(action, "Collidable");
     } else if (kind == "CSendMessageAction") {
         // To a particle system, Particle System On or Off, in any case
-        // (0x5244b0); others aren't there yet.
+        // (0x5244b0). To a part's sequence, Start Animation plays it again
+        // and Stop Animation lets it run to the end of the time through
+        // and stop there (0x4a5570, 0x4a5534).
         const std::string message = lower(trim(readText(action, "Message")));
         if (message == "particle system on" || message == "particle system off")
             for (size_t part : targets("Target"))
                 turnEmitters(part, message == "particle system on");
+        for (size_t part :
+             message == "stop animation" || message == "start animation" ? targets("Target") : std::vector<size_t>{}) {
+            if (message == "start animation") {
+                _stoppedAt.erase(part);
+                continue;
+            }
+            const MapPart &p = _map.parts[part];
+            const Animation &a = animation(p.model, p.sequence.empty() ? "Idle" : p.sequence);
+            const int per = a.perDirection();
+            if (per <= 0 || _stoppedAt.count(part))
+                continue;
+            const int frame = int(double(_last) * double(a.fps) / 1000.0) % 100000;
+            _stoppedAt[part] = (frame / per + 1) * per - 1;
+        }
     } else if (kind == "CCreateCustomEntityAction") {
         float x = 0.0f;
         float y = 0.0f;

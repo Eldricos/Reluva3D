@@ -39,8 +39,7 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** the animations'
-  messages aren't there; particles are drawn over the models rather than
+- **Maps:** particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); a walker goes straight along its way, not the way its
   direction's frames move
   ([systems/maps.md](systems/maps.md#in-reluva)).
