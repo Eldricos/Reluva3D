@@ -120,6 +120,45 @@ std::vector<Combat::Special> Combat::specialsOf(const Odf &unit, const Odf::Load
             if (text::hasSuffixIgnoreCase(s.model, ".sod"))
                 s.model.resize(s.model.size() - 4);
         }
+        // The numbers particular kinds read, from the ordnance and then the
+        // weapon, as the program's definitions read them.
+        static const char *const kKeys[] = {"repulsionForce",
+                                            "chainRadius",
+                                            "chainDamageModifier",
+                                            "maxHits",
+                                            "percentage",
+                                            "partySize",
+                                            "timeDelay",
+                                            "effectTimer",
+                                            "specialEnergyDrainRate",
+                                            "specialEnergyDelay",
+                                            "shieldsReturned",
+                                            "drainRate",
+                                            "attackRange",
+                                            "targetRange",
+                                            "initialScale",
+                                            "maxScale",
+                                            "expansionTime",
+                                            "retractionTime",
+                                            "timeAtMaxSize",
+                                            "Radius",
+                                            "slowPercent",
+                                            "FireModifier",
+                                            "RepairModifier",
+                                            "SpeedModifier",
+                                            "DamageModifier",
+                                            "hitCondition",
+                                            "energyDrainRate",
+                                            "unsafeCloakDistance",
+                                            "boardingSize",
+                                            "boardingInterval",
+                                            "boardingDelay"};
+        for (const char *key : kKeys) {
+            if (shot && ordnance.find(key))
+                s.values[key] = float(ordnance.number(key));
+            if (weapon.find(key))
+                s.values[key] = float(weapon.number(key));
+        }
         // Some keep their cost on the weapon itself (the cloaks).
         if (s.energy <= 0)
             s.energy = float(weapon.number("specialEnergyCost"));
@@ -183,7 +222,7 @@ bool Combat::Vitals::damaged() const {
     return false;
 }
 
-void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll, bool throughShields) {
+void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll) {
     if (vitals.destroyed || damage <= 0)
         return;
     // Each loss a percent of the crew aboard, and a whole one more, at most;
@@ -193,17 +232,14 @@ void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll,
         if (vitals.crew < 1)
             vitals.crew = 0;
     };
-    float past = damage;
-    if (!throughShields) {
-        // All of it on the shields (RTS_CFG.h's SHIELD_DAMAGE_PROTECTION, 1),
-        // past them only what they hadn't; while they're up, what passes the
-        // ordnance's threshold "to cause crew casualties prior to shield
-        // exhaustion" costs crew by its shieldCrewModifier (0x461d46).
-        if (vitals.shields > 0 && crew.threshold > 0 && damage > crew.threshold)
-            lose(crew.shields, damage - crew.threshold);
-        past = std::max(0.0f, damage - vitals.shields);
-        vitals.shields = std::max(0.0f, vitals.shields - damage);
-    }
+    // All of it on the shields (RTS_CFG.h's SHIELD_DAMAGE_PROTECTION, 1),
+    // past them only what they hadn't; while they're up, what passes the
+    // ordnance's threshold "to cause crew casualties prior to shield
+    // exhaustion" costs crew by its shieldCrewModifier (0x461d46).
+    if (vitals.shields > 0 && crew.threshold > 0 && damage > crew.threshold)
+        lose(crew.shields, damage - crew.threshold);
+    const float past = std::max(0.0f, damage - vitals.shields);
+    vitals.shields = std::max(0.0f, vitals.shields - damage);
     // Where it lands: a whole roll from 0 to 99 run down the systems' hit
     // percents in the program's order, then the hull's; past them all,
     // critical (0x461930).
@@ -247,10 +283,19 @@ void Combat::regenerate(Vitals &vitals, double seconds) {
     if (!vitals.alive() || vitals.derelict())
         return;
     // Without its shield generator, its shields don't come back.
-    if (!vitals.systems[kShieldGenerator].out())
+    // Knocked out for a time, back after it; a disruptor's shields given
+    // back with the generator unless it's out meanwhile.
+    for (SystemState &s : vitals.systems)
+        s.offline = std::max(0.0f, s.offline - float(seconds));
+    if (vitals.heldShields >= 0 && vitals.systems[kShieldGenerator].offline <= 0) {
+        if (!vitals.systems[kShieldGenerator].out())
+            vitals.shields = std::max(vitals.shields, vitals.heldShields);
+        vitals.heldShields = -1;
+    }
+    if (vitals.systems[kShieldGenerator].working())
         vitals.shields = std::min(vitals.maxShields, vitals.shields + float(vitals.shieldRate * seconds));
     vitals.energy = std::min(vitals.maxEnergy, vitals.energy + float(vitals.energyRate * seconds));
-    if (vitals.systems[kLifeSupport].out())
+    if (!vitals.systems[kLifeSupport].working())
         vitals.crew = std::max(0.0f, vitals.crew - vitals.crew * vitals.lifeSupportLoss / 100 * float(seconds));
     // Repairs, by its crew: faster by its race's repairStrength, slower by
     // repairYellow or repairRed with its crew below those shares, none
@@ -263,6 +308,16 @@ void Combat::regenerate(Vitals &vitals, double seconds) {
     for (SystemState &s : vitals.systems)
         if (s.maxHitPoints > 0 && s.repairTime > 0)
             s.hitPoints = std::min(s.maxHitPoints, s.hitPoints + s.maxHitPoints / s.repairTime * pace * float(seconds));
+}
+
+void Combat::disable(Vitals &vitals, System system, float seconds, bool dropShields) {
+    SystemState &s = vitals.systems[system];
+    s.offline = std::max(s.offline, seconds);
+    if (dropShields && system == kShieldGenerator) {
+        if (vitals.heldShields < 0)
+            vitals.heldShields = vitals.shields;
+        vitals.shields = 0;
+    }
 }
 
 float Combat::damageOf(const Weapon &weapon, float roll) {

@@ -362,7 +362,10 @@ private:
         float speed = 0; // now, up to its shot's
     };
     std::vector<Mine> _mines;
-    std::vector<bool> _cloaked;               // as _targets: under its cloak
+    std::vector<bool> _cloaked; // as _targets: under its cloak
+    // As _targets: a cloaked unit's shields and crew at the last frame's end,
+    // to see it was hit since (any hit takes one or the other).
+    std::vector<std::pair<float, float>> _cloakedWith;
     std::map<size_t, double> _revealedUntil;  // a cloaked unit seen by a detector, until the game's seconds
     std::map<size_t, double> _selfDestructAt; // counting down, to the game's seconds
     // A beam from a unit on another: what it does ("hold", "tow",
@@ -376,23 +379,33 @@ private:
         float range = 0;
         std::string kind = "hold";
         float rate = 0;
-        gfx::Vec3 offset{}; // a towed ship's place from its tower
+        gfx::Vec3 offset{};  // a towed ship's place from its tower
+        float pull = 60;     // a tractor beam's targetRange: how near it brings what it holds
+        double boardAt = -1; // a holding beam's next boarding party, if it sends them
+        float boardEvery = 0;
+        float boardSize = 0;
     };
     // What special weapons have done to a unit, each until the game's seconds.
     struct Effects {
         double enginesOff = 0;
         double weaponsOff = 0;
         double sensorsOff = 0;
-        double frozen = 0;       // neither moving nor firing
-        double slowed = 0;       // at half its speed
+        double frozen = 0; // neither moving nor firing
+        double slowed = 0; // at slowBy of its speed
+        float slowBy = 0.5f;
         double invulnerable = 0; // its shields take no damage
         double reflecting = 0;   // shots at it go back
         double confused = 0;     // it fires on its own side
-        double boosted = 0;      // its shots do half again
         double scrambled = 0;    // it takes no orders
         double defending = 0;    // it shoots down shots at it
         double crewDrainUntil = 0;
         float crewDrain = 0; // crew a second, while it lasts
+        double energyDrainUntil = 0;
+        float energyDrain = 0; // special energy a second, while it lasts (TimedDrain)
+        double driftUntil = 0; // pushed by a repulsion field or wave
+        gfx::Vec3 drift{};     // its push, units a second
+        double fireFaster = 0; // its weapons reload at fireBy times the pace (TimedHyper)
+        float fireBy = 1;
     };
     std::vector<Effects> _effects; // as _targets
     // A field a special weapon leaves on the map: an ion storm, a black
@@ -407,8 +420,21 @@ private:
         float grow = 0;   // units a second
         float damage = 0; // a second, or once as a wave passes
         std::set<size_t> hit;
+        // A rift's: its size, scale at first and at most, and the seconds it
+        // grows, stays and shrinks (BlackHoleCreator's).
+        float size = 0;
+        std::array<float, 5> shape{};
+        float variance = 0;
+        Combat::CrewCost crew{};
     };
     std::vector<Field> _fields;
+    // Specials on until pressed again or their energy runs out: by unit and
+    // kind, their cost a second, and a regeneration's shields a second.
+    struct Running {
+        float cost = 0;
+        float rate = 0;
+    };
+    std::map<std::pair<size_t, std::string>, Running> _running;
     std::map<size_t, double> _expiresAt; // Gemini Effect's copies, gone at the game's seconds
     // A unit taken over (Computer Override): whose it was, and until when.
     struct Takeover {
@@ -510,10 +536,14 @@ private:
                     int target); // the selected units with it fire it, at target if it wants one
     void fireSpecial(size_t unit, Combat::Special &special, int target);
     void moveMines(double seconds);
+    void uncloakHit();
     // special_weapons.cpp: the special weapons past the first few.
     static bool madeKind(const Combat::Special &special);   // whether Reluva makes it
     static bool wantsPoint(const Combat::Special &special); // fired at a point of the map: the transwarps
     bool fireMore(size_t unit, Combat::Special &special, int target);
+    // What an area weapon acts on (0x4ff270, 0x4ff6f0): by its hitCondition,
+    // in the units' order, up to its maxTargets, within its range squared.
+    std::vector<size_t> areaTargetsOf(size_t unit, const Combat::Special &special) const;
     void firePoint(const std::string &button, const gfx::Vec3 &point);
     void runEffects(double seconds); // the fields, beams, drains and what wears off
     // crew.cpp: transporting, boarding and capture, repair and recrew.

@@ -1,6 +1,6 @@
 # Star Trek: Armada: combat
 
-> **Status:** partial · **Code:** `src/engines/storm3d/play/combat.cpp`, `src/engines/storm3d/play/mission_view.cpp` · **Checked against:** the original running a skirmish in Reluva's x86 emulator, its draws every second as its starbase fought one of its own construction ships · **Confidence:** seen; a hit's course from the code
+> **Status:** partial · **Code:** `src/engines/storm3d/play/combat.cpp`, `src/engines/storm3d/play/mission_view.cpp` · **Checked against:** the original running a skirmish in Reluva's x86 emulator, its draws every second as its starbase fought one of its own construction ships · **Confidence:** seen, not traced, but a hit's course and the special weapons from the code
 
 ## Overview
 
@@ -265,51 +265,79 @@ From the same run's frames and draws:
   fired: researched if a pod gives it, charged, ready, and made. A
   button pressed fires it from each selected unit that can, or, for
   one that wants a target, at the next unit clicked. Made yet: the
-  Antimatter Mines, each going for the nearest ship of another's in its
-  sight and hitting it when within half its size *(guessed)*; the
-  cannons and launchers whose ordnance does damage, as a shot; and,
-  from their definitions, each *(guessed)* past what they say:
-  - **cloaks** (`cloakingdevice`, `phasecloakdevice`): on for their
-    `specialEnergyCost`, off for nothing; a cloaked unit is drawn for
-    its own player only, isn't taken as a target, and doesn't fire;
-  - **cloak detectors** (`detectcloak`): the cloaked units of others
-    within the unit's sight shown for its `detectTimer` (10 seconds);
-  - **self-destruct**: after its `timer` (5 seconds), the unit gone,
-    and everything within its `radius` (300) hit by the unit's hull's
-    worth, less with distance;
-  - **regeneration**: its `regenModifier` (30) percent of the hull back;
-  - **the holding beam** (`toggleweapon`, its ordnance `holding_bm`):
-    the target held still for its ordnance's life (30 seconds), while in
-    the beam's range, at its cost a second;
-  - **the Energy Dissipator and Shield Disruptor** (`areamissile`, their
-    ordnance `micro` and `shieldh`): up to their `maxTargets` (4) of the
-    nearest ships of others within range, their special energy or their
-    shields taken;
-  - **and the rest** (`special_weapons.cpp`), each by its description,
-    its time its ordnance's `specialValue` in seconds where it has one:
-    Engine Overload, the Sensor Jammer and the Holo-emitter put out the
-    engines or sensors, or turn the guns on their own side, of the ships
-    of others within range; Death Chant makes its own side's shots do
-    half again; the Temporal Stasis Field freezes them within 400 of the
-    target for 20 seconds; the ion storm hurts what's within 200 of it
-    for 10 seconds, the black hole what's within its growing reach, the
-    repulsion wave what it passes, once; Ultritium Burst hits four; the
-    Chain Reaction Pulsar hops between five, 10 harder each; Gravity
-    Mines halve a ship's speed; Gemini Effect copies an allied ship for
-    a minute; the engineering team repairs an ally's systems and half its
-    shields; Shield Remodulation stops its shields being hurt; the
-    repulsion field pushes a ship away, its engines out; the Polaron
-    Torpedo goes through the shields and puts out a system; the
-    Psychonic Blast and the Klingon commandos kill its crew; Nanites stop
-    it taking orders; Computer Override makes it the firer's player's;
-    the Romulan Spy shows what's round it; the beams take or give
-    shields, take crew into the Borg's pool, or tow a ship whose engines
-    are out; the Corbomite Reflector sends shots back; the point defence
-    phaser shoots down those near; the transwarp drive and conduit move
-    a ship, or the ships near it, to a point seen. Not made: those the
-    files mark unfinished ("THIS IS A BUG", "WRITE ME") and the Omega
-    particle's tractor beam, a mission's. A pod
-  built gives its player its weapon instead of a ship; one for a ship
+  mines, each going for the nearest unit of another's, ship or station,
+  in its sight and hitting it when within half its size *(guessed)*;
+  the cannons and launchers whose ordnance does damage, as a shot; and
+  the rest as the program's code runs them (their classes' update
+  methods, followed in the disassembly), each its ordnance's
+  `specialValue` in seconds where it has one *(from the code)* but where
+  marked:
+  - **toggles:** the cloaks, regeneration, the Corbomite Reflector and
+    point defence come on for their `specialEnergyCost` and go off for
+    nothing when pressed again. Regeneration, the reflector and point
+    defence pay their cost again each second, going off when it can't be
+    paid (0x501bf0, 0x501870, 0x501510); regeneration gives its
+    `regenModifier` (30) of shields a second and every system whole, off
+    once the shields are full. Under a cloak no special energy comes
+    back, the unit doesn't fire, and it shows itself when hit (0x4f5d30,
+    0x4f5e90); a phase cloak drains its `energyDrainRate` (15) a second
+    besides, and shows the unit when it can't (0x4f6260);
+  - **beams** (`toggleweapon`): on for their cost once, off pressed
+    again; they reach by the gap between the two units, their centres'
+    distance less both their sizes. The holding beam pays its cost a
+    second, holds a unit of another's with its engines out, breaks past
+    1.33 times its range, and sends `boardingSize` crew every
+    `boardingInterval` after `boardingDelay`; the tractor beam takes only
+    a ship, not a starbase, whose engines are out, derelict or slowed,
+    and pulls it to its `targetRange` (60) from the holder (0x4e1c20);
+    shield inversion takes `drainRate` (50) shields a second to the
+    holder, at its cost a second, to 1.5 times its range; the energy
+    converter gives the holder's special energy as shields one for one;
+    the Borg bore takes `specialValue` (5) crew a second, at its cost a
+    second, within its `attackRange`;
+  - **area weapons** (`areamissile`, `areacannon`): one shot at each of up
+    to `maxTargets` units in the program's order, by `hitCondition` (2,
+    others'; 1, its own side's; 0, any), their gap against the range
+    *squared*, as the program compares it (0x4ff55a), so near the whole
+    map. The Energy Dissipator drains `specialEnergyDrainRate` (1000)
+    special energy over `specialEnergyDelay` (10) seconds (0x4d9550);
+    the Shield Disruptor takes the shields and their generator, the
+    shields given back after unless the generator was knocked out
+    meanwhile (0x4df810); the Myotron, the weapons (0x4d9fa0); Engine
+    Overload, the engines; the Sensor Jammer, the sensors; the
+    Holo-emitter turns a ship on its own side, its engines out; Death
+    Chant makes its side's weapons reload `FireModifier` (1.5) times as
+    fast;
+  - **shots:** the Chain Reaction Pulsar, fired with no target, goes
+    from the firer to the nearest unit within `chainRadius` (300), then
+    on to the nearest not yet hit, up to `maxHits` (6), each hit
+    `chainDamageModifier` (25) harder; the Polaron Torpedo does no
+    damage but puts out one of the engines, weapons, life support or
+    sensors, five tries for one the ship has; the repulsion field does
+    its damage, puts out the engines and pushes a ship away at its
+    `repulsionForce` (50), a starbase not at all; the Psychonic Blast
+    kills its `percentage` (half) of the crew; the Klingon commandos take
+    up to `partySize` (40) of the firer's crew as a party landing after
+    `timeDelay` (5) seconds; the engineering team raises an ally's
+    shields to `shieldsReturned` (half) of their most and makes its
+    systems whole;
+  - **the rest:** a Gravity Mine does no damage but slows the ship to its
+    `slowPercent` (50) of its speed (0x4e9a70), for 20 seconds
+    *(guessed)*; self-destruct, after its `timer` (5), its shockwave
+    `xselfd`'s 380 give or take 10 within its `radius` (300), less with
+    the distance, the falloff *(guessed)*; the black hole destroys its
+    ship, its rift growing from `initialScale` to `maxScale` over
+    `expansionTime`, holding, then shrinking, hurting every unit within
+    its `Radius` times its size; the Temporal Stasis Field freezes the
+    units not of the firer's side within 400 for its `lifeSpan` (45);
+    Gemini Effect copies an allied ship for its `effectTimer`; Computer
+    Override makes a ship the firer's player's; Nanites stop it taking
+    orders; the Romulan Spy shows what's round it; the transwarp drive
+    and conduit move a ship, or the ships near it, to a point seen. Not
+    made: those the files mark unfinished ("THIS IS A BUG", "WRITE ME")
+    and the Omega particle's tractor beam, a mission's.
+
+  A pod built gives its player its weapon instead of a ship; one for a ship
   whose yard can't be built yet is dark, as the original's Corbomite
   Reflector, the Sovereign's of the Advanced Starship Yard, was with no
   shipyard *(inferred)*. Built, its model is fixed
@@ -317,8 +345,7 @@ From the same run's frames and draws:
   its station's menu. A mine gets up to its speed at its `shotAccel`.
 - **Crew and systems,** as the game's code takes a hit (above); a
   derelict neither moves nor fires, regains nothing *(inferred)*, and
-  doesn't keep its player in. A poleron torpedo's damage goes through
-  the shields; repair brings the shields back with the systems. A system
+  doesn't keep its player in. Repair brings the shields back with the systems. A system
   with none left is out until
   repaired over its repair time: engines out, the ship stops; weapons,
   it doesn't fire; the shield generator, its shields don't come back;
@@ -411,12 +438,11 @@ From the same run's frames and draws:
   the shockwave's size and fade, and the blue sparks of hull hits.
 - Where the game rolls a shot's hit, so how it tells a unit stopped,
   slow or at warp; what `damageThreshold` does.
-- How the special weapons really run: each is made from what its
-  description and definition say, the rest of every one a guess (their
-  strengths, reaches and times where the files don't give them, what a
-  cloak costs while on, a holding beam's boarding, how mines turn).
-  Seeing them in the original wants its ships researched and in a
-  fight.
+- The special weapons not followed in the code: how long a Gravity
+  Mine's slow lasts, the self-destruct shockwave's falloff, what a cloak
+  detector's `detectClass` 1 and 2 do, how mines turn, and what the
+  Ultritium ball does. None has been seen in the original: that wants
+  its ships researched and in a fight.
 - Which pod node the original takes first (its Antimatter Mines went
   to an arm, not known which), and the pod growing as it's built.
 - How fast a yard repairs and recrews, and whether a starbase repairs

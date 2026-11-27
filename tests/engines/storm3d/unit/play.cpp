@@ -767,6 +767,30 @@ void testSpecials() {
     CHECK(std::fabs(v.energy - 300) < 1e-3f);
     Combat::regenerate(v, 100);
     CHECK(v.energy == 1000);
+
+    // A Shield Disruptor's hold: the shields gone and their generator off
+    // for its time, the shields given back after; not if the generator was
+    // knocked out meanwhile.
+    Combat::Vitals held = v;
+    held.shieldRate = 0;
+    held.systems[Combat::kShieldGenerator].maxHitPoints = held.systems[Combat::kShieldGenerator].hitPoints = 10;
+    Combat::disable(held, Combat::kShieldGenerator, 15, true);
+    CHECK(held.shields == 0 && !held.systems[Combat::kShieldGenerator].working());
+    Combat::regenerate(held, 10);
+    CHECK(held.shields == 0);
+    Combat::regenerate(held, 5);
+    CHECK(held.shields == 150 && held.systems[Combat::kShieldGenerator].working());
+    Combat::Vitals lost = v;
+    lost.systems[Combat::kShieldGenerator].maxHitPoints = 10;
+    Combat::disable(lost, Combat::kShieldGenerator, 15, true);
+    lost.systems[Combat::kShieldGenerator].hitPoints = 0;
+    Combat::regenerate(lost, 15);
+    CHECK(lost.shields == 0);
+
+    // A value not in its files falls back to the one given.
+    Combat::Special special;
+    special.values["maxHits"] = 6;
+    CHECK(special.value("maxHits", 1) == 6 && special.value("chainRadius", 300) == 300);
 }
 
 // Crew lost as a ship's hit, a share of those aboard: on the shields only

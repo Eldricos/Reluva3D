@@ -1042,6 +1042,7 @@ void MissionView::addFighter(const std::string &odf) {
     _chasing.push_back(false);
     _specials.push_back(read ? Combat::specialsOf(def, loader) : std::vector<Combat::Special>{});
     _cloaked.push_back(false);
+    _cloakedWith.emplace_back(0, 0);
     _effects.emplace_back();
     _dead.push_back(false);
     _scans.push_back(read ? float(def.number("rangeScan", 500)) : 500.0f);
@@ -1061,9 +1062,14 @@ void MissionView::fight(double seconds) {
     // caught fire after the first volley on its hull.
     for (size_t i = 0; i < count; ++i)
         if (!_dead[i]) {
+            // No special energy back under a cloak (0x4f5d30).
+            const float energy = _vitals[i].energy;
             Combat::regenerate(_vitals[i], seconds);
+            if (i < _cloaked.size() && _cloaked[i])
+                _vitals[i].energy = energy;
             _scene.setDamaged(i, _vitals[i].damaged());
         }
+    uncloakHit();
     for (std::vector<Combat::Special> &specials : _specials)
         for (Combat::Special &sp : specials)
             sp.ready = std::max(0.0, sp.ready - seconds);
@@ -1092,7 +1098,11 @@ void MissionView::fight(double seconds) {
             const float d = std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
             if (_dead[j] || radius <= 0 || d > radius)
                 continue;
-            Combat::hit(_vitals[j], _vitals[unit].maxShields * (1 - d / radius));
+            // Its shockwave's damageBase, 380 give or take 10 (xselfd),
+            // less with the distance *(guessed: the falloff)*.
+            _roll = _roll * 1664525u + 1013904223u;
+            const float rolled = 380 + 10 * (2 * float(_roll >> 8) / float(1u << 24) - 1);
+            Combat::hit(_vitals[j], rolled * (1 - d / radius));
             if (!_vitals[j].alive())
                 caught.push_back(j);
         }
@@ -1100,19 +1110,33 @@ void MissionView::fight(double seconds) {
             if (!_dead[j])
                 destroy(j, by);
     }
-    // Holding beams: the target still while the beam lasts, in range, and
-    // the holder can pay for it.
+    // Beams: lost when the gap between the two, less their sizes, passes
+    // their reach, when the holder can't pay their cost a second, or when
+    // their own rule fails (the beams' classes' updates).
     std::erase_if(_holds, [&](const Hold &h) {
         if (h.unit >= count || h.target >= count || _dead[h.unit] || _dead[h.target] || now >= h.until)
             return true;
         const gfx::Vec3 a = units[h.unit].middle();
         const gfx::Vec3 b = units[h.target].middle();
-        if (std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) > h.range)
+        const float gap =
+            std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) - units[h.unit].radius() - units[h.target].radius();
+        if (gap > h.range)
             return true;
         const float cost = h.cost * float(seconds);
-        if (_vitals[h.unit].energy < cost)
+        Combat::Vitals &holder = _vitals[h.unit];
+        const Combat::Vitals &held = _vitals[h.target];
+        if (holder.energy < cost)
             return true;
-        _vitals[h.unit].energy -= cost;
+        if (h.kind == "giveShields" && (holder.energy < 20 * float(seconds) || held.shields >= held.maxShields))
+            return true;
+        if (h.kind == "drainShields" && held.shields < h.rate * float(seconds))
+            return true;
+        if (h.kind == "assimilate" && held.derelict())
+            return true;
+        if (h.kind == "tow" && held.systems[Combat::kEngines].working() && !held.derelict() &&
+            !active(_effects[h.target].slowed))
+            return true;
+        holder.energy -= cost;
         return false;
     });
     runEffects(seconds);
@@ -1147,10 +1171,12 @@ void MissionView::fight(double seconds) {
         const gfx::Vec3 to = units[size_t(t)].middle();
         const float distance = std::hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
         for (Combat::Weapon &w : _weapons[i]) {
-            w.ready = std::max(0.0, w.ready - seconds);
-            // Its weapons out, it doesn't fire.
+            // Reloading at its FireModifier times the pace while Death
+            // Chant lasts (TimedHyper, 0x503153).
             const Effects &e = _effects[i];
-            if (w.ready > 0 || distance > w.range || _vitals[i].systems[Combat::kWeapons].out() || _cloaked[i] ||
+            w.ready = std::max(0.0, w.ready - seconds * (active(e.fireFaster) ? double(e.fireBy) : 1.0));
+            // Its weapons out, it doesn't fire.
+            if (w.ready > 0 || distance > w.range || !_vitals[i].systems[Combat::kWeapons].working() || _cloaked[i] ||
                 active(e.weaponsOff) || active(e.frozen) || disabled(i))
                 continue;
             // A roll from a little generator of our own, the same each game.
@@ -1161,12 +1187,10 @@ void MissionView::fight(double seconds) {
             _roll = _roll * 1664525u + 1013904223u;
             const bool miss =
                 float(_roll >> 8) / float(1u << 24) >= Combat::hitChanceOf(w, paceOf(i), paceOf(size_t(t)));
-            // Death Chant's frenzy: half again *(guessed)*.
-            const float boost = active(e.boosted) ? 1.5f : 1.0f;
             _shots.push_back({size_t(t),
                               from,
                               w.speed,
-                              Combat::damageOf(w, roll) * boost,
+                              Combat::damageOf(w, roll),
                               w.sprite,
                               from,
                               units[i].slot,
@@ -2109,6 +2133,7 @@ void MissionView::stop() {
     _chasing.clear();
     _specials.clear();
     _cloaked.clear();
+    _cloakedWith.clear();
     _effects.clear();
     _fields.clear();
     _expiresAt.clear();
@@ -2377,8 +2402,11 @@ bool MissionView::usable(size_t unit, const Combat::Special &special) const {
     const bool cloak = kind == "cloakingdevice" || kind == "phasecloakdevice";
     if (unit >= _vitals.size() || _dead[unit] || special.ready > 0 || _selfDestructAt.count(unit))
         return false;
-    // A cloak on comes off for nothing.
-    if (!(cloak && unit < _cloaked.size() && _cloaked[unit]) && _vitals[unit].energy < special.energy)
+    // One on comes off for nothing: a cloak, a beam, regeneration.
+    const bool on = (cloak && unit < _cloaked.size() && _cloaked[unit]) || _running.count(std::pair{unit, kind}) ||
+                    (kind == "toggleweapon" &&
+                     std::any_of(_holds.begin(), _holds.end(), [unit](const Hold &h) { return h.unit == unit; }));
+    if (!on && _vitals[unit].energy < special.energy)
         return false;
     // One a pod gives wants it researched by the unit's player.
     if (_pods.count(special.research)) {
@@ -2393,7 +2421,7 @@ bool MissionView::usable(size_t unit, const Combat::Special &special) const {
     return (kind == "minelayer" && (shot == "antimine" || shot == "gravmine")) ||
            ((kind == "cannon" || kind == "launcher") && special.damage > 0) || cloak || kind == "detectcloak" ||
            kind == "selfdestruct" || kind == "regeneration" || (kind == "toggleweapon" && shot == "holding_bm") ||
-           (kind == "areamissile" && (shot == "micro" || shot == "shieldh")) || madeKind(special);
+           (kind == "areamissile" && (shot == "micro" || shot == "shieldh" || shot == "myotron")) || madeKind(special);
 }
 
 void MissionView::useSpecial(const std::string &button, int target) {
@@ -2421,10 +2449,16 @@ void MissionView::fireSpecial(size_t unit, Combat::Special &special, int target)
     const std::string &kind = special.kind;
     special.ready = special.delay;
     if (kind == "cloakingdevice" || kind == "phasecloakdevice") {
-        // On for its cost, off for nothing *(guessed: whether it drains
-        // while on)*; it can't fire while on.
-        if (!_cloaked[unit])
+        // On for its cost, off for nothing; it can't fire while on. A phase
+        // cloak drains its energyDrainRate a second besides (0x4f6260).
+        if (!_cloaked[unit]) {
             _vitals[unit].energy -= special.energy;
+            _cloakedWith[unit] = {_vitals[unit].shields, _vitals[unit].crew};
+            if (kind == "phasecloakdevice")
+                _running[std::pair{unit, kind}] = {special.value("energyDrainRate", 15), 0};
+        } else {
+            _running.erase(std::pair{unit, kind});
+        }
         _cloaked[unit] = !_cloaked[unit];
         _scene.setCloaked(unit, _cloaked[unit]);
         return;
@@ -2451,30 +2485,31 @@ void MissionView::fireSpecial(size_t unit, Combat::Special &special, int target)
         return;
     }
     if (kind == "regeneration") {
-        // Its regenModifier percent of its shields back *(guessed)*.
-        Combat::Vitals &v = _vitals[unit];
-        v.shields = std::min(v.maxShields, v.shields + v.maxShields * special.modifier / 100);
+        // On while the ship pays its cost a second, off when pressed again
+        // (RegenerationWeapon, 0x501bf0).
+        const auto key = std::pair{unit, kind};
+        if (!_running.erase(key))
+            _running[key] = {special.energy, special.modifier};
         return;
     }
     if (kind == "areamissile") {
-        // Up to its maxTargets of the nearest ships of others within its
-        // range: the Energy Dissipator takes their special energy, the
-        // Shield Disruptor their shields *(guessed)*.
-        std::vector<std::pair<float, size_t>> near;
-        for (size_t j = 0; j < units.size() && j < _dead.size(); ++j) {
-            const gfx::Vec3 a = units[unit].middle();
-            const gfx::Vec3 b = units[j].middle();
-            const float d = std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-            if (!_dead[j] && units[j].slot != units[unit].slot && d <= special.range)
-                near.emplace_back(d, j);
-        }
-        std::sort(near.begin(), near.end());
-        for (size_t n = 0; n < near.size() && int(n) < std::max(1, special.maxTargets); ++n) {
-            Combat::Vitals &v = _vitals[near[n].second];
-            if (special.ordnance == "micro")
-                v.energy = 0;
-            else
-                v.shields = 0;
+        // A missile at each of its area's targets: the Energy Dissipator
+        // drains its specialEnergyDrainRate of special energy over its
+        // specialEnergyDelay (0x4d9550); the Shield Disruptor takes the
+        // shields and their generator for its specialValue, giving the
+        // shields back after (0x4df810); the Myotron, the weapons (0x4d9fa0).
+        for (size_t j : areaTargetsOf(unit, special)) {
+            Combat::Vitals &v = _vitals[j];
+            const float lasting = special.modifier > 0 ? special.modifier : 15;
+            if (special.ordnance == "micro") {
+                const float over = std::max(special.value("specialEnergyDelay", 10), 0.1f);
+                _effects[j].energyDrain = special.value("specialEnergyDrainRate", 1000) / over;
+                _effects[j].energyDrainUntil = now + over;
+            } else if (special.ordnance == "shieldh") {
+                Combat::disable(v, Combat::kShieldGenerator, lasting, true);
+            } else if (special.ordnance == "myotron") {
+                Combat::disable(v, Combat::kWeapons, lasting);
+            }
         }
         return;
     }
@@ -2506,7 +2541,7 @@ void MissionView::moveMines(double seconds) {
         int prey = -1;
         float best = mine.special.detect;
         for (size_t j = 0; j < units.size() && j < _dead.size(); ++j) {
-            if (_dead[j] || units[j].slot == mine.slot || j >= _moves.size() || !_moves[j])
+            if (_dead[j] || units[j].slot == mine.slot)
                 continue;
             const gfx::Vec3 c = units[j].middle();
             const float d = std::hypot(c[0] - mine.at[0], c[1] - mine.at[1], c[2] - mine.at[2]);
@@ -2526,14 +2561,18 @@ void MissionView::moveMines(double seconds) {
                 Combat::Weapon as;
                 as.damage = mine.special.damage;
                 as.variance = mine.special.variance;
-                // A Gravity Mine weighs its ship down instead *(guessed: 20 seconds)*.
-                if (mine.special.ordnance == "gravmine")
+                // A Gravity Mine does no damage but weighs its ship down to
+                // its slowPercent (0x4e9a70) *(guessed: for 20 seconds)*.
+                if (mine.special.ordnance == "gravmine") {
                     _effects[size_t(prey)].slowed = double(_last) / 1000 + 20;
-                const float damage = Combat::damageOf(as, float(_roll >> 8) / float(1u << 24));
-                _roll = _roll * 1664525u + 1013904223u;
-                Combat::hit(_vitals[size_t(prey)], damage, mine.special.crew, float(_roll >> 8) / float(1u << 24));
-                if (!_vitals[size_t(prey)].alive())
-                    killed.emplace_back(size_t(prey), mine.slot);
+                    _effects[size_t(prey)].slowBy = mine.special.value("slowPercent", 10) / 100;
+                } else {
+                    const float damage = Combat::damageOf(as, float(_roll >> 8) / float(1u << 24));
+                    _roll = _roll * 1664525u + 1013904223u;
+                    Combat::hit(_vitals[size_t(prey)], damage, mine.special.crew, float(_roll >> 8) / float(1u << 24));
+                    if (!_vitals[size_t(prey)].alive())
+                        killed.emplace_back(size_t(prey), mine.slot);
+                }
                 spent = true;
             } else {
                 for (size_t k = 0; k < 3; ++k)
@@ -2642,12 +2681,12 @@ void MissionView::draw(uint64_t millis) {
         const bool held = std::any_of(_holds.begin(), _holds.end(), [i](const Hold &h) { return h.target == i; });
         const bool stopped =
             disabled(i) || (i < _effects.size() && (active(_effects[i].enginesOff) || active(_effects[i].frozen)));
-        if (held || stopped || (i < _vitals.size() && _vitals[i].systems[Combat::kEngines].out())) {
+        if (held || stopped || (i < _vitals.size() && !_vitals[i].systems[Combat::kEngines].working())) {
             _ships[i].speed = 0;
             continue;
         }
-        // A Gravity Mine's weight: half its speed *(guessed)*.
-        const double pace = i < _effects.size() && active(_effects[i].slowed) ? 0.5 : 1.0;
+        // A Gravity Mine's weight: its slowPercent of its speed.
+        const double pace = i < _effects.size() && active(_effects[i].slowed) ? _effects[i].slowBy : 1.0;
         for (int s = 0; s < steps; ++s)
             Movement::step(_ships[i], *_physics[i], seconds * pace / steps);
         // Steered clear of the others it'd come too near, at its speed, or
@@ -2675,7 +2714,7 @@ void MissionView::draw(uint64_t millis) {
         if (_scene.units()[i].slot == _slot && !_dead[i]) {
             // Its sensors out or jammed, it sees as its damagedScan says *(guessed: 100)*.
             const bool blind = (i < _effects.size() && active(_effects[i].sensorsOff)) ||
-                               (i < _vitals.size() && _vitals[i].systems[Combat::kSensors].out());
+                               (i < _vitals.size() && !_vitals[i].systems[Combat::kSensors].working());
             sights.push_back({_scene.units()[i].at, blind ? std::min(_scans[i], 100.0f) : _scans[i]});
         }
     for (const Spy &spy : _spies)

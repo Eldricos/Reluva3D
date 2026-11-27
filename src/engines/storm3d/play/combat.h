@@ -7,6 +7,7 @@
 #include "graphics/gfx3d.h"
 
 #include <array>
+#include <map>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -30,13 +31,16 @@ public:
         float hitPercent = 0;   // of the hits past the shields, which land on it
         float repairTime = 0;   // seconds from none to whole
         float crewLoss = 0;     // of its crew, in percent, as it's hit
+        float offline = 0;      // seconds it's knocked out for, by a special weapon (TimedDisable)
         bool out() const { return maxHitPoints > 0 && hitPoints <= 0; }
+        bool working() const { return !out() && offline <= 0; }
     };
     /** A unit's shields, its maxHealth (the original has no hull of points), its crew and systems. */
     struct Vitals {
         float shields = 0;
         float maxShields = 0;
         bool destroyed = false; // by a critical hit
+        float heldShields = -1; // shields to give back when its generator comes back on, if a disruptor took them
         float carry = 0;        // damage under a whole point, kept for its next hit
         float shieldRate = 0;   // shields regained a second
         float energy = 0;       // special energy, for the special weapons
@@ -155,6 +159,13 @@ public:
         int maxTargets = 0; // an area missile's, within its range
         CrewCost crew{};    // what its hits take of the crew
         double ready = 0;   // seconds until it can fire again
+        // The rest of its weapon's and ordnance's numbers that its kind
+        // reads (chainRadius, repulsionForce, hitCondition...), by key.
+        std::map<std::string, float> values;
+        float value(const std::string &key, float fallback) const {
+            auto it = values.find(key);
+            return it == values.end() ? fallback : it->second;
+        }
     };
     /** A unit's special weapons, their ordnance read through `loader`. */
     static std::vector<Special> specialsOf(const Odf &unit, const Odf::Loader &loader);
@@ -187,9 +198,8 @@ public:
      * nothing, its crewLoss; on the hull alone, taking crew by `crew.hull`;
      * or, past them all, critically, destroying it. The crew lost is a
      * share of those aboard; under one, the unit is derelict.
-     * @param throughShields all of it past the shields, as a poleron torpedo's
      */
-    static void hit(Vitals &vitals, float damage, const CrewCost &crew, float roll, bool throughShields = false);
+    static void hit(Vitals &vitals, float damage, const CrewCost &crew, float roll);
     /** Damage taken by the shields alone, without crew, systems or a critical. */
     static void hit(Vitals &vitals, float damage) { vitals.shields = std::max(0.0f, vitals.shields - damage); }
     /**
@@ -198,6 +208,13 @@ public:
      * and crew lost while its life support is out.
      */
     static void regenerate(Vitals &vitals, double seconds);
+    /**
+     * A system knocked out for `seconds`, or longer if it already is, as
+     * the program's TimedDisable (0x556e80); `dropShields` with the shield
+     * generator also takes the shields, given back as it comes on unless
+     * it's been damaged meanwhile (its kind 3).
+     */
+    static void disable(Vitals &vitals, System system, float seconds, bool dropShields = false);
     /** A shot's damage: its base, give or take its variance, by `roll` (0 to 1). */
     static float damageOf(const Weapon &weapon, float roll);
 };

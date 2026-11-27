@@ -111,7 +111,7 @@ Seen: a Defiant sent to the computer player's base fought its starbase
 from where it stopped, within reach, at 38.5, neither circling nor
 climbing ([combat.md](combat.md#a-fight-with-the-computer)).
 
-## The path planner
+### The path planner
 
 From the code *(from the code)*, the program keeps what it costs to fly
 over each part of the map in a quadtree (`A_Star_Graph_Map`), over the
