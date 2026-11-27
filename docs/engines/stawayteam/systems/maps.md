@@ -1328,12 +1328,13 @@ from the shooter, by a figure's width either side, the one aimed at if
 no one's before them (lying stunned, only if aimed at); an officer's
 passes the other officers. It's a bolt (`CPhaserShot`) going at 1500
 pixels a second, as far as the weapon's range or the one aimed at,
-whichever's further, each frame meeting the first standing in its way
-on the stretch it flew, the shooter left out and, for a Team Member's,
-the Team Members (`0x535c19`, `0x535dcf`, `0x535e05`), and stopped by a
-wall. Its Shot Sound,
-its Shot Flash on the shooter and its Hit Flash on the one it meets, the
-shooter's `Shoot1` played through, the Weapon Damage taken off. A beam
+whichever's further, each frame trying its whole line from its start to
+its head for the first standing in its way, the shooter left out and,
+for a Team Member's, the Team Members (`0x535c19`, `0x535dcf`,
+`0x535df6`, `0x535e05`), and stopped by a wall; a beam's line is tried
+for as long as the beam's out, so one walking into it is met, one
+walking out before its head comes isn't. Its Shot Sound, the shooter's
+`Shoot1` played through, the Weapon Damage taken off. A beam
 weapon's beam is drawn as the program's bolt line: from its muzzle
 (Forward Position along the way to the target, Lateral Position across,
 Height up) toward the target as high up *(inferred)*, as three lines,
@@ -1507,8 +1508,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   team- and every-touching triggers' own code, read from the maps' fields.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
-- **Fighting:** the bolt's hitting someone moving out of its way; the
-  beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
+- **Fighting:** the beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
   shooter's slot `0xa4` gives); a strike's flashes; stunning, death,
   and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift.

@@ -638,9 +638,11 @@ void MapScreen::fireBolt(const ItemDefinition &weapon, float x, float y, float t
 }
 
 void MapScreen::updateBolts(float seconds) {
-    // Each frame the bolt's head goes on at its speed, meeting the first
-    // in its way on the stretch it flew (0x535c00), or a wall, or going no
-    // further than its range.
+    // Each frame the bolt's head goes on at its speed, no further than its
+    // range, and the whole line from its start to its head is tried for the
+    // first in its way, or a wall (0x535df6), so one walking into a beam
+    // that's out is met; a beam's is tried till it meets something or is
+    // gone (0x535d96).
     for (size_t i = 0; i < _bolts.size();) {
         Bolt &b = _bolts[i];
         const float from = b.head;
@@ -652,9 +654,10 @@ void MapScreen::updateBolts(float seconds) {
         const Bolt bolt = b;
         if (bolt.weapon->dischargeAction == "CShootEnergyWeaponAction")
             shotThrough(x0, y0, x1, y1, bolt.self, &_bolts[i].crossed);
-        const int hit = firstOnStretch(bolt.x, bolt.y, x1, y1, bolt.self, bolt.head > 0.0f ? from / bolt.head : 0.0f,
-                                       bolt.aimX, bolt.aimY);
-        bool done = bolt.head >= bolt.range;
+        const int hit = firstOnStretch(bolt.x, bolt.y, x1, y1, bolt.self, 0.0f, bolt.aimX, bolt.aimY);
+        const bool beamOut =
+            std::any_of(_beams.begin(), _beams.end(), [&](const Beam &beam) { return beam.id == bolt.beam; });
+        bool done = bolt.head >= bolt.range && !beamOut;
         if (hit != kNobody) {
             float hx = 0.0f;
             float hy = 0.0f;
