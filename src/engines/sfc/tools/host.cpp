@@ -122,7 +122,7 @@ int cmdHost(int argc, char **argv) {
             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
             "[-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] [-key frame name[+name]]... [-down frame name] [-up frame name] "
-            "[-net]\n");
+            "[-net] [-netlog]\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -138,6 +138,7 @@ int cmdHost(int argc, char **argv) {
     // bit an address of its image, set as it runs.
     bool fixedClock = false;
     bool network = false;
+    bool netLog = false; // -netlog: the sockets' calls and each packet, in hex
     uint64_t newFrom = 0;
     uint64_t newTo = 0;
     // With -profile, how many instructions ran in each 16 bytes of code
@@ -172,6 +173,8 @@ int cmdHost(int argc, char **argv) {
             fixedClock = true;
         else if (arg == "-net")
             network = true;
+        else if (arg == "-netlog")
+            netLog = true;
         else if (arg == "-key" && a + 2 < argc) {
             // Pressed at the frame, released at the next; keys joined by
             // + (ctrl+3) are pressed a frame apart and released the other
@@ -266,6 +269,16 @@ int cmdHost(int argc, char **argv) {
     if (network)
         game.directPlay().setNetwork(net::systemSockets(), net::systemBroadcastAddresses());
     game.winsock().setSockets(net::systemSockets());
+    if (netLog)
+        game.winsock().setLog(
+            [](const std::string &line) { std::printf("winsock: %s\n", line.c_str()); },
+            [](bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size, bool dropped) {
+                std::printf("winsock: %s %zu bytes on %u %s %s%s:", sent ? "sent" : "received", size, handle,
+                            sent ? "to" : "from", peer.toString().c_str(), dropped ? " (dropped)" : "");
+                for (size_t i = 0; i < size && i < 256; ++i)
+                    std::printf(" %02x", data[i]);
+                std::printf(size > 256 ? " ...\n" : "\n");
+            });
     std::printf("writes go to %s\n", saveFolder.string().c_str());
     x86::Cpu &cpu = game.cpu();
     x86::Win32Process &process = game.process();
@@ -676,7 +689,7 @@ const Commands
                    "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] "
                    "[-writes address]... [-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] "
                    "[-key frame name]... "
-                   "[-net]",
+                   "[-net] [-netlog]",
                    "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
                    "given at frames it shows",
                    cmdHost},

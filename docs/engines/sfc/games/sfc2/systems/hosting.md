@@ -579,7 +579,9 @@ lists them (`sfc2.west.won.net`, `sfc2.central.won.net` and
 `gethostbyname`). The service closed long ago, and none is found: "Welcome
 to Online Dynaverse II. Checking for a patch... Failed to locate the
 directory servers. Please check your connection or talk to your system
-administrator." Standard Multiplayer's LOG IN, MPlayer, starts
+administrator." A copy of that file in the save folder, the addresses
+changed, points it at a server of one's own; what it sends one, and what
+2.0.3.6 does, is in [online.md](online.md). Standard Multiplayer's LOG IN, MPlayer, starts
 `rundll32.exe url.dll,FileProtocolHandler http://www.mplayer.com/`,
 MPlayer's site in the browser, and ends the game, as MPlayer's own
 program took over from there; Reluva starts nothing. LAN's IPX searches
@@ -720,7 +722,8 @@ has it ([directx.md](../../../../../common/x86/directx.md))
   answered](#questions-answered)). A new folder starts at 0.
 - **Multiplayer:** DirectPlay's TCP/IP between copies of Reluva
   ([dplay.md](../../../../../common/x86/dplay.md#the-network)); the
-  engine gives it the system's sockets, the host tool `-net`.
+  engine gives it the system's sockets, the host tool `-net`; `-netlog`
+  prints each socket call and packet ([online.md](online.md)).
 - **Not yet:** a multiplayer game between two physical machines (only
   copies in network namespaces of their own, as two machines on a
   network; [Its multiplayer](#its-multiplayer)), or ended in battle
