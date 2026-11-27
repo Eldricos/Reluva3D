@@ -62,7 +62,8 @@ None yet.
   it never had and changing its focal length as it runs
   ([systems/hosting.md](systems/hosting.md), step 24). It plays through
   Direct3D whatever *Setup* says; the menus and cut scenes stay 4:3.
-  Only the first level of each game has been played this way.
+  In each game only the first level has been played this way, in each
+  of the three shapes.
 - **Frame rate:** by default the game shows at most 60 frames a second,
   its world moving on about every other one, as on a 60 Hz display.
   The *Frame rate* setting can have it move at every frame instead, at
