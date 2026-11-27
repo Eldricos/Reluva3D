@@ -632,9 +632,15 @@ void MapScreen::walk(Officer &o, float seconds) {
         }
         // Through anyone in the way: the move ignores one character meeting
         // another (0x497c60), and an officer's doesn't collide at all, its
-        // Tries To Collide off (0x497c0f).
-        o.x += dx / distance * step;
-        o.y += dy / distance * step;
+        // Tries To Collide off (0x497c0f). The way their direction's frames
+        // go (0x5512e0), turned again each update; the last step onto the
+        // place itself (inferred).
+        float wx = dx / distance;
+        float wy = dy / distance;
+        if (step < distance)
+            walking.cycleWay(o.direction, wx, wy);
+        o.x += wx * step;
+        o.y += wy * step;
         // The footsteps its frames passed make their noise (the
         // sequence's Trigger, 0x518100).
         if (per > 0 && walking.fps > 0.0f) {

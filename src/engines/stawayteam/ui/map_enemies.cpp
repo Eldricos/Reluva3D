@@ -173,8 +173,14 @@ bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds, b
     // Through anyone in its way, as the officers go (0x497c60); one that
     // Tries To Collide is put back where it was if its step meets
     // something that collides, a closed door too (0x497c0f, 0x4f0089).
-    const float nx = e.x + dx / distance * step;
-    const float ny = e.y + dy / distance * step;
+    // The way its direction's frames go (0x5512e0); the last step onto
+    // the place itself (inferred).
+    float wx = dx / distance;
+    float wy = dy / distance;
+    if (step < distance)
+        walking.cycleWay(direction, wx, wy);
+    const float nx = e.x + wx * step;
+    const float ny = e.y + wy * step;
     if (_map.parts[e.part].triesToCollide && blockedAt(e.part, nx, ny)) {
         e.walking = false;
         return false;

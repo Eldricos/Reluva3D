@@ -111,6 +111,16 @@ float Animation::cycleDistance(int direction) const {
     return std::hypot(float(m[0]), float(m[1]));
 }
 
+bool Animation::cycleWay(int direction, float &x, float &y) const {
+    const float length = cycleDistance(direction);
+    if (length <= 0.0f)
+        return false;
+    const auto &m = moves[size_t(((direction % rotations) + rotations) % rotations * perDirection())];
+    x = float(m[0]) / length;
+    y = float(m[1]) / length;
+    return true;
+}
+
 float Animation::distanceAt(int direction, float frame) const {
     const int per = perDirection();
     const int d = ((direction % rotations) + rotations) % rotations;

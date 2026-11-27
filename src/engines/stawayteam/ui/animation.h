@@ -76,6 +76,11 @@ struct Animation {
     /** How far a cycle of direction `direction` goes, in pixels; 0 if it doesn't move. */
     float cycleDistance(int direction) const;
     /**
+     * The way direction `direction`'s cycle goes, made 1 long, into `x` and
+     * `y`; false if it doesn't move.
+     */
+    bool cycleWay(int direction, float &x, float &y) const;
+    /**
      * Where in direction `direction`'s cycle (in frames, 0 to its count)
      * one is `distance` pixels into it (0 to cycleDistance()): the frames'
      * movement read backwards, interpolated between frames.

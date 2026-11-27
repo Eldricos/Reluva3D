@@ -1030,10 +1030,13 @@ movement between the old time and the new (`0x5512e0`: the cumulative
 distance at each, interpolated between frames, whole cycles counted by
 the first frame's distance, `0x5511d0`) is added to their place
 (`0x44a044`), so they go the way their direction's frames go, at each
-frame's own pace. Reluva's walkers (`Animation::walk`) go as far as
-their frames do in the time, enemies' at their Play Ratio as their play
-speed, but straight along their way rather than their direction's
-frames' way. The keys bound to
+frame's own pace: the movement's an x and a y, the frames' own
+(`0x5512e0`, a whole cycle's from the direction's first frame,
+`+0x40`). Reluva's walkers (`Animation::walk`) go as far as their frames
+do in the time, enemies' at their Play Ratio as their play speed, the
+way their direction's cycle goes (`Animation::cycleWay`), turned toward
+where they're going again each update, the last step straight onto it
+*(inferred)*: how the program's move ends isn't traced. The keys bound to
 Walk, Run, Crouch and Cycle Movement, and the move button, set how the
 ones chosen move, the button going walk, run, crouch *(inferred for its
 order)*, and the button shows it.

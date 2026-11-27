@@ -148,6 +148,15 @@ void testWalkFrames() {
     still.fps = 10.0f;
     still.moves = {{0, 0}, {0, 0}};
     CHECK(still.walk(0, travelled, 0.1f, 10.0f, 100.0f, used) < 0.0f);
+    // The way a cycle goes, whichever way it's aimed: the first frame's
+    // whole cycle, 3 across and 4 down.
+    Animation slant;
+    slant.frames.resize(2);
+    slant.moves = {{3, 4}, {1, 1}};
+    float wx = 0.0f;
+    float wy = 0.0f;
+    CHECK(slant.cycleWay(0, wx, wy) && std::abs(wx - 0.6f) < 0.001f && std::abs(wy - 0.8f) < 0.001f);
+    CHECK(!still.cycleWay(0, wx, wy));
 }
 
 void testPaths() {
