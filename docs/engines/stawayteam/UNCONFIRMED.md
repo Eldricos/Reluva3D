@@ -37,7 +37,8 @@ None now.
   keyboard screen's borders, voiceovers' and movies' volume following
   the effects'
   ([systems/menus.md](systems/menus.md#open-questions)).
-- **Maps:** the standing polygons kept on the ground; the mouse's
+- **Maps:** the `Trans` and `Warped` polygons not on the ground kept
+  under the models; the mouse's
   buttons, the info bar rising under the
   mouse, the move button's order, the
   view held

@@ -188,7 +188,9 @@ MapPart readPart(const std::string &className, const TextObject &o) {
     part.texture = text(o, "Static Texture");
     if (part.renderType == "Warped")
         part.warpEffect = text(o, "Warp Effect");
-    part.onGround = o.integer("On Ground").value_or(0) != 0;
+    // On the ground unless it says not (0x54e6c8).
+    part.onGround = o.integer("On Ground").value_or(1) != 0;
+    part.ySort = int(o.integer("YSort").value_or(0));
 
     return part;
 }

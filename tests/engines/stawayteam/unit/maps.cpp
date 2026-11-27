@@ -612,6 +612,51 @@ void testDrawingOrder() {
     CHECK(screen.partAt(130.0f, 100.0f) == -1);
 }
 
+void testStandingPolygons() {
+    // A black polygon not on the ground, its foot at 90: over a crate
+    // standing at 80, under one standing at 130 lifted 50 (0x54e9a3);
+    // with a YSort of -60, its foot's taken as 30, under both.
+    const auto zax = [](int ySort) {
+        return "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=100.000000,100.000000\n"
+               "\tTree List=CSortList2D\n\t{\n"
+               "\t\tLevel Part=CRenderablePolygon\n\t\t{\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+               "\t\t\tPolygon=20, 40, 180, 40, 180, 90, 20, 90, 20, 40\n\t\t\tOn Ground=0\n"
+               "\t\t\tRender Type=Black\n\t\t\tYSort=" +
+               std::to_string(ySort) +
+               "\n\t\t}\n"
+               "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tVisible=1\n\t\t\tModel=Things/Crate\n"
+               "\t\t\tPosition X=50\n\t\t\tPosition Y=80\n\t\t\tRendering Height=0\n\t\t}\n"
+               "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tVisible=1\n\t\t\tModel=Things/Crate\n"
+               "\t\t\tPosition X=150\n\t\t\tPosition Y=130\n\t\t\tRendering Height=50\n\t\t}\n"
+               "\t}\n}\n";
+    };
+    for (int ySort : {0, -60}) {
+        MemoryArchive data;
+        const std::string text = zax(ySort);
+        data.files["Levels/Test.zax"] = std::vector<uint8_t>(text.begin(), text.end());
+        ModelLook crate;
+        crate.colour = 0x001f;
+        crate.size = 40;
+        data.files["Cache/Models/Things/Crate.mdl16"] = modelFile("Crate", 1, 1, 0.0f, {}, 0.0f, false, 0.0f, crate);
+        GameMap map;
+        CHECK(!loadMap(data, "Levels/Test.zax", map));
+        CHECK(!map.parts[0].onGround && map.parts[0].ySort == ySort);
+        TextObject rules;
+        CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                              "\t\tScreen Size=200,200\n\t}\n}\n",
+                              rules));
+        GameOptions options;
+        MapScreen screen(data, rules, map, options, 0);
+        Surface surface;
+        surface.create(200, 200, PixelFormat::kRGBA32);
+        screen.draw(surface, 0);
+        const auto blue = [&](int x, int y) { return surface.row(y)[x * 4 + 2] > 200; };
+        CHECK(blue(50, 70) == (ySort != 0));
+        CHECK(blue(150, 70));
+        CHECK(surface.row(50)[100 * 4 + 2] == 0 && surface.row(50)[100 * 4] == 0);
+    }
+}
+
 void testSpawnPoints() {
     // Ann, a scientist, at "science 1" before the away team's points,
     // which doesn't turn her (Set Facing Angle 0); Bob at Away Team Spawn
@@ -3515,6 +3560,7 @@ static const reluva::test::Suite
                {"pause when hit", [](const std::filesystem::path &) { testPauseWhenHit(); }},
                {"projectiles", [](const std::filesystem::path &) { testProjectiles(); }},
                {"drawing order", [](const std::filesystem::path &) { testDrawingOrder(); }},
+               {"standing polygons", [](const std::filesystem::path &) { testStandingPolygons(); }},
                {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                {"occupant", [](const std::filesystem::path &) { testOccupant(); }},
                {"combat", [](const std::filesystem::path &) { testCombat(); }},

@@ -169,11 +169,22 @@ strip of one (`0x4913c0`):
   the key and then, for equal keys, where the picture's drawn across,
   its x (`+0x1c`, set at `0x4915b5`), the left first (`0x4a80e0`);
   equal in both, they're in no set order.
+- **Two lists**, each sorted so, drawn one after the other: the first
+  (`0x7206d0`) under the second (`0x720758`, both drawn at `0x4ef100`
+  and `0x4eedda`). A model's strip goes into the first if its sequence
+  is drawn on the ground, else the second (`0x49172a`); a polygon into
+  the first if it's `On Ground`, else the second (`0x54ed6f`). `On
+  Ground` is 1 unless the map says 0 (`0x54e6c8`); 2,020 of the maps'
+  2,683 polygons say 0.
 - **A polygon drawn standing** (not `On Ground`) has a key of its
   bounds' foot plus its `YSort`, times 8, and its bounds' left across
-  (`0x54e9a3`). Which list it's sorted into isn't traced: drawn among
-  the models by that key, the Borg Cube's black polygons cover its walls,
-  so Reluva keeps them on the ground, under everyone, as before.
+  (`0x54e9a3`); the bounds are its corners' rounded to whole pixels
+  (`0x53c8f0`). So it's sorted with the models: the Borg Cube's 196
+  black polygons, each with a `YSort` of 267, cover the walls whose
+  feet are less than 267 below their own, the cube's solid parts drawn
+  over what's behind them. Reluva draws the textured, black and shadow
+  ones so; the `Trans` and `Warped` ones it keeps on the ground
+  *(inferred)*.
 
 ### The interface
 
@@ -1061,7 +1072,9 @@ its ground, and its parts' models, places and polygons. `MapScreen`
   ground each frame, warped by `game/water_warp.cpp` to the game's time,
   which goes on while it's paused or held, as the program's clock does
   (`0x5f545e`, moved on each step, `0x4d54b9`); the waypoints' and
-  free-range ones aren't drawn.
+  free-range ones aren't drawn. The textured, black and shadow ones not
+  on the ground are drawn the same way, each in its place among the
+  models.
 - **Models:** each part's model's sequence, its first direction's frames
   in time, lifted, cut into strips and drawn back to front as above; a
   part's shadow, body and head together, in its strips; the officers by
@@ -1532,8 +1545,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
-- **Drawing order:** which list a polygon drawn standing is sorted
-  into, and so where its `YSort` puts it.
+- **Drawing order:** where the `Trans` and `Warped` polygons not on
+  the ground are drawn.
 - **The triggers:** the order the layer's search (`0x4f1d30`,
   `0x56a450`) lists parts in, which decides who a touching trigger holds
   (the last found) and an anything-touching one's instigator (the

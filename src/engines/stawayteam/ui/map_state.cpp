@@ -73,6 +73,7 @@ void stateOf(StateIo &s, MapPart &p) {
     s.io(p.texture);
     s.io(p.warpEffect);
     s.io(p.onGround);
+    s.io(p.ySort);
     s.io(p.facing);
     s.io(p.setsFacing);
     s.io(p.angle);

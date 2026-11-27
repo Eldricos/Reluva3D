@@ -26,6 +26,7 @@
 #include <cmath>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -865,7 +866,8 @@ private:
     const Animation &animation(const std::string &model, const std::string &sequence);
     // The officer at (x, y) on the map, or -1.
     int officerAt(float x, float y) const;
-    void drawPolygon(image::Image &cell, int cellX, int cellY, const MapPart &part);
+    void drawPolygon(const std::function<uint8_t *(int)> &rowOf, int w, int h, int cellX, int cellY,
+                     const MapPart &part);
     const image::Image &texture(const std::string &name);
 
     const Archive &_data;
@@ -904,6 +906,7 @@ private:
     std::vector<Drawn> _drawn;
     std::vector<size_t> _overlays; // the Trans polygons
     std::vector<size_t> _warped;   // the Warped polygons: water
+    std::vector<size_t> _raised;   // the polygons not on the ground, sorted with the models
     // A Water Warp Effects file's warp, its texture and what it warped to.
     struct Water {
         bool loaded = false;

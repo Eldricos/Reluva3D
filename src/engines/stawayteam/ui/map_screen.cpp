@@ -234,6 +234,11 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
                     _warped.push_back(i);
                 continue;
             }
+            // Not on the ground, it's sorted with the models (0x54ed6f).
+            if (!p.onGround) {
+                _raised.push_back(i);
+                continue;
+            }
             float x0 = p.polygon[0].first;
             float x1 = x0;
             float y0 = p.polygon[0].second;
@@ -338,13 +343,14 @@ const image::Image &MapScreen::texture(const std::string &name) {
     return it->second;
 }
 
-void MapScreen::drawPolygon(image::Image &cell, int cellX, int cellY, const MapPart &part) {
+void MapScreen::drawPolygon(const std::function<uint8_t *(int)> &rowOf, int w, int h, int cellX, int cellY,
+                            const MapPart &part) {
     const image::Image *tex = part.renderType == "Textured" ? &texture(part.texture) : nullptr;
     if (part.renderType == "Textured" && (!tex || !tex->w))
         return;
     const auto &pts = part.polygon;
     // Each row's crossings of the polygon's sides, filled between pairs.
-    for (int row = 0; row < cell.h; ++row) {
+    for (int row = 0; row < h; ++row) {
         const float y = float(cellY + row) + 0.5f;
         std::vector<float> xs;
         for (size_t k = 0; k + 1 < pts.size(); ++k) {
@@ -356,9 +362,9 @@ void MapScreen::drawPolygon(image::Image &cell, int cellX, int cellY, const MapP
         std::sort(xs.begin(), xs.end());
         for (size_t k = 0; k + 1 < xs.size(); k += 2) {
             const int from = std::max(0, int(std::ceil(xs[k] - 0.5f)) - cellX);
-            const int to = std::min(cell.w, int(std::ceil(xs[k + 1] - 0.5f)) - cellX);
+            const int to = std::min(w, int(std::ceil(xs[k + 1] - 0.5f)) - cellX);
             for (int col = from; col < to; ++col) {
-                uint8_t *p = cell.pixel(col, row);
+                uint8_t *p = rowOf(row) + size_t(col) * 4;
                 if (tex) {
                     const uint8_t *t = texel(*tex, cellX + col, cellY + row);
                     if (t[3] == 0)
@@ -468,7 +474,8 @@ const image::Image &MapScreen::groundCell(int cx, int cy) {
             }
         }
         for (size_t i : _cellPolygons[size_t(cy) * size_t(cellsX) + size_t(cx)])
-            drawPolygon(cell, cx * kCell, cy * kCell, _map.parts[i]);
+            drawPolygon([&](int row) { return cell.pixel(0, row); }, cell.w, cell.h, cx * kCell, cy * kCell,
+                        _map.parts[i]);
     }
     return _cells.emplace(key, std::move(cell)).first->second;
 }
@@ -1385,8 +1392,8 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     };
     struct Piece {
         float key;
-        int part; // or -1 for an officer, -2 for a particle
-        size_t officer;
+        int part;       // or -1 for an officer, -2 for a particle, -3 for a standing polygon
+        size_t officer; // the officer's, or the standing polygon's part
         int clipLeft;
         int clipRight;
         Look look;
@@ -1459,6 +1466,29 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             order.push_back({(sortY + float(offset)) * 8.0f, int(i), 0, look.x + from, look.x + to, look});
         }
     }
+    // A standing polygon by its bounds' foot and its YSort, across by its
+    // bounds' left (0x54e9a3); the bounds' rounded as the polygon's place
+    // is (0x53c91f).
+    for (size_t i : _raised) {
+        if (!shown(i))
+            continue;
+        const MapPart &p = _map.parts[i];
+        float x0 = p.polygon[0].first;
+        float x1 = x0;
+        float y0 = p.polygon[0].second;
+        float y1 = y0;
+        for (const auto &[x, y] : p.polygon) {
+            x0 = std::min(x0, x);
+            x1 = std::max(x1, x);
+            y0 = std::min(y0, y);
+            y1 = std::max(y1, y);
+        }
+        if (x1 < float(left) || x0 > float(left + viewW) || y1 < float(top) || y0 > float(top + viewH))
+            continue;
+        Look at;
+        at.x = int(std::lround(x0)) - left;
+        order.push_back({float((std::lround(y1) + p.ySort) * 8), -3, i, INT_MIN, INT_MAX, at});
+    }
     for (size_t i = 0; i < _officers.size(); ++i) {
         const float sortY = _officers[i].y + float(modelInfo(_team[_officers[i].member].bodyModel).sortingY);
         order.push_back({sortY * 8.0f, -1, i, INT_MIN, INT_MAX, Look{}});
@@ -1482,6 +1512,10 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (const Piece &piece : order) {
         if (piece.part == -2) {
             blitBy(view, piece.particle, piece.look.x, piece.look.y);
+            continue;
+        }
+        if (piece.part == -3) {
+            drawPolygon([&](int row) { return view.row(row); }, viewW, viewH, left, top, _map.parts[piece.officer]);
             continue;
         }
         if (piece.part < 0) {
