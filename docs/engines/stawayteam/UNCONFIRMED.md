@@ -22,8 +22,6 @@ None now.
 - **The Psychic Rack:** walking into range, the enemy chosen in
   Slovaak's place, its orders, and its going back on patrol
   ([systems/items.md](systems/items.md#in-reluva)).
-- **Particle systems:** the particles drawn over the models
-  ([systems/particles.md](systems/particles.md#open-questions)).
 - **Warps:** the team shown fading in as they beam in, though their
   warp's behaviour would leave them unseen, and the noise's blend even
   in its amount ([systems/items.md](systems/items.md#in-reluva)).

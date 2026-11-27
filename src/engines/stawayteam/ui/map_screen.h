@@ -668,7 +668,15 @@ private:
     void addEmitter(size_t part, const TextObject *ai);
     void turnEmitters(size_t part, bool on);
     void updateEmitters(float seconds);
-    void drawEmitters(Surface &view, int left, int top);
+    // A particle as it's drawn: its picture, by its origin at (x, y) on the
+    // map, sorted by `key` among the models.
+    struct ParticleDrawn {
+        float key;
+        const Animation::Picture *picture;
+        int x;
+        int y;
+    };
+    std::vector<ParticleDrawn> particlesDrawn();
     // A CCreateCustomEntityAction's entity made a part of the map at (x, y).
     size_t spawnEntity(const TextField &entity, float x, float y, int instigator);
     // The mind meld: whether officer `officer` can take enemy `enemy` over

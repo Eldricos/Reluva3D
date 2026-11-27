@@ -39,8 +39,6 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** particles are drawn over the models rather than
-  among them ([systems/particles.md](systems/particles.md)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from
   its briefing; the save screens' picture and random numbers aren't

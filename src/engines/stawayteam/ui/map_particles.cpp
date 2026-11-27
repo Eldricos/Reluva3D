@@ -65,12 +65,15 @@ void MapScreen::updateEmitters(float seconds) {
     }
 }
 
-void MapScreen::drawEmitters(Surface &view, int left, int top) {
+std::vector<MapScreen::ParticleDrawn> MapScreen::particlesDrawn() {
     // Each particle its model's Default Sequence's frame: played at its
     // rate over and over (Obey Sequence FPS), else once over its life, or
     // its first for one not Animated (0x51f1d0); where it is about the
     // emitter point, the map's way foreshortened, raised by its height
-    // (0x524e75).
+    // (0x524e75). It's an entity of the map (0x524e5e), its height its
+    // Rendering Height (0x493a20), so it's sorted among the models as
+    // they are, by where it stands.
+    std::vector<ParticleDrawn> out;
     for (const Emitter &e : _emitters) {
         if (_partStates[e.part].deleted)
             continue;
@@ -91,11 +94,12 @@ void MapScreen::drawEmitters(Surface &view, int left, int top) {
                 frame = int(p.age * a.fps) % frames;
             else if (kind.animated && p.life > 0.0f)
                 frame = std::min(frames - 1, int(float(frames) * p.age / p.life));
-            const int x = int(std::lround(ox + p.u)) - left;
-            const int y = int(std::lround(oy + p.v * ParticleSystem::kYToX - p.z)) - top;
-            blitBy(view, a.frame(frame, 0), x, y);
+            const float ground = oy + p.v * ParticleSystem::kYToX;
+            const float key = (ground + float(info.sortingY) + float(a.sortingY)) * 8.0f;
+            out.push_back({key, a.frame(frame, 0), int(std::lround(ox + p.u)), int(std::lround(ground - p.z))});
         }
     }
+    return out;
 }
 
 size_t MapScreen::spawnEntity(const TextField &entity, float x, float y, int instigator) {

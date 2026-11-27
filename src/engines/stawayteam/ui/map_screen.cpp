@@ -1322,11 +1322,12 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     };
     struct Piece {
         float key;
-        int part; // or -1 for an officer
+        int part; // or -1 for an officer, -2 for a particle
         size_t officer;
         int clipLeft;
         int clipRight;
         Look look;
+        const Animation::Picture *particle = nullptr; // a particle's, at the look's x and y
     };
     std::vector<Piece> order;
     for (size_t i : _standing) {
@@ -1399,9 +1400,19 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const float sortY = _officers[i].y + float(modelInfo(_team[_officers[i].member].bodyModel).sortingY);
         order.push_back({sortY * 8.0f, -1, i, INT_MIN, INT_MAX, Look{}});
     }
+    for (const ParticleDrawn &d : particlesDrawn()) {
+        Look at;
+        at.x = d.x - left;
+        at.y = d.y - top;
+        order.push_back({d.key, -2, 0, INT_MIN, INT_MAX, at, d.picture});
+    }
     std::stable_sort(order.begin(), order.end(), [](const Piece &a, const Piece &b) { return a.key < b.key; });
     _drawn.clear();
     for (const Piece &piece : order) {
+        if (piece.part == -2) {
+            blitBy(view, piece.particle, piece.look.x, piece.look.y);
+            continue;
+        }
         if (piece.part < 0) {
             drawOfficer(view, _officers[piece.officer], left, top, now);
             continue;
@@ -1473,9 +1484,6 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
                      b.x1 + px * float(side) - float(left), b.y1 + py * float(side) - float(top), b.outside, fade);
         drawLine(view, b.x0 - float(left), b.y0 - float(top), b.x1 - float(left), b.y1 - float(top), b.middle, fade);
     }
-    // The particles, over the models (inferred: the program sorts them
-    // among them).
-    drawEmitters(view, left, top);
     // The parts beamed away, their Warp Overlay Effect over them: its frames
     // a direction's worth after another, for Num Rotations directions; the
     // direction the figure faces, when its own has as many, else the first;

@@ -14,7 +14,9 @@
 #include "tests/engines/stawayteam/support.h"
 #include "tests/support/test.h"
 
+#include <array>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -272,6 +274,48 @@ void testOnMap() {
     CHECK(screen.partState(part).deleted);
 }
 
+void testDrawnAmong() {
+    // A still red spark where its emitter stands, (100, 100); a blue crate
+    // over it, standing in front of it (lifted from y 120) or behind it
+    // (sunk from y 80): drawn over it in front, under it behind.
+    const auto spark = [](int crateY, int lift) {
+        const std::string zax =
+            "CLayerSaveData\n{\nWidth=1000\nHeight=1000\nView Position=100.000000,100.000000\n"
+            "Tree List=CSortList2D\n{\nLevel Part=CEntityBase\n{\nName=Sparks\nActivity=Array\n{\nItem Count=1\n"
+            "Activity=" +
+            system("", "CFloatParticleAI\n{\n}", 1, 100.0f, 0.0f) +
+            "}\nModel=Editor/Relay\nPosition X=100\nPosition Y=100\n}\n"
+            "Level Part=CEntityBase\n{\nName=Crate\nModel=Things/Crate\nPosition X=100\nPosition Y=" +
+            std::to_string(crateY) + "\nRendering Height=" + std::to_string(lift) + "\n}\n}\n}\n";
+        auto data = std::make_unique<MemoryArchive>();
+        data->files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+        ModelLook red;
+        red.colour = 0xf800;
+        data->files["Cache/Models/Particles/Spark.mdl16"] = modelFile("Spark", 1, 1, 0.0f, {}, 0.0f, false, 0.0f, red);
+        ModelLook blue;
+        blue.colour = 0x001f;
+        blue.size = 40;
+        data->files["Cache/Models/Things/Crate.mdl16"] = modelFile("Crate", 1, 1, 0.0f, {}, 0.0f, false, 0.0f, blue);
+        GameMap map;
+        CHECK(!loadMap(*data, "Levels/Test.zax", map));
+        TextObject rules =
+            objectOf("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=200,200\n}\n}\n");
+        GameOptions options;
+        MapScreen screen(*data, rules, map, options, 0);
+        uint64_t now = 0;
+        while (now < 5000 && (screen.emitters().empty() || screen.emitters()[0].system.particles().empty()))
+            screen.update(now += 20);
+        Surface view;
+        view.create(200, 200, PixelFormat::kRGBA32);
+        screen.draw(view, now);
+        return std::array<uint8_t, 3>{view.row(100)[100 * 4], view.row(100)[100 * 4 + 1], view.row(100)[100 * 4 + 2]};
+    };
+    const auto front = spark(120, 20);
+    CHECK(front[2] > 200 && front[0] < 50);
+    const auto behind = spark(80, -20);
+    CHECK(behind[0] > 200 && behind[2] < 50);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("stawayteam.unit.particles",
@@ -281,4 +325,5 @@ static const reluva::test::Suite kSuite("stawayteam.unit.particles",
                                             {"motions", [](const std::filesystem::path &) { testMotions(); }},
                                             {"shapes", [](const std::filesystem::path &) { testShapes(); }},
                                             {"on a map", [](const std::filesystem::path &) { testOnMap(); }},
+                                            {"drawn among", [](const std::filesystem::path &) { testDrawnAmong(); }},
                                         });

@@ -115,8 +115,11 @@ parts its models put down, and of the entities actions make
 (`ui/map_particles.cpp`). One runs while its part is active and not
 deleted. Its random numbers are its own (the game's come from its
 shared generators, `0x770ea0`, so only their sequence differs); a
-burst's sound is one of its Sounds as above. The particles are drawn over the models, not sorted among
-them *(inferred)*.
+burst's sound is one of its Sounds as above. Each particle is an entity of the map (`0x524e5e`), its height its
+Rendering Height (`0x493a20`), so it's drawn among the models by the
+drawing order ([maps.md](maps.md#the-drawing-order)): by where it
+stands, its model's and its sequence's Sorting Y, lifted by its
+height.
 
 ## Sources and checks
 
@@ -135,6 +138,5 @@ them *(inferred)*.
 
 ## Open questions
 
-- How particles sort among the models.
 - `Rotate Velocity`, `Tries To Collide`, `Collidable` and `Use Particle
   As Shot` aren't there.
