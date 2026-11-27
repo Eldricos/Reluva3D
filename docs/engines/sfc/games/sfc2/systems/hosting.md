@@ -651,11 +651,16 @@ has it ([directx.md](../../../../../common/x86/directx.md))
   install first (a search lists both); the install isn't written to.
   Winsock is the shared one ([winsock.md](../../../../../common/x86/winsock.md)),
   started as DirectPlay's TCP/IP provider starts it, on the network the
-  engine gives it (the host tool's `-net`). Of the functions the program
-  imports, 9 aren't stood in for, none called in any run: a message wait
-  (`GetMessageA`), named and placed file mappings, DIB sections,
-  `RegDeleteKeyA`, a DirectDraw clipper and DirectSound (its sound is
-  Miles').
+  engine gives it (the host tool's `-net`). Every function the program
+  imports is stood in for (1.0's last 9, none called in any run: a
+  message wait, named and placed file mappings, DIB sections,
+  `RegDeleteKeyA`, a DirectDraw clipper and DirectSound, which reports no
+  device, its sound being Miles'), and so are those 2.0.3.6 adds with
+  `ImportExportTable.dll` and its crash handler (Winsock 2, the C
+  runtime's low-level files, INI writes, temporary files, a debugger's
+  memory reads), 60 more ([windows.md](../../../../../common/x86/windows.md),
+  [winsock.md](../../../../../common/x86/winsock.md)). Its temporary
+  folder is `C:\SFC2\TEMP\`, so in the save folder.
   `describeException` names an exception raised: for a C++ throw, the
   types thrown and the text in the object (a `tErrInfo`'s message).
 - **What it needed of the shared layer** (`src/emulation/x86/`):
@@ -751,7 +756,7 @@ has it ([directx.md](../../../../../common/x86/directx.md))
 | Instructions to the first exception caught in normal running | 48.12 million |
 | Instructions to the title screen and its CD key dialog | between 600 million and 1 billion (11 to 18 seconds) |
 | Speed | 52 to 62 million instructions a second (the shared JIT on, 4 cores), drawing included |
-| Imports | 111 of the program's not stood in for at the 3D test: 37 KERNEL32 (wide-character files, consoles, processes, file mappings), 10 USER32 (dialogs, clipboard, `GetMessageA`), 3 GDI32 (DIB sections), 25 WSOCK32 and 1 DSOUND (by ordinal), 25 Miles (`mss32.dll`), 5 COMDLG32, 4 ADVAPI32, `DirectDrawCreateClipper`; 32 now, none called (see [In Reluva](#in-reluva)) |
+| Imports | 111 of the program's not stood in for at the 3D test: 37 KERNEL32 (wide-character files, consoles, processes, file mappings), 10 USER32 (dialogs, clipboard, `GetMessageA`), 3 GDI32 (DIB sections), 25 WSOCK32 and 1 DSOUND (by ordinal), 25 Miles (`mss32.dll`), 5 COMDLG32, 4 ADVAPI32, `DirectDrawCreateClipper`; none now, in 1.0 or 2.0.3.6 (see [In Reluva](#in-reluva)) |
 | A skirmish's battle, on the real clock (`-rate`, 2,000 frames) | 148.5 million instructions a second, 91.1 frames a second, 1.63 million instructions a frame, none of its time slept; on 4 cores of a 2.1 GHz Xeon. Traced, an instruction at a time (as the tool ran before), 48.1 million and 38.6 frames |
 | The same battle in the launcher's window (its title's count, 60 seconds; a virtual X display, Vulkan on the processor, llvmpipe) | 54 to 62 frames a second at the game's starting speed (7), 50 to 52 with it raised to 11 (`]`); the menus 260 to 280, a debriefing 270 to 340 |
 | A skirmish's battle, its work (`-profile` on the fixed clock, 400 frames) | 1.16 million instructions a frame, 22.7% of them in its wait for the next frame (0x6767e0 to 0x67680f): 0.89 million of work a frame, some 31 million instructions a second at the 34 frames a second the fixed clock gives |

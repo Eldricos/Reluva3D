@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 27 November 2026 | English retail 1.0 and 2.0.3.6 | Linux | Every import stood in for: 1.0's last 9 and the 60 more 2.0.3.6 imports, the program loaded with none left; the game-files test the same |
 | 27 November 2026 | English retail 1.0 | Linux | The maps' values in a campaign: the hexes of new and played campaigns' databases compared with the Middle map's cells (economic, strength and impedence copied as base and current economic, victory and speed points); each empire's economic sum the news's total; strength dropped in 28 and 47 hexes after missions |
 | 27 November 2026 | English retail 1.0 and 2.0.3.6 | Linux | `sprites.q3`'s objects: every group's children (3,681 groups, 35,260 children in 1.0) and every button and picture's three image lists (6,792) read; the Film Room drawn from them and compared with the game's own screen, 96.3% of its pixels the same; the data viewer's Screens, Settings and Maps pages shown on a virtual X display; the game-files test's formats step re-recorded |
 | 27 November 2026 | English retail 1.0 | Linux | A ship bought, headless with `-fixed-clock`: the first win's save loaded, the frigate moved to a Federation planet, SHIPYARD's F-POL+ (228 prestige) bought; the fleet two ships, prestige 122, both in SUPPLY with their trade-in values |

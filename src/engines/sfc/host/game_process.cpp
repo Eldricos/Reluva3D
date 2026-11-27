@@ -98,6 +98,8 @@ GameProcess::GameProcess(std::filesystem::path install, uint32_t memoryMb) : _di
             return _saveDir;
         return fs::findDirectory(_saveDir, *rest);
     };
+    // Its temporary files in the install's folder too, so in the save folder.
+    _process->tempFolder = std::string(kInstallFolder) + "TEMP\\";
     // What it writes to the registry is kept in the save folder, as
     // Reluva has no registry of its own on any system.
     _process->registryWritten = [this](const std::string &key, const std::string &name) {
@@ -163,9 +165,13 @@ void GameProcess::loadRegistry() {
 void GameProcess::keepRegistryValue(const std::string &key, const std::string &name) {
     uint32_t type = 0;
     const auto data = _process->registryValue(key, name, &type);
-    if (!data || _saveDir.empty())
+    if (_saveDir.empty())
         return;
-    _registry[registryId(key, name)] = RegistryValue{key, name, type, *data};
+    // Written, kept; deleted (RegDeleteValueA, RegDeleteKeyA), dropped.
+    if (data)
+        _registry[registryId(key, name)] = RegistryValue{key, name, type, *data};
+    else
+        _registry.erase(registryId(key, name));
     std::string text = "# What StarFleet2.exe wrote to the registry: key, name, type, bytes.\n";
     for (const auto &[id, v] : _registry) {
         text += v.key + '\t' + v.name + '\t' + std::to_string(v.type) + '\t';
