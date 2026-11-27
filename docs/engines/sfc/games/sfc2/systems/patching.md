@@ -102,10 +102,34 @@ It plays as 1.0 does, with its own changes:
   without red alert, or without scanning, the frigate was lost.
 - **Multiplayer:** Free For All between two copies over TCP/IP, won in
   battle as on 1.0: "You are the winner!" at 6:08, the other "Defeat!".
+- **A 1.0 campaign's save:** loaded, to the Dynaverse as it was saved
+  (the USS Berlin, 350 prestige). LOAD GAME reads through a null pointer
+  on the way (`strlen` of nothing at 0x720e90, called from 0x45fbc9, a
+  function with a C++ try): on Windows that's an access violation, which
+  its `catch (...)` catches, and the load goes on *(inferred)*. Reluva ended the run
+  there until faults were raised to the program's handlers
+  ([windows.md](../../../../../common/x86/windows.md)); two are raised
+  and caught as the save loads.
+- **The Sulu skirmishes,** four story missions with Captain Sulu and the
+  USS Excelsior, each with its briefing, Sulu's orders as it goes, and a
+  debriefing that judges how it went:
+  - *Sulu 1: The Road*: a monitoring station on an asteroid in the
+    Klingon neutral zone, to be deep-scanned from within 10,000 km,
+    "no combat without a good cause". Leaving it was judged "Defeat ...
+    your response was to ignore the situation and leave".
+  - *Sulu 2: Unto the breach*: a secret meeting at Astkel 6, the ship
+    hidden in its asteroid belt.
+  - *Sulu 3: Vengeance*: Klingon fireships to be stopped before they
+    reach Terajun; a fight with a heavy cruiser at 42 minutes in.
+  - *Sulu 4: End Game*: the Terajuni president to be protected as he
+    transfers to the Excelsior.
 
-A 1.0 campaign's save isn't loaded by it: LOAD GAME on one stopped at a
-read through a null pointer *(inferred)*, perhaps as the patch changed
-the save's layout.
+  Each starts at game speed 6 with the ship at speed 20 heading into
+  something: untouched, it rams the asteroids (Sulu 2, 10 damage, at
+  2:55) or the planet (Sulu 3, 4:23); Sulu 1 and 4, steered only from a
+  few minutes in, were lost to their enemies. Slowed at once (`[`, the speed down with A) they go on; the
+  headless runs, steering by targets alone, lost or left each of them,
+  and none is won yet.
 
 ## Sources and checks
 

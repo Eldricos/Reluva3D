@@ -59,9 +59,10 @@ None yet.
   needs the first to join to be on another machine than the host
   ([dplay.md](../../../../common/x86/dplay.md)).
 - **The 2.0.3.6 patch's own changes are partly played.** A skirmish,
-  its new Scan mission and a multiplayer battle are won; its other new
-  missions and its Sulu skirmishes haven't been played, and a 1.0
-  campaign's save isn't loaded by it ([systems/patching.md](systems/patching.md)).
+  its new Scan mission and a multiplayer battle are won, a 1.0
+  campaign's save loaded, and its four Sulu skirmishes played to their
+  debriefings but not won; its other new campaign missions haven't been
+  played ([systems/patching.md](systems/patching.md)).
 - **Online play isn't there,** as it isn't on Windows now: Dynaverse
   II's login can't find WON's directory servers, which have closed, and
   says so; MPlayer's button opens a site that's gone, and ends the game.
