@@ -259,6 +259,13 @@ struct DrawCall {
     bool materialLit = false;
     Vec3 materialAmbient{};
     Vec3 materialEmissive{};
+    // With materialLit, each directed light's highlight added after
+    // texturing: its colour x materialSpecular x s / (p - p s + s), p the
+    // power, s = max(0, n . h), h halfway between the way to the light and
+    // the camera's axis back towards it (the same for every vertex). None
+    // while materialSpecular is black.
+    Vec3 materialSpecular{};
+    float materialPower = 0;
     // Fog mixed in after texturing: none nearer than fogNear, all fogColor
     // from fogFar on (fogFar 0: none). Black fades additive draws out.
     Vec3 fogColor{};

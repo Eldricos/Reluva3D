@@ -20,6 +20,7 @@ layout(location = 2) out vec3 outWorld; // the position in the world, for dynami
 layout(location = 3) out vec2 outFog;   // fog volumes: view depth over the fog's, and the depth under its surface
 layout(location = 4) out float outFogW; // w for table fog: uv2.x, or the depth (mode2.w)
 layout(location = 5) out float outLinearFog; // how far into the linear fog (linearFog), 0-1
+layout(location = 6) out vec3 outSpecular;   // added after texturing
 
 struct DeformData {
     vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move, 4 normal), y: wave function, z: base, w: amplitude
@@ -58,6 +59,7 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 vlPos[6];   // vertex lights (gfx::kMaxVertexLights): xyz, radius
     vec4 vlColor[6];
     vec4 vlParams;   // x: how many, y: scale, z: specular, w: 1 lit as surfaces are
+    vec4 matSpecular; // xyz: the material's specular colour, w: its power
 };
 
 const float TAU = 6.28318530718;
@@ -124,6 +126,25 @@ vec3 directedLight(vec3 normal) {
     return directed.rgb * max(dot(normal, lightDir.xyz), 0.0) +
            fillColor[0].rgb * max(dot(normal, fillDir[0].xyz), 0.0) +
            fillColor[1].rgb * max(dot(normal, fillDir[1].xyz), 0.0);
+}
+
+// Each directed light's highlight, as Direct3D's material lighting with
+// the viewer far off along the camera's axis (gfx::DrawCall::materialSpecular).
+vec3 highlights(vec3 normal) {
+    vec3 ahead = vec3(viewProj[0][3], viewProj[1][3], viewProj[2][3]); // w is the depth along it
+    if (matSpecular.rgb == vec3(0.0) || ahead == vec3(0.0)) // none for a flat projection's
+        return vec3(0.0);
+    vec3 back = -normalize(ahead);
+    float p = matSpecular.w;
+    vec3 sum = vec3(0.0);
+    for (int i = 0; i < 3; ++i) {
+        vec3 colour = i == 0 ? directed.rgb : fillColor[i - 1].rgb;
+        vec3 way = i == 0 ? lightDir.xyz : fillDir[i - 1].xyz;
+        float s = max(dot(normal, normalize(way + back)), 0.0);
+        if (s > 0.0)
+            sum += colour * (s / (p - p * s + s));
+    }
+    return clamp(sum * matSpecular.rgb, 0.0, 1.0);
 }
 
 vec4 source(float which, vec4 vertexColor, vec3 normal, vec3 world) {
@@ -228,11 +249,14 @@ void main() {
     outUv = vec2(dot(postRow0.xyz, h), dot(postRow1.xyz, h));
 
     outColor = vec4(source(mode.y, inColor, normal, point).rgb, source(mode.z, inColor, normal, point).a) * color;
-    if (int(mode.y + 0.5) == 3 && matAmbient.w > 0.5)
+    outSpecular = vec3(0.0);
+    if (int(mode.y + 0.5) == 3 && matAmbient.w > 0.5) {
         // As Direct3D lights a vertex: emissive, the material's ambient
         // colour by the ambient light, its diffuse (color) by the others.
         outColor.rgb = clamp(matEmissive.rgb + matAmbient.rgb * ambient.rgb + color.rgb * directedLight(normal),
                              0.0, 1.0);
+        outSpecular = highlights(normal);
+    }
     if (mode.w > 0.0)
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
     else if (mode.w < 0.0) // by depth in the view (Direct3D's table fog)

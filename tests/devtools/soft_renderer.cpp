@@ -56,9 +56,58 @@ void testSharedEdge() {
     CHECK(odd == 0);
 }
 
+// A square facing the camera, black but for its highlight: the light
+// behind the camera gives the whole of it (s = 1), one from the side little
+// (s = cos 45 degrees, at a power of 50: 0.046).
+void testHighlight() {
+    constexpr int kSize = 8;
+    SoftRenderer3D renderer(kSize, kSize);
+    std::vector<gfx::Vertex> corners(4);
+    const float xy[4][2] = {{-0.4f, -0.4f}, {0.4f, -0.4f}, {0.4f, 0.4f}, {-0.4f, 0.4f}};
+    for (size_t i = 0; i < 4; ++i) {
+        corners[i] = gfx::Vertex{};
+        corners[i].pos[0] = xy[i][0];
+        corners[i].pos[1] = xy[i][1];
+        corners[i].pos[2] = 0.5f;
+        corners[i].normal[2] = -1;
+        for (uint8_t &c : corners[i].color)
+            c = 255;
+    }
+    gfx::MeshId mesh = 0;
+    CHECK(!renderer.createMesh(corners, {0, 1, 2, 0, 2, 3}, mesh));
+    // Looking along +z: w the depth.
+    gfx::Mat4 viewProj = gfx::identity();
+    viewProj[10] = 0.5f;
+    viewProj[11] = 1;
+    viewProj[15] = 0;
+    auto middle = [&](gfx::Vec3 toLight) {
+        renderer.beginFrame(viewProj, {0, 0, -1}, reluva::Color{0, 0, 0});
+        gfx::DrawCall call;
+        call.mesh = mesh;
+        call.indexCount = 6;
+        call.color = {0, 0, 0, 1};
+        call.state.cull = gfx::Cull::kNone;
+        call.state.depthTest = false;
+        call.rgbSource = gfx::ColorSource::kLighting;
+        call.materialLit = true;
+        call.directedLight = {0.5f, 0.5f, 0.5f};
+        call.lightDirection = toLight;
+        call.materialSpecular = {1, 0.5f, 0};
+        call.materialPower = 50;
+        renderer.draw(call);
+        renderer.endFrame(nullptr);
+        const uint8_t *p = renderer.frame().row(kSize / 2) + size_t(kSize / 2) * 4;
+        return std::vector<int>{p[0], p[1], p[2]};
+    };
+    CHECK(middle({0, 0, -1}) == std::vector<int>({128, 64, 0}));
+    const std::vector<int> side = middle({1, 0, 0});
+    CHECK(side[0] == 6 && side[1] == 3 && side[2] == 0);
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("devtools.unit.soft_renderer",
                                         {
                                             {"shared edge", [](const std::filesystem::path &) { testSharedEdge(); }},
+                                            {"highlight", [](const std::filesystem::path &) { testHighlight(); }},
                                         });

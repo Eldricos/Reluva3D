@@ -113,6 +113,9 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
                     part.colour = {std::min(1.0f, m.diffuse[0]), std::min(1.0f, m.diffuse[1]),
                                    std::min(1.0f, m.diffuse[2]), 1};
                     part.ambient = {m.ambient[0], m.ambient[1], m.ambient[2]};
+                    part.specular = {m.specular[0], m.specular[1], m.specular[2]};
+                    part.power = m.power;
+                    part.mode = m.mode;
                 }
             part.team = text::equalsIgnoreCase(std::string_view(g.material).substr(0, 5), "team_");
             parts.push_back(part);
@@ -459,13 +462,20 @@ void SodMeshes::drawPart(const Part &part, const gfx::Mat4 &place, bool behind,
         call.state.src = gfx::Blend::kOne;
         call.state.dst = gfx::Blend::kOne;
         call.state.depthWrite = false;
-    } else {
-        // As the game lights a vertex (0x5835b0, 0x59a290): the material's
-        // ambient and the scene's added, then its diffuse by each light.
+    } else if (part.mode != 0) { // mode 0 its colour as it is (0x599c00)
+        // As the game lights a vertex (0x5835b0, 0x599e10): the material's
+        // ambient and the scene's added, then its diffuse by each light;
+        // in mode 2, its specular by each light's highlight too (0x5837a0,
+        // 0x59a290), added over the texture, as the game's draws turn
+        // Direct3D's specular on. The mode picks which (0x585e8d).
         call.rgbSource = gfx::ColorSource::kLighting;
         call.materialLit = true;
         call.materialEmissive = part.ambient;
         call.materialAmbient = {1, 1, 1};
+        if (part.mode == 2) {
+            call.materialSpecular = part.specular;
+            call.materialPower = part.power;
+        }
         call.ambientLight = _lighting.ambient;
         for (size_t i = 0; i < _lighting.lights.size() && i < 3; ++i) {
             const Lighting::Directed &l = _lighting.lights[i];

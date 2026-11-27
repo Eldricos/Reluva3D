@@ -28,12 +28,17 @@ struct ClipVertex {
     float wx;
     float wy;
     float wz;
+    // the highlights, added after texturing
+    float sr;
+    float sg;
+    float sb;
 };
 
 ClipVertex mix(const ClipVertex &p, const ClipVertex &q, float t) {
     auto l = [t](float a, float b) { return a + (b - a) * t; };
-    return {l(p.x, q.x), l(p.y, q.y), l(p.z, q.z), l(p.w, q.w),   l(p.u, q.u),   l(p.v, q.v),  l(p.r, q.r),
-            l(p.g, q.g), l(p.b, q.b), l(p.a, q.a), l(p.wx, q.wx), l(p.wy, q.wy), l(p.wz, q.wz)};
+    return {l(p.x, q.x),   l(p.y, q.y),   l(p.z, q.z),   l(p.w, q.w),  l(p.u, q.u),   l(p.v, q.v),
+            l(p.r, q.r),   l(p.g, q.g),   l(p.b, q.b),   l(p.a, q.a),  l(p.wx, q.wx), l(p.wy, q.wy),
+            l(p.wz, q.wz), l(p.sr, q.sr), l(p.sg, q.sg), l(p.sb, q.sb)};
 }
 
 float factor(gfx::Blend f, float src, float dst, float srcA, float dstA) {
@@ -199,10 +204,41 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
     ++_draws;
     const gfx::Mat4 mvp = gfx::multiply(_viewProj, call.model);
     const gfx::Mat4 &m = call.model;
+    // Each directed light's highlight, as the GPU's shader has it
+    // (gfx::DrawCall::materialSpecular): the viewer far off along the
+    // camera's axis, which the projection's w row points along.
+    float ahead[3] = {_viewProj[3], _viewProj[7], _viewProj[11]};
+    const float aheadLength = std::sqrt(ahead[0] * ahead[0] + ahead[1] * ahead[1] + ahead[2] * ahead[2]);
+    auto highlight = [&](const float *wn, float len, ClipVertex &out) {
+        const gfx::Vec3 &ms = call.materialSpecular;
+        if (len <= 0 || aheadLength <= 0 || (ms[0] == 0 && ms[1] == 0 && ms[2] == 0))
+            return;
+        const float p = call.materialPower;
+        float sum[3] = {0, 0, 0};
+        for (size_t i = 0; i < 3; ++i) {
+            const gfx::Vec3 &colour = i == 0 ? call.directedLight : call.fillLight[i - 1];
+            const gfx::Vec3 &way = i == 0 ? call.lightDirection : call.fillDirection[i - 1];
+            float h[3];
+            for (size_t k = 0; k < 3; ++k)
+                h[k] = way[k] - ahead[k] / aheadLength;
+            const float hl = std::sqrt(h[0] * h[0] + h[1] * h[1] + h[2] * h[2]);
+            if (hl <= 0)
+                continue;
+            const float s = std::max(0.0f, (wn[0] * h[0] + wn[1] * h[1] + wn[2] * h[2]) / (len * hl));
+            if (s <= 0)
+                continue;
+            for (size_t k = 0; k < 3; ++k)
+                sum[k] += colour[k] * s / (p - p * s + s);
+        }
+        out.sr = std::clamp(sum[0] * ms[0], 0.0f, 1.0f);
+        out.sg = std::clamp(sum[1] * ms[1], 0.0f, 1.0f);
+        out.sb = std::clamp(sum[2] * ms[2], 0.0f, 1.0f);
+    };
     auto vertexAt = [&](uint32_t index, ClipVertex &out) {
         const size_t i = size_t(int64_t(index) + call.vertexOffset);
         if (i >= verts.size())
             return false;
+        out.sr = out.sg = out.sb = 0;
         const gfx::Vertex &v = verts[i];
         float p[3] = {v.pos[0], v.pos[1], v.pos[2]};
         float n[3] = {v.normal[0], v.normal[1], v.normal[2]};
@@ -332,6 +368,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     for (size_t k = 0; k < 3; ++k)
                         fill[k] += call.fillLight[f][k] * faces;
                 }
+                if (call.materialLit)
+                    highlight(wn, len, out);
                 for (int k = 0; k < 3; ++k) {
                     const float directed = call.directedLight[size_t(k)] * facing + fill[k];
                     if (call.materialLit) // as Direct3D lights a material, the GPU's shader too
@@ -479,6 +517,7 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     };
                     float src[4] = {attr(&ClipVertex::r), attr(&ClipVertex::g), attr(&ClipVertex::b),
                                     attr(&ClipVertex::a)};
+                    const float spec[3] = {attr(&ClipVertex::sr), attr(&ClipVertex::sg), attr(&ClipVertex::sb)};
                     // The dynamic lights' light here: alone, or times the
                     // texture (below).
                     const bool lit = call.dynamicLights || call.dynamicLightsTextured;
@@ -560,6 +599,8 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                         (call.state.alphaTest == gfx::AlphaTest::kLt128 && alpha >= 0.5f) ||
                         (call.state.alphaTest == gfx::AlphaTest::kGe128 && alpha < 0.5f))
                         continue;
+                    for (int k = 0; k < 3; ++k)
+                        src[k] = std::min(1.0f, std::clamp(src[k], 0.0f, 1.0f) + spec[k]);
                     uint8_t *out = row + x * 4;
                     float dst[4] = {float(out[0]) / 255.0f, float(out[1]) / 255.0f, float(out[2]) / 255.0f,
                                     float(out[3]) / 255.0f};

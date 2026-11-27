@@ -74,10 +74,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    ([formats/bzn.md](formats/bzn.md#starting-units)), in their team's
    colour; the game's grid and the shroud over what the player's units
    haven't seen; and the models lit as the game's code lights them,
-   to within 0.002 of its draws. Phase 5 is done but for what needs
-   play: the fog over what's been seen but isn't now, once ships move
-   (phase 7), and the ships' specular highlights, which the renderer
-   doesn't draw yet.
+   to within 0.002 of its draws, their highlights too (added in phase
+   7). Phase 5 is done but for what needs play: the fog over what's
+   been seen but isn't now, once ships move (phase 7).
 6. **The front end** (done): the shell's screens, the opening movie,
    game setup, options, loading and saving. The game itself starts with
    the opening movie, then the main menu as the original draws it, its
@@ -93,7 +92,6 @@ these phases start from, is in [formats/install.md](formats/install.md).
    7), saved games and the Load Game screen's list (phase 8), the ways
    to play over the network (phase 9).
 7. **Rules** (in progress): units from their object definitions:
-   the ships' specular highlights as they turn in the light; then
    skirmish against the computer player (its scheduler, the `.aip`
    personalities, its DLLs). The largest phase, checked against the
    original and recordings, with the manual for the rules. Done: a
@@ -122,7 +120,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    boarding, capture, repair and recrew
    ([systems/combat.md](systems/combat.md)); ships keeping clear of each
    other and of fields, warp, and groups sent as the original's
-   ([systems/movement.md](systems/movement.md)).
+   ([systems/movement.md](systems/movement.md)); the models' specular
+   highlights as they turn in the light, and their glows unlit
+   ([formats/bzn.md](formats/bzn.md#lighting)).
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

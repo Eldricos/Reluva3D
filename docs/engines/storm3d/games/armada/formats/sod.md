@@ -57,9 +57,14 @@ executable says it reads "a lighting material palette (material.sod)".
 
 Of the 325 materials with the byte 0, nearly all are glows, engines,
 bussards, ore and backgrounds (`glow_white`, `warp_fed`, `background`);
-the hulls' are 1 or 2 (`base_fed` 2, `base_borg` 1). What it means isn't
-known: it isn't that they're unlit, as the starbase's `glow_white1`
-vertices in the game's draws grow brighter the more light they face
+the hulls' are 1 or 2 (`base_fed` 2, `base_borg` 1). The byte is how
+the faces are lit *(from the code, 0x585e8d, which picks one of three
+ways by it)*: 0, unlit, each vertex the diffuse colour (0x599c00); 1, lit
+without highlights (0x599e10); 2, lit with them (0x59a290). The game's
+draws bear it out: it draws a model a group of faces at a time, the
+starbase's glows (`glow_orange1`, 0) all their material's diffuse colour,
+(255, 137, 56), whatever way they face, and only its groups of byte 2
+with a specular colour, Direct3D's specular turned on
 ([bzn.md](bzn.md#lighting)). A material named `team_...` is drawn in the
 player's colour ([bzn.md](bzn.md#starting-units)).
 
@@ -163,7 +168,8 @@ its mesh hasn't.
   shared with the Maps page) draws each model turning, its
   most detailed level, with its textures and the lighting materials'
   diffuse colours, lit from one direction as the game lights a model
-  (its ambient added, its diffuse by the light; no specular),
+  (its ambient added, its diffuse by the light, its specular by the
+  light's highlight, each group of faces as its material's byte says),
   without its `borg` parts; `additive` and `wormhole`
   meshes are added over the rest, then the sprite nodes' sprites
   ([spr.md](spr.md#emitters-and-sprite-nodes)), additive, in their

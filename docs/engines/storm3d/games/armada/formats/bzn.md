@@ -149,10 +149,13 @@ each vertex of a model, with the model's materials
 >
 > specular = Σ over the lights of s / (p − p × s + s) × the light's
 > colour × the material's specular, where s = max(0, n · h), h the way
-> to the light and the camera's forward added and made one long, and p
-> the material's power
+> to the light and the camera's backward axis added and made one long,
+> and p the material's power
 
-each held between 0 and 1. The lights are the map's directional lights,
+each held between 0 and 1; the specular only for the faces whose
+material's byte is 2, the diffuse for 1 or 2, a byte of 0 leaving the
+faces their material's diffuse colour, unlit
+([sod.md](sod.md#lighting-materials)). The lights are the map's directional lights,
 their colour as the map has it; each is turned into the model's own
 space by the transpose of the model's turn (0x553950), so a model's
 scale, if it had one, would brighten it. n is the vertex's normal: the
@@ -160,6 +163,21 @@ faces' about it added up, each made one long first, so a big face counts
 as much as a small one *(inferred)*: so made, the starbase's vertices in
 the skirmish's frame 4,100 come out as the game's, the median within
 0.001 of 1 (three in four within 0.02).
+
+The specular is added over the texture: the game draws those faces with
+a specular colour (vertex format 1c4) and Direct3D's specular turned on,
+the others without (144). The camera's axis is the third row of the
+camera's turn, taken into the model's space with the lights; it points
+back towards the camera *(inferred)*: in the skirmish's frame 4,100, the
+starbase's 513 vertices of byte-2 faces fit the formula so, the median
+within 0.009 of the game's (0.003 for those of one material only), and
+fit it worse with the camera's forward or any other axis, or with the
+camera's pitch moved 4 degrees either way. The formula's peaks come out
+higher than the game's, by 0.02 on average and by up to 0.28 at the
+brightest vertices, which a highlight's steepness makes the normals'
+smallest differences matter to; why isn't known. The power, 50 in the
+starbase's materials, is the material's own: it's 50 in the game's
+memory too.
 
 The planet Barisa's 198 vertices in frame 6,100 of "Premonitions" fit
 it to 0.002 on average: its material's ambient 0.2 and the map's 0.267
@@ -288,7 +306,8 @@ as the file says.
   ([systems/camera.md](../systems/camera.md)).
 
   A map is lit by its own lights, as above (`MapPage::lightingOf`), its
-  models' diffuse light as the game's; the specular isn't drawn. Set
+  models' diffuse light and highlights as the game's, each group of
+  faces lit or not as its material's byte says. Set
   beside the game's skirmish on `4first.bzn` and its mission
   "Premonitions", the planets, moon, starbase and backgrounds match: the
   planet's mean colour (93, 54, 35) against the game's (92, 53, 33).

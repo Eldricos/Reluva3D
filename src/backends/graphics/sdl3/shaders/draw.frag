@@ -14,6 +14,7 @@ layout(location = 2) in vec3 inWorld;
 layout(location = 3) in vec2 inFog;
 layout(location = 4) in float inFogW;
 layout(location = 5) in float inLinearFog;
+layout(location = 6) in vec3 inSpecular;
 
 layout(location = 0) out vec4 outColor;
 
@@ -114,6 +115,7 @@ void main() {
     int test = int(params.x + 0.5);
     if ((test == 1 && c.a <= 0.0) || (test == 2 && c.a >= 0.5) || (test == 3 && c.a < 0.5))
         discard;
+    c.rgb = min(c.rgb + inSpecular, vec3(1.0));
     if (fog.w > 0.0) {
         float d = 1.0 / fog.w;
         float f = clamp((1.0 - exp(-d * inFogW)) / (1.0 - exp(-d * 52428.8)), 0.0, 1.0);

@@ -53,6 +53,7 @@ struct VertexUniforms {
     float vlPos[gfx::kMaxVertexLights][4];   // xyz, radius
     float vlColor[gfx::kMaxVertexLights][4]; // rgb
     float vlParams[4];                       // count, scale, specular
+    float matSpecular[4];                    // rgb, and the power
 };
 struct FragmentUniforms {
     float params[4];
@@ -1043,6 +1044,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     put(vu.matAmbient, call.materialAmbient);
     vu.matAmbient[3] = call.materialLit ? 1.0f : 0.0f;
     put(vu.matEmissive, call.materialEmissive);
+    put(vu.matSpecular, call.materialSpecular);
+    vu.matSpecular[3] = call.materialPower;
     vu.linearFog[0] = call.fogNear;
     vu.linearFog[1] = call.fogFar;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
