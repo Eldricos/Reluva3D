@@ -126,7 +126,7 @@ int cmdHost(int argc, char **argv) {
         return 2;
     }
     uint64_t limit = 2000000000ull;
-    int traceCount = 24;
+    int traceCount = 0; // -trace: the instructions last run to list
     std::string framePath;
     bool quiet = false;
     std::filesystem::path saveFolder; // where what the program writes goes
@@ -398,109 +398,113 @@ int cmdHost(int argc, char **argv) {
     std::vector<bool> ran(newTo ? kImageEnd - kImageStart : 0);
     std::vector<uint32_t> firstRun;                 // in order, between the frames
     std::unordered_map<uint32_t, uint64_t> profile; // by address / 16
+    // Traced, the program runs an instruction at a time, without the
+    // decoded instructions kept or the JIT: only what asks for it.
+    const bool traced = traceCount > 0 || callsFrom || !watch.empty() || !writes.empty() || newTo || profileTo;
     std::vector<uint32_t> recent(size_t(std::max(traceCount, 1)));
     size_t recentAt = 0;
     // With -calls, each call into a stand-in from the moment the program
     // reaches an address, and the interface each QueryInterface asks for.
     bool logging = false;
-    cpu.trace = [&](x86::Cpu &c) {
-        // With -writes, each change to a watched word, after the
-        // instruction before this one made it.
-        for (auto &[at, last] : writes)
-            if (c.valid(at, 4))
-                if (const uint32_t now = c.read32(at); now != last) {
-                    std::printf("write %08x: %x -> %x after %08x\n", at, last, now,
-                                recent[(recentAt + recent.size() - 1) % recent.size()]);
-                    last = now;
+    if (traced)
+        cpu.trace = [&](x86::Cpu &c) {
+            // With -writes, each change to a watched word, after the
+            // instruction before this one made it.
+            for (auto &[at, last] : writes)
+                if (c.valid(at, 4))
+                    if (const uint32_t now = c.read32(at); now != last) {
+                        std::printf("write %08x: %x -> %x after %08x\n", at, last, now,
+                                    recent[(recentAt + recent.size() - 1) % recent.size()]);
+                        last = now;
+                    }
+            recent[recentAt++ % recent.size()] = c.eip;
+            if (newTo && c.eip >= kImageStart && c.eip < kImageEnd && !ran[c.eip - kImageStart]) {
+                ran[c.eip - kImageStart] = true;
+                if (frames >= newFrom && frames < newTo)
+                    firstRun.push_back(c.eip);
+            }
+            if (profileTo && frames >= profileFrom && frames < profileTo)
+                ++profile[c.eip >> 4];
+            if (callsFrom && c.eip == callsFrom)
+                logging = true;
+            if (std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
+                std::printf("at %08x: eax %x ebx %x ecx %x edx %x esi %x edi %x ebp %x esp %x; stack", c.eip,
+                            c.reg[x86::Cpu::EAX], c.reg[x86::Cpu::EBX], c.reg[x86::Cpu::ECX], c.reg[x86::Cpu::EDX],
+                            c.reg[x86::Cpu::ESI], c.reg[x86::Cpu::EDI], c.reg[x86::Cpu::EBP], c.reg[x86::Cpu::ESP]);
+                for (uint32_t i = 0; i < 8; ++i)
+                    std::printf(" %x", c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
+                std::printf("\n");
+                // The callers, by the frame pointers' chain: right where the
+                // functions on it keep EBP as their frame, as the game's do.
+                std::printf("  callers:");
+                for (uint32_t frame = c.reg[x86::Cpu::EBP], depth = 0;
+                     depth < 16 && frame >= c.reg[x86::Cpu::ESP] && c.valid(frame, 8); ++depth) {
+                    std::printf(" %x", c.read32(frame + 4));
+                    const uint32_t next = c.read32(frame);
+                    if (next <= frame)
+                        break;
+                    frame = next;
                 }
-        recent[recentAt++ % recent.size()] = c.eip;
-        if (newTo && c.eip >= kImageStart && c.eip < kImageEnd && !ran[c.eip - kImageStart]) {
-            ran[c.eip - kImageStart] = true;
-            if (frames >= newFrom && frames < newTo)
-                firstRun.push_back(c.eip);
-        }
-        if (profileTo && frames >= profileFrom && frames < profileTo)
-            ++profile[c.eip >> 4];
-        if (callsFrom && c.eip == callsFrom)
-            logging = true;
-        if (std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
-            std::printf("at %08x: eax %x ebx %x ecx %x edx %x esi %x edi %x ebp %x esp %x; stack", c.eip,
-                        c.reg[x86::Cpu::EAX], c.reg[x86::Cpu::EBX], c.reg[x86::Cpu::ECX], c.reg[x86::Cpu::EDX],
-                        c.reg[x86::Cpu::ESI], c.reg[x86::Cpu::EDI], c.reg[x86::Cpu::EBP], c.reg[x86::Cpu::ESP]);
-            for (uint32_t i = 0; i < 8; ++i)
-                std::printf(" %x", c.read32(c.reg[x86::Cpu::ESP] + 4 * i));
-            std::printf("\n");
-            // The callers, by the frame pointers' chain: right where the
-            // functions on it keep EBP as their frame, as the game's do.
-            std::printf("  callers:");
-            for (uint32_t frame = c.reg[x86::Cpu::EBP], depth = 0;
-                 depth < 16 && frame >= c.reg[x86::Cpu::ESP] && c.valid(frame, 8); ++depth) {
-                std::printf(" %x", c.read32(frame + 4));
-                const uint32_t next = c.read32(frame);
-                if (next <= frame)
-                    break;
-                frame = next;
-            }
-            std::printf("\n");
-            // What EAX points to (an object a call returned, say).
-            if (const uint32_t p = c.reg[x86::Cpu::EAX]; p >= 0x10000 && c.valid(p, 128)) {
-                std::printf("  eax->");
-                for (uint32_t k = 0; k < 32; ++k)
-                    std::printf(" %x", c.read32(p + 4 * k));
                 std::printf("\n");
+                // What EAX points to (an object a call returned, say).
+                if (const uint32_t p = c.reg[x86::Cpu::EAX]; p >= 0x10000 && c.valid(p, 128)) {
+                    std::printf("  eax->");
+                    for (uint32_t k = 0; k < 32; ++k)
+                        std::printf(" %x", c.read32(p + 4 * k));
+                    std::printf("\n");
+                }
+                // What the stack's first words point to, where they're pointers
+                // (a call's arguments, at a call; after the return address, at
+                // a function's start).
+                for (uint32_t i = 0; i <= 3; ++i) {
+                    const uint32_t p = c.read32(c.reg[x86::Cpu::ESP] + 4 * i);
+                    if (p < 0x10000 || !c.valid(p, 64))
+                        continue;
+                    std::printf("  [%x]:", p);
+                    for (uint32_t k = 0; k < 16; ++k)
+                        std::printf(" %x", c.read32(p + 4 * k));
+                    // and as text, where it starts as some
+                    const std::string text = c.string(p, 64);
+                    if (text.size() >= 3 &&
+                        std::all_of(text.begin(), text.end(), [](char ch) { return ch >= 0x20 && ch < 0x7f; }))
+                        std::printf("  \"%s\"", text.c_str());
+                    std::printf("\n");
+                }
             }
-            // What the stack's first words point to, where they're pointers
-            // (a call's arguments, at a call; after the return address, at
-            // a function's start).
-            for (uint32_t i = 0; i <= 3; ++i) {
-                const uint32_t p = c.read32(c.reg[x86::Cpu::ESP] + 4 * i);
-                if (p < 0x10000 || !c.valid(p, 64))
-                    continue;
-                std::printf("  [%x]:", p);
-                for (uint32_t k = 0; k < 16; ++k)
-                    std::printf(" %x", c.read32(p + 4 * k));
-                // and as text, where it starts as some
-                const std::string text = c.string(p, 64);
-                if (text.size() >= 3 &&
-                    std::all_of(text.begin(), text.end(), [](char ch) { return ch >= 0x20 && ch < 0x7f; }))
-                    std::printf("  \"%s\"", text.c_str());
-                std::printf("\n");
+            if (!logging)
+                return;
+            const std::string *name = c.nativeName(c.eip);
+            if (!name)
+                return;
+            std::printf("call %s (%x, %x, %x, %x, %x, %x) from %x", name->c_str(), c.arg(0), c.arg(1), c.arg(2),
+                        c.arg(3), c.arg(4), c.arg(5), c.read32(c.reg[x86::Cpu::ESP]));
+            if (name->find("RegOpenKeyEx") != std::string::npos || name->find("RegQueryValueEx") != std::string::npos ||
+                name->find("RegCreateKeyEx") != std::string::npos || name->find("RegSetValueEx") != std::string::npos)
+                if (c.valid(c.arg(1), 1))
+                    std::printf("  \"%s\"", c.string(c.arg(1), 200).c_str());
+            // The names a module or function is looked for by.
+            if (name->find("LoadLibrary") != std::string::npos || name->find("GetModuleHandle") != std::string::npos)
+                if (c.valid(c.arg(0), 1))
+                    std::printf("  \"%s\"", c.string(c.arg(0), 260).c_str());
+            // The path a file or folder function is given (UTF-16 for a W one).
+            if ((name->find("File") != std::string::npos || name->find("Directory") != std::string::npos) &&
+                name->find("!") != std::string::npos && c.arg(0) >= 0x10000 && c.valid(c.arg(0), 2)) {
+                std::string path;
+                if (name->back() == 'W')
+                    for (uint32_t at = c.arg(0); path.size() < 260 && c.valid(at, 2) && c.read16(at); at += 2)
+                        path.push_back(char(c.read16(at) < 0x80 ? c.read16(at) : '?'));
+                else
+                    path = c.string(c.arg(0), 260);
+                std::printf("  \"%s\"", path.c_str());
             }
-        }
-        if (!logging)
-            return;
-        const std::string *name = c.nativeName(c.eip);
-        if (!name)
-            return;
-        std::printf("call %s (%x, %x, %x, %x, %x, %x) from %x", name->c_str(), c.arg(0), c.arg(1), c.arg(2), c.arg(3),
-                    c.arg(4), c.arg(5), c.read32(c.reg[x86::Cpu::ESP]));
-        if (name->find("RegOpenKeyEx") != std::string::npos || name->find("RegQueryValueEx") != std::string::npos ||
-            name->find("RegCreateKeyEx") != std::string::npos || name->find("RegSetValueEx") != std::string::npos)
-            if (c.valid(c.arg(1), 1))
-                std::printf("  \"%s\"", c.string(c.arg(1), 200).c_str());
-        // The names a module or function is looked for by.
-        if (name->find("LoadLibrary") != std::string::npos || name->find("GetModuleHandle") != std::string::npos)
-            if (c.valid(c.arg(0), 1))
-                std::printf("  \"%s\"", c.string(c.arg(0), 260).c_str());
-        // The path a file or folder function is given (UTF-16 for a W one).
-        if ((name->find("File") != std::string::npos || name->find("Directory") != std::string::npos) &&
-            name->find("!") != std::string::npos && c.arg(0) >= 0x10000 && c.valid(c.arg(0), 2)) {
-            std::string path;
-            if (name->back() == 'W')
-                for (uint32_t at = c.arg(0); path.size() < 260 && c.valid(at, 2) && c.read16(at); at += 2)
-                    path.push_back(char(c.read16(at) < 0x80 ? c.read16(at) : '?'));
-            else
-                path = c.string(c.arg(0), 260);
-            std::printf("  \"%s\"", path.c_str());
-        }
-        if (name->find("GetProcAddress") != std::string::npos && c.arg(1) >= 0x10000 && c.valid(c.arg(1), 1))
-            std::printf("  \"%s\"", c.string(c.arg(1), 260).c_str());
-        if (name->find("::QueryInterface") != std::string::npos) {
-            const uint32_t iid = c.read32(c.reg[x86::Cpu::ESP] + 8);
-            std::printf("  {%08x-%04x-%04x-...}", c.read32(iid), c.read16(iid + 4), c.read16(iid + 6));
-        }
-        std::printf("\n");
-    };
+            if (name->find("GetProcAddress") != std::string::npos && c.arg(1) >= 0x10000 && c.valid(c.arg(1), 1))
+                std::printf("  \"%s\"", c.string(c.arg(1), 260).c_str());
+            if (name->find("::QueryInterface") != std::string::npos) {
+                const uint32_t iid = c.read32(c.reg[x86::Cpu::ESP] + 8);
+                std::printf("  {%08x-%04x-%04x-...}", c.read32(iid), c.read16(iid + 4), c.read16(iid + 6));
+            }
+            std::printf("\n");
+        };
     const auto start = std::chrono::steady_clock::now();
     uint32_t exitCode = 0;
     const Error err = game.run(exitCode);
@@ -509,10 +513,16 @@ int cmdHost(int argc, char **argv) {
     std::printf("%s\n", err ? ("stopped: " + err.message).c_str() : ("ended with " + std::to_string(exitCode)).c_str());
     // Which module the last instruction is in: a mission's DLL is loaded
     // wherever there's room, so its addresses say nothing alone.
-    // The last instruction traced, not the processor's EIP, which a fault
-    // leaves elsewhere.
-    if (err && recentAt) {
-        const uint32_t at = recent[(recentAt - 1) % recent.size()];
+    // The last instruction traced, or untraced the one the stop names
+    // (its message ends "at 0x..."), not the processor's EIP, which a
+    // fault leaves elsewhere.
+    uint32_t stoppedAt = 0;
+    if (err && recentAt)
+        stoppedAt = recent[(recentAt - 1) % recent.size()];
+    else if (const size_t at = err ? err.message.rfind(" at 0x") : std::string::npos; at != std::string::npos)
+        stoppedAt = uint32_t(std::strtoul(err.message.c_str() + at + 4, nullptr, 16));
+    if (stoppedAt) {
+        const uint32_t at = stoppedAt;
         bool found = false;
         for (const x86::Win32Process::Module *m : game.process().modules())
             if (at >= m->base && at - m->base < m->size) {
@@ -531,10 +541,12 @@ int cmdHost(int argc, char **argv) {
     std::printf("%llu instructions in %.2f s (%.1f million a second); %llu frames shown\n",
                 static_cast<unsigned long long>(executed), seconds,
                 seconds > 0 ? double(executed) / seconds / 1e6 : 0.0, static_cast<unsigned long long>(frames));
-    std::printf("last instructions:");
-    for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
-        std::printf(" %08x", recent[i % recent.size()]);
-    std::printf("\n");
+    if (recentAt) {
+        std::printf("last instructions:");
+        for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
+            std::printf(" %08x", recent[i % recent.size()]);
+        std::printf("\n");
+    }
     if (profileTo) {
         std::vector<std::pair<uint64_t, uint32_t>> hot;
         uint64_t all = 0;

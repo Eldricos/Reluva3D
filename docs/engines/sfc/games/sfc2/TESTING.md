@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 27 November 2026 | English retail 1.0 | Linux | Speed in the launcher's window, on a virtual X display driven by `xdotool`: a skirmish's battle at 54 to 62 frames a second, 50 to 52 with the game's speed raised to 11; headless, untraced, the same battle at 91 frames and 148.5 million instructions a second. The host tool had traced every run (48.1 million); the game-files host step the same untraced, in a tenth of the time |
 | 27 November 2026 | 2.0.3.6 | Linux | The patched game, headless with `-fixed-clock`: a 1.0 campaign's save loaded (two access violations raised and caught on the way); the four Sulu skirmishes played to their debriefings, none won (Sulu 1 left, "Defeat"; 2 and 4 lost; 3 still fighting at 42 minutes) |
 | 27 November 2026 | English retail 1.0 | Linux | The Film Room, headless with `-fixed-clock`: a campaign's two recordings listed from the save folder (Auto1, `Met_13Monster`, 34,474 bytes) and Auto1 played to its end, back to the Film Room |
 | 27 November 2026 | English retail 1.0 | Linux | Science 310 passed, headless with `-fixed-clock`: probe, deep scan, the spare part beamed aboard, a transporter mine, and a cargo box pushed into an asteroid with the tractor beam (18:01). All six tutorials now passed |
