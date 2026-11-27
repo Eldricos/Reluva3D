@@ -42,16 +42,13 @@ None yet.
 - **Maps:** the animations'
   messages aren't there; particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); a way's
-  planned round closed doors, which don't stop one walking; the transporter's pictures aren't drawn
-  as enemies beam out; a walker goes straight along its way, not the way its
+  planned round closed doors, which don't stop one walking; a walker goes straight along its way, not the way its
   direction's frames move
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from
   its briefing; the save screens' picture and random numbers aren't
   shown ([systems/menus.md](systems/menus.md#saved-games)).
-- **Items:** a part beamed away fades rather than dissolving through its
-  warp effect's noise ([systems/items.md](systems/items.md#in-reluva)).
 - **The briefing:** the text has no scroll bar (the mouse wheel
   scrolls it), the random numbers aren't there, the briefing music
   starts at once, not after the tenth of a second's fade of the song before, and EXIT doesn't fade out

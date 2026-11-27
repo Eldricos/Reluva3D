@@ -369,9 +369,10 @@ bool MapScreen::runGadgetAction(const TextObject *action, int instigator, int tr
             for (size_t part : parts)
                 if (std::none_of(_warping.begin(), _warping.end(), [&](const Warp &w) { return w.part == part; })) {
                     const TextObject *overlay = behavior->object("Warp Overlay Effect");
-                    _warping.push_back({part, time, time, readText(overlay, "Overlay Effect"),
-                                        int(number(overlay, "Overlay YOffset")),
-                                        std::max(1, int(number(behavior, "Num Rotations", 4.0f)))});
+                    _warping.push_back(
+                        {part, time, time, readText(overlay, "Overlay Effect"), int(number(overlay, "Overlay YOffset")),
+                         std::max(1, int(number(behavior, "Num Rotations", 4.0f))),
+                         readText(behavior->object("Warp Effect"), "Warp Effect"), flag(behavior, "Fade In")});
                 }
         }
     } else if (kind == "COpenDoorAction" || kind == "CCloseDoorAction") {
@@ -451,10 +452,30 @@ void MapScreen::runDeathBehaviors(size_t part, int instigator) {
 }
 
 float MapScreen::warpShown(size_t part) const {
+    // With Fade In, as much of it's shown as the warp has left to go
+    // (0x583a83); else all of it.
     for (const Warp &w : _warping)
         if (w.part == part)
-            return std::clamp(w.left / w.time, 0.0f, 1.0f);
+            return w.fadeIn ? warpAmount(w.time - w.left, w.time, true) : 1.0f;
     return 1.0f;
+}
+
+const Animation::Picture *MapScreen::underWarp(const Animation::Picture *p, const std::string &effect, float amount) {
+    // The noise's frame by how far it's gone, its 21 frames from none to
+    // all (0x564bbf: the sequences' frame rate is 0, so it's not played
+    // over time).
+    if (!p || effect.empty())
+        return p;
+    const Animation &noise = animation(effect, "");
+    const int count = noise.perDirection();
+    if (count <= 0)
+        return p;
+    const int index = std::clamp(int(std::lround(float(count - 1) * amount)), 0, count - 1);
+    const Animation::Picture *frame = noise.frame(index, 0);
+    if (!frame)
+        return p;
+    _warpedPictures.push_back(warped(*p, frame->image, amount));
+    return &_warpedPictures.back();
 }
 
 bool MapScreen::runItemProcess(size_t officer, float seconds) {

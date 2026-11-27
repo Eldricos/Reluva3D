@@ -101,6 +101,28 @@ void testGround() {
     CHECK(screen.cameraX() == 32.0f && screen.cameraY() == 70.0f);
 }
 
+void testWarp() {
+    // A 2 by 1 figure, a red pixel and a see-through one, its origin at its
+    // right; a 2 by 2 noise of blue and green. All the way, its red is the
+    // noise's from the origin, the see-through left; half way, between.
+    Animation::Picture figure;
+    figure.image.w = 2;
+    figure.image.h = 1;
+    figure.image.rgba = {255, 0, 0, 255, 0, 0, 0, 0};
+    figure.originX = 1;
+    image::Image noise;
+    noise.w = 2;
+    noise.h = 2;
+    noise.rgba = {0, 0, 255, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255};
+    const Animation::Picture all = warped(figure, noise, 1.0f);
+    CHECK(all.image.pixel(0, 0)[1] == 255 && all.image.pixel(0, 0)[0] == 0 && all.image.pixel(1, 0)[3] == 0);
+    const Animation::Picture half = warped(figure, noise, 0.5f);
+    CHECK(half.image.pixel(0, 0)[0] == 128 && half.image.pixel(0, 0)[1] == 128);
+    // Fade In holds it a quarter of the time, then it goes evenly to none.
+    CHECK(warpAmount(0.4f, 2.0f, true) == 1.0f && warpAmount(1.25f, 2.0f, true) == 0.5f);
+    CHECK(warpAmount(1.0f, 2.0f, false) == 0.5f && warpAmount(3.0f, 2.0f, false) == 0.0f);
+}
+
 void testWalkFrames() {
     // A walk of 4 frames, 12 pixels a cycle, its frames 0, 2, 6 and 9 into
     // it, shown 10 a second: each step goes as far as its frames do in the
@@ -3022,6 +3044,7 @@ static const reluva::test::Suite
                {"meld", [](const std::filesystem::path &) { testMeld(); }},
                {"maps", [](const std::filesystem::path &) { testMaps(); }},
                {"interface", [](const std::filesystem::path &) { testInterface(); }},
+               {"warp", [](const std::filesystem::path &) { testWarp(); }},
                {"team bar", [](const std::filesystem::path &) { testTeamBar(); }},
                {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},

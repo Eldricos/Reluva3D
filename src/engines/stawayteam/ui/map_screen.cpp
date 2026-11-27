@@ -935,9 +935,12 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
     // the warp (inferred).
     const float warped = _warpTime > 0.0f ? 1.0f - _warpLeft / _warpTime : 1.0f;
     const int opacity = int(std::lround(255.0f * std::clamp(warped, 0.0f, 1.0f) * o.opacity));
+    // Under the warp's noise, as the parts beamed (0x563f80).
+    const std::string effect = _warpLeft > 0.0f ? _warpEffect : std::string();
+    const float amount = warpAmount(_warpTime - _warpLeft, _warpTime, _warpFadeIn);
     blitBy(view, shadow.frame(frame, o.direction), x, y, 1.0f, opacity);
-    blitBy(view, body.frame(frame, o.direction), x, y, 1.0f, opacity);
-    blitBy(view, head.frame(frame, o.direction), x, y, 1.0f, opacity);
+    blitBy(view, underWarp(body.frame(frame, o.direction), effect, amount), x, y, 1.0f, opacity);
+    blitBy(view, underWarp(head.frame(frame, o.direction), effect, amount), x, y, 1.0f, opacity);
     if (_warpLeft > 0.0f) {
         const Animation &sparkle = animation("Transporter Overlay", "");
         blitBy(view, sparkle.frame(int(warped * float(sparkle.perDirection())), 0), x, y);
@@ -1198,6 +1201,7 @@ void MapScreen::drawDialog(Surface &screen) {
 
 void MapScreen::draw(Surface &screen, uint64_t now) {
     update(now);
+    _warpedPictures.clear();
     clearScreen(screen);
     // Drawn into a picture of what the view shows, put on the screen at
     // the zoom's scale.
@@ -1399,12 +1403,20 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
                                   piece.clipLeft == INT_MIN ? INT_MIN : piece.clipLeft + left,
                                   piece.clipRight == INT_MAX ? INT_MAX : piece.clipRight + left});
         };
+        // Beamed away, its pictures under the warp's noise (0x563f80).
+        std::string effect;
+        float amount = 0.0f;
+        for (const Warp &w : _warping)
+            if (w.part == size_t(piece.part)) {
+                effect = w.effect;
+                amount = warpAmount(w.time - w.left, w.time, w.fadeIn);
+            }
         place(*look.body, x, y);
-        drawn(look.body->frame(look.frame, look.direction), x, y);
+        drawn(underWarp(look.body->frame(look.frame, look.direction), effect, amount), x, y);
         if (!p.overlay.empty()) {
             const Animation &head = animation(p.overlay, look.sequence);
             place(head, x, y);
-            drawn(head.frame(look.frame, look.direction), x, y);
+            drawn(underWarp(head.frame(look.frame, look.direction), effect, amount), x, y);
         }
     }
     drawVision(view, left, top);

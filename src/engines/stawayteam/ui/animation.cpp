@@ -208,4 +208,35 @@ void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float br
     image::blit(screen, part, left + from, y - p->originY, opacity);
 }
 
+Animation::Picture warped(const Animation::Picture &p, const image::Image &noise, float amount) {
+    Animation::Picture out = p;
+    if (noise.w <= 0 || noise.h <= 0)
+        return out;
+    // In the program a 16-bit colour, each channel moved by a table's step
+    // of 64 (0x564d45); here straight by the amount (inferred: the table's
+    // made as it runs). The noise is placed from the picture's origin
+    // (0x564c07).
+    const float k = std::clamp(amount, 0.0f, 1.0f);
+    for (int y = 0; y < out.image.h; ++y)
+        for (int x = 0; x < out.image.w; ++x) {
+            uint8_t *c = out.image.pixel(x, y);
+            if (c[3] == 0)
+                continue;
+            const int u = ((x - p.originX) % noise.w + noise.w) % noise.w;
+            const int v = ((y - p.originY) % noise.h + noise.h) % noise.h;
+            const uint8_t *n = noise.pixel(u, v);
+            for (int i = 0; i < 3; ++i)
+                c[i] = uint8_t(std::lround(float(c[i]) + (float(n[i]) - float(c[i])) * k));
+        }
+    return out;
+}
+
+float warpAmount(float seconds, float time, bool fadeIn) {
+    // Fade In holds it for the first quarter (0x583a25, 0.25 at 0x617400).
+    const float start = fadeIn ? time * 0.25f : 0.0f;
+    if (time <= start || seconds <= start)
+        return 1.0f;
+    return 1.0f - std::min(1.0f, (seconds - start) / (time - start));
+}
+
 } // namespace reluva::stawayteam

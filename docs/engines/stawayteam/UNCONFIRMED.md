@@ -24,6 +24,9 @@ None now.
   ([systems/items.md](systems/items.md#in-reluva)).
 - **Particle systems:** the particles drawn over the models
   ([systems/particles.md](systems/particles.md#open-questions)).
+- **Warps:** the team shown fading in as they beam in, though their
+  warp's behaviour would leave them unseen, and the noise's blend even
+  in its amount ([systems/items.md](systems/items.md#in-reluva)).
 - **Mines' sequences:** a mine's Deploy Sequence once as it's put down,
   and its Activate held at its last frame once set off
   ([systems/items.md](systems/items.md#in-reluva)).

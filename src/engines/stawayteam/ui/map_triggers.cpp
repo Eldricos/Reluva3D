@@ -577,6 +577,8 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
         const TextObject *behavior = action->object("Warp Behavior");
         _warpTime = behavior ? float(behavior->number("Warp Time").value_or(1.75)) : 1.75f;
         _warpLeft = _warpTime;
+        _warpEffect = behavior ? readText(behavior->object("Warp Effect"), "Warp Effect") : std::string();
+        _warpFadeIn = behavior && behavior->number("Fade In").value_or(0.0) != 0.0;
         _teamShown = true;
         if (_mixer)
             if (auto sound = gameSound(_data, readText(action, "Warp Sound")))

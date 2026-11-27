@@ -425,18 +425,39 @@ A mine put down plays its drop action's `Deploy Sequence` once, then its
 model's Default Sequence; set off, its `Activate`, its last frame held
 *(inferred for all but the Activate the proximity mine's Enter Action
 plays)*. A part beamed away (a `CAddEffectAction` that's `Delete When
-Finished`) fades over its Warp Time with its `Warp Overlay Effect` drawn
-over it: the overlay's frames are `Num Rotations` (4) directions' worth,
-the figure's direction's chosen when its own sequence has as many, else
-the first, played over the warp, raised by its `Overlay YOffset`
-(`0x584100`, `0x563940`). Its `Warp Effect` (`CSimpleWarpEffect`, 21
-frames of 64 by 64 noise) dissolves the figure in the program; Reluva
-fades it instead.
+Finished`) has its `Warp Overlay Effect` drawn over it: the overlay's
+frames are `Num Rotations` (4) directions' worth, the figure's
+direction's chosen when its own sequence has as many, else the first,
+played over the warp, raised by its `Overlay YOffset` (`0x584100`,
+`0x563940`).
+
+The warp's behaviour (`CStarTrekWarpEffectBehavior`, `0x583a00`; its
+`Fade In` at `+0x8`, `Warp In` at `+0x9`, read at `0x58358c` and
+`0x58350c`) counts its time up to its `Warp Time`. With Fade In it holds
+for the first quarter (0.25 at `0x617400`), and over the rest a part p
+goes from 0 to 1. The `Warp Effect`'s amount is 1 − p; with Fade In the
+figure's shown amount (its `+0xd0`, the cloak's too) is 1 − p, or p
+with Warp In, and 0, or 1, once it's done. Every warp in the maps has
+Warp In 0, the team's beaming in as well as the enemies' beaming out.
+
+The `Warp Effect` (`CSimpleWarpEffect`, `0x563f80`) names a sequence of
+21 frames of 64 by 64 noise (`Transporter Effect`, `Transporter Klingon
+Effect`, `Transporter Romulan Effect`, `Borg Trans Effect`), each with a
+frame rate of 0. So the frame is the amount's share of the 20 after the
+first, rounded (`0x564bbf`). Each pixel the figure shows is moved the
+amount of the way to the noise's pixel, which is laid from the figure's
+origin over and over, in each 16-bit channel (`0x564d45`). At 1 the
+figure is all noise in its own shape (`0x564ee0`).
+
+Reluva draws the noise so, on the parts beamed away and on the team
+beaming in. The parts are shown as the behaviour says. The team fades in
+over the warp *(inferred: by the behaviour they'd end unseen, so
+something else, not found, shows them)*. The blend is even in the
+amount *(inferred: the program's steps come from a table it makes as it
+runs)*.
 
 The EM pulse's sparks over what it holds are its entity's particle
 system ([particles.md](particles.md)).
-
-Not there yet: the warp effect's dissolve.
 
 ## Sources and checks
 

@@ -625,7 +625,7 @@ void MapScreen::updateEnemies(float seconds) {
         if (!state.active || state.deleted || e.down())
             continue;
         // Beaming away, it does nothing.
-        if (warpShown(e.part) < 1.0f)
+        if (std::any_of(_warping.begin(), _warping.end(), [&](const Warp &w) { return w.part == e.part; }))
             continue;
         // Held to a task (a stasis field's, an EM pulse's wait), it does
         // nothing else.

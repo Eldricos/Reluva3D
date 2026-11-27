@@ -108,4 +108,18 @@ image::Image cachePicture(const Archive &data, const std::string &name);
 void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float brightness = 1.0f, int opacity = 255,
             int clipLeft = INT_MIN, int clipRight = INT_MAX);
 
+/**
+ * `p` under a warp effect (CSimpleWarpEffect, 0x563f80): each pixel it
+ * shows taken `amount` (0-1) of the way to `noise`'s, the noise laid from
+ * its origin over and over; all noise at 1 (0x564ee0).
+ */
+Animation::Picture warped(const Animation::Picture &p, const image::Image &noise, float amount);
+
+/**
+ * How far a warp's gone to its effect after `seconds` of `time`: all of it
+ * at first, held a quarter of the time with Fade In, then less and less
+ * to none (0x583a00).
+ */
+float warpAmount(float seconds, float time, bool fadeIn);
+
 } // namespace reluva::stawayteam

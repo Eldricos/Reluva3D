@@ -24,6 +24,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
@@ -882,6 +883,12 @@ private:
     bool _teamShown = true;
     float _warpLeft = 0.0f;
     float _warpTime = 0.0f;
+    std::string _warpEffect; // its Warp Effect's noise sequence
+    bool _warpFadeIn = false;
+    // A picture under a warp of noise sequence `effect` gone `amount` (0-1)
+    // of the way to it; the picture itself without one.
+    const Animation::Picture *underWarp(const Animation::Picture *p, const std::string &effect, float amount);
+    std::deque<Animation::Picture> _warpedPictures; // this frame's, kept while it's drawn
     // The info dialog.
     std::string _dialogText;
     image::Image _dialogIcon;
@@ -983,6 +990,8 @@ private:
         std::string overlay; // its Warp Overlay Effect's sequence, drawn over it
         int overlayY = 0;    // and how far up it's raised: its Overlay YOffset
         int rotations = 4;   // the overlay's frames as so many directions: Num Rotations
+        std::string effect;  // its Warp Effect's noise sequence
+        bool fadeIn = false; // Fade In: held a quarter of the time, and fading out
     };
     std::vector<Warp> _warping;
     // How much of a part's still there as it's beamed away (0-1).

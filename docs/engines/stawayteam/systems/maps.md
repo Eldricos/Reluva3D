@@ -986,7 +986,8 @@ showing, hiding, deleting and destroying parts by name, sounds, checks
 whether a part's there (other checks fail), the team beaming in, and
 camera scripts *(inferred)*. Names compare without regard to case
 *(inferred)*. The team beams in fading in under the
-`Transporter Overlay`'s sparkle *(inferred)*. A line
+`Transporter Overlay`'s sparkle *(inferred)*, and their warp's noise
+([items.md](items.md#in-reluva)). A line
 stays a second and a half after its voice-over *(inferred)*, four
 seconds without one *(inferred)*. Without scripts, the view starts on the
 team.
@@ -1077,9 +1078,9 @@ held, seeing nothing, till activated, back in the state it was in.
 Doing something, its repeat timer's Action every while, give or take,
 watching as on patrol *(inferred)*. A CForceStateChangeAction puts it in
 its State, Investigate looking about where it is. Beamed out (an effect
-naming it, Delete When Finished), it's held still and fades over the
-warp's time, then is gone *(inferred: the transporter's pictures aren't
-drawn)*.
+naming it, Delete When Finished), it's held still under its warp's
+noise and overlay, fading as its behaviour says, then is gone
+([items.md](items.md#in-reluva)).
 
 Walkers' ways (`ui/map_screen.cpp`) are planned as above, round the
 officers and enemies where they stand as the way's planned: the
