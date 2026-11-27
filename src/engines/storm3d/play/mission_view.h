@@ -82,7 +82,7 @@ public:
         int stationsCreated = 0;
         int shipsLost = 0;
         int stationsLost = 0;
-        int shipsDestroyed = 0; // of other players'
+        int shipsDestroyed = 0; // its own, by other players' shots, as the original counts them
         int stationsDestroyed = 0;
     };
     /** How a skirmish has ended for the player: not yet, or they've won or lost. */

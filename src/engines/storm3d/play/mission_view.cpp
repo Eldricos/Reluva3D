@@ -1182,13 +1182,15 @@ void MissionView::fight(double seconds) {
 
 void MissionView::destroy(size_t unit, int by) {
     _dead[unit] = true;
-    // Counted as the debriefing does: lost by its player, destroyed by the
-    // other's (its own ships' kills not counted *(guessed)*).
+    // Counted as the original's debriefing showed: lost by its player, and
+    // destroyed in its player's row too, not its killer's, when another's
+    // shots did it (two ships killed by the computer's starbase: the
+    // player's row 2 and 2, the computer's 0).
     const int slot = _scene.units()[unit].slot;
     const bool ship = unit < _moves.size() && _moves[unit];
     ++(ship ? _tallies[slot].shipsLost : _tallies[slot].stationsLost);
     if (by != slot)
-        ++(ship ? _tallies[by].shipsDestroyed : _tallies[by].stationsDestroyed);
+        ++(ship ? _tallies[slot].shipsDestroyed : _tallies[slot].stationsDestroyed);
     // It explodes where it was: its fireball's model (craft.odf's xfirebmd,
     // whose dbName is xplode).
     {

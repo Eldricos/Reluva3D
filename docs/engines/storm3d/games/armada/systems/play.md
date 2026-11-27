@@ -312,6 +312,34 @@ in Arial Bold, as measured on its frame:
 is enough to win (`Dynamic_Localized_Strings.h`), and the program has
 "%s surrendered." and "eliminated or quit" among its words.
 
+### A skirmish lost
+
+The original was run to the player's end: the computer's starbase
+killed both their construction ships (by 124 seconds), and their
+starbase was decommissioned from its Orders panel (Orders at (582,
+392), then the panel's bottom left, at (548, 458), the starbase having
+no self-destruct; Shift+D had done nothing in an earlier run). It
+came apart over about 30 seconds, its dilithium and crew given back
+(3000 to 4000 and 3961 to 4786); in the frame after it was gone the
+game played on, without a word, and within 4 seconds the debriefing
+was up, as after Surrendering. A unit's health set to nothing, in the
+original's memory, didn't destroy it: only damage does.
+
+What ends a skirmish isn't the missions' way *(from the code)*: a
+mission's script calls `FailMission` or `SucceedMission` (0x431f40,
+0x431fb0), which set its result and a time; the mission, when the time
+comes (0x401c00), sets the program's state, 0 lost or 1 won, as
+Surrender and Abort Mission set it 2 (0x537cf3, 0x537d40) and the
+`kobayashimaru` cheat 1 (0x4a372a). In the run the state was never
+set: it stayed 3, in play, to the debriefing, so the skirmish's end is
+some other check, not yet found. After a game, states 0 to 2 lead to the
+debriefing (0x546170).
+
+The debriefing counted the two ships under the player's "Lost" and
+their "Destroyed" too, the computer, which destroyed them, 0; the
+decommissioned starbase under neither. The computer's row: 449
+collected, 2700 spent, 4 ships and 3 stations created.
+
 ### The camera's keys
 
 `Input.map` gives the overview camera its keys: the keypad's + and −
@@ -396,15 +424,17 @@ before and after each ([camera.md](camera.md#the-overview)):
 - **Ending a skirmish:** the MENU button, or Esc, opens the menu over the
   paused game, as above; its settings open the settings screens, and
   Return to Game or Esc goes back. Surrender opens the debriefing, as
-  does the end: the player lost once they've no unit left, or won once
-  no player on another team has any *(guessed: the original wasn't
-  played to an end; whether it counts freighters, or Allied Victory's
-  part, isn't known)*. Abort Mission asks first, in the original's box,
-  and its Yes opens the debriefing, as the original's did. The debriefing
+  does the end: the player lost once they've no unit left, as the
+  original's did, at once, or won once no player on another team has
+  any *(guessed: the win wasn't seen, nor a loss with others still
+  playing; whether it counts freighters, or Allied Victory's part,
+  isn't known)*. Abort Mission asks first, in the original's box, and
+  its Yes opens the debriefing, as the original's did. The debriefing
   counts each player's dilithium brought in by freighters and spent
   (given back as a build is cancelled), the ships and stations they
-  built, those they lost, and those of other players their shots
-  destroyed.
+  built, those they lost, and, as destroyed, those of theirs other
+  players' shots destroyed, as the original counted them.
+  Decommissioning isn't made yet.
 - **A skirmish** (`MissionView::startSkirmish`) starts from the Game
   Setup screen's slots: each player's race, their colour and their
   start, rolled at launch as the original rolls them (0x43e7ee,
@@ -428,7 +458,12 @@ before and after each ([camera.md](camera.md#the-overview)):
 
 - **Where the facts come from:** the original's frames every 2 seconds
   of its clock past the mission panel; `Input.map` and `RTS_CFG.h`; the
-  camera in the program's memory ([camera.md](camera.md)).
+  camera in the program's memory ([camera.md](camera.md)); a skirmish
+  played to the player's loss, its frames every 4 seconds and every
+  store to the program's state (its address watched, the host's
+  `-watch`), its units read from a dump of its memory and a health set
+  through the host's `poke`; the program's code for the states and the
+  launch (0x401c00, 0x43d370, 0x4bb9e0).
 - **How it was checked:** `engine-shot` past the mission panel set
   beside the original's first frame of play: the planets and the grid
   where the game's are, behind its objectives and interface. Launched
@@ -452,13 +487,9 @@ before and after each ([camera.md](camera.md#the-overview)):
   the input's clock, and the frames fall between.
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
-- How the original ends a skirmish that's won or lost, rather than
-  surrendered: what it shows first, and when a player counts as out.
-  In a run of it with the computer's starbase killing both the
-  player's construction ships (by 124 seconds), the player kept their
-  starbase: Shift+D, `Input.map`'s `decomm`, pressed with it selected at
-  118 seconds, hadn't taken it by 200, nor had the computer's ships come,
-  so no end was reached.
+- What ends the original's skirmish (not the program's state, above)
+  and what counts: a win, a loss with others still playing, whether a
+  player with ships but no stations, or freighters only, is out.
 - Whether the fog, over what's been seen, hides the asteroid fields and
   nebulae (the shroud hides both: the original's view over a field and
   a nebula never seen was its grey alone, as Reluva's), and what of an
