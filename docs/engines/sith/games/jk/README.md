@@ -154,6 +154,9 @@ Sith's is the same.
 `JK.EXE` on its command line, as a Windows shortcut would give it:
 `commandline=-windowGUI` plays it windowed, drawn through Windows' GDI
 rather than DirectDraw, which looks the same in Reluva's window.
+`commandline=-devMode` adds "(Debug)" to *Single Player*: any level of
+any episode to start from ([systems/hosting.md](systems/hosting.md),
+step 25).
 
 The data viewer is `reluva-viewer` (`reluva-viewer <its name in the
 launcher>`, or `reluva-viewer <the install>`). Tab moves between its

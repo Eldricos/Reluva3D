@@ -490,6 +490,45 @@ Windows does when it fails, and dialog boxes are made but not drawn
 
     Left open: the game's own software renderer, never offered a wide
     mode (it draws in 8-bit modes, 1024 by 768 at most).
+25. **The console and `-devMode`** *(confirmed but where marked)*. The
+    game has one command line for its console, its cheats and, in
+    multiplayer, chat: T opens it in a level, and Enter (`0x408e50`)
+    sends what's typed as chat in a multiplayer game, and otherwise
+    tries it as a cheat (`0x41fd60`) and then as a console command
+    (`0x4da000`). Its commands are registered by name at start-up
+    (`0x4da140`): `version`, `team`, `framerate`, `dispstats`, `kill`
+    and `endlevel` (`0x41f17d` on), then `players`, `coords`,
+    `trackshots`, `ping`, `kick`, `tick` and `session` (`0x4edc10`). What
+    they print goes to the messages at the top of the screen, five
+    seconds a line (`0x41fb10`, `0x41fa50`). Typed in Nar Shaddaa,
+    `version` printed "Jedi Knight v1.0 Sep 8 1997 16:17:30", and
+    `coords` the player's position, angles and sector.
+
+    Another 22 are registered only if bit `0x100` of the flags word at
+    `0x8ee66c` is set at that moment (`0x4edc99`): `help`, `disableai`,
+    `notarget`, `outline`, `disablepuppet`, `cogtrace`, `coglist`,
+    `cogstatus`, `noaishots`, `aistatus`, `ailist`, `fly`, `mem`,
+    `dynamicmem`, `memdump`, `invul`, `cogpause`, `matlist`, `warp`,
+    `activate`, `slowmo` and `jump`. The word starts at 0, and only the
+    scripts' verbs write it (`0x506a90`, `0x506ab0`), after start-up:
+    in this release none of the 22 is ever there *(from the code)*.
+    `help` and `fly`, typed with `-devMode` or without, were "not
+    recognized".
+
+    `-devMode` (or `devMode`) on the command line (`0x401508`) sets
+    `0x860780` and `0x860784`; `-windowGUI` sets `0x860788`. With both,
+    the game makes its "Jedi Console" (`0x41f100`): a dialog (template
+    112, its procedure `0x420fd0`) whose box (control `0x400`) takes a
+    line on Enter, echoes it as `>%s` and runs it as a console command,
+    clears itself, and whose control `0x40d` keeps the last 50 lines
+    printed; closing it quits the game. It's the same console as T's,
+    with a scrolling record of what was printed. `-devMode` alone adds
+    "(Debug)" to *Single Player* (`GUI_DEBUG_PLAY`, three screens'
+    entries at `0x53600c` on, `0x41a47b`), which chooses any episode,
+    the multiplayer ones too, then any of its levels to start; and
+    *Advanced* to *Setup*'s display screen (`0x414a60`, "For advanced
+    users and debugging", its own settings marked as for LucasArts'
+    support), not opened here.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were

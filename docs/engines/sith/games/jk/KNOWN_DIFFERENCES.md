@@ -32,7 +32,10 @@ None yet.
   with both `-devMode` and `-windowGUI` on its command line, its "Jedi
   Console" (template 112, `0x41f11c`); the emulator makes it and runs its
   procedure, but draws nothing
-  ([windows.md](../../../../common/x86/windows.md)).
+  ([windows.md](../../../../common/x86/windows.md)). It's a second place
+  to type the console's commands, with a record of what they printed;
+  the same commands are typed after T in a level, and print at the top
+  of the screen ([systems/hosting.md](systems/hosting.md), step 25).
 - **Multiplayer:** over TCP/IP only, and between copies of Reluva: its
   DirectPlay plays sessions over a protocol of its own, so it can't meet
   a game on Windows' DirectPlay. There's no IPX, modem or serial
