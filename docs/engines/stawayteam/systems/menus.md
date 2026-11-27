@@ -218,7 +218,10 @@ the placing at `0x40a6d0`):
   Action` unless it has its own) and then its action (`0x4e4ab0`).
   `Button Switch` plays as a group of tabs or toggles changes to another
   (`0x40786f`, `0x407bd8`) and as a check box changes (`0x4e64b0`).
-  Coming over a button does nothing (`0x5d2330`).
+  Coming over a button does nothing (`0x5d2330`). Reluva plays Button
+  Switch as the difficulty window's level changes, as the keyboard
+  screen's tabs change, and as the settings' and keyboard screen's check
+  boxes change.
 
 ### The program's keys
 

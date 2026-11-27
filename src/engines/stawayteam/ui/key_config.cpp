@@ -121,6 +121,7 @@ KeyConfigScreen::KeyConfigScreen(const Archive &data, const TextObject &rules, G
     readPoint(def, "ReverseMouse Pos", x, y);
     _reverse.setPosition(x, y);
     _reverse.setChecked(_options.controls.scheme == 1);
+    _switch = gameSound(data, "UI/Button Switch.wav");
 }
 
 KeyConfigScreen::~KeyConfigScreen() = default;
@@ -215,6 +216,9 @@ bool KeyConfigScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t
             _shown = i;
             for (size_t j = 0; j < _tabs.size(); ++j)
                 _tabs[j].setChecked(j == i);
+            // Button Switch as the tabs change to another (0x40786f).
+            if (mixer && _switch)
+                mixer->play(_switch, audio::SoundType::kEffects);
             return false;
         }
     Panel &current = _panels[_shown];
@@ -229,6 +233,9 @@ bool KeyConfigScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t
             current.rows[i].name.setChecked(true);
         }
     if (_reverse.handleEvent(ev, _mouseX, _mouseY)) {
+        // Button Switch as a check box changes (0x4e64b0).
+        if (mixer && _switch)
+            mixer->play(_switch, audio::SoundType::kEffects);
         _options.controls.scheme = _reverse.checked() ? 1 : 0;
         save();
     }

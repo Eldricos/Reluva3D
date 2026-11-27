@@ -73,6 +73,7 @@ private:
     std::vector<StaticText> _texts;
     ButtonGroup _buttons; // EXIT, RESET
     std::vector<TextButton> _tabs;
+    std::shared_ptr<audio::Sound> _switch; // UI/Button Switch.wav
     std::vector<Panel> _panels;
     size_t _shown = 0;
     int _panelX = 0;

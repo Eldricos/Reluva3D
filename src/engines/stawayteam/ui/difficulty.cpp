@@ -43,6 +43,7 @@ DifficultyWindow::DifficultyWindow(const Archive &data, int screenW, int screenH
     _start.setPosition((w - _start.width()) / 2, h - _start.height() - kStartBottomGap);
     _cancel.setPosition((w - _cancel.width()) / 2, _start.y() - _cancel.height() - kButtonGap);
     const auto sound = gameSound(data, "UI/Button Action.wav");
+    _switch = gameSound(data, "UI/Button Switch.wav");
     _start.setSound(sound);
     _cancel.setSound(sound);
 
@@ -68,11 +69,18 @@ std::optional<std::optional<Difficulty>> DifficultyWindow::handleEvent(const Eve
     // button (0x48c1ad, 0x48c1c0).
     if (isEscape(ev) && _cancel.press(mixer))
         return std::optional<Difficulty>();
-    // One level checked at a time (0x48c36a).
+    // One level checked at a time (0x48c36a); Button Switch as it changes
+    // to another (0x40786f).
     for (size_t i = 0; i < _toggles.size(); ++i)
-        if (_toggles[i].handleEvent(ev, _x, _y))
-            for (size_t j = 0; j < _toggles.size(); ++j)
+        if (_toggles[i].handleEvent(ev, _x, _y)) {
+            bool changed = false;
+            for (size_t j = 0; j < _toggles.size(); ++j) {
+                changed = changed || (_toggles[j].checked() != (j == i));
                 _toggles[j].setChecked(j == i);
+            }
+            if (changed && mixer && _switch)
+                mixer->play(_switch, audio::SoundType::kEffects);
+        }
     if ((isEnter(ev) && _start.press(mixer)) || _start.handleEvent(ev, _x, _y, mixer)) {
         for (size_t i = 0; i < _toggles.size(); ++i)
             if (_toggles[i].checked())

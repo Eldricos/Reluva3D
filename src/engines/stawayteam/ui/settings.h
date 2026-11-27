@@ -13,6 +13,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <string>
 
 namespace reluva::stawayteam {
@@ -53,6 +54,7 @@ private:
     std::array<int, 3> _labelY{};
     std::array<Slider, 3> _sliders;
     CheckBox _pause;
+    std::shared_ptr<audio::Sound> _switch; // UI/Button Switch.wav
     PictureButton _continue;
     PictureButton _reset;
     PictureButton _difficulty;

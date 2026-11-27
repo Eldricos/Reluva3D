@@ -68,6 +68,7 @@ SettingsWindow::SettingsWindow(const Archive &data, GameOptions &options, int sc
     const int w = _background.w;
     const int h = _background.h;
     const auto sound = gameSound(data, "UI/Button Action.wav");
+    _switch = gameSound(data, "UI/Button Switch.wav");
     for (PictureButton *button : {&_keyboard, &_sound, &_continue, &_reset, &_difficulty})
         button->setSound(sound);
 
@@ -132,6 +133,9 @@ SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer
         changed = true;
     }
     if (_pause.handleEvent(ev, _x, _y)) {
+        // Button Switch as a check box changes (0x4e64b0).
+        if (mixer && _switch)
+            mixer->play(_switch, audio::SoundType::kEffects);
         _options.pauseWhenHit = _pause.checked();
         changed = true;
     }

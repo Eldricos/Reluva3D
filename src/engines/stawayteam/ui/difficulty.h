@@ -11,6 +11,7 @@
 #include "engines/stawayteam/ui/widgets.h"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -44,6 +45,7 @@ private:
     Font _font;       // the window's, the heading's and the toggles'
     Font _buttonFont; // the buttons'
     std::vector<Toggle> _toggles;
+    std::shared_ptr<audio::Sound> _switch; // UI/Button Switch.wav
     PictureButton _start;
     PictureButton _cancel;
     Difficulty _current;

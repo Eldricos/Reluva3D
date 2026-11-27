@@ -50,8 +50,6 @@ None yet.
 - **The team selection:** the transporter's random numbers and the
   effect the figures are drawn through aren't there yet
   ([systems/team-selection.md](systems/team-selection.md#in-reluva)).
-- **Buttons:** the toolkit's toggles make no sound
-  ([systems/menus.md](systems/menus.md#buttons)).
 - **The pointer** is the system's during the opening movies; from the
   main menu on it's the game's.
 - **Keys' names** are Reluva's table of the US keyboard's, not what
