@@ -117,10 +117,25 @@ public:
             _sys.setMouseCursorVisible(false);
         };
         screen();
-        _sys.setWindowTitle("Reluva - " + _target.description);
         _sys.updateScreen(_screen); // black while it loads
         std::vector<uint32_t> pixels;
+        // The game's frames a second, in the window's title: those it
+        // shows, counted over each second.
+        uint64_t rateFrom = _sys.getMillis();
+        uint64_t rateFrames = player.framesShown();
+        auto showRate = [&](const std::string &rate) {
+            _sys.setWindowTitle("Reluva - " + _target.description + (rate.empty() ? "" : " - " + rate));
+        };
+        showRate("");
         while (true) {
+            if (const uint64_t now = _sys.getMillis(); now - rateFrom >= 1000) {
+                const uint64_t frames = player.framesShown();
+                char rate[48];
+                std::snprintf(rate, sizeof rate, "%.1f frames a second",
+                              double(frames - rateFrames) * 1000.0 / double(now - rateFrom));
+                showRate(frames > 0 ? rate : "");
+                rateFrom = now, rateFrames = frames;
+            }
             Event ev;
             while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {

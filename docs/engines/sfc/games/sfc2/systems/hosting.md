@@ -622,8 +622,9 @@ known.
   window, scaled to fit, plays its sound through the mixer at the
   launcher's master volume, and passes on the mouse, where it is on the
   game's 800x600 screen, its buttons and wheel, and the keys. The
-  window's own pointer is hidden, as the game draws its own. Closing the
-  window or Ctrl+F5 asks first, then stops the program.
+  window's own pointer is hidden, as the game draws its own. The window's
+  title gives the frames the game shows a second, counted each second.
+  Closing the window or Ctrl+F5 asks first, then stops the program.
 - **`GameProcess`** (`src/engines/sfc/host/game_process.h`): a
   `Win32Process` with the install as `C:\SFC2\`, read-only; host threads
   (`useHostThreads`); the shared DirectDraw, Direct3D 7 and DirectInput
