@@ -2,5 +2,5 @@ park: 69d2ffba0c14f2be | park: 1130 screens shown, left at 45200 ms, 11.Jan.00, 
 signs: 4f7e327693fbfad7 | 26 signs lettered
 signs.png: e91b37f23e37a0a7
 flyin: 27329cff96fb04dd | frame 330 of 500: eye 477.8, 31.3, 11.3, looking -0.00, 1.00, -0.07
-saving: c94f5ed0df6ab496 | saved: levels/science, day 15, 36333 bytes of park, 12 of screen, the same as saved, the same 60 s on, 4 visitors, 14 objects, cash 50110, md5 5c2a82f8cdee1a600a4290e9a2bcfa3a
+saving: bebd2d133c2be452 | saved: levels/science, day 15, 36333 bytes of park, 12 of screen, the same as saved, the same 60 s on, 4 visitors, 14 objects, cash 50110, md5 7429380dc3a0731c0c850d108a4fda67
 flyin.png: 944aab17a34a57ff

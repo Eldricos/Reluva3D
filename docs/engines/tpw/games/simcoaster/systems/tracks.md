@@ -88,7 +88,8 @@ track there. Ramps turned so the track climbs the way it's laid, as they
 look right drawn so *(inferred)*.
 
 A new track ride's track is laid as soon as its line is. A day after
-one's built without a whole track, its letter comes, once.
+one's built without a whole track, its letter comes, once; a special
+ride's not till it's activated.
 
 ### Running
 
@@ -125,8 +126,9 @@ taken down. The track a block at a time, `TrackModel`: the first block
 `M` (go-karts) or `S` (water), straights `S`, bends `B`, crossings `X`,
 an unfinished track's end `Q`, and bridges `H`, `H_U`, `H_A`, `H_D`. `ParkScreen` draws the pieces and
 the cars, and tells each ride's script whether its track's whole.
-The prebuilt park's waterwheel has its track in the game's save, which
-isn't read: it runs as it did. `reluva-tool tpw track-shot <game folder>
+The prebuilt park's waterwheel has no track in the game's save
+([tpws.md](../formats/tpws.md#the-records)): once it's activated, its
+track's laid as any ride's, and its letter comes a day after. `reluva-tool tpw track-shot <game folder>
 <world folder> <out.png> [seconds] [-water]` places a world's go-kart
 ride, or water ride, lays a loop of eight blocks beside it, and draws
 it; with `-bridge`, a longer loop over a band of path, bridged; with

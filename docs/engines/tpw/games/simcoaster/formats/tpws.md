@@ -44,10 +44,9 @@ The state's chunk:
 
 The first 7 KB or so aren't worked out: lists of small records, some
 holding park cells (`0F 2F 16` then `14 2F 16`: cell (47, 22)). Then
-the grid, then sections each with its size and a four-letter tag stored
-backwards: `EATC`, then `LDMT` and `EJBO` pairs ("TMDL", "OBJE": the
-park's objects, it seems), `HJBO`, `STUC`, `QHHC`, `SMIU`, `KNAB` and
-more, none worked out.
+the grid, then records each with a number and a four-letter tag stored
+backwards, most a second tag after it, also backwards
+([the records](#the-records)).
 
 ### The grid
 
@@ -70,10 +69,11 @@ the rest kind 3.
 | 2 | 1 | Bits, 0x40 or 0xC0 outside the park: not worked out |
 | 8 | 2 | On path: nine bits, the cell and its eight neighbours, which are path, it seems (0x1FF in a path's middle) *(inferred)* |
 | 4 | 1 | On a queue: its cells' order, counting up from the ride (0x36 to 0x3A) |
+| 11 | 2 | Whose cell it is: the handle of the object it's part of, as the object's record has it ([the objects](#the-objects)), 0 for none. On a ride's, a feature's and an obstacle's cells, its entrance and exit, and an obstacle's margin *(confirmed)*: thirteen objects' handles, each on its own cells; on 53 cells of path, 1110's (the ride at (17, 17)), and on five the robot's, not worked out |
 | 13 | 1 | What's built: 0 nothing, 1 path, 2 a queue; 1 on the entrance's path and on the recording's, 2 on a short run to a ride beside the path *(inferred)* |
 | 17 | 1 | The piece it's drawn as. On a queue: 2 straight, 4 a bend, 5 where it meets the path. On path, the game's own tile: 9 a corner, 10 and 20 an edge, 11 and 12 a middle *(inferred)* |
 | 21 | 2 | That piece's angle, degrees: 0, 90, 180 or 270. At 0 a path's corner opens east and south, at 90 south and west: an angle turns east (+x) towards south (+y), as every corner of the prebuilt park's does *(inferred)* |
-| 25 | 1 | What fills it: 0 bare land, 1 path, 3 a queue, 4 an object, 9 and 10 an attraction's entrance and exit (its shape's `2` and `N`), 5 a margin kept clear about the lake, the river, the park's edges and the attractions behind hoardings, 7 outside the park, as they lie drawn as a picture of the park *(inferred)*; 8, 21 and 30 not worked out |
+| 25 | 1 | What fills it: 0 bare land, 1 path, 3 a queue, 4 an object, 9 and 10 an attraction's entrance and exit (its shape's `2` and `N`), 5 a margin kept clear about the lake, the river, the park's edges and the attractions behind hoardings, 7 outside the park, as they lie drawn as a picture of the park *(inferred)*; 8 an obstacle's cells, its handle on them (the lake's 211, the fallen trees' 64, the gates' 16), and the bridge's, under a handle no object has *(inferred)*; 30 the river, tiles 0x90 and 0x94, no one's *(inferred)*; 21 three cells of the log mill's beside it, west and east of it, not worked out |
 | 46 | 1 | The cell's tile of the world's attribute map *(confirmed)* |
 | 51 | 1 | On an object's first cell, a number of its, not worked out (0x21 to 0x25 for the robot, fountain and rocks) |
 | 73 | 1 | 1 on the park's own land, it seems *(guessed)* |
@@ -89,15 +89,42 @@ from the path at (47, 24) along to (43, 24), turns, and ends at the
 entrance of the Giant Robot Swing, a ride the recording shows standing
 there at the start.
 
-### The sections
+### The records
 
-After the grid, each section has its size, then its tag, backwards; an
-object's record is `LDMT` with a second tag. In order: `EATC`, the
-objects (`EJBO`, 23 of them, then `HJBO`), `STUC`, `QHHC`, `SMIU`,
-`KNAB` ("BANK"), `TAEW` ("WEAT", the weather, it seems), `RNRT`,
-`BALR`, `KRAP` ("PARK", 0x20EE bytes), `SGAT`, `IVDA` ("ADVI", the
-advisor), `QHEM` and `FATS` ("STAF", the staff). None for visitors: the
+After the grid, each record starts with a number (4 bytes), then a
+tag, backwards, and most a second tag, also backwards; their sizes
+aren't given, a record running on to the next one's start. The
+number isn't a size: `PARK`'s is 13 and it runs 76,621 bytes
+*(confirmed)*. In order:
+
+| Number | Tags | What |
+|---|---|---|
+| 37 | `EATC` | Not worked out |
+| 3 | `LDMT` `EJBO` ("TMDL", "OBJE") | An object, 24 of them ([the objects](#the-objects)) |
+| 21, 22, 19, 17 | `TMDL` with `OBJH`, `CUTS`, `CHHQ`, `UIMS` | Not worked out |
+| 16 | `TMDL` `BANK` | The bank (below) |
+| 15 | `TMDL` `WEAT` | The weather, it seems |
+| 23, 14, 13, 12 | `TMDL` with `TRNR`, `RLAB`, `PARK`, `TAGS` | Not worked out; `PARK` 76,621 bytes |
+| 11 | `TMDL` `ADVI` | The advisor, it seems |
+| 10, 9 | `TMDL` with `MEHQ`, `STAF` | `STAF` the staff, it seems |
+| 0 | `DONE` | The end of the `TMDL` records |
+| 7 | `WRLD` `SCPT` | Not worked out |
+| 0 | `SPSC` `PTCL` | The particle effects, by name (`BigSmokePuff`, `Firework1`, `Splash`, `GoldenTicket` and the rest) |
+| 0 | `PART`, `MESS`, `KAME`, `ADVS`, `SOUN` | Not worked out |
+
+Between `MESS` and `KAME`, among more not worked out: `SYSR` with the
+game's build date, "17:55:58Dec 14 2000"; the bytes `KARTFLY_`, then
+1, 400 and 400 bytes of zeros, a go-kart's or water ride's track, it
+seems, none laid *(guessed)*; the world's kinds of object with their
+names and folders (`Giant Waterwheel`,
+`data\levels\science\Rides\wateride\`); and each ride's script by
+name (`EventMap.rse`). Then `COAS` `ADV_` (34) and the sound banks'
+folders (`\data\global\sound\cat_rides`). None for visitors: the
 prebuilt park has none.
+
+The prebuilt park has no track laid: the grid has none, the
+waterwheel's cells only its own and its margin's, and its record's
+slots are empty *(inferred)*.
 
 The `BANK` section holds the park's balance, 47,375, twice, and
 −2,625, then a table of loans of 20 bytes each: an amount, a rate and
@@ -119,11 +146,16 @@ Each object the park has is a record of the section tagged `LDMT` then
 | 16 | 4 | Its angle, degrees |
 | 20 | 2 | Its number: its settings' `Info.Id` (`rides/robot/robot.sam`'s 1101), as `Data/Objects.txt` allots them (1100s rides, 1400s features, 1700s obstacles), each an object of the world's *(confirmed)* |
 | 22 | 2 | 2000 in all |
+| 0xCC | 2 | Its handle, which its cells have ([the grid](#the-grid)) *(confirmed)* |
+| 0xCE | 2 | The same, but for a ride's: another, near it (the robot's 0xD2C after 0xD2B) |
 
 Then its name, at 0x3C: UTF-16 characters four bytes apart, with older
 text between them where the buffer was written twice ("Giant " and
 "Swing" alternating, then "Robot"), so not to be read as it is; and
-much more, not worked out. The prebuilt park has 24: 14 placed,
+much more, not worked out. A ride's record is 0x15D7 bytes from its
+number, anything else's 0x148: a ride's has ten slots of 30 bytes and
+six of 144 more, each starting −1 and the rest unset (0xCD) in the
+prebuilt park's. The prebuilt park has 24: 14 placed,
 among them the Giant Robot Swing at (42, 26), the Electric Fountain at
 (49, 23), three rocks, the mission's fence (1700) at (41, 48) and four
 more obstacles, and four rides in the park's other areas; ten kept
@@ -143,7 +175,8 @@ at y 26: its first cell is that row's first, its entrance `2` at
 version, inflates its state and reads the grid (each cell's kind,
 flags, tile, what's built on it and fills it, its piece and angle) and
 the objects. `Park` lays the prebuilt park's path, queue and objects
-over a new park of the world it matches
+over a new park of the world it matches, an obstacle's cells taken as
+an object's are
 ([paths.md](../systems/paths.md)), and `ParkScreen` draws them.
 
 Reluva's own saved games aren't `.TPWS`: this format can't be written
@@ -173,7 +206,8 @@ is; the game-files test runs it (`tpw.gamedata.saves`). The unit tests
 
 - Everything else in the state: the records before the grid, the
   sections' fields (the bank's other numbers, the park's, the staff's),
-  the objects' other fields, the cells' other fields and their entries.
+    the objects' other fields, the cells' other fields and their entries;
+  the rides' slots; what `KARTFLY_` holds with a track laid.
 - A save the game wrote of a park played, with visitors and money
   spent, to set the sections against.
 - Whether every new park of Land of Invention starts from it, and what

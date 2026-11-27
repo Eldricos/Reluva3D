@@ -78,10 +78,9 @@ int wayBetween(const Park::Cell &from, const Park::Cell &to) {
 
 } // namespace
 
-// The prebuilt park's (Land of Invention's waterwheel) have theirs in the
-// game's save, which isn't read: they run as they are.
+// The prebuilt park's waterwheel too: the game's save has no track for it.
 bool Park::hasTrack(size_t object) const {
-    if (object >= _objects.size() || _objects[object].prebuilt)
+    if (object >= _objects.size())
         return false;
     const Attractions::Attraction *a = _attractions.find(_objects[object].id);
     return a && (a->trackType == kKartTrack || a->trackType == kWaterTrack);
@@ -414,11 +413,11 @@ std::vector<gfx::Vec3> Park::trackCircuit(size_t object) const {
 }
 
 // A day after a track ride's built without a whole track, the letter
-// saying so, once (guessed).
+// saying so, once (guessed); a special ride's not till it's activated.
 void Park::trackDay() {
     for (size_t i = 0; i < _objects.size(); ++i) {
         PlacedObject &o = _objects[i];
-        if (!hasTrack(i) || o.trackClosed || o.toldNoTrack || day() <= o.placedDay)
+        if (!hasTrack(i) || !o.active || o.trackClosed || o.toldNoTrack || day() <= o.placedDay)
             continue;
         o.toldNoTrack = true;
         const Attractions::Attraction *a = _attractions.find(o.id);

@@ -258,8 +258,8 @@ void Park::layPrebuilt(const SearchSet &files, const AttributeMap &map) {
                 g = Ground::kPath;
             } else if (c.built == SavedPark::Built::kQueue) {
                 g = Ground::kQueue;
-            } else if (g == Ground::kOpen && (c.fill == SavedPark::kFillObject || c.fill == SavedPark::kFillEntrance ||
-                                              c.fill == SavedPark::kFillExit)) {
+            } else if (g == Ground::kOpen && (c.fill == SavedPark::kFillObject || c.fill == SavedPark::kFillObstacle ||
+                                              c.fill == SavedPark::kFillEntrance || c.fill == SavedPark::kFillExit)) {
                 g = Ground::kTaken;
             }
         }

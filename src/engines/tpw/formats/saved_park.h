@@ -31,7 +31,10 @@ public:
         uint8_t flags = 0; // the kind's high byte, not worked out
         uint8_t tile = 0;  // the world's attribute map's tile, as base.map has it
         Built built = Built::kNothing;
-        /** What fills it: 1 path, 3 a queue, 4 an object, 9 and 10 an attraction's entrance and exit, 0 nothing. */
+        /**
+         * What fills it: 1 path, 3 a queue, 4 an object, 8 an obstacle, 9 and 10 an attraction's entrance and
+         * exit, 0 nothing.
+         */
         uint8_t fill = 0;
         /** The piece it's drawn as: on a queue, 2 straight, 4 a bend, 5 where it meets the path. */
         uint8_t piece = 0;
@@ -41,6 +44,7 @@ public:
     /** What a cell's fill says. */
     ///@{
     static constexpr uint8_t kFillObject = 4;
+    static constexpr uint8_t kFillObstacle = 8;
     static constexpr uint8_t kFillEntrance = 9;
     static constexpr uint8_t kFillExit = 10;
     ///@}
