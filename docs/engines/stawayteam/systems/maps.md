@@ -555,9 +555,15 @@ scripts to find. Mission 01 has 103 `CRelayAI`, 31
   Action` for each new to it, each its instigator.
 - **A team-touching trigger** (`CTeamTouchingPolygonTriggerAI`, 3;
   `0x5ec930`): while it can still go, counts the Active parts of the
-  team's category whose shapes meet its polygon (`0x53daa0`); as many as
-  the team has (`0x516b10`), its `Action`, the part its trigger, and with
-  `Trigger Only Once` no more.
+  `Player` category (`0x4f5ca9`) whose shapes meet its polygon
+  (`0x53daa0`); as many as the team has (`0x516b10`), its `Action`, the
+  part its trigger, and with `Trigger Only Once` no more. The team's
+  count takes in every officer, those on the mission's other maps and
+  those fallen; a fallen officer stays Active, as `Main Players`' death
+  behaviours clear only `Collideable` and `Tries To Collide`, so it
+  counts where it lies. A hologram of the `Player` category in the
+  polygon counts too, so then the count is more than the team and it
+  doesn't go.
 - **A relay** (`CRelayAI`): its `Action`, and `Trigger Only Once`; a
   `CTriggerRelayAction`'s `Relay Name` (a list, commas between: "Sniper
   Rom Pauser for Movie, 1st Rom Pauser for Movie") runs the relays of
@@ -1565,8 +1571,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   officer must be in range.
 - **Drawing order:** where the `Trans` and `Warped` polygons not on
   the ground are drawn.
-- **The triggers:** whether the team's count takes in those down; where
-  a thrown thing comes in the grid's search.
+- **The triggers:** where a thrown thing comes in the grid's search.
 - **Fighting:** the beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
   shooter's slot `0xa4` gives); a strike's flashes; stunning, death,
   and the mouse for attacking.

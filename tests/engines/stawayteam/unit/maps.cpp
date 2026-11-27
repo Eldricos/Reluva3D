@@ -3485,6 +3485,50 @@ void testSearchOrder() {
     }
 }
 
+void testTeamCount() {
+    // A team-touching square about (500, 500) with Ann in it, Bo killed.
+    // Outside it, he still counts in the team (0x516b10), so it doesn't
+    // go; in it, lying there still Active (Main Players' death
+    // behaviours), he counts there too, and it goes.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto spawn = [](int n, int x) {
+        return "Level Part=CEntityBase\n{\nName=Away Team Spawn Point " + std::to_string(n) +
+               "\nPosition X=" + std::to_string(x) + "\nPosition Y=500\n}\n";
+    };
+    for (const bool boIn : {false, true}) {
+        const std::string zax =
+            "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,500.000000\n"
+            "Tree List=CSortList2D\n{\n"
+            "Level Part=CRenderablePolygon\n{\nName=Square\nPolygon=400, 400, 600, 400, 600, 600, 400, 600, 400, 400\n"
+            "Activity=Array\n{\nItem Count=1\nActivity=CTeamTouchingPolygonTriggerAI\n{\nTrigger Only Once=1\n"
+            "Action=CActivateAction\n{\nTarget Name=Gathered\n}\n}\n}\n}\n"
+            "Level Part=CEntityBase\n{\nName=Gathered\nActive=0\n}\n" +
+            spawn(1, 500) + spawn(2, boIn ? 550 : 900) + "}\n}\n";
+        MemoryArchive data;
+        data.files["Levels/Test.zax"] = bytesOf(zax);
+        GameMap map;
+        CHECK(!loadMap(data, "Levels/Test.zax", map));
+        TextObject rules;
+        CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                              "\t\tScreen Size=200,200\n\t}\n}\n",
+                              rules));
+        GameOptions options;
+        options.pauseWhenHit = false;
+        TeamMember ann;
+        ann.firstName = "Ann";
+        TeamMember bo;
+        bo.firstName = "Bo";
+        MapScreen screen(data, rules, map, options, 0, {ann, bo});
+        ItemDefinition blast;
+        blast.weaponDamage = 1000.0f;
+        screen.hurtOfficer(1, blast, false);
+        uint64_t now = 0;
+        while (now < 2000)
+            screen.update(now += 50);
+        CHECK(!screen.officers()[1].alive() && screen.partState(1).active == boIn);
+    }
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -3615,6 +3659,7 @@ static const reluva::test::Suite
                {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                {"occupant", [](const std::filesystem::path &) { testOccupant(); }},
                {"search order", [](const std::filesystem::path &) { testSearchOrder(); }},
+               {"team count", [](const std::filesystem::path &) { testTeamCount(); }},
                {"combat", [](const std::filesystem::path &) { testCombat(); }},
                {"noise", [](const std::filesystem::path &) { testNoise(); }},
                {"objectives", [](const std::filesystem::path &) { testObjectives(); }},

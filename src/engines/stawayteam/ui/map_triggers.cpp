@@ -472,19 +472,28 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
         return true;
     }
     if (kind == "CTeamTouchingPolygonTriggerAI") {
-        // As many of the team's category touching its polygon as the team
-        // has: its Action, the part as its trigger, and with Trigger Only
-        // Once no more (0x5ec930; inferred for those down, counted as off
-        // the map).
-        bool all = false;
-        for (const Officer &o : _officers) {
-            if (!o.present || !o.alive())
+        // As many Active parts of the Player category touching its polygon
+        // as the team has, those on the mission's other maps among them:
+        // its Action, the part as its trigger, and with Trigger Only Once
+        // no more (0x5ec930, the category 0x4f5ca9, the team's count
+        // 0x516b10). A fallen officer stays Active (Main Players' death
+        // behaviours clear only Collideable and Tries To Collide), so it
+        // counts where it lies; so does a hologram of the Player category.
+        size_t in = 0;
+        for (const Officer &o : _officers)
+            if (o.present && touches(t, o.x, o.y))
+                ++in;
+        for (size_t i = 0; i < _map.parts.size(); ++i) {
+            const PartState &state = _partStates[i];
+            if (!state.active || state.deleted || !inCategory(_map.parts[i].category, "Player"))
                 continue;
-            all = true;
-            if (!touches(t, o.x, o.y))
-                return true;
+            float x = 0.0f;
+            float y = 0.0f;
+            placeOf(i, x, y);
+            if (touches(t, x, y))
+                ++in;
         }
-        if (all) {
+        if (!_officers.empty() && in == _officers.size()) {
             if (flag(ai, "Trigger Only Once"))
                 t.done = true;
             runAction(ai->object("Action"), -1, int(t.part));
