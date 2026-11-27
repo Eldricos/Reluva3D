@@ -38,6 +38,7 @@ public:
         std::optional<gfx::Vec3> goal;
         std::vector<gfx::Vec3> route; // the points it passes on its way, first first
         float waiting = 0;            // seconds before it sets off
+        gfx::Vec3 avoiding{};         // its push away from others last frame, as avoid() smooths it
     };
     /** How long a ship sent somewhere waits before it sets off, in seconds. */
     static constexpr float kSetOff = 0.35f;
@@ -47,12 +48,28 @@ public:
         float radius = 0;
     };
     /**
-     * The way from `from` to `to` for a ship of `radius`: past the first
-     * obstacle the straight line comes too near, on the side away from it;
-     * empty for the straight line.
+     * The way from `from` to `to` for a ship of `radius`: past each
+     * obstacle the way comes too near, nearest first, on the side away
+     * from it, and on from there; empty for the straight line.
      */
     static std::vector<gfx::Vec3> routeAround(const gfx::Vec3 &from, const gfx::Vec3 &to,
                                               const std::vector<Obstacle> &obstacles, float radius);
+    /** Another unit a ship keeps clear of: where its middle is, how it moves, and its size. */
+    struct Neighbour {
+        gfx::Vec3 middle{};
+        gfx::Vec3 velocity{}; // units a second
+        float radius = 0;
+    };
+    /**
+     * A ship's push away from the others it would come too near, as
+     * RTS_CFG.h's collision avoidance has it: each where it'll be within
+     * COLLISION_LOOK_AHEAD_TIME (1.4 seconds), too near within
+     * COLLISION_SAFETY_MARGIN (1.2) times their sizes together, pushed from
+     * by how far inside that it comes, up and down by Y_REPULSION (0.5) of
+     * it; kept as OLD_AVOIDANCE_FORCE_WEIGHT (0.7) of the last frame's and
+     * the rest of this one's, into `ship.avoiding`, which is returned.
+     */
+    static gfx::Vec3 avoid(Ship &ship, const gfx::Vec3 &middle, float radius, const std::vector<Neighbour> &others);
     /** Moves a ship on by `seconds` (a frame's, a tenth of a second or less). */
     static void step(Ship &ship, const Physics &physics, double seconds);
 };

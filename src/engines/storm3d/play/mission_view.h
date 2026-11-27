@@ -157,7 +157,8 @@ public:
      * its way.
      */
     static void sendTo(std::vector<Movement::Ship> &ships, const std::vector<MapScene::Unit> &units,
-                       const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point);
+                       const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point,
+                       const std::vector<Movement::Obstacle> &fields = {});
     /**
      * The cinematic view's close-up of a unit: from above, behind and to
      * its left, looking down at its middle, as the original's steady shot
@@ -399,6 +400,9 @@ private:
         double until = 0;
     };
     std::vector<Spy> _spies;
+    // The map's places ships path round: its asteroid fields and black
+    // holes (RTS_CFG.h's pathing), as obstacles.
+    std::vector<Movement::Obstacle> _fieldsInWay;
     // Crew: a unit transporting to another (boarding it, or reinforcing
     // an ally), going near enough first; parties on their way; ships sent
     // to be repaired, and stations recrewing from the pool.

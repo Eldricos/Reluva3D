@@ -709,6 +709,33 @@ void testBoardingAndRepair() {
     CHECK(engines.hitPoints == 0);
 }
 
+// Two ships closing head on are pushed apart before they meet, by what
+// they'd come within 1.4 seconds; one passing well clear isn't; the push
+// builds up from the last frame's. A way past two obstacles goes round
+// both in turn.
+void testAvoidance() {
+    using reluva::storm3d::Movement;
+    Movement::Ship ship;
+    ship.heading = 0; // along +z
+    ship.speed = 50;
+    const std::vector<Movement::Neighbour> oncoming = {{{5, 0, 100}, {0, 0, -50}, 20}};
+    const reluva::gfx::Vec3 first = Movement::avoid(ship, {0, 0, 0}, 20, oncoming);
+    CHECK(first[0] < 0);                       // away from the other, which is a little to the right
+    CHECK(std::fabs(first[0]) < 0.3f + 1e-4f); // only this frame's share yet
+    const reluva::gfx::Vec3 second = Movement::avoid(ship, {0, 0, 0}, 20, oncoming);
+    CHECK(second[0] < first[0]);
+    Movement::Ship clear;
+    clear.speed = 50;
+    const std::vector<Movement::Neighbour> far = {{{300, 0, 100}, {0, 0, -50}, 20}};
+    CHECK(Movement::avoid(clear, {0, 0, 0}, 20, far)[0] == 0);
+
+    const auto way = Movement::routeAround({0, 0, 0}, {0, 0, 1000}, {{{10, 0, 300}, 50}, {{-10, 0, 700}, 50}}, 10);
+    CHECK(way.size() == 2 && way[0][2] < way[1][2]);
+    // Each passed on the side away from it: the second, at x -10, is right
+    // of the way from the first detour, so passed on its left too.
+    CHECK(way[0][0] < -10 && way[1][0] < -60);
+}
+
 // The original's destroyer: within its reach of 250 it held; its target
 // flown to 300 away, it flew to the edge of its reach on the way.
 void testChase() {
@@ -742,6 +769,7 @@ static const reluva::test::Suite
                                     {"specials", [](const std::filesystem::path &) { testSpecials(); }},
                                     {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
                                     {"boarding", [](const std::filesystem::path &) { testBoardingAndRepair(); }},
+                                    {"avoidance", [](const std::filesystem::path &) { testAvoidance(); }},
                                     {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                     {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                     {"combat", [](const std::filesystem::path &) { testCombat(); }},

@@ -78,6 +78,32 @@ from the group's middle *(guessed)*.
 - **Flying:** `Movement` holds a ship's place, heading, speed, goal and
   way, and steps it by the rules above each twentieth of a second;
   `MapScene::moveUnit` turns and moves its model, ring and box.
+- **Keeping clear,** by `RTS_CFG.h`'s collision avoidance and pathing
+  settings:
+  - **the way,** set as a ship's sent, goes round each standing unit,
+    asteroid field and black hole it would come too near, nearest first,
+    each on the side away from it and on from there. An asteroid field
+    is kept its `fieldRadius` and 150 off (`ASTEROID_BELT_PATHING_DISTANCE`:
+    a belt costs 201 to path through, over the 200 nothing paths into),
+    a black hole half again its size (`BLACKHOLE_PATHING_SAFETY_COEFFICIENT`,
+    impassable). Nebulae, which cost 198, are flown through
+    *(guessed)*: the settings price them, but the planner that uses the
+    prices (a quadtree of cells 50 to `HIGHEST_QUADTREE_GRID_RESOLUTION`)
+    isn't made;
+  - **as it flies,** each moving ship looks 1.4 seconds ahead
+    (`COLLISION_LOOK_AHEAD_TIME`) for any other unit it would come within
+    1.2 times their sizes together of (`COLLISION_SAFETY_MARGIN`, their
+    rings' half sides), and is pushed away from where it would be by how
+    far inside it comes, the push 0.7 last frame's and 0.3 this one's
+    (`OLD_AVOIDANCE_FORCE_WEIGHT`), at its speed, or 10 a second at a
+    stop *(guessed: how the push moves it)*. It's pushed across the plane
+    only: `Y_REPULSION`'s climbing and diving waits on ships changing
+    height;
+  - **the map's edge:** ships and where they're sent kept 100 inside it
+    (`MAP_EDGE_BUFFER`).
+
+  `engine-shot` sent both construction ships to one point: they came to
+  it side by side, apart.
 
 ## Sources and checks
 
@@ -91,6 +117,10 @@ from the group's middle *(guessed)*.
   speeds, the way round, the click's point and a group's goals.
 
 ## Open questions
+
+- How the original's collision avoidance moves a ship by its push, and
+  its path planner over the quadtree with the terrain costs: whether a
+  nebula is gone round or through.
 
 - How the program steers: its `turnRadius`, `pathLeadDistance`,
   inertias and coefficients, and its path finding round more than one

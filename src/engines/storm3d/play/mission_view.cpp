@@ -168,13 +168,16 @@ Hud::Unit MissionView::displayOf(const std::string &odfName, const Odf::Loader &
 }
 
 void MissionView::sendTo(std::vector<Movement::Ship> &ships, const std::vector<MapScene::Unit> &units,
-                         const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point) {
+                         const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point,
+                         const std::vector<Movement::Obstacle> &fields) {
     // Ships keep the rings' half sides apart, as the original's way round
     // the starbase did.
     std::vector<Movement::Obstacle> standing;
     for (size_t i = 0; i < units.size(); ++i)
         if (i >= moves.size() || !moves[i])
             standing.push_back({ringMiddleOf(units[i]), ringHalfOf(units[i])});
+    // And the map's asteroid fields and black holes.
+    standing.insert(standing.end(), fields.begin(), fields.end());
     std::vector<size_t> going;
     gfx::Vec3 middle{};
     for (int i : selection)
@@ -1388,6 +1391,23 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
                  cover);
     _overview = startOf(parsed, slot);
     _slot = slot;
+    // What ships path round: RTS_CFG.h has asteroid belts too dear to path
+    // into, 150 kept from them (ASTEROID_BELT_PATHING_DISTANCE), and black
+    // holes impassable, half again their size kept (BLACKHOLE_PATHING_SAFETY_COEFFICIENT).
+    _fieldsInWay.clear();
+    for (const BznMap::Object &o : parsed.objects) {
+        Odf def;
+        if (def.load(o.odf + ".odf", loaderOf(_files.files())))
+            continue;
+        const std::string label = text::toLower(def.string("classLabel"));
+        if (label == "asteroidfield")
+            _fieldsInWay.push_back({o.position, float(def.number("fieldRadius")) + 150});
+        else if (label == "blackhole_obj")
+            if (auto box = _scene.boxOf(o.odf))
+                _fieldsInWay.push_back(
+                    {o.position,
+                     std::hypot(box->second[0] - box->first[0], box->second[2] - box->first[2]) / 2 * 1.5f});
+    }
     // The pods there are: what the starting units can build, and what that
     // can, on down. A special weapon a pod gives wants it researched.
     {
@@ -1957,7 +1977,7 @@ void MissionView::handleEvent(const Event &ev) {
         if (!_selection.empty() && size_t(_selection.front()) < _ships.size())
             if (auto point =
                     MapScene::pointOn(camera(), _ships[size_t(_selection.front())].at[1], ev.mouseX, ev.mouseY))
-                sendTo(_ships, _scene.units(), obeying(_selection), _moves, *point);
+                sendTo(_ships, _scene.units(), obeying(_selection), _moves, *point, _fieldsInWay);
         return;
     }
     if (_pressX >= 0 && (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseUp)) {
@@ -2318,9 +2338,30 @@ void MissionView::draw(uint64_t millis) {
     fight(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
+    // What each ship keeps clear of: every other unit standing, as it moves.
+    std::vector<Movement::Neighbour> everyone;
+    for (size_t j = 0; j < _ships.size() && j < _scene.units().size(); ++j) {
+        const Movement::Ship &o = _ships[j];
+        const bool moving = j < _physics.size() && _physics[j].has_value();
+        everyone.push_back(
+            {_scene.units()[j].middle(),
+             moving ? gfx::Vec3{std::sin(o.heading) * o.speed, 0, std::cos(o.heading) * o.speed} : gfx::Vec3{},
+             _dead[j] ? 0.0f : ringHalfOf(_scene.units()[j])});
+    }
+    const BznMap &area = _scene.map();
+    // RTS_CFG.h's MAP_EDGE_BUFFER: ships kept 100 inside the map.
+    auto inside = [&area](gfx::Vec3 &p) {
+        constexpr float kEdge = 100;
+        if (area.area[1] - area.area[0] > 2 * kEdge && area.area[5] - area.area[4] > 2 * kEdge) {
+            p[0] = std::clamp(p[0], area.area[0] + kEdge, area.area[1] - kEdge);
+            p[2] = std::clamp(p[2], area.area[4] + kEdge, area.area[5] - kEdge);
+        }
+    };
     for (size_t i = 0; i < _ships.size(); ++i) {
         if (!_physics[i] || (!_ships[i].goal && _ships[i].speed == 0))
             continue;
+        if (_ships[i].goal)
+            inside(*_ships[i].goal);
         // Its engines out, or held by a beam, it stops where it is.
         const bool held = std::any_of(_holds.begin(), _holds.end(), [i](const Hold &h) { return h.target == i; });
         const bool stopped =
@@ -2333,6 +2374,19 @@ void MissionView::draw(uint64_t millis) {
         const double pace = i < _effects.size() && active(_effects[i].slowed) ? 0.5 : 1.0;
         for (int s = 0; s < steps; ++s)
             Movement::step(_ships[i], *_physics[i], seconds * pace / steps);
+        // Steered clear of the others it'd come too near, across the plane
+        // (its climbing and diving, Y_REPULSION's part, isn't made), at its
+        // speed, or a crawl if it's slowing to a stop *(guessed)*.
+        std::vector<Movement::Neighbour> others;
+        for (size_t j = 0; j < everyone.size(); ++j)
+            if (j != i && everyone[j].radius > 0)
+                others.push_back(everyone[j]);
+        const gfx::Vec3 push =
+            Movement::avoid(_ships[i], _scene.units()[i].middle(), ringHalfOf(_scene.units()[i]), others);
+        const float pace2 = float(std::max(std::abs(_ships[i].speed), 10.0f) * seconds);
+        _ships[i].at[0] += push[0] * pace2;
+        _ships[i].at[2] += push[2] * pace2;
+        inside(_ships[i].at);
         if (!_ships[i].goal && std::abs(_ships[i].speed) < 0.01f)
             _ships[i].speed = 0;
         _scene.moveUnit(i, _ships[i].at, _ships[i].heading);

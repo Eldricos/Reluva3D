@@ -46,38 +46,96 @@ Movement::Physics Movement::physicsOf(const Odf &unit, const Odf::Loader &loader
     return p;
 }
 
+gfx::Vec3 Movement::avoid(Ship &ship, const gfx::Vec3 &middle, float radius, const std::vector<Neighbour> &others) {
+    constexpr float kLookAhead = 1.4f;
+    constexpr float kMargin = 1.2f;
+    constexpr float kRepulsionY = 0.5f;
+    constexpr float kOldWeight = 0.7f;
+    const gfx::Vec3 velocity{std::sin(ship.heading) * ship.speed, 0, std::cos(ship.heading) * ship.speed};
+    gfx::Vec3 push{};
+    for (const Neighbour &n : others) {
+        // When they're nearest within the look ahead, and how near.
+        gfx::Vec3 gap{};
+        gfx::Vec3 closing{};
+        float closingSquared = 0;
+        float along = 0;
+        for (size_t k = 0; k < 3; ++k) {
+            gap[k] = middle[k] - n.middle[k];
+            closing[k] = velocity[k] - n.velocity[k];
+            closingSquared += closing[k] * closing[k];
+            along += gap[k] * closing[k];
+        }
+        const float t = closingSquared > 1e-6f ? std::clamp(-along / closingSquared, 0.0f, kLookAhead) : 0.0f;
+        gfx::Vec3 then{};
+        float d = 0;
+        for (size_t k = 0; k < 3; ++k) {
+            then[k] = gap[k] + closing[k] * t;
+            d += then[k] * then[k];
+        }
+        d = std::sqrt(d);
+        const float clear = (radius + n.radius) * kMargin;
+        if (d >= clear)
+            continue;
+        // Away from where it'll be, by how far inside it comes; straight
+        // aside if they'd meet head on.
+        const float by = (clear - d) / clear;
+        if (d < 1e-3f) {
+            then = {std::cos(ship.heading), 0, -std::sin(ship.heading)};
+            d = 1;
+        }
+        push[0] += then[0] / d * by;
+        push[1] += then[1] / d * by * kRepulsionY;
+        push[2] += then[2] / d * by;
+    }
+    for (size_t k = 0; k < 3; ++k)
+        ship.avoiding[k] = ship.avoiding[k] * kOldWeight + push[k] * (1 - kOldWeight);
+    return ship.avoiding;
+}
+
 std::vector<gfx::Vec3> Movement::routeAround(const gfx::Vec3 &from, const gfx::Vec3 &to,
                                              const std::vector<Obstacle> &obstacles, float radius) {
-    const float dx = to[0] - from[0];
-    const float dz = to[2] - from[2];
-    const float length = std::hypot(dx, dz);
-    if (length < 1e-3f)
-        return {};
-    const float ux = dx / length;
-    const float uz = dz / length;
-    const Obstacle *nearest = nullptr;
-    float nearestAlong = 0;
-    float side = 0;
-    for (const Obstacle &o : obstacles) {
-        const float ox = o.middle[0] - from[0];
-        const float oz = o.middle[2] - from[2];
-        const float along = ox * ux + oz * uz;
-        const float across = ox * uz - oz * ux; // > 0: the obstacle is to the right of the way
-        if (along <= 0 || along >= length || std::abs(across) >= o.radius + radius)
-            continue;
-        if (!nearest || along < nearestAlong) {
-            nearest = &o;
-            nearestAlong = along;
-            side = across;
+    // Past the first obstacle in the way, then on from there past the next,
+    // each once.
+    std::vector<gfx::Vec3> route;
+    std::vector<bool> passed(obstacles.size(), false);
+    gfx::Vec3 at = from;
+    for (size_t turn = 0; turn < obstacles.size(); ++turn) {
+        const float dx = to[0] - at[0];
+        const float dz = to[2] - at[2];
+        const float length = std::hypot(dx, dz);
+        if (length < 1e-3f)
+            break;
+        const float ux = dx / length;
+        const float uz = dz / length;
+        size_t nearest = obstacles.size();
+        float nearestAlong = 0;
+        float side = 0;
+        for (size_t i = 0; i < obstacles.size(); ++i) {
+            const Obstacle &o = obstacles[i];
+            const float ox = o.middle[0] - at[0];
+            const float oz = o.middle[2] - at[2];
+            const float along = ox * ux + oz * uz;
+            const float across = ox * uz - oz * ux; // > 0: the obstacle is to the right of the way
+            if (passed[i] || along <= 0 || along >= length || std::abs(across) >= o.radius + radius)
+                continue;
+            if (nearest == obstacles.size() || along < nearestAlong) {
+                nearest = i;
+                nearestAlong = along;
+                side = across;
+            }
         }
+        if (nearest == obstacles.size())
+            break;
+        // Out from it square to the way, on the side away from it.
+        const Obstacle &o = obstacles[nearest];
+        const float out = (o.radius + radius) * kRoundOut;
+        const float nx = side >= 0 ? -uz : uz;
+        const float nz = side >= 0 ? ux : -ux;
+        at = gfx::Vec3{o.middle[0] + nx * out, from[1], o.middle[2] + nz * out};
+        route.push_back(at);
+        passed[nearest] = true;
     }
-    if (!nearest)
-        return {};
-    // Out from it square to the way, on the side away from it.
-    const float out = (nearest->radius + radius) * kRoundOut;
-    const float nx = side >= 0 ? -uz : uz;
-    const float nz = side >= 0 ? ux : -ux;
-    return {gfx::Vec3{nearest->middle[0] + nx * out, from[1], nearest->middle[2] + nz * out}};
+    return route;
 }
 
 void Movement::step(Ship &ship, const Physics &physics, double seconds) {
