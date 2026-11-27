@@ -1385,6 +1385,35 @@ void testMeld() {
     CHECK(screen.melded() == -1 && s.items[0].energy < 1.0f);
 }
 
+void testTeamBar() {
+    // Ann, Bea and Cy on the bar, 66 apart; Bea taken off the team, Cy
+    // moves up into her slot.
+    MemoryArchive data;
+    data.files["Cache/Interface/Screens/Team Bar/Background.frm16"] = solidFrame(60, 300, 0x001f);
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=640,480\n"
+                          "Team Pos=0,0\nTeam Icon Spacing=66\n}\n}\n",
+                          rules));
+    TeamMember ann;
+    ann.firstName = "Ann";
+    TeamMember bea;
+    bea.firstName = "Bea";
+    TeamMember cy;
+    cy.firstName = "Cy";
+    GameHud hud(data, rules, {ann, bea, cy}, "", 1000, 1000);
+    const auto click = [&](int y) {
+        Event ev;
+        ev.type = EventType::kMouseDown;
+        ev.button = MouseButton::kLeft;
+        ev.mouseX = 10;
+        ev.mouseY = y;
+        return hud.handleEvent(ev, 0).select;
+    };
+    CHECK(click(70) == 1 && click(140) == 2);
+    hud.setOnTeam({true, false, true});
+    CHECK(click(10) == 0 && click(70) == 2 && click(140) == -1);
+}
+
 void testFullInventory() {
     // The bar with two places: a phaser, and two grenades. Right-clicked,
     // the second place's both show over it; a click on one chooses it, and
@@ -2978,6 +3007,7 @@ static const reluva::test::Suite
                {"meld", [](const std::filesystem::path &) { testMeld(); }},
                {"maps", [](const std::filesystem::path &) { testMaps(); }},
                {"interface", [](const std::filesystem::path &) { testInterface(); }},
+               {"team bar", [](const std::filesystem::path &) { testTeamBar(); }},
                {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},

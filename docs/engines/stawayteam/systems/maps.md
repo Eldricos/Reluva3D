@@ -1095,8 +1095,9 @@ A character added to the team (`ui/map_mission.cpp`) becomes an officer
 where they stand: the roster's of their name, or one made of their part,
 its model their body *(inferred)*; their part's gone, its AI with it,
 and they're on the team bar, and on the mission's other maps as away
-from them *(inferred)*. Taken off the team, they stay on the map, a
-part of it in their place: their name, body and head, where they stood
+from them *(inferred)*. Taken off the team (`0x57ada0`, `0x5bea30`),
+they're taken off the team bar, those under them moving up
+(`0x5b7060`), and stay on the map, a part of it in their place: their name, body and head, where they stood
 and facing their way, with the AIs given them before (`$Instigator`
 of the action taking them off is that part after). So Mission 13's
 hostages, laid out by a temporary task's `dead`, have a process each for
@@ -1211,8 +1212,7 @@ numbers aren't the program's.
 Not there yet: the AIs'
 other messages and tasks (CSendMessageAction's to animations; the
 particle systems' are there, [particles.md](particles.md)), the enemies' own noises,
-thrown and laid weapons, and those off the team
-still on its bar.
+and thrown and laid weapons.
 
 ## Sources and checks
 

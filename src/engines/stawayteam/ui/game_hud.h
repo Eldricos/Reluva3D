@@ -137,8 +137,12 @@ public:
     void setVision(int state) { _vision = state; }
     /** Each officer's health, as a part of their whole (0-1). */
     void setHealth(std::vector<float> health) { _health = std::move(health); }
+    /** Which officers are on the team, on the bar in order; others left off it. */
+    void setOnTeam(std::vector<bool> onTeam) { _onTeam = std::move(onTeam); }
 
 private:
+    // The officer in the team bar's slot `slot`, from the top; -1 for none.
+    int officerInSlot(int slot) const;
     // The info bar's top on the screen at `now`: rising as it opens.
     int infoTop(uint64_t now);
     bool overInfoBar(int x, int y, uint64_t now);
@@ -170,6 +174,7 @@ private:
     int _move = 0;
     std::vector<bool> _chosen;
     std::vector<float> _health;
+    std::vector<bool> _onTeam;
     bool _listening = false;
     bool _paused = false;
     int _vision = 0;

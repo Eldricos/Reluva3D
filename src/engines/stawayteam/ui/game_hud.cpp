@@ -57,6 +57,14 @@ GameHud::GameHud(const Archive &data, const TextObject &rules, std::vector<TeamM
     (void)_font.load(data, "Trek Small");
 }
 
+int GameHud::officerInSlot(int slot) const {
+    for (size_t i = 0; i < _team.size() && slot >= 0; ++i)
+        if (i >= _onTeam.size() || _onTeam[i])
+            if (slot-- == 0)
+                return int(i);
+    return -1;
+}
+
 void GameHud::addMember(const TeamMember &member) {
     _team.push_back(member);
     _heads.push_back(cachePicture(_data, "Character/Character Icons/" + member.headIcon));
@@ -255,8 +263,9 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
         int iy = 0;
         readPoint(_custom, "Team Icon Pos", ix, iy);
         const int spacing = number(_custom, "Team Icon Spacing", 66);
-        const int i = spacing > 0 ? (ev.mouseY - ty) / spacing : -1;
-        if (i >= 0 && i < int(_team.size()))
+        const int slot = spacing > 0 ? (ev.mouseY - ty) / spacing : -1;
+        const int i = officerInSlot(slot);
+        if (i >= 0)
             r.select = i;
     }
     if (overInfo && _minimap.w && _mapW > 0 && _mapH > 0) {
@@ -359,9 +368,14 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     readPoint(_custom, "Team Field Offset", fieldX, fieldY);
     readPoint(_custom, "Team Health Offset", healthX, healthY);
     const int spacing = number(_custom, "Team Icon Spacing", 66);
+    // Those taken off the team are taken off the bar, the rest moving up
+    // (0x5bea57, 0x5b7060).
+    int slot = 0;
     for (size_t i = 0; i < _team.size(); ++i) {
+        if (i < _onTeam.size() && !_onTeam[i])
+            continue;
         const int x = tx + iconX;
-        const int y = ty + iconY + int(i) * spacing;
+        const int y = ty + iconY + slot++ * spacing;
         image::blit(screen, picture("Team Bar/Member Background"), x - iconX, y - iconY);
         if (int(i) == selected || (i < _chosen.size() && _chosen[i])) {
             // The chosen officer's slot lit (inferred).

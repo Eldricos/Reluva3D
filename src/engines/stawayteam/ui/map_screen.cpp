@@ -1482,6 +1482,10 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (const Officer &o : _officers)
         health.push_back(o.maxHealth > 0.0f ? o.health / o.maxHealth : 1.0f);
     _hud->setHealth(health);
+    std::vector<bool> onTeam;
+    for (const Officer &o : _officers)
+        onTeam.push_back(o.standIn < 0);
+    _hud->setOnTeam(onTeam);
     _hud->setListening(_listening);
     _hud->setPaused(_paused);
     if (_selected >= 0) {
