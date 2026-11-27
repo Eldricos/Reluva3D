@@ -32,12 +32,20 @@ The engine's, `sith.engine`, on Jedi Knight's files.
 | `release` | The release recognised, its CD and Jedi Knight's CD 2 found, its 13 music tracks |
 | `formats` | Every file in the archives decoded, each kind as a checksum; the two materials the game can't load either failing |
 | `movies` | Every cut scene's frames, palettes, sound and subtitle numbers, as a checksum |
+| `start` | The retail `JKM.EXE` run in the emulator from a new state for 30 seconds, the opening skipped, until it waits at *New Player*: its checks of Jedi Knight's CD 2 and its own (its `InstallData` written), the files it opens, its registry writes and debug output, as a checksum |
+| `level` | The same with a player made (`mara`), *Single Player* and *New Game* clicked at set seconds, and `-skim`: the opening and the first level's cut scenes reached, the level ended by its cheat, and every file opened up to the second level, `s1l2_astcrust.jkl` |
+
+Like Jedi Knight's, the two host steps record only what a run decides
+itself: past the level a step stops at, neither the levels and cut
+scenes reached nor the debug output count, so a faster or slower machine
+gives the same record (the four host steps, Jedi Knight's and these,
+passed run side by side on four cores).
 
 ### What the automated checks don't cover
 
-Running the game: the CD checks, its cut scenes, levels and music,
-saves, the graphics card, multiplayer, by hand with `reluva-tool sith
-host`, and the whole episode skimmed with `-skim`
+Beyond the first level, running the game: its cut scenes, levels and
+music, saves, the graphics card and multiplayer, by hand with
+`reluva-tool sith host`, and the whole episode skimmed with `-skim`
 ([Last checked](#last-checked)).
 
 ## A playthrough by hand

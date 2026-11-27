@@ -39,7 +39,8 @@ With your own copy, `RELUVA_JK=<the install> ctest --test-dir build -L
 gamedata`, both CDs' copies in the install (`cd1`, `cd2`) or beside it,
 with their music for the `release` step's. Without the variable, the
 launcher's entry for the game is used.
-`tests/engines/sith/gamedata.cmake` runs `reluva-tool sith` commands on
+`tests/engines/sith/gamedata.cmake` (its host steps shared with Mysteries
+of the Sith's, in `gamedata_host.cmake`) runs `reluva-tool sith` commands on
 the game, one step each:
 
 | Step | What it runs |

@@ -86,4 +86,4 @@ reluva_add_gamedata_test(sith
     GAME mots
     ENV RELUVA_MOTS
     SCRIPT ${tests}/gamedata_mots.cmake
-    STEPS release formats movies)
+    STEPS release formats movies start level)

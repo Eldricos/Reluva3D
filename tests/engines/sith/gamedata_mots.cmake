@@ -18,6 +18,16 @@
 #            each kind as a checksum (sith formats -hash)
 #   movies   every cut scene's frames, palettes, sound and subtitle numbers
 #            decoded, each as a checksum (sith movies -all)
+#   start    the retail game run in the emulator from a new state until it
+#            waits at New Player: its checks of Jedi Knight's CD 2 and its
+#            own, the files it opens, its registry writes and its debug
+#            output (sith host -files)
+#   level    the same with a player made and New Game clicked, cut scenes
+#            skipped, into the rebels' base and through it by the cheat that
+#            ends a level: the cut scenes and levels reached, and every file
+#            opened, up to the second level (sith host -skim)
+# As for Jedi Knight, the host steps record only what a run decides
+# itself, the clicks at set seconds (gamedata_host.cmake).
 #
 # The records, in tests/engines/sith/data/gamedata/mots-<release>/<step>.txt,
 # hold only counts, names of the game's files and checksums. Records so
@@ -27,6 +37,7 @@
 # (cmake/ReluvaGamedata.cmake).
 
 include("${HELPERS}")
+include("${CMAKE_CURRENT_LIST_DIR}/gamedata_host.cmake")
 gamedata_begin("the game's install, as Import Game... makes it")
 
 run_tool(detected detect "${game_dir}")
@@ -65,6 +76,12 @@ elseif(STEP STREQUAL "formats")
     set(record "${record}formats: ${sum} | ${failures} failing, as in the game\n")
 elseif(STEP STREQUAL "movies")
     record_run(movies "S5L3ECS\\.SAN" sith movies "${game_dir}" -all)
+elseif(STEP STREQUAL "start")
+    record_host(start 30 "" -keys "4:esc")
+elseif(STEP STREQUAL "level")
+    # A player "mara" made at New Player, then Single Player and New Game.
+    record_host(level 95 "s1l2_astcrust\\.jkl" -skim
+        -keys "4:esc,10:m,10.3:a,10.6:r,10.9:a,12:enter,16:click318x217,20:click295x108")
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")
 endif()

@@ -1,0 +1,2 @@
+start: b72989e60f67bd6e | 1167 files opened
+start.reached: cut scene jkmintro.san
