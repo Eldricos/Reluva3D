@@ -96,9 +96,9 @@ from the group's middle *(guessed)*.
     rings' half sides), and is pushed away from where it would be by how
     far inside it comes, the push 0.7 last frame's and 0.3 this one's
     (`OLD_AVOIDANCE_FORCE_WEIGHT`), at its speed, or 10 a second at a
-    stop *(guessed: how the push moves it)*. It's pushed across the plane
-    only: `Y_REPULSION`'s climbing and diving waits on ships changing
-    height;
+    stop *(guessed)*: how the push moves it isn't known. It's pushed
+    across the plane only: `Y_REPULSION`'s climbing and diving waits on
+    ships changing height;
   - **the map's edge:** ships and where they're sent kept 100 inside it
     (`MAP_EDGE_BUFFER`).
 
@@ -121,7 +121,6 @@ from the group's middle *(guessed)*.
 - How the original's collision avoidance moves a ship by its push, and
   its path planner over the quadtree with the terrain costs: whether a
   nebula is gone round or through.
-
 - How the program steers: its `turnRadius`, `pathLeadDistance`,
   inertias and coefficients, and its path finding round more than one
   obstacle, or round other ships.
