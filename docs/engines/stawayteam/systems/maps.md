@@ -1020,7 +1020,9 @@ them) and shots are silent to the others; an action's noise
   tail (`+0x104`) and head (`+0x10c`, `0x5361a0`). Each update
   (`0x535c00`) its head goes on at 1500 a second (`0x6283cc`) while it's
   growing (`+0xec`), its length (`+0x114`) with it, till that reaches its
-  furthest (`+0x118`) or it meets someone, where its head stops
+  furthest (`+0x118`, `0x5c98a5`: the weapon's slot `0xa4`, an energy
+  weapon's `Item Range`, a quarter more while it's enhanced, `0x5cdf00`)
+  or it meets someone, where its head stops
   (`0x535e5c`); when its time's out it stops growing and its tail
   (`+0xed`) follows as fast; at no length it's deleted (`0x535d4d`),
   with the two sprites it keeps at its ends (`0x5361e0`): its `Starting
@@ -1572,9 +1574,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Drawing order:** where the `Trans` and `Warped` polygons not on
   the ground are drawn.
 - **The triggers:** where a thrown thing comes in the grid's search.
-- **Fighting:** the beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
-  shooter's slot `0xa4` gives); a strike's flashes; stunning, death,
-  and the mouse for attacking.
+- **Fighting:** a strike's flashes; stunning, death, and the mouse for
+  attacking.
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.

@@ -76,9 +76,8 @@ None now.
   new officer in its place rather than kept as the same one, and rescues
   failing as their character's killed
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **The beams:** where they start and end on the shooter and the one
-  shot, and how long they're shown
-  ([systems/maps.md](systems/maps.md#open-questions)).
+- **The beams:** their way, toward the one shot as high on them as the
+  muzzle ([systems/maps.md](systems/maps.md#open-questions)).
 - **The score and saves:** the save screens' rows, time and game info
   ([systems/objectives.md](systems/objectives.md#open-questions),
   [systems/menus.md](systems/menus.md#open-questions)).

@@ -263,7 +263,8 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
     // (Forward Position along the way they face, Lateral Position across
     // it, Height up) toward the target as high on them (inferred), its head
     // going out at 1500 a second, stopping where its bolt meets someone or
-    // a wall, or at its reach (the weapon's range, inferred); after its
+    // a wall, or at its reach: the weapon's Item Range, a quarter more
+    // for an enhanced shooter (0x5c98a5, the item's 0x5cdf00); after its
     // Shot Duration its tail follows at the same pace, and it's gone when
     // that catches up (0x535c00).
     const float dx = tx - x;
@@ -283,7 +284,7 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
             b.ux = bx / along;
             b.uy = by / along;
             b.lift = weapon.height;
-            b.reach = std::max(weapon.range, along);
+            b.reach = weapon.range * enhancement(instigator);
             b.left = weapon.shotDuration > 0.0f ? weapon.shotDuration : kBeamTime;
             b.outside = weapon.beamOutside;
             b.middle = weapon.beamMiddle;
@@ -293,7 +294,6 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
             _beams.push_back(b);
         }
     }
-    (void)instigator;
     const Animation &a = animation(model, weapon.dischargeSequence.empty() ? "Shoot1" : weapon.dischargeSequence);
     const int per = a.perDirection();
     return per > 0 && a.fps > 0.0f ? float(per) / a.fps : weapon.shotDuration;

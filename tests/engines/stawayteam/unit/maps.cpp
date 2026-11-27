@@ -3359,6 +3359,8 @@ void testBeams() {
     const MapScreen::Beam &b = screen.beams()[0];
     CHECK(b.x0 == 320.0f && b.y0 == 300.0f - 5.0f - 30.0f && b.x1 < 500.0f);
     CHECK((b.outside == std::array<uint8_t, 3>{255, 83, 0}) && (b.middle == std::array<uint8_t, 3>{255, 255, 0}));
+    // Its head's furthest the phaser's Item Range (0x5c98a5, 0x5cdf00).
+    CHECK(b.reach == 375.0f);
     // Its head stops on the guard, the bolt meeting him; its tail stays at
     // the muzzle for its Shot Duration.
     const uint64_t shot = now;
