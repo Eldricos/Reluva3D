@@ -1109,6 +1109,15 @@ void MissionView::fight(double seconds) {
     runEffects(seconds);
     runCrew(seconds);
     runDecommissions(seconds);
+    // Settled? Checked each frame, as the original's (0x43d6d9).
+    if (!_settledAt && !_players.empty()) {
+        std::set<int> standing;
+        for (size_t i = 0; i < _scene.units().size() && i < _dead.size(); ++i)
+            if (!_dead[i])
+                standing.insert(_scene.units()[i].slot);
+        if (settled(_players, standing, _alliedVictory))
+            _settledAt = double(_last) / 1000;
+    }
     // A detector's sight wears off; a cloaked unit seen shows meanwhile.
     std::erase_if(_revealedUntil, [now](const auto &r) { return now >= r.second; });
     for (size_t i = 0; i < count && i < _cloaked.size(); ++i)
@@ -2102,6 +2111,7 @@ void MissionView::stop() {
     _players.clear();
     _tallies.clear();
     _surrendered = false;
+    _settledAt.reset();
     _menuWanted = false;
     _targeting = false;
     _slot = -1;
@@ -2511,29 +2521,36 @@ void MissionView::moveMines(double seconds) {
             destroy(k, by);
 }
 
+bool MissionView::settled(const std::vector<Player> &players, const std::set<int> &standing, bool alliedVictory) {
+    // Every two players with a unit allied both ways, each with Allied
+    // Victory on; a player's team is who they're allied with.
+    std::optional<int> team;
+    int left = 0;
+    for (const Player &p : players) {
+        if (!standing.count(p.slot))
+            continue;
+        ++left;
+        if (team && *team != p.team)
+            return false;
+        team = p.team;
+    }
+    return left <= 1 || alliedVictory;
+}
+
 MissionView::Ending MissionView::ending() const {
     if (_players.empty())
         return Ending::kNone;
     if (_surrendered)
         return Ending::kLost;
-    // A player is out with nothing left: every unit of theirs destroyed
-    // (whether the original counts its freighters isn't known).
-    auto standing = [this](int slot) {
-        for (size_t i = 0; i < _scene.units().size() && i < _dead.size(); ++i)
-            if (_scene.units()[i].slot == slot && !_dead[i])
-                return true;
-        return false;
-    };
-    int team = -1;
-    for (const Player &p : _players)
-        if (p.human)
-            team = p.team;
-    if (!standing(_slot))
-        return Ending::kLost;
-    for (const Player &p : _players)
-        if (p.team != team && standing(p.slot))
-            return Ending::kNone;
-    return Ending::kWon;
+    // The session ends 3 seconds after (0x5bdbf4); the original's debriefing
+    // came within 4 seconds of the player's last unit going.
+    constexpr double kSettledDelay = 3;
+    if (!_settledAt || double(_last) / 1000 < *_settledAt + kSettledDelay)
+        return Ending::kNone;
+    for (size_t i = 0; i < _scene.units().size() && i < _dead.size(); ++i)
+        if (_scene.units()[i].slot == _slot && !_dead[i])
+            return Ending::kWon;
+    return Ending::kLost;
 }
 
 void MissionView::drawScreen(const Surface &screen, uint64_t millis) {

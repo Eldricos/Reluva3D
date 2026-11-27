@@ -591,6 +591,25 @@ void testCombat() {
 
 // The computer player's build list: read as the game's, and its next
 // entry the first not yet met, counting each type's entries together.
+void testSettled() {
+    using reluva::storm3d::MissionView;
+    std::vector<MissionView::Player> players(3);
+    for (int k = 0; k < 3; ++k)
+        players[size_t(k)].slot = k + 1;
+    players[0].team = 0;
+    players[1].team = 1;
+    players[2].team = 1;
+    // The player out with two others still fighting: not settled.
+    CHECK(!MissionView::settled(players, {2, 3}, false));
+    // The two left on one team: settled with Allied Victory, not without.
+    CHECK(MissionView::settled(players, {2, 3}, true));
+    players[2].team = 2;
+    CHECK(!MissionView::settled(players, {2, 3}, true));
+    // One player left, or none.
+    CHECK(MissionView::settled(players, {3}, false));
+    CHECK(MissionView::settled(players, {}, false));
+}
+
 void testBuildList() {
     using reluva::storm3d::ComputerPlayer;
     // Round a moon (5927, 960) whose station must stand 300 off: the
@@ -887,6 +906,7 @@ static const reluva::test::Suite
                                     {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                     {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                     {"combat", [](const std::filesystem::path &) { testCombat(); }},
+                                    {"settled", [](const std::filesystem::path &) { testSettled(); }},
                                     {"build list", [](const std::filesystem::path &) { testBuildList(); }},
                                     {"stances", [](const std::filesystem::path &) { testStances(); }},
                                     {"strategy", [](const std::filesystem::path &) { testStrategy(); }},

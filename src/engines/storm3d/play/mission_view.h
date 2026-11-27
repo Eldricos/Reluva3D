@@ -283,10 +283,20 @@ public:
     const std::vector<Player> &players() const { return _players; }
     const std::map<int, Tally> &tallies() const { return _tallies; }
     /**
-     * Whether it's over for the player: lost once they've surrendered or
-     * have no units left; won once no other team has any.
+     * Whether it's over for the player: lost once they've surrendered;
+     * otherwise, 3 seconds after the game is settled (settled()), won if
+     * they still have a unit, else lost (0x43d6d9).
      */
     Ending ending() const;
+    /**
+     * Whether a skirmish is settled, as the original checks each frame
+     * (0x43d6d9): every two players still having a unit are on one team and
+     * have Allied Victory, so one player left, or one team with it.
+     * @param standing the players' slots that still have a unit
+     */
+    static bool settled(const std::vector<Player> &players, const std::set<int> &standing, bool alliedVictory);
+    /** Whether players on a team win together (the Game Setup's Teams), else only a player alone. */
+    void setAlliedVictory(bool on) { _alliedVictory = on; }
     /** The player gives up. */
     void surrender() { _surrendered = true; }
     /** Whether the MENU button was clicked since this was last asked (it's then forgotten). */
@@ -467,6 +477,8 @@ private:
     std::vector<Player> _players;
     std::map<int, Tally> _tallies; // by slot
     bool _surrendered = false;
+    bool _alliedVictory = true;
+    std::optional<double> _settledAt; // the game's seconds when it was settled
     bool _menuWanted = false;
     bool _targeting = false;   // the attack button pressed: the next click picks the target
     uint32_t _roll = 12345;    // the shots' damage rolls

@@ -352,9 +352,26 @@ mission's script calls `FailMission` or `SucceedMission` (0x431f40,
 comes (0x401c00), sets the program's state, 0 lost or 1 won, as
 Surrender and Abort Mission set it 2 (0x537cf3, 0x537d40) and the
 `kobayashimaru` cheat 1 (0x4a372a). In the run the state was never
-set: it stayed 3, in play, to the debriefing, so the skirmish's end is
-some other check, not yet found. After a game, states 0 to 2 lead to the
-debriefing (0x546170).
+set: it stayed 3, in play, to the debriefing. After a game, states 0 to
+2 lead to the debriefing (0x546170).
+
+A skirmish ends otherwise, by a check made every frame while the game's
+session plays (0x43d6d9) *(from the code)*:
+
+- **A player is in** while any object of theirs stands, ships,
+  stations, freighters alike (but those flagged at +0x4dc).
+- **It's settled** when every two players in are allied both ways
+  (0x446b00) and both have Allied Victory on (the COMM panel's,
+  0x4a1ba0): one player left, or one alliance with it on. A player out
+  while two others fight on doesn't end it.
+- **Three seconds after** (0x5bdbf4), the session ends (its virtual
+  0x4c5d60, state 5, ending the play loop at 0x4c4570), and the
+  debriefing follows, as Surrender's does.
+
+Each player's Allied Victory starts as the setup's alliance mode says
+(0x4a01e2): in one, on for all and not to be turned off; in the other,
+off and the COMM panel's to tick. That the first is Teams and the
+second Alliances is *(inferred)*.
 
 The debriefing counted the two ships under the player's "Lost" and
 their "Destroyed" too, the computer, which destroyed them, 0; the
@@ -445,11 +462,10 @@ before and after each ([camera.md](camera.md#the-overview)):
 - **Ending a skirmish:** the MENU button, or Esc, opens the menu over the
   paused game, as above; its settings open the settings screens, and
   Return to Game or Esc goes back. Surrender opens the debriefing, as
-  does the end: the player lost once they've no unit left, as the
-  original's did, at once, or won once no player on another team has
-  any *(guessed: the win wasn't seen, nor a loss with others still
-  playing; whether it counts freighters, or Allied Victory's part,
-  isn't known)*. Abort Mission asks first, in the original's box, and
+  does the end: 3 seconds after the game is settled, as the original's
+  check has it, won if the player has a unit left, else lost
+  (`MissionView::settled`). Teams, as the setup starts, gives Allied
+  Victory to all; Alliances to none, there being no COMM panel yet. Abort Mission asks first, in the original's box, and
   its Yes opens the debriefing, as the original's did. The debriefing
   counts each player's dilithium brought in by freighters and spent
   (given back as a build is cancelled), the ships and stations they
@@ -511,9 +527,9 @@ before and after each ([camera.md](camera.md#the-overview)):
   the input's clock, and the frames fall between.
 - How long the program waits on its first frame of play, and what the
   cut scene's camera follows.
-- What ends the original's skirmish (not the program's state, above)
-  and what counts: a win, a loss with others still playing, whether a
-  player with ships but no stations, or freighters only, is out.
+- What the objects flagged at +0x4dc are, which don't keep a player
+  in; and which of the setup's alliance modes turns Allied Victory on
+  for all.
 - Whether the fog, over what's been seen, hides the asteroid fields and
   nebulae (the shroud hides both: the original's view over a field and
   a nebula never seen was its grey alone, as Reluva's), and what of an

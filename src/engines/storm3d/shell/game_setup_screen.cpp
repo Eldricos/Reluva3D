@@ -37,6 +37,7 @@ constexpr int kBulletX = 15;
 constexpr size_t kShroudOption = 18; // into options()
 constexpr size_t kPlacementOption = 16;
 constexpr size_t kTechOption = 8;
+constexpr size_t kAlliancesOption = 9;
 constexpr float kBullet = 20;
 constexpr std::array<uint8_t, 3> kTaken = {25, 24, 25};
 // Arial Bold as the game asks GDI for it, fitted to the frame's text: 12
@@ -206,6 +207,10 @@ bool GameSetupScreen::randomPlacement() const {
 
 int GameSetupScreen::techLevel() const {
     return _values[kTechOption];
+}
+
+bool GameSetupScreen::teams() const {
+    return _values[kAlliancesOption] == 0;
 }
 
 int GameSetupScreen::randomSide(int roll) {

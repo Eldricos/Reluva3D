@@ -544,6 +544,7 @@ public:
                 if (!more) {
                     loading.stop();
                     loadingOn = false;
+                    mission.setAlliedVictory(setup.teams());
                     Error err = skirmish.empty() ? mission.start(renderer3D, single.mission(), 1, -1, now)
                                                  : mission.startSkirmish(renderer3D, setup.map(), skirmish,
                                                                          {shroud, fog}, start, now, setup.techLevel());
