@@ -247,13 +247,13 @@ void MapScreen::attack(int enemy) {
 
 float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty,
                        int instigator) {
-    // Its Shot Sound; its Shot Flash where the shooter stands and its Hit
-    // Flash on the one hit (inferred: where on them, and the beam between,
-    // aren't traced).
+    // Its Shot Sound. A beam's flashes are on its ends (below); another's
+    // Shot Flash where the shooter stands and its Hit Flash on the one hit
+    // (inferred).
     if (_mixer)
         if (auto sound = gameSound(_data, weapon.shotSound))
             _mixer->play(sound, audio::SoundType::kEffects);
-    if (!weapon.shotFlash.empty())
+    if (!weapon.shotFlash.empty() && !weapon.beam)
         _flashes.push_back({weapon.shotFlash, x, y});
     // A strike's Hit Flash is on the one struck; a bolt's where it meets
     // someone.
@@ -288,6 +288,8 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
             b.outside = weapon.beamOutside;
             b.middle = weapon.beamMiddle;
             b.id = _pendingBeam = ++_beamIds;
+            b.shotFlash = weapon.shotFlash;
+            b.hitFlash = weapon.hitFlash;
             _beams.push_back(b);
         }
     }
@@ -663,7 +665,13 @@ void MapScreen::updateBolts(float seconds) {
                 hx = _enemies[size_t(kEnemyInstigator - hit)].x;
                 hy = _enemies[size_t(kEnemyInstigator - hit)].y;
             }
-            if (!bolt.weapon->hitFlash.empty())
+            // A beam's Ending Flash shows on its head (0x535e6e); else one
+            // where it meets them.
+            bool onBeam = false;
+            for (Beam &beam : _beams)
+                if (beam.id == bolt.beam)
+                    onBeam = beam.hit = true;
+            if (!onBeam && !bolt.weapon->hitFlash.empty())
                 _flashes.push_back({bolt.weapon->hitFlash, hx, hy});
             // A Team Member's bolt makes a noise of 200 for 1.5 seconds
             // where it meets someone (0x535ef4).
@@ -693,6 +701,7 @@ void MapScreen::updateCombat(float seconds) {
     updateBolts(seconds);
     for (Beam &b : _beams) {
         b.left -= seconds;
+        b.time += seconds;
         if (b.left > 0.0f)
             b.head = std::min(b.reach, b.head + kBoltSpeed * seconds);
         else

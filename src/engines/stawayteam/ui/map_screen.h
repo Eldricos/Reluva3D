@@ -355,6 +355,13 @@ public:
         float reach = 0.0f; // the furthest its head goes
         float left = 0.0f;  // seconds till its tail goes after its head
         int id = 0;
+        // Its Starting Flash (the weapon's Shot Flash) on its tail, and its
+        // Ending Flash (Hit Flash) on its head once it meets someone, both
+        // going round their frames; seconds it's been out.
+        std::string shotFlash;
+        std::string hitFlash;
+        bool hit = false;
+        float time = 0.0f;
     };
     const std::vector<Beam> &beams() const { return _beams; }
     /** A mine put down: arming, armed, or set off and about to go. */

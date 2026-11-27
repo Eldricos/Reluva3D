@@ -3319,6 +3319,8 @@ void testBeams() {
         screen.update(now += 50);
     CHECK(screen.beams().size() == 1);
     CHECK(std::abs(b.x1 - 500.0f) < 1.0f && std::abs(b.y1 - 270.0f) < 1.0f && b.x0 == 320.0f);
+    // Its Ending Flash shown on its head as it meets him (0x535e6e).
+    CHECK(b.hit);
     // Then its tail follows at the same pace, and it's gone.
     while (now < shot + 750)
         screen.update(now += 50);

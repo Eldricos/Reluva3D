@@ -347,6 +347,10 @@ void MapScreen::state(StateIo &s) {
              {&b.x0, &b.y0, &b.x1, &b.y1, &b.sx, &b.sy, &b.ux, &b.uy, &b.lift, &b.tail, &b.head, &b.reach, &b.left})
             s.io(*f);
         s.io(b.id);
+        s.io(b.shotFlash);
+        s.io(b.hitFlash);
+        s.io(b.hit);
+        s.io(b.time);
         colour(s, b.outside);
         colour(s, b.middle);
     });

@@ -957,7 +957,12 @@ them) and shots are silent to the others; an action's noise
   furthest (`+0x118`) or it meets someone, where its head stops
   (`0x535e5c`); when its time's out it stops growing and its tail
   (`+0xed`) follows as fast; at no length it's deleted (`0x535d4d`),
-  with the two sprites it keeps at its ends (`+0x120`, `+0x124`). A
+  with the two sprites it keeps at its ends (`0x5361e0`): its `Starting
+  Flash`, the weapon's Shot Flash (`+0x5c`), on its tail (`+0x120`),
+  shown from the start, and its `Ending Flash`, the Hit Flash
+  (`+0x11c`), on its head (`+0x124`), hidden till its head meets
+  someone (`0x535e6e`); each faces as the shooter does, 2 below its end,
+  and goes round its frames (`0x535fd2`). A
   `CEntityAnimatedLine` (`0x499b3e`) has its `Outside Color` and `Middle Color` (the line's
   own (205, 20, 25) without them, `0x499b66`), and is drawn as three lines
   (`0x499470`), the middle from `Start` to `End` in the Middle Color, and
@@ -1334,8 +1339,9 @@ weapon's beam is drawn as the program's bolt line: from its muzzle
 Height up) toward the target as high up *(inferred)*, as three lines,
 its head going out at 1500 a second and stopping where its bolt meets
 someone or a wall; after its Shot Duration its tail follows as fast and
-it's gone when that catches up. Its head's furthest is the weapon's
-range *(inferred)*.
+it's gone when that catches up, its Shot Flash going round on its tail
+and its Hit Flash on its head once it meets someone. Its head's
+furthest is the weapon's range *(inferred)*.
 A footstep plays its Default Sound where it has one (none do); the
 surfaces' sounds aren't looked up, none being given. An enemy
 hit runs its Damage Action, and with Target If Hit, not attacking, goes to look where whoever hit it is;
@@ -1503,8 +1509,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   character's made an officer.
 - **Fighting:** the bolt's hitting someone moving out of its way; the
   beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
-  shooter's slot `0xa4` gives); where on a character the flashes go;
-  stunning, death, and the mouse for attacking.
+  shooter's slot `0xa4` gives); a strike's flashes; stunning, death,
+  and the mouse for attacking.
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.

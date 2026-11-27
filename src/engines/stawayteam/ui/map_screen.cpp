@@ -1540,6 +1540,19 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             drawLine(view, b.x0 + px * float(side) - float(left), b.y0 + py * float(side) - float(top),
                      b.x1 + px * float(side) - float(left), b.y1 + py * float(side) - float(top), b.outside, kPlain);
         drawLine(view, b.x0 - float(left), b.y0 - float(top), b.x1 - float(left), b.y1 - float(top), b.middle, kPlain);
+        // Its flashes on its ends, 2 down, round their frames (0x5361e0,
+        // 0x535fd2).
+        const auto flash = [&](const std::string &model, float x, float y) {
+            const Animation &a = animation(model, "Idle");
+            const int frames = a.perDirection();
+            if (model.empty() || frames <= 0)
+                return;
+            const int frame = int(b.time * std::max(a.fps, 0.0f)) % frames;
+            blitBy(view, a.frame(frame, 0), int(std::lround(x)) - left, int(std::lround(y + 2.0f)) - top);
+        };
+        flash(b.shotFlash, b.x0, b.y0);
+        if (b.hit)
+            flash(b.hitFlash, b.x1, b.y1);
     }
     // The parts beamed away, their Warp Overlay Effect over them: its frames
     // a direction's worth after another, for Num Rotations directions; the
