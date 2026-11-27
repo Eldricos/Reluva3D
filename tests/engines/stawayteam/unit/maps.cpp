@@ -2303,7 +2303,10 @@ void testKit() {
         "Enter Action=CConditionalAction\n{\nTry Action=CCheckForItemAction\n{\nWho To Check=$Instigator\n"
         "Inventory Definition=Field\n}\nFail Action=CAssignTemporaryTaskAction\n{\nTarget=$Instigator\n"
         "Temporary Task AI=CDoNothingAI\n{\n}\n}\n}\n}\n}\nPosition X=900\nPosition Y=900\n}\n"
-        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n}\n}\n";
+        "Level Part=CEntityBase\n{\nName=Away Team Spawn Point 1\nPosition X=300\nPosition Y=300\n}\n"
+        "Level Part=CEntityBase\n{\nName=Console\nCategory=Electronic Equipment\nModel=Props/Box\n"
+        "Position X=1800\nPosition Y=1800\n}\n"
+        "Level Part=CEntityBase\n{\nName=Crate\nModel=Props/Box\nPosition X=1800\nPosition Y=1700\n}\n}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = bytesOf(zax);
     data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
@@ -2376,6 +2379,15 @@ void testKit() {
     CHECK(enemies[2].held == 15.0f && enemies[0].held == 0.0f && enemies[3].held == 0.0f);
     run(3000);
     CHECK(std::abs(enemies[2].held - 14.0f) < 0.01f);
+    // It reaches the parts of those categories that aren't enemies too,
+    // each its own $instigator: the console, not the crate.
+    TextObject off;
+    CHECK(!readTextObject("CDoOnAllWithinRadiusAction\n{\nTarget Entity=Camera\nWho To Affect=Electronic Equipment\n"
+                          "Name Filter=Console\nRadius=2000\nY To X Ratio=1\nTouching Action=CDeactivateAction\n{\n"
+                          "Target Name=$instigator\n}\n}\n",
+                          off));
+    screen.runAction(&off);
+    CHECK(!screen.partState(size_t(6)).active && screen.partState(size_t(7)).active);
     // Faded, she walks round in front of the watcher unseen.
     screen.order(700.0f, 420.0f);
     run(18000);

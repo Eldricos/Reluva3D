@@ -432,6 +432,9 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
             const int who = _hasTouched ? _touched : instigator;
             if (who >= 0 && size_t(who) < _officers.size() && _officers[size_t(who)].standIn >= 0)
                 return std::vector<size_t>{size_t(_officers[size_t(who)].standIn)};
+            // A part a radius's action reaches is its own instigator.
+            if (_hasTouched && _touched == kNobody && trigger >= 0)
+                return std::vector<size_t>{size_t(trigger)};
         }
         std::vector<size_t> parts = partsNamed(names, trigger);
         return parts;

@@ -45,9 +45,7 @@ None yet.
   messages aren't there; particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); a way's
   planned round closed doors, which don't stop one walking; the transporter's pictures aren't drawn
-  as enemies beam out; a
-  radius's action reaches only the officers and enemies in its
-  categories, not other parts; a walker goes straight along its way, not the way its
+  as enemies beam out; a walker goes straight along its way, not the way its
   direction's frames move
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the

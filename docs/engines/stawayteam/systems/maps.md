@@ -1135,8 +1135,9 @@ door's outline only if it's not locked and answers to the walker's kind,
 officers by Triggered By Players, enemies by Enemies; without a way,
 they don't go (inferred: the program's goes straight there). The messages
 above are acted on: told to look, one on patrol or looking goes there;
-given a target, it attacks them; a radius's action reaches the enemies in
-its oval, whose name has the filter in it *(inferred)*.
+given a target, it attacks them; a radius's action reaches the enemies,
+and the other parts of its categories, in its oval, a part its own
+`$Instigator` in the Touching Action.
 
 Fighting (`ui/map_combat.cpp`): sight is blocked by the outlines (`Bounds
 Poly`) of the parts shown that collide and stand full height, about

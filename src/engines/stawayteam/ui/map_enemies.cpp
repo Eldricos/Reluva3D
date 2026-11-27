@@ -580,6 +580,28 @@ bool MapScreen::runEnemyAction(const TextObject *action, int instigator, int tri
             if (dx * dx + dy * dy <= 1.0f)
                 touch(kEnemyInstigator - int(k), int(e.part));
         }
+        // And every other part of those categories (0x5758f2): the EM
+        // pulse's Electronic Equipment that isn't an enemy, each its own
+        // $Instigator.
+        if (!affects.empty() && rx > 0.0f && ry > 0.0f)
+            for (size_t part = 0; part < _map.parts.size(); ++part) {
+                const MapPart &p = _map.parts[part];
+                std::string partName = p.name;
+                for (char &c : partName)
+                    c = char(std::tolower(static_cast<unsigned char>(c)));
+                if (_enemyOfPart.count(part) || !_partStates[part].active || _partStates[part].deleted ||
+                    p.category.empty() || !inCategory(p.category, affects) ||
+                    std::find(ignored.begin(), ignored.end(), part) != ignored.end() ||
+                    (!filter.empty() && partName != filter))
+                    continue;
+                float px = 0.0f;
+                float py = 0.0f;
+                placeOf(part, px, py);
+                const float dx = (px - cx) / rx;
+                const float dy = (py - cy) / ry;
+                if (dx * dx + dy * dy <= 1.0f)
+                    touch(kNobody, int(part));
+            }
         runAction(action->object("Done Action"), instigator, trigger);
     } else {
         return false;
