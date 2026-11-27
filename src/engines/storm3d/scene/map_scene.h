@@ -223,6 +223,8 @@ public:
      */
     void drawShieldHit(size_t unit, const gfx::Vec3 &from, int frame, const std::array<float, 3> &colour,
                        const std::string &texture);
+    /** Gives a unit to another player, in their colour (one taken over). */
+    void setOwner(size_t unit, int slot, const std::optional<gfx::Vec3> &colour);
     /** Whether a unit is under its cloak: other players' don't see it (its own player does). */
     void setCloaked(size_t unit, bool cloaked);
     /** Whether a unit's damage emitters run (its fires). */

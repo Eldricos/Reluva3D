@@ -721,6 +721,17 @@ void MapScene::drawShieldHit(size_t unit, const gfx::Vec3 &from, int frame, cons
         _meshes.drawShieldHit(*built, place, from, frame, colour, texture);
 }
 
+void MapScene::setOwner(size_t unit, int slot, const std::optional<gfx::Vec3> &colour) {
+    if (unit >= _unitModels.size())
+        return;
+    _units[unit].slot = slot;
+    _units[unit].colour = colour;
+    _teams.resize(_placed.size());
+    _teams[_unitModels[unit].placed] = colour;
+    _hiding.resize(_placed.size());
+    _hiding[_unitModels[unit].placed].hides = slot != _cover.slot;
+}
+
 void MapScene::setCloaked(size_t unit, bool cloaked) {
     if (unit >= _unitModels.size())
         return;

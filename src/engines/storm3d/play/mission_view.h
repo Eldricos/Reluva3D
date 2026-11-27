@@ -340,14 +340,65 @@ private:
     std::vector<bool> _cloaked;               // as _targets: under its cloak
     std::map<size_t, double> _revealedUntil;  // a cloaked unit seen by a detector, until the game's seconds
     std::map<size_t, double> _selfDestructAt; // counting down, to the game's seconds
-    // A beam holding a unit still: whose, on what, until when, at what cost a second.
+    // A beam from a unit on another: what it does ("hold", "tow",
+    // "drainShields", "giveShields", "assimilate"), until when, at what cost
+    // a second, how far it reaches, and how much it moves a second.
     struct Hold {
         size_t unit = 0;
         size_t target = 0;
         double until = 0;
         float cost = 0;
         float range = 0;
+        std::string kind = "hold";
+        float rate = 0;
+        gfx::Vec3 offset{}; // a towed ship's place from its tower
     };
+    // What special weapons have done to a unit, each until the game's seconds.
+    struct Effects {
+        double enginesOff = 0;
+        double weaponsOff = 0;
+        double sensorsOff = 0;
+        double frozen = 0;       // neither moving nor firing
+        double slowed = 0;       // at half its speed
+        double invulnerable = 0; // its shields take no damage
+        double reflecting = 0;   // shots at it go back
+        double confused = 0;     // it fires on its own side
+        double boosted = 0;      // its shots do half again
+        double scrambled = 0;    // it takes no orders
+        double defending = 0;    // it shoots down shots at it
+        double crewDrainUntil = 0;
+        float crewDrain = 0; // crew a second, while it lasts
+    };
+    std::vector<Effects> _effects; // as _targets
+    // A field a special weapon leaves on the map: an ion storm, a black
+    // hole, a repulsion wave; what it hits a second, as it grows.
+    struct Field {
+        std::string kind;
+        gfx::Vec3 at{};
+        int slot = 0;
+        double began = 0;
+        double until = 0;
+        float radius = 0; // now
+        float grow = 0;   // units a second
+        float damage = 0; // a second, or once as a wave passes
+        std::set<size_t> hit;
+    };
+    std::vector<Field> _fields;
+    std::map<size_t, double> _expiresAt; // Gemini Effect's copies, gone at the game's seconds
+    // A unit taken over (Computer Override): whose it was, and until when.
+    struct Takeover {
+        int slot = 0;
+        std::optional<gfx::Vec3> colour;
+        double until = 0;
+    };
+    std::map<size_t, Takeover> _takenOver;
+    // A Romulan Spy aboard a unit, showing its player what's round it.
+    struct Spy {
+        size_t target = 0;
+        int slot = 0;
+        double until = 0;
+    };
+    std::vector<Spy> _spies;
     std::vector<Hold> _holds;
     std::vector<bool> _chasing; // as _targets: its goal is its target's, set by pursue()
     std::vector<bool> _dead;
@@ -403,10 +454,19 @@ private:
     bool attack(int target); // the selected units with weapons take it as their target: whether any did
     void pursue();           // ships whose target is out of their weapons' reach fly after it
     bool usable(size_t unit, const Combat::Special &special) const; // researched, made, charged and ready
+    bool yardReady(const std::string &podTooltip) const; // whether the yard of the ship a pod refits can be built
     void useSpecial(const std::string &button,
                     int target); // the selected units with it fire it, at target if it wants one
     void fireSpecial(size_t unit, Combat::Special &special, int target);
     void moveMines(double seconds);
+    // special_weapons.cpp: the special weapons past the first few.
+    static bool madeKind(const Combat::Special &special);   // whether Reluva makes it
+    static bool wantsPoint(const Combat::Special &special); // fired at a point of the map: the transwarps
+    bool fireMore(size_t unit, Combat::Special &special, int target);
+    void firePoint(const std::string &button, const gfx::Vec3 &point);
+    void runEffects(double seconds); // the fields, beams, drains and what wears off
+    bool active(double until) const { return double(_last) / 1000 < until; }
+    std::vector<int> obeying(const std::vector<int> &selection) const; // those not scrambled
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                   const MapScene::Unit &owner);
     void makeCells();

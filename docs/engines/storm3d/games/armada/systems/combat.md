@@ -171,8 +171,35 @@ From the same run's frames and draws:
   - **the Energy Dissipator and Shield Disruptor** (`areamissile`, their
     ordnance `micro` and `shieldh`): up to their `maxTargets` (4) of the
     nearest ships of others within range, their special energy or their
-    shields taken. A pod
-  built gives its player its weapon instead of a ship, its model fixed
+    shields taken;
+  - **and the rest** (`special_weapons.cpp`), each by its description,
+    its time its ordnance's `specialValue` in seconds where it has one:
+    Engine Overload, the Sensor Jammer and the Holo-emitter put out the
+    engines or sensors, or turn the guns on their own side, of the ships
+    of others within range; Death Chant makes its own side's shots do
+    half again; the Temporal Stasis Field freezes them within 400 of the
+    target for 20 seconds; the ion storm hurts what's within 200 of it
+    for 10 seconds, the black hole what's within its growing reach, the
+    repulsion wave what it passes, once; Ultritium Burst hits four; the
+    Chain Reaction Pulsar hops between five, 10 harder each; Gravity
+    Mines halve a ship's speed; Gemini Effect copies an allied ship for
+    a minute; the engineering team repairs an ally's systems and half its
+    shields; Shield Remodulation stops its shields being hurt; the
+    repulsion field pushes a ship away, its engines out; the Polaron
+    Torpedo goes through the shields and puts out a system; the
+    Psychonic Blast and the Klingon commandos kill its crew; Nanites stop
+    it taking orders; Computer Override makes it the firer's player's;
+    the Romulan Spy shows what's round it; the beams take or give
+    shields, take crew into the Borg's pool, or tow a ship whose engines
+    are out; the Corbomite Reflector sends shots back; the point defence
+    phaser shoots down those near; the transwarp drive and conduit move
+    a ship, or the ships near it, to a point seen. Not made: those the
+    files mark unfinished ("THIS IS A BUG", "WRITE ME") and the Omega
+    particle's tractor beam, a mission's. A pod
+  built gives its player its weapon instead of a ship; one for a ship
+  whose yard can't be built yet is dark, as the original's Corbomite
+  Reflector, the Sovereign's of the Advanced Starship Yard, was with no
+  shipyard *(inferred)*. Built, its model is fixed
   to the station's next pod node (`podHardpoints`), and goes dark in
   its station's menu. A mine gets up to its speed at its `shotAccel`.
 - **Crew and systems:** a hit takes crew, its ordnance's shield or hull
@@ -244,17 +271,18 @@ From the same run's frames and draws:
 - The debris's pieces as the original's (single triangles, likely),
   the shockwave's size and fade, and the blue sparks of hull hits.
 - The hit chance's modifiers (`warpToHitModifier` and the rest).
-- The other special weapons: the tractor beam, the wormholes, the area
-  cannons (Engine Overload, Holo-emitter, Death Chant...), the boarding
-  teams, Gemini Effect and the rest, each its own; and, for those made,
-  how they really run: what a cloak costs while on, a self-destruct's
-  damage, a holding beam's boarding (`boardingSize`), and how many mines
-  a ship drops and how they turn (`omegaTurn`).
+- How the special weapons really run: each is made from what its
+  description and definition say, the rest of every one a guess (their
+  strengths, reaches and times where the files don't give them, what a
+  cloak costs while on, a holding beam's boarding, how mines turn).
+  Seeing them in the original wants its ships researched and in a
+  fight.
 - Which pod node the original takes first (its Antimatter Mines went
-  to an arm, not known which), the pod growing as it's built, and why
-  Corbomite Reflector was dark before any research.
+  to an arm, not known which), and the pod growing as it's built.
 - What `RTS_CFG.h`'s `DOGFIGHT_RANGE` (70) and anchor settings do: the
-  destroyer chasing a construction ship didn't circle it. And what a
-  right click on an enemy does.
+  destroyer chasing a construction ship didn't circle it, and two ships
+  of different players haven't been seen fighting. Nor has a right
+  click on an enemy: the computer player's units start 5,000 away, and
+  none came near in the runs.
 - The systems (engines, weapons, shields, life support, sensors) and
   their hit points.

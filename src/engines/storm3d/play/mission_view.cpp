@@ -516,6 +516,14 @@ void MissionView::pressControl(int slot) {
                             text::equalsIgnoreCase(item.string("classLabel"), "pod") &&
                             _researched[_slot].count(Combat::researchKeyOf(item.string("tooltip"))))
                             b.enabled = false;
+                        // And one for a ship whose yard can't be built yet
+                        // *(inferred)*: the original's Corbomite Reflector,
+                        // for the Sovereign of the Advanced Starship Yard,
+                        // was dark with no shipyard; the four for the
+                        // shipyard's ships were lit.
+                        if (b.enabled && text::equalsIgnoreCase(item.string("classLabel"), "pod") &&
+                            !yardReady(item.string("tooltip")))
+                            b.enabled = false;
                     }
                 _building = true;
             }
@@ -863,6 +871,7 @@ void MissionView::addFighter(const std::string &odf) {
     _chasing.push_back(false);
     _specials.push_back(read ? Combat::specialsOf(def, loader) : std::vector<Combat::Special>{});
     _cloaked.push_back(false);
+    _effects.emplace_back();
     _dead.push_back(false);
     _scans.push_back(read ? float(def.number("rangeScan", 500)) : 500.0f);
     _classes.push_back(read ? text::toLower(def.string("classLabel")) : std::string());
@@ -935,6 +944,7 @@ void MissionView::fight(double seconds) {
         _vitals[h.unit].energy -= cost;
         return false;
     });
+    runEffects(seconds);
     // A detector's sight wears off; a cloaked unit seen shows meanwhile.
     std::erase_if(_revealedUntil, [now](const auto &r) { return now >= r.second; });
     for (size_t i = 0; i < count && i < _cloaked.size(); ++i)
@@ -956,7 +966,9 @@ void MissionView::fight(double seconds) {
         for (Combat::Weapon &w : _weapons[i]) {
             w.ready = std::max(0.0, w.ready - seconds);
             // Its weapons out, it doesn't fire.
-            if (w.ready > 0 || distance > w.range || _vitals[i].systems[Combat::kWeapons].out() || _cloaked[i])
+            const Effects &e = _effects[i];
+            if (w.ready > 0 || distance > w.range || _vitals[i].systems[Combat::kWeapons].out() || _cloaked[i] ||
+                active(e.weaponsOff) || active(e.frozen))
                 continue;
             // A roll from a little generator of our own, the same each game.
             _roll = _roll * 1664525u + 1013904223u;
@@ -964,15 +976,18 @@ void MissionView::fight(double seconds) {
             // Another roll for whether it hits, by its hit chance.
             _roll = _roll * 1664525u + 1013904223u;
             const bool miss = float(_roll >> 8) / float(1u << 24) >= w.hitChance;
+            // Death Chant's frenzy: half again *(guessed)*.
+            const float boost = active(e.boosted) ? 1.5f : 1.0f;
             _shots.push_back({size_t(t),
                               from,
                               w.speed,
-                              Combat::damageOf(w, roll),
+                              Combat::damageOf(w, roll) * boost,
                               w.sprite,
                               from,
                               units[i].slot,
                               {w.shieldCrew, w.hullCrew},
-                              miss});
+                              miss,
+                              int(i)});
             w.ready = w.delay;
         }
     }
@@ -993,8 +1008,17 @@ void MissionView::fight(double seconds) {
         if (left <= step || shot.speed <= 0) {
             Combat::Vitals &v = _vitals[shot.target];
             const bool shielded = v.shields > 0;
-            if (shot.miss) {
+            if (shot.miss || active(_effects[shot.target].invulnerable)) {
                 _shots.erase(_shots.begin() + std::ptrdiff_t(s));
+                continue;
+            }
+            // A reflector sends it back at whoever fired it.
+            if (active(_effects[shot.target].reflecting) && shot.shooter >= 0 && size_t(shot.shooter) < count &&
+                !_dead[size_t(shot.shooter)] && size_t(shot.shooter) != shot.target) {
+                const size_t back = size_t(shot.shooter);
+                shot.slot = units[shot.target].slot;
+                shot.shooter = int(shot.target);
+                shot.target = back;
                 continue;
             }
             _roll = _roll * 1664525u + 1013904223u;
@@ -1783,6 +1807,11 @@ void MissionView::stop() {
     _chasing.clear();
     _specials.clear();
     _cloaked.clear();
+    _effects.clear();
+    _fields.clear();
+    _expiresAt.clear();
+    _takenOver.clear();
+    _spies.clear();
     _revealedUntil.clear();
     _selfDestructAt.clear();
     _holds.clear();
@@ -1838,7 +1867,17 @@ void MissionView::handleEvent(const Event &ev) {
         _targeting = false;
         if (ev.button == MouseButton::kLeft) {
             const int t = liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY);
-            if (!_arming.empty())
+            const bool point = std::any_of(_selection.begin(), _selection.end(), [this](int i) {
+                return size_t(i) < _specials.size() &&
+                       std::any_of(
+                           _specials[size_t(i)].begin(), _specials[size_t(i)].end(),
+                           [this](const Combat::Special &sp) { return sp.button == _arming && wantsPoint(sp); });
+            });
+            if (!_arming.empty() && point && !_selection.empty() && size_t(_selection.front()) < _ships.size()) {
+                if (auto at =
+                        MapScene::pointOn(camera(), _ships[size_t(_selection.front())].at[1], ev.mouseX, ev.mouseY))
+                    firePoint(_arming, *at);
+            } else if (!_arming.empty())
                 useSpecial(_arming, t);
             else
                 attack(t);
@@ -1874,7 +1913,7 @@ void MissionView::handleEvent(const Event &ev) {
         if (!_selection.empty() && size_t(_selection.front()) < _ships.size())
             if (auto point =
                     MapScene::pointOn(camera(), _ships[size_t(_selection.front())].at[1], ev.mouseX, ev.mouseY))
-                sendTo(_ships, _scene.units(), _selection, _moves, *point);
+                sendTo(_ships, _scene.units(), obeying(_selection), _moves, *point);
         return;
     }
     if (_pressX >= 0 && (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseUp)) {
@@ -1922,7 +1961,7 @@ bool MissionView::attack(int target) {
     if (target < 0 || size_t(target) >= _dead.size() || _dead[size_t(target)])
         return false;
     bool any = false;
-    for (int i : _selection)
+    for (int i : obeying(_selection))
         if (i != target && size_t(i) < _targets.size() && !_weapons[size_t(i)].empty()) {
             _targets[size_t(i)] = target;
             any = true;
@@ -1972,6 +2011,34 @@ void MissionView::pursue() {
     }
 }
 
+bool MissionView::yardReady(const std::string &podTooltip) const {
+    // The ship a pod refits, by the class its tooltip ends with ("- Sovereign").
+    const std::string key = Combat::researchKeyOf(podTooltip);
+    const size_t dash = key.rfind(" - ");
+    if (dash == std::string::npos)
+        return true;
+    const std::string ship = key.substr(dash + 3);
+    const Odf::Loader loader = loaderOf(_files.files());
+    // The yards the player's builders can put up, and what each builds.
+    std::set<std::string> yards;
+    for (const std::string &o : ownedOdfs())
+        for (const std::string &item : buildListOf(o, loader)) {
+            Odf yard;
+            if (!yard.load(item + ".odf", loader) && text::equalsIgnoreCase(yard.string("classLabel"), "shipyard"))
+                yards.insert(text::toLower(item));
+        }
+    for (const std::string &yard : yards)
+        for (const std::string &item : buildListOf(yard, loader)) {
+            Odf unit;
+            if (unit.load(item + ".odf", loader) || text::toLower(unit.string("unitName")).rfind(ship, 0) != 0)
+                continue;
+            // Its yard can be built now: buildMenuOf lights it.
+            const Hud::Unit menu = buildMenuOf({yard}, loader, ownedOdfs());
+            return !menu.controls.empty() && menu.controls.front().enabled;
+        }
+    return true;
+}
+
 bool MissionView::usable(size_t unit, const Combat::Special &special) const {
     const std::string &kind = special.kind;
     const bool cloak = kind == "cloakingdevice" || kind == "phasecloakdevice";
@@ -1990,21 +2057,22 @@ bool MissionView::usable(size_t unit, const Combat::Special &special) const {
     // detectors, self-destruct, regeneration, the holding beam, and the
     // missiles that drain energy or shields.
     const std::string &shot = special.ordnance;
-    return (kind == "minelayer" && shot == "antimine") ||
+    return (kind == "minelayer" && (shot == "antimine" || shot == "gravmine")) ||
            ((kind == "cannon" || kind == "launcher") && special.damage > 0) || cloak || kind == "detectcloak" ||
            kind == "selfdestruct" || kind == "regeneration" || (kind == "toggleweapon" && shot == "holding_bm") ||
-           (kind == "areamissile" && (shot == "micro" || shot == "shieldh"));
+           (kind == "areamissile" && (shot == "micro" || shot == "shieldh")) || madeKind(special);
 }
 
 void MissionView::useSpecial(const std::string &button, int target) {
-    for (int i : _selection) {
+    for (int i : obeying(_selection)) {
         if (size_t(i) >= _specials.size() || _scene.units()[size_t(i)].slot != _slot)
             continue;
         for (Combat::Special &sp : _specials[size_t(i)]) {
             if (sp.button != button || !usable(size_t(i), sp))
                 continue;
-            // One that wants a target waits for the next click on a unit.
-            if (sp.needTarget && target < 0) {
+            // One that wants a target waits for the next click on a unit;
+            // a transwarp, for a click on the map.
+            if ((sp.needTarget && target < 0) || wantsPoint(sp)) {
                 _arming = button;
                 _targeting = true;
                 continue;
@@ -2028,13 +2096,8 @@ void MissionView::fireSpecial(size_t unit, Combat::Special &special, int target)
         _scene.setCloaked(unit, _cloaked[unit]);
         return;
     }
-    if (kind == "toggleweapon") {
-        // A beam holding the target still, its cost a second, for its
-        // ordnance's life, while in its range *(guessed)*.
-        if (target >= 0 && size_t(target) != unit) {
-            std::erase_if(_holds, [unit](const Hold &h) { return h.unit == unit; });
-            _holds.push_back({unit, size_t(target), now + special.life, special.energy, special.range});
-        }
+    if (madeKind(special) || kind == "toggleweapon") {
+        fireMore(unit, special, target);
         return;
     }
     _vitals[unit].energy -= special.energy;
@@ -2130,6 +2193,9 @@ void MissionView::moveMines(double seconds) {
                 Combat::Weapon as;
                 as.damage = mine.special.damage;
                 as.variance = mine.special.variance;
+                // A Gravity Mine weighs its ship down instead *(guessed: 20 seconds)*.
+                if (mine.special.ordnance == "gravmine")
+                    _effects[size_t(prey)].slowed = double(_last) / 1000 + 20;
                 const float damage = Combat::damageOf(as, float(_roll >> 8) / float(1u << 24));
                 _roll = _roll * 1664525u + 1013904223u;
                 Combat::hit(_vitals[size_t(prey)], damage, mine.special.crew, float(_roll >> 8) / float(1u << 24));
@@ -2213,12 +2279,15 @@ void MissionView::draw(uint64_t millis) {
             continue;
         // Its engines out, or held by a beam, it stops where it is.
         const bool held = std::any_of(_holds.begin(), _holds.end(), [i](const Hold &h) { return h.target == i; });
-        if (held || (i < _vitals.size() && _vitals[i].systems[Combat::kEngines].out())) {
+        const bool stopped = i < _effects.size() && (active(_effects[i].enginesOff) || active(_effects[i].frozen));
+        if (held || stopped || (i < _vitals.size() && _vitals[i].systems[Combat::kEngines].out())) {
             _ships[i].speed = 0;
             continue;
         }
+        // A Gravity Mine's weight: half its speed *(guessed)*.
+        const double pace = i < _effects.size() && active(_effects[i].slowed) ? 0.5 : 1.0;
         for (int s = 0; s < steps; ++s)
-            Movement::step(_ships[i], *_physics[i], seconds / steps);
+            Movement::step(_ships[i], *_physics[i], seconds * pace / steps);
         if (!_ships[i].goal && std::abs(_ships[i].speed) < 0.01f)
             _ships[i].speed = 0;
         _scene.moveUnit(i, _ships[i].at, _ships[i].heading);
@@ -2226,8 +2295,15 @@ void MissionView::draw(uint64_t millis) {
     // What the player's units see now, after they've moved.
     std::vector<MapScene::Sight> sights;
     for (size_t i = 0; i < _scene.units().size() && i < _dead.size() && i < _scans.size(); ++i)
-        if (_scene.units()[i].slot == _slot && !_dead[i])
-            sights.push_back({_scene.units()[i].at, _scans[i]});
+        if (_scene.units()[i].slot == _slot && !_dead[i]) {
+            // Its sensors out or jammed, it sees as its damagedScan says *(guessed: 100)*.
+            const bool blind = (i < _effects.size() && active(_effects[i].sensorsOff)) ||
+                               (i < _vitals.size() && _vitals[i].systems[Combat::kSensors].out());
+            sights.push_back({_scene.units()[i].at, blind ? std::min(_scans[i], 100.0f) : _scans[i]});
+        }
+    for (const Spy &spy : _spies)
+        if (spy.slot == _slot && spy.target < _scene.units().size() && !_dead[spy.target])
+            sights.push_back({_scene.units()[spy.target].at, 400});
     _scene.see(sights);
     std::erase_if(_selection, [this](int i) { return i < 0 || !_scene.shown(size_t(i)); });
     const MapScene::Camera view = camera();

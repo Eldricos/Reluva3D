@@ -28,7 +28,10 @@ Combat::Vitals Combat::vitalsOf(const Odf &unit) {
     v.shieldRate = float(unit.number("shieldRate"));
     v.maxEnergy = v.energy = float(unit.number("maxSpecialEnergy"));
     v.energyRate = float(unit.number("specialEnergyRate"));
-    v.maxCrew = v.crew = float(unit.number("maximumCrew", unit.number("crewCost")));
+    // It starts with its crewCost aboard, of its maximumCrew: the
+    // original's starbase 800 of 1500.
+    v.crew = float(unit.number("crewCost"));
+    v.maxCrew = float(unit.number("maximumCrew", v.crew));
     v.lifeSupportLoss = float(unit.number("lifeSupportLoss"));
     static const char *const kNames[kSystems] = {"shieldGenerator", "engines", "weapons", "lifeSupport", "sensors"};
     for (size_t i = 0; i < kSystems; ++i) {

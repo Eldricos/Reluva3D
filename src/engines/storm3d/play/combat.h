@@ -123,6 +123,7 @@ public:
         int slot = 0;      // whose it is: the player's slot
         CrewCost crew{};   // what its hits take of the crew
         bool miss = false; // it flies past, by its weapon's hit chance
+        int shooter = -1;  // the unit that fired it, if any (a reflector sends it back)
     };
 
     /**
