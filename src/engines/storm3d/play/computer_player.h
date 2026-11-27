@@ -44,7 +44,7 @@ public:
     /** The personality a stance loads: newdefault.aip, default_defensive.aip or default_offensive.aip. */
     static std::string personalityFileOf(Stance stance);
     /**
-     * The stance for a player's strength, the hull of all its units, against
+     * The stance for a player's strength, all its units' maxHealth, against
      * the average of every player's in the game that has any: offensive
      * from 1.1 times it, defensive at 0.7 times it or less (0x4307f0).
      */

@@ -107,6 +107,10 @@ From the code *(from the code)*:
   wasn't followed.
 - **`DOGFIGHT_RANGE`** (70) is read from `RTS_CFG.h` and never used.
 
+Seen: a Defiant sent to the computer player's base fought its starbase
+from where it stopped, within reach, at 38.5, neither circling nor
+climbing ([combat.md](combat.md#a-fight-with-the-computer)).
+
 ## In Reluva
 
 - **Ordering:** the right button on the map, with units selected that

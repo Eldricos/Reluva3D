@@ -34,6 +34,8 @@ Combat::Vitals Combat::vitalsOf(const Odf &unit) {
     v.crew = float(unit.number("crewCost"));
     v.maxCrew = float(unit.number("maximumCrew", v.crew));
     v.lifeSupportLoss = float(unit.number("lifeSupportLoss"));
+    v.hullHitPercent = float(unit.number("hullHitPercent"));
+    v.criticalHitPercent = float(unit.number("criticalHitPercent"));
     static const char *const kNames[kSystems] = {"shieldGenerator", "engines", "weapons", "lifeSupport", "sensors"};
     for (size_t i = 0; i < kSystems; ++i) {
         const std::string name = kNames[i];
@@ -82,6 +84,7 @@ std::vector<Combat::Weapon> Combat::weaponsOf(const Odf &unit, const Odf::Loader
         readModifiers(weapon, w);
         w.shieldCrew = float(ordnance.number("shieldCrewModifier"));
         w.hullCrew = float(ordnance.number("hullCrewModifier"));
+        w.threshold = float(ordnance.number("damageThreshold"));
         weapons.push_back(w);
     }
     return weapons;
@@ -121,7 +124,8 @@ std::vector<Combat::Special> Combat::specialsOf(const Odf &unit, const Odf::Load
             s.accel = float(ordnance.number("shotAccel"));
             if (s.modifier <= 0)
                 s.modifier = float(ordnance.number("specialValue"));
-            s.crew = {float(ordnance.number("shieldCrewModifier")), float(ordnance.number("hullCrewModifier"))};
+            s.crew = {float(ordnance.number("shieldCrewModifier")), float(ordnance.number("hullCrewModifier")),
+                      float(ordnance.number("damageThreshold"))};
             s.life = ordnance.number("lifeSpan");
             s.sprite = ordnance.string("Sprite");
             s.model = ordnance.string("shotGeometry");
@@ -191,26 +195,43 @@ bool Combat::Vitals::damaged() const {
 }
 
 void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll) {
+    // Each loss a percent of the crew aboard, and a whole one more, at most.
+    auto lose = [&vitals](float percent, float by) {
+        vitals.crew = std::max(0.0f, vitals.crew - (vitals.crew * percent * by / 100 + std::min(by, 1.0f)));
+    };
+    // The ordnance's own words: its threshold "must be exceeded to cause
+    // crew casualties prior to shield exhaustion", what exceeds it times
+    // its shieldCrewModifier the percent lost (0x461d46).
+    if (vitals.shields > 0 && crew.threshold > 0 && damage > crew.threshold)
+        lose(crew.shields, damage - crew.threshold);
     const float onShields = std::min(vitals.shields, damage);
     vitals.shields -= onShields;
-    const float onHull = (damage - onShields) * kHullFactor;
-    vitals.hull = std::max(0.0f, vitals.hull - onHull);
-    float lost = onShields * crew.shields + onHull * crew.hull;
-    // What gets past the shields lands on a system by their hit percents,
-    // the rest of the hundred on the hull alone.
-    if (onHull > 0) {
-        float at = std::clamp(roll, 0.0f, 1.0f) * 100;
-        for (SystemState &s : vitals.systems) {
-            if (s.maxHitPoints <= 0 || at >= s.hitPercent) {
-                at -= s.hitPercent;
-                continue;
-            }
-            s.hitPoints = std::max(0.0f, s.hitPoints - onHull);
-            lost += vitals.crew * s.crewLoss / 100;
-            break;
+    const float past = damage - onShields;
+    if (past <= 0)
+        return;
+    vitals.hull = std::max(0.0f, vitals.hull - past * kHullFactor);
+    // It lands by the hit percents: on a system, the hull alone, or
+    // critically (0x461930, 0x461e4c); the rest of the hundred, nowhere.
+    float at = std::clamp(roll, 0.0f, 1.0f) * 100;
+    for (SystemState &s : vitals.systems) {
+        if (s.maxHitPoints <= 0 || at >= s.hitPercent) {
+            at -= s.hitPercent;
+            continue;
         }
+        const bool was = s.out();
+        s.hitPoints = std::max(0.0f, s.hitPoints - past);
+        if (!was && s.out())
+            lose(s.crewLoss, 1);
+        return;
     }
-    vitals.crew = std::max(0.0f, vitals.crew - lost);
+    if (at < vitals.hullHitPercent) {
+        lose(crew.hull, past);
+        return;
+    }
+    at -= vitals.hullHitPercent;
+    // A critical hit of a whole point or more destroys it.
+    if (at < vitals.criticalHitPercent && past >= 1)
+        vitals.hull = 0;
 }
 
 void Combat::regenerate(Vitals &vitals, double seconds) {

@@ -122,7 +122,12 @@ these phases start from, is in [formats/install.md](formats/install.md).
    other and of fields, warp, and groups sent as the original's
    ([systems/movement.md](systems/movement.md)); the models' specular
    highlights as they turn in the light, and their glows unlit
-   ([formats/bzn.md](formats/bzn.md#lighting)); the computer player's
+   ([formats/bzn.md](formats/bzn.md#lighting)); from the program's code,
+   ships climbing and diving within the combat floor and ceiling, a
+   shot's hit chance by how the shooter and target move, crew lost as
+   the game takes a hit, critical hits, and debris of single faces,
+   checked against a Defiant fighting the computer's starbase
+   ([systems/combat.md](systems/combat.md#a-fight-with-the-computer)); the computer player's
    stance, defensive or offensive by its strength, which the program
    decides itself, a skirmish loading none of the AI's DLLs
    ([systems/computer-player.md](systems/computer-player.md#the-ais-dlls)).

@@ -809,13 +809,14 @@ void MissionView::takeStance(Computer &c, ComputerPlayer::Stance stance) {
 }
 
 void MissionView::weighStances() {
-    // A player's strength is its units' hull added up; the average is of
-    // the players in the game that have any (0x430600, 0x4307f0).
+    // A player's strength is its living units' maxHealth added up, which
+    // damage doesn't lessen; the average is of the players in the game
+    // that have any (0x430600, 0x4307f0).
     const std::vector<MapScene::Unit> &units = _scene.units();
     std::map<int, float> strength;
     for (size_t i = 0; i < units.size() && i < _vitals.size(); ++i)
         if (!_dead[i])
-            strength[units[i].slot] += _vitals[i].hull;
+            strength[units[i].slot] += _vitals[i].maxShields;
     float sum = 0;
     int counted = 0;
     for (const Player &p : _players)
@@ -1080,7 +1081,7 @@ void MissionView::fight(double seconds) {
                               w.sprite,
                               from,
                               units[i].slot,
-                              {w.shieldCrew, w.hullCrew},
+                              {w.shieldCrew, w.hullCrew, w.threshold},
                               miss,
                               int(i)});
             w.ready = w.delay;

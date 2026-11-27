@@ -45,6 +45,11 @@ public:
         float crew = 0;
         float maxCrew = 0;
         float lifeSupportLoss = 0; // of its crew, in percent a second, while its life support is out
+        // The shares of the hits past the shields after the systems': on
+        // the hull alone (hullHitPercent), and critical, destroying it
+        // (criticalHitPercent).
+        float hullHitPercent = 0;
+        float criticalHitPercent = 0;
         // Its race's (fed.odf, kling.odf...) or its own: how its crew
         // boards and repairs, and the shares of its crew below which its
         // repairs take repairYellow and repairRed times as long.
@@ -96,6 +101,7 @@ public:
         std::array<float, 3> targetModifier{};
         float shieldCrew = 0; // its ordnance's shieldCrewModifier: crew lost a point of damage on the shields
         float hullCrew = 0;   // and hullCrewModifier, a point on the hull
+        float threshold = 0;  // and damageThreshold, which a hit on the shields must pass to cost crew
         double ready = 0;     // seconds until it can fire again
     };
     /** How a unit moves, for a shot's chance: stopped, slower than impulse speed, or faster. */
@@ -111,10 +117,16 @@ public:
     /** A unit's weapons from weapon1 on, their ordnance read through `loader`; those with `special` left out. */
     static std::vector<Weapon> weaponsOf(const Odf &unit, const Odf::Loader &loader);
 
-    /** What a hit takes besides hit points: crew a point of damage, on the shields and on the hull. */
+    /**
+     * What a hit takes besides hit points: the percent of the crew lost a
+     * point of damage on the shields past `threshold`, and a point on the
+     * hull (the ordnance's shieldCrewModifier, hullCrewModifier and
+     * damageThreshold).
+     */
     struct CrewCost {
         float shields = 0;
         float hull = 0;
+        float threshold = 0;
     };
     /** One of a unit's special weapons (`special` 1), fired by its button. */
     struct Special {
@@ -166,10 +178,13 @@ public:
     };
 
     /**
-     * Damage taken: by the shields while they last, then by the hull, twice
-     * as much; crew with it, by `crew`; and what gets past the shields, by
-     * `roll` (0 to 1), lands on one of the systems by their hit percents,
-     * taking its hit points and its share of the crew.
+     * Damage taken, as the game takes it (0x461c60): crew lost if it's
+     * more than `crew.threshold` while the shields are up; by the shields
+     * while they last, then by the hull, twice as much; and what gets past
+     * the shields lands, by `roll` (0 to 1) and the hit percents, on a
+     * system, taking its hit points and, if it goes out, its crewLoss; on
+     * the hull alone, taking crew by `crew.hull`; or critically, destroying
+     * it. The crew lost is a share of those aboard.
      */
     static void hit(Vitals &vitals, float damage, const CrewCost &crew, float roll);
     /** Damage taken without crew or systems: the shields', then the hull's. */

@@ -681,26 +681,51 @@ void testSpecials() {
     CHECK(v.energy == 1000);
 }
 
-// Crew lost as a ship's hit: a point of damage on the shields costs the
-// shot's shieldCrewModifier, on the hull its hullCrewModifier; a hull hit
-// landing on a system takes its hit points, and life support out drains
-// the crew; systems are repaired over their repair time.
+// Crew lost as a ship's hit, a share of those aboard: on the shields only
+// past the shot's damageThreshold, by its shieldCrewModifier; a hit past
+// the shields lands on a system, taking its hit points and its crewLoss
+// once it's out, or on the hull alone, by the shot's hullCrewModifier, or
+// critically, destroying it; life support out drains the crew; systems
+// are repaired over their repair time.
 void testCrewAndSystems() {
     using reluva::storm3d::Combat;
     Combat::Vitals v;
-    v.maxShields = v.shields = 10;
+    v.maxShields = v.shields = 100;
     v.maxHull = v.hull = 700;
     v.maxCrew = v.crew = 500;
     v.lifeSupportLoss = 2;
+    const Combat::CrewCost pulse{0.2f, 0.3f, 23}; // the starbase's fbpulseo
+    // 22 isn't past its 23: none; 24 is 1 past: 0.2% of 500, and 1.
+    Combat::hit(v, 22, pulse, 0.5f);
+    CHECK(v.crew == 500 && v.shields == 78);
+    Combat::hit(v, 24, pulse, 0.5f);
+    CHECK(std::fabs(v.crew - 498) < 1e-3f);
+
     Combat::SystemState &life = v.systems[Combat::kLifeSupport];
     life.maxHitPoints = life.hitPoints = 10;
     life.hitPercent = 100;
     life.repairTime = 10;
-    // 22 on a ship with 10 shields left: 10 on them, 12 past, 24 off the hull.
-    Combat::hit(v, 22, {0.2f, 0.3f}, 0.5f);
+    life.crewLoss = 3;
+    // 22 with 10 shields left: 10 on them, 12 past, 24 off the hull, and
+    // life support out: 3% of the crew, and 1.
+    v.shields = 10;
+    v.crew = 500;
+    Combat::hit(v, 22, {0.2f, 0.3f, 0}, 0.5f);
     CHECK(std::fabs(v.hull - 676) < 1e-3f);
     CHECK(life.out() && v.damaged());
-    CHECK(std::fabs(v.crew - (500 - 2 - 7.2f)) < 1e-3f);
+    CHECK(std::fabs(v.crew - (500 - 15 - 1)) < 1e-3f);
+    // On the hull alone: 0.3% a point of the 12, and 1.
+    Combat::Vitals hull = v;
+    hull.systems = {};
+    hull.hullHitPercent = 100;
+    hull.crew = 500;
+    Combat::hit(hull, 12, {0.2f, 0.3f, 0}, 0.5f);
+    CHECK(std::fabs(hull.crew - (500 - 18 - 1)) < 1e-3f && hull.hull > 0);
+    // A critical hit: gone.
+    hull.hullHitPercent = 0;
+    hull.criticalHitPercent = 100;
+    Combat::hit(hull, 12, {}, 0.5f);
+    CHECK(!hull.alive());
     // Out, its crew drains 2% a second; repaired over its 10 seconds.
     const float before = v.crew;
     Combat::regenerate(v, 1);

@@ -84,6 +84,28 @@ From the code *(from the code)*:
   again at each of the model's meshes; past
   `ST3D_CHUNK_MANAGER_MAX_CHUNKS` (1,500), the oldest go.
 
+### A fight with the computer
+
+The Defiant from the chase (`fdestroy`: 150 `maxHealth`, 80 crew, two
+`dpulse`) was sent by the minimap to the computer player's base, 5,000
+off. It came under the computer's starbase's fire at 236 seconds and
+was gone by 248, having fired back from about 200 off, within its
+pulses' reach, without circling; the shield glowed where its shots
+struck. Its memory at 243 seconds: 13.5 of its 150 shields, 79.4 of its
+80 crew, its five systems whole at 10 hit points each, and its height
+38.5. A ship's crew so falls little while its shields last, the
+starbase's pulses (22 against a `damageThreshold` of 23) passing the
+threshold only now and then, as the code has it; that the construction
+ship lost 110 of its 500 while its shields lasted, above, isn't
+explained by it.
+
+The systems in memory, in the order a hit's roll runs down them:
+engines (`enginesHitPercent` 2, `enginesCrewLoss` 5), life support (2.5,
+3), weapons (10, 2), and the shield generator's and sensors' (7.5, 2
+each); then the hull's 55 and the critical's 15.5. The Defiant's end,
+between frames with its shields nearly gone, fits a critical hit, one
+in six of those past its shields *(inferred)*.
+
 ### Boarding, capture and repair
 
 From the files: the order buttons' tooltips (`Dynamic_Localized_Strings.h`)
@@ -247,16 +269,17 @@ From the same run's frames and draws:
   shipyard *(inferred)*. Built, its model is fixed
   to the station's next pod node (`podHardpoints`), and goes dark in
   its station's menu. A mine gets up to its speed at its `shotAccel`.
-- **Crew and systems:** a hit takes crew, its ordnance's shield or hull
-  modifier a point of damage on each; what gets past the shields lands
-  on a system by their hit percents, taking its hit points and its
-  `CrewLoss` percent of the crew. A system with none left is out until
+- **Crew and systems,** as the game's code takes a hit (above): crew
+  lost on the shields only past the ordnance's `damageThreshold`; what
+  gets past the shields lands on a system, taking its hit points and,
+  once it's out, its `CrewLoss` percent of the crew and one more; on the
+  hull alone (`hullHitPercent`), taking `hullCrewModifier` percent of
+  the crew a point and one more; or critically (`criticalHitPercent`),
+  destroying the unit. A system with none left is out until
   repaired over its repair time: engines out, the ship stops; weapons,
   it doesn't fire; the shield generator, its shields don't come back;
   life support, it loses `lifeSupportLoss` percent of its crew a second
-  *(inferred)*: the sixth volley's 155 by this is about 110 and the
-  systems' share, and the dribble about 5 a second, near the
-  original's; the shields' crew comes out about a fifth over. The info
+  *(inferred)*. The info
   panel shows the crew so, and each system's icon from green, whole, to
   red, out. A unit burns while one of its systems is out, as the
   original's caught fire after the first volley on its hull.
@@ -319,7 +342,8 @@ From the same run's frames and draws:
 ## Sources and checks
 
 - **Where the facts come from:** the original's draws every second from
-  45 to 140 seconds; the definitions (`fbase`, `fbpulse`, `fbpulseo`,
+  45 to 140 seconds; its Defiant against the computer's starbase, its
+  frames every two seconds and its memory at 243 seconds; the definitions (`fbase`, `fbpulse`, `fbpulseo`,
   `fconst`, the weapons' bases); the program's code, for a shot's
   damage, the system it hits and the debris.
 - **How it was checked:** the unit tests (`storm3d.unit.play`) fire the
@@ -332,11 +356,12 @@ From the same run's frames and draws:
 
 ## Open questions
 
-- The hull's share exactly, what `damageThreshold` does, and how crew
-  is lost on the shields: Reluva's loses a fifth too many.
-- Why all five system icons were red after one volley on the hull, and
-  what the critical hits (`criticalHitPercent`) do; what sensors out
-  do.
+- Where the game keeps a unit's hull, what takes it, and what destroys
+  a unit but a critical hit: Reluva's hull is its `maxHealth` again,
+  taking twice what gets past the shields, which fits the construction
+  ship's end. And how that ship lost 110 crew while its shields lasted.
+- Why all five system icons were red after one volley on the hull,
+  and what sensors out do.
 - The shield's shape and size exactly, and whether it glows when a hit
   gets past it.
 - How fast and which way the debris's pieces fly and turn, within the
@@ -355,10 +380,9 @@ From the same run's frames and draws:
 - How the original's boarding runs: a party's size, how the fight is
   reckoned, `TRANSPORTER_MAX`, and how fast a yard repairs and recrews;
   whether a starbase repairs too; what `crewRetreatRatio` does.
-- What `RTS_CFG.h`'s `DOGFIGHT_RANGE` (70) and anchor settings do: the
-  destroyer chasing a construction ship didn't circle it, and two ships
-  of different players haven't been seen fighting. Nor has a right
-  click on an enemy: the computer player's units start 5,000 away, and
-  none came near in the runs.
+- When ships circle their centre of combat
+  ([movement.md](movement.md#height-and-moving-in-a-fight)): neither the
+  destroyer chasing a construction ship nor the Defiant against the
+  computer's starbase did; ships against ships haven't been seen.
 - The systems (engines, weapons, shields, life support, sensors) and
   their hit points.

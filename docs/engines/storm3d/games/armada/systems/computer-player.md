@@ -44,9 +44,11 @@ the others *(from the code)*, 0x430600 and 0x4307f0. Every 200 of the
 game's updates, 86 a second in the skirmish measured (its counter went
 from 1,175 to 2,035 between 34 and 44 seconds), so every 2.3 seconds:
 
-- each player's strength is the hull of its units added up: 6,000 and
-  700 and 700 for a starbase and two construction ships, their
-  `maxHealth`, in the original's memory at the start;
+- each player's strength is its units' `maxHealth` added up: 6,000 and
+  700 and 700 for a starbase and two construction ships, in the
+  original's memory at the start. It's the units' most, which damage
+  doesn't lessen (the field beside it is what they have now), so only
+  units gained and lost change it;
 - the average is of the players in the game with any;
 - a player at 1.1 times the average or more turns offensive, loading
   `default_offensive.aip` and `<race>_offensive_list.aip`; one at 0.7
@@ -166,7 +168,7 @@ takes the nearest enemy in its weapons' reach *(guessed)*.
 
 In Reluva (`ComputerPlayer::stanceFor`, `MissionView::weighStances`),
 each Medium or Hard computer weighs its stance every 200 / 86 seconds,
-its strength its living units' hull, and loads the stance's personality
+its strength its living units' `maxHealth`, and loads the stance's personality
 and list when it changes; an Easy one stays as it starts. The game's
 other difficulty settings (`EASY_DAMAGE` and the like) aren't made yet.
 
