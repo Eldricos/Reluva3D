@@ -970,6 +970,7 @@ private:
         float countdown = 0.0f;
         int instigator = -1;
         std::vector<int> thrownIn; // the thrown things in a pass-through trigger, by id
+        std::vector<int> inside;   // an every-touching trigger's, as instigators
         float timer = 0.0f;        // a repeat timer's seconds till it next acts
     };
     std::vector<PartState> _partStates;

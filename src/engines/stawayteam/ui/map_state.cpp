@@ -310,6 +310,7 @@ void MapScreen::state(StateIo &s) {
         s.io(t.countdown);
         s.io(t.instigator);
         s.io(t.thrownIn);
+        s.io(t.inside);
         s.io(t.timer);
     });
     s.map(_series, [&](const TextObject *&series, size_t &next) {

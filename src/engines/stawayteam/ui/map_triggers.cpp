@@ -65,9 +65,9 @@ void MapScreen::setupTriggers() {
 
 void MapScreen::addTrigger(size_t part, const TextObject *ai) {
     const std::string &kind = ai->className;
-    // A stasis field's CEveryTouchingOvalTriggerAI too (inferred: as a
-    // touching trigger for each who comes in); the doors' anything-touching
-    // ones, the team's, and those set off by colliding or passing through.
+    // A stasis field's CEveryTouchingOvalTriggerAI too; the doors'
+    // anything-touching ones, the team's, and those set off by colliding
+    // or passing through.
     static const char *const kKinds[] = {"CTouchingOvalTriggerAI",
                                          "CTouchingPolygonTriggerAI",
                                          "CRepeatTimerTriggerAI",
@@ -291,10 +291,12 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
         if (_enemies[i].alive() && shown(_enemies[i].part))
             about.push_back({kEnemyInstigator - int(i), _enemies[i].x, _enemies[i].y, true});
     if (kind == "CAnyTouchingOvalTriggerAI" || kind == "CAnyTouchingPolygonTriggerAI") {
-        // Anything of its Triggered by list in it: its Enter Action as the
-        // first comes in, after its Enter Action Delay; its Exit Action as
-        // the last leaves, after its Exit Action Delay, unless someone's
-        // back by then (the doors': open, close; inferred).
+        // Anything of its Triggered by list in it (0x443140): its Enter
+        // Action as one comes in, after its Enter Action Delay, the first
+        // found its instigator (0x443b60); its Exit Action as the last
+        // leaves, after its Exit Action Delay, with none; either replacing
+        // the one still waiting (0x443226, 0x44324c). The doors': open,
+        // close.
         const std::string by = readText(ai, "Triggered by");
         int first = kNobody;
         bool any = false;
@@ -313,6 +315,7 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
             t.anything = false;
             t.pending = ai->object("Exit Action");
             t.countdown = number(ai, "Exit Action Delay");
+            t.instigator = kNobody;
         }
         if (t.pending) {
             t.countdown -= seconds;
@@ -324,8 +327,34 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
         }
         return true;
     }
+    if (kind == "CEveryTouchingOvalTriggerAI") {
+        // Every Check Time (0x444578), each of its Triggered by list in its
+        // oval: the Exit Action for each gone since, then the Enter Action
+        // for each come in, each its instigator (0x444665, 0x44474c).
+        t.timer -= seconds;
+        if (t.timer > 0.0f)
+            return true;
+        t.timer = number(ai, "Check Time");
+        const std::string by = readText(ai, "Triggered by");
+        std::vector<int> now;
+        for (const Who &w : about)
+            if (inCategory(by, w.enemy ? "Enemy" : "Player,Team Member") && touches(t, w.x, w.y))
+                now.push_back(w.instigator);
+        const std::vector<int> before = t.inside;
+        t.inside = now;
+        for (const int who : before)
+            if (std::find(now.begin(), now.end(), who) == now.end())
+                runAction(ai->object("Exit Action"), who, int(t.part));
+        for (const int who : now)
+            if (std::find(before.begin(), before.end(), who) == before.end())
+                runAction(ai->object("Enter Action"), who, int(t.part));
+        return true;
+    }
     if (kind == "CTeamTouchingPolygonTriggerAI") {
-        // The whole team here in its polygon: its Action (inferred).
+        // As many of the team's category touching its polygon as the team
+        // has: its Action, the part as its trigger, and with Trigger Only
+        // Once no more (0x5ec930; inferred for those down, counted as off
+        // the map).
         bool all = false;
         for (const Officer &o : _officers) {
             if (!o.present || !o.alive())

@@ -525,6 +525,23 @@ scripts to find. Mission 01 has 103 `CRelayAI`, 31
   `Enemies`, `Anything`); `Enter Action`, `Exit Action`, and `Repeat
   Action` every `Repeat Every` seconds while someone's there; `Trigger
   Only Once` and `Auto-Flip Switch` (`CTriggerAI`).
+- **An anything-touching trigger** (`CAnyTouchingOvalTriggerAI`, 114 in
+  the maps, `CAnyTouchingPolygonTriggerAI`, 21; `0x443140`): asks the
+  layer for the Active parts of its `Triggered by` categories about it
+  and takes the first whose shape's in it (`0x443b60`). As one comes in,
+  its `Enter Action` waits `Enter Action Delay`, the one found its
+  instigator; as the last leaves, its `Exit Action` waits `Exit Action
+  Delay`, with none; either takes the place of one still waiting
+  (`0x443226`, `0x44324c`).
+- **An every-touching trigger** (`CEveryTouchingOvalTriggerAI`, the
+  stasis field's, none in the maps; `0x444570`): every `Check Time`, its
+  `Exit Action` for each gone from its list since, then its `Enter
+  Action` for each new to it, each its instigator.
+- **A team-touching trigger** (`CTeamTouchingPolygonTriggerAI`, 3;
+  `0x5ec930`): while it can still go, counts the Active parts of the
+  team's category whose shapes meet its polygon (`0x53daa0`); as many as
+  the team has (`0x516b10`), its `Action`, the part its trigger, and with
+  `Trigger Only Once` no more.
 - **A relay** (`CRelayAI`): its `Action`, and `Trigger Only Once`; a
   `CTriggerRelayAction`'s `Relay Name` (a list, commas between: "Sniper
   Rom Pauser for Movie, 1st Rom Pauser for Movie") runs the relays of
@@ -1512,9 +1529,10 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   officer must be in range.
 - **Drawing order:** which list a polygon drawn standing is sorted
   into, and so where its `YSort` puts it.
-- **The triggers:** the order the program finds those in a touching
-  trigger in (the last found is the one it holds), and the anything-,
-  team- and every-touching triggers' own code, read from the maps' fields.
+- **The triggers:** the order the layer's search (`0x4f1d30`,
+  `0x56a450`) lists parts in, which decides who a touching trigger holds
+  (the last found) and an anything-touching one's instigator (the
+  first); whether the team's count takes in those down.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
 - **Fighting:** the beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
