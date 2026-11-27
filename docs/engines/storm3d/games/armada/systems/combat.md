@@ -1,6 +1,6 @@
 # Star Trek: Armada: combat
 
-> **Status:** partial · **Code:** `src/engines/storm3d/play/combat.cpp`, `src/engines/storm3d/play/mission_view.cpp` · **Checked against:** the original running a skirmish in Reluva's x86 emulator, its draws every second as its starbase fought one of its own construction ships · **Confidence:** seen, the hull's share inferred from one kill
+> **Status:** partial · **Code:** `src/engines/storm3d/play/combat.cpp`, `src/engines/storm3d/play/mission_view.cpp` · **Checked against:** the original running a skirmish in Reluva's x86 emulator, its draws every second as its starbase fought one of its own construction ships · **Confidence:** seen; a hit's course from the code
 
 ## Overview
 
@@ -8,9 +8,11 @@ A unit with weapons attacks what it's told to: its attack button, then
 a click on the target. Each weapon fires on its own `shotDelay` while
 the target is in its `range`; each shot flies at its ordnance's
 `shotSpeed` and does its `damageBase`, give or take its
-`damageVariance`. Damage comes off the shields first, which come back
-at the unit's `shieldRate`; past them, off the hull, until the unit is
-destroyed.
+`damageVariance`. Damage comes off the shields, a unit's `maxHealth`,
+which come back at its `shieldRate`; what they can't take lands on a
+system, on the hull, costing crew, or critically, destroying the unit.
+There's no hull of points: a unit is destroyed only by a critical hit,
+and one without crew is left derelict.
 
 ## How it works
 
@@ -34,10 +36,8 @@ every second from then to 140 seconds.
   empty: (31, 96, 0) at three quarters. On the info panel the selected
   unit's shield bar went the same way from (0, 255, 0) to (255, 0, 0).
 - **The hull:** the shields were gone at the fifth volley, 18 seconds in;
-  the ship lasted the sixth and not the seventh, 27 seconds in. Of what
-  got past its shields, 277 by the sixth and 437 by the seventh, with
-  its hull of 700 (its `maxHealth` again, *(inferred)*), the hull takes
-  between 1.6 and 2.5 times a shot's damage.
+  the ship lasted the sixth and not the seventh, 27 seconds in, which
+  the code below doesn't account for: it has no hull of points.
 - **Destroyed,** it left debris and its officers went back to the count
   (4 to 2 of 120); the selection lost it.
 
@@ -62,6 +62,32 @@ gone within two.
 
 From the code *(from the code)*:
 
+- **A hit** (0x461c60): all its damage on the shields (`RTS_CFG.h`'s
+  `SHIELD_DAMAGE_PROTECTION`, 1, the share; the program's own 0.8 if it
+  isn't set); while they're up, what passes the ordnance's
+  `damageThreshold` costs that much times its `shieldCrewModifier` of
+  the crew in percent, and a whole one more at most. Only what the
+  shields couldn't take goes on, to where the roll (below) puts it:
+  - **a system**, losing whole hit points, what's under one kept for the
+    next hit; brought to nothing, or hit while out, its `CrewLoss` percent
+    of the crew and one more;
+  - **the hull alone**, no points, only crew: the damage times the
+    ordnance's `hullCrewModifier`, in percent, and one more at most;
+  - **critically**: destroyed, if a whole point got through.
+  The shields at nothing are kept at nothing: they don't destroy a
+  unit, as one set to nothing in the original's memory showed.
+- **Under one crew** (0x463410): none, and the unit derelict (its
+  +0x4dc): its systems off. It isn't destroyed, and it doesn't keep its
+  player in the game ([play.md](play.md#a-skirmish-lost)).
+- **The roll** (0x461930): a whole number from 0 to 99, less each
+  system's `HitPercent` in turn, life support, the shield generator,
+  weapons, engines, sensors, then the hull's; it lands where it first
+  goes below nothing, and past them all it's critical. The definitions'
+  `criticalHitPercent` isn't read for it: the critical's share is what's
+  left of the hundred, 15.5 for the Defiant (its others 84.5), none for
+  the construction ship (99.5, the roll whole). That the program's
+  fourth system, the one at +0x588, is the shield generator, and its
+  fifth the sensors, both 7.5, is *(inferred)*.
 - **A shot landing** (0x449d60) does its ordnance's `damageValue` and
   `damageVariance` times a random number from -1 to 1 (0x4fa4c0: the
   game's own generator, its seed times 2,273 and 31 added, modulo
@@ -99,12 +125,12 @@ threshold only now and then, as the code has it; that the construction
 ship lost 110 of its 500 while its shields lasted, above, isn't
 explained by it.
 
-The systems in memory, in the order a hit's roll runs down them:
-engines (`enginesHitPercent` 2, `enginesCrewLoss` 5), life support (2.5,
-3), weapons (10, 2), and the shield generator's and sensors' (7.5, 2
-each); then the hull's 55 and the critical's 15.5. The Defiant's end,
-between frames with its shields nearly gone, fits a critical hit, one
-in six of those past its shields *(inferred)*.
+The systems in memory: engines (`enginesHitPercent` 2,
+`enginesCrewLoss` 5), life support (2.5, 3), weapons (10, 2), and the
+shield generator's and sensors' (7.5, 2 each); then the hull's 55 and
+the critical's 15.5. The Defiant's end, between frames with its shields
+nearly gone, fits a critical hit, the 15.5 of the hundred the code
+gives it.
 
 ### Boarding, capture and repair
 
@@ -201,12 +227,11 @@ From the same run's frames and draws:
 
 ## In Reluva
 
-- **Rules** (`Combat`): a unit's shields and hull are both its
-  `maxHealth`, its shields back at its `shieldRate` a second; its weapons
-  are those of `weapon1` on without `special` (the tractor and mining
-  beams), with their ordnance's damage, variance, speed and sprite. A
-  hit takes the shields first, and what gets past them twice over off
-  the hull, within the original's 1.6 to 2.5 *(guessed)*.
+- **Rules** (`Combat`): a unit's shields are its `maxHealth`, back at
+  its `shieldRate` a second; its weapons are those of `weapon1` on
+  without `special` (the tractor and mining beams), with their
+  ordnance's damage, variance, speed and sprite. A hit is taken as the
+  code above takes it (`Combat::hit`).
 - **Fighting** (`MissionView`): the attack button, or A (`Input.map`'s
   `attack` shortcut, for one unit or a group), arms the attack cursor
   (`c_attack`); a click on a unit makes it the target of the selected
@@ -269,13 +294,11 @@ From the same run's frames and draws:
   shipyard *(inferred)*. Built, its model is fixed
   to the station's next pod node (`podHardpoints`), and goes dark in
   its station's menu. A mine gets up to its speed at its `shotAccel`.
-- **Crew and systems,** as the game's code takes a hit (above): crew
-  lost on the shields only past the ordnance's `damageThreshold`; what
-  gets past the shields lands on a system, taking its hit points and,
-  once it's out, its `CrewLoss` percent of the crew and one more; on the
-  hull alone (`hullHitPercent`), taking `hullCrewModifier` percent of
-  the crew a point and one more; or critically (`criticalHitPercent`),
-  destroying the unit. A system with none left is out until
+- **Crew and systems,** as the game's code takes a hit (above); a
+  derelict neither moves nor fires, regains nothing *(inferred)*, and
+  doesn't keep its player in. A poleron torpedo's damage goes through
+  the shields; repair brings the shields back with the systems. A system
+  with none left is out until
   repaired over its repair time: engines out, the ship stops; weapons,
   it doesn't fire; the shield generator, its shields don't come back;
   life support, it loses `lifeSupportLoss` percent of its crew a second
@@ -356,10 +379,11 @@ From the same run's frames and draws:
 
 ## Open questions
 
-- Where the game keeps a unit's hull, what takes it, and what destroys
-  a unit but a critical hit: Reluva's hull is its `maxHealth` again,
-  taking twice what gets past the shields, which fits the construction
-  ship's end. And how that ship lost 110 crew while its shields lasted.
+- What destroyed the original's construction ship at the starbase's
+  seventh volley: by the code above it can't take a critical hit, its
+  shares adding to 99.5, and its crew wasn't gone (213 just before);
+  some other path, not found, or a part of the hit misread. And how it
+  lost 110 crew while its shields lasted.
 - Why all five system icons were red after one volley on the hull,
   and what sensors out do.
 - The shield's shape and size exactly, and whether it glows when a hit

@@ -10,22 +10,11 @@
 
 namespace reluva::storm3d {
 
-namespace {
-
-// The hull takes more than the shields do: the original's construction
-// ship lasted the volley after its shields went and not the next, 277
-// and 437 through them, its hull 700: from 1.6 to 2.5 times; twice is
-// a guess within that.
-constexpr float kHullFactor = 2;
-
-} // namespace
-
 Combat::Vitals Combat::vitalsOf(const Odf &unit) {
     // Its shields' bar fell a quarter a volley of eight 22s, and came back
     // 3.5 a second, its shieldRate: 700 of them, its maxHealth.
     Vitals v;
     v.maxShields = v.shields = float(unit.number("maxHealth"));
-    v.maxHull = v.hull = float(unit.number("maxHealth"));
     v.shieldRate = float(unit.number("shieldRate"));
     v.maxEnergy = v.energy = float(unit.number("maxSpecialEnergy"));
     v.energyRate = float(unit.number("specialEnergyRate"));
@@ -35,7 +24,6 @@ Combat::Vitals Combat::vitalsOf(const Odf &unit) {
     v.maxCrew = float(unit.number("maximumCrew", v.crew));
     v.lifeSupportLoss = float(unit.number("lifeSupportLoss"));
     v.hullHitPercent = float(unit.number("hullHitPercent"));
-    v.criticalHitPercent = float(unit.number("criticalHitPercent"));
     static const char *const kNames[kSystems] = {"shieldGenerator", "engines", "weapons", "lifeSupport", "sensors"};
     for (size_t i = 0; i < kSystems; ++i) {
         const std::string name = kNames[i];
@@ -194,48 +182,68 @@ bool Combat::Vitals::damaged() const {
     return false;
 }
 
-void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll) {
-    // Each loss a percent of the crew aboard, and a whole one more, at most.
+void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll, bool throughShields) {
+    if (vitals.destroyed || damage <= 0)
+        return;
+    // Each loss a percent of the crew aboard, and a whole one more, at most;
+    // under one left, none, and the unit derelict (0x463410).
     auto lose = [&vitals](float percent, float by) {
-        vitals.crew = std::max(0.0f, vitals.crew - (vitals.crew * percent * by / 100 + std::min(by, 1.0f)));
+        vitals.crew -= vitals.crew * percent * by / 100 + std::min(by, 1.0f);
+        if (vitals.crew < 1)
+            vitals.crew = 0;
     };
-    // The ordnance's own words: its threshold "must be exceeded to cause
-    // crew casualties prior to shield exhaustion", what exceeds it times
-    // its shieldCrewModifier the percent lost (0x461d46).
-    if (vitals.shields > 0 && crew.threshold > 0 && damage > crew.threshold)
-        lose(crew.shields, damage - crew.threshold);
-    const float onShields = std::min(vitals.shields, damage);
-    vitals.shields -= onShields;
-    const float past = damage - onShields;
-    if (past <= 0)
-        return;
-    vitals.hull = std::max(0.0f, vitals.hull - past * kHullFactor);
-    // It lands by the hit percents: on a system, the hull alone, or
-    // critically (0x461930, 0x461e4c); the rest of the hundred, nowhere.
-    float at = std::clamp(roll, 0.0f, 1.0f) * 100;
-    for (SystemState &s : vitals.systems) {
-        if (s.maxHitPoints <= 0 || at >= s.hitPercent) {
-            at -= s.hitPercent;
-            continue;
+    float past = damage;
+    if (!throughShields) {
+        // All of it on the shields (RTS_CFG.h's SHIELD_DAMAGE_PROTECTION, 1),
+        // past them only what they hadn't; while they're up, what passes the
+        // ordnance's threshold "to cause crew casualties prior to shield
+        // exhaustion" costs crew by its shieldCrewModifier (0x461d46).
+        if (vitals.shields > 0 && crew.threshold > 0 && damage > crew.threshold)
+            lose(crew.shields, damage - crew.threshold);
+        past = std::max(0.0f, damage - vitals.shields);
+        vitals.shields = std::max(0.0f, vitals.shields - damage);
+    }
+    // Where it lands: a whole roll from 0 to 99 run down the systems' hit
+    // percents in the program's order, then the hull's; past them all,
+    // critical (0x461930).
+    static constexpr System kRollOrder[kSystems] = {kLifeSupport, kShieldGenerator, kWeapons, kEngines, kSensors};
+    float at = std::floor(std::clamp(roll, 0.0f, 0.999f) * 100);
+    int landed = -1;
+    for (int k = 0; k < kSystems && landed < 0; ++k) {
+        at -= vitals.systems[kRollOrder[k]].hitPercent;
+        if (at < 0)
+            landed = kRollOrder[k];
+    }
+    if (landed < 0) {
+        at -= vitals.hullHitPercent;
+        if (at < 0) {
+            // On the hull alone: crew only, by the ordnance's hullCrewModifier.
+            if (past > 0)
+                lose(crew.hull, past);
+            return;
         }
-        const bool was = s.out();
-        s.hitPoints = std::max(0.0f, s.hitPoints - past);
-        if (!was && s.out())
-            lose(s.crewLoss, 1);
+    }
+    // Whole points, what's under one kept for the next hit (0x461e29).
+    const float carried = past + vitals.carry;
+    const float points = std::trunc(carried);
+    vitals.carry = carried - points;
+    if (points <= 0)
+        return;
+    if (landed < 0) {
+        vitals.destroyed = true;
         return;
     }
-    if (at < vitals.hullHitPercent) {
-        lose(crew.hull, past);
-        return;
+    // A system brought to nothing, or hit while out, costs its crewLoss.
+    SystemState &s = vitals.systems[size_t(landed)];
+    s.hitPoints -= points;
+    if (s.hitPoints <= 0) {
+        s.hitPoints = 0;
+        lose(s.crewLoss, 1);
     }
-    at -= vitals.hullHitPercent;
-    // A critical hit of a whole point or more destroys it.
-    if (at < vitals.criticalHitPercent && past >= 1)
-        vitals.hull = 0;
 }
 
 void Combat::regenerate(Vitals &vitals, double seconds) {
-    if (!vitals.alive())
+    if (!vitals.alive() || vitals.derelict())
         return;
     // Without its shield generator, its shields don't come back.
     if (!vitals.systems[kShieldGenerator].out())

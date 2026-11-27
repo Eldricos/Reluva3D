@@ -32,24 +32,23 @@ public:
         float crewLoss = 0;     // of its crew, in percent, as it's hit
         bool out() const { return maxHitPoints > 0 && hitPoints <= 0; }
     };
-    /** A unit's shields and hull, in its maxHealth's points. */
+    /** A unit's shields, its maxHealth (the original has no hull of points), its crew and systems. */
     struct Vitals {
         float shields = 0;
         float maxShields = 0;
-        float hull = 0;
-        float maxHull = 0;
-        float shieldRate = 0; // shields regained a second
-        float energy = 0;     // special energy, for the special weapons
-        float maxEnergy = 0;  // maxSpecialEnergy
-        float energyRate = 0; // specialEnergyRate, regained a second
+        bool destroyed = false; // by a critical hit
+        float carry = 0;        // damage under a whole point, kept for its next hit
+        float shieldRate = 0;   // shields regained a second
+        float energy = 0;       // special energy, for the special weapons
+        float maxEnergy = 0;    // maxSpecialEnergy
+        float energyRate = 0;   // specialEnergyRate, regained a second
         float crew = 0;
         float maxCrew = 0;
         float lifeSupportLoss = 0; // of its crew, in percent a second, while its life support is out
-        // The shares of the hits past the shields after the systems': on
-        // the hull alone (hullHitPercent), and critical, destroying it
-        // (criticalHitPercent).
+        // The share of the hits past the shields after the systems', on the
+        // hull alone (hullHitPercent); what's left of the hundred is
+        // critical, destroying it, whatever criticalHitPercent says.
         float hullHitPercent = 0;
-        float criticalHitPercent = 0;
         // Its race's (fed.odf, kling.odf...) or its own: how its crew
         // boards and repairs, and the shares of its crew below which its
         // repairs take repairYellow and repairRed times as long.
@@ -60,13 +59,15 @@ public:
         float repairYellow = 1;
         float repairRed = 1;
         std::array<SystemState, kSystems> systems{};
-        bool alive() const { return hull > 0; }
+        bool alive() const { return !destroyed; }
+        /** Without crew: its systems off, it neither moves nor fires, and its player is out with only such (0x463410). */
+        bool derelict() const { return maxCrew > 0 && crew <= 0; }
         /** Whether any of its systems is out (its fires burn). */
         bool damaged() const;
     };
     /**
-     * A unit's, from its definition: shields and hull both its maxHealth,
-     * shields back at its shieldRate; its special energy full.
+     * A unit's, from its definition: its shields its maxHealth, back at its
+     * shieldRate; its special energy full.
      */
     static Vitals vitalsOf(const Odf &unit);
     /** The race's definition a unit's `race` names ("federation": fed.odf); empty if none. */
@@ -178,17 +179,18 @@ public:
     };
 
     /**
-     * Damage taken, as the game takes it (0x461c60): crew lost if it's
-     * more than `crew.threshold` while the shields are up; by the shields
-     * while they last, then by the hull, twice as much; and what gets past
-     * the shields lands, by `roll` (0 to 1) and the hit percents, on a
-     * system, taking its hit points and, if it goes out, its crewLoss; on
-     * the hull alone, taking crew by `crew.hull`; or critically, destroying
-     * it. The crew lost is a share of those aboard.
+     * Damage taken, as the game takes it (0x461c60): all on the shields,
+     * crew lost by `crew.shields` past `crew.threshold` while they're up;
+     * what they hadn't lands by `roll` (0 to 1, as a whole 0 to 99) and
+     * the hit percents on a system, taking whole points and, brought to
+     * nothing, its crewLoss; on the hull alone, taking crew by `crew.hull`;
+     * or, past them all, critically, destroying it. The crew lost is a
+     * share of those aboard; under one, the unit is derelict.
+     * @param throughShields all of it past the shields, as a poleron torpedo's
      */
-    static void hit(Vitals &vitals, float damage, const CrewCost &crew, float roll);
-    /** Damage taken without crew or systems: the shields', then the hull's. */
-    static void hit(Vitals &vitals, float damage) { hit(vitals, damage, CrewCost{}, 1); }
+    static void hit(Vitals &vitals, float damage, const CrewCost &crew, float roll, bool throughShields = false);
+    /** Damage taken by the shields alone, without crew, systems or a critical. */
+    static void hit(Vitals &vitals, float damage) { vitals.shields = std::max(0.0f, vitals.shields - damage); }
     /**
      * Over `seconds`, while the unit lives: shields and special energy
      * regained up to their most, systems repaired over their repair time,

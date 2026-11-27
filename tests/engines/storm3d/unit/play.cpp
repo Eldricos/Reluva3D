@@ -568,25 +568,19 @@ void testCombat() {
     CHECK(std::abs(Combat::hitChanceOf(weapons[0], Pace::kWarp, Pace::kWarp) - 0.45f) < 1e-6f);
 
     Combat::Vitals v = Combat::vitalsOf(ship);
-    CHECK(v.shields == 700 && v.hull == 700 && v.shieldRate == 3.5f);
-    int volleys = 0;
-    double died = -1;
-    for (int i = 0; i <= 4000 && died < 0; ++i) {
-        const double t = i * 0.01;
+    CHECK(v.shields == 700 && v.shieldRate == 3.5f);
+    // Its shields a quarter down a volley, gone at the fifth, as the
+    // original's bar went.
+    for (int i = 0; i <= 1800; ++i) {
         if (i % 450 == 0) {
-            ++volleys;
             for (int shot = 0; shot < 8; ++shot)
                 Combat::hit(v, 22);
-            if (volleys == 1)
+            if (i == 0)
                 CHECK(std::abs(v.shields / v.maxShields - 0.753f) < 0.01f);
-            if (volleys == 5)
-                CHECK(v.shields == 0 && v.alive());
-            if (!v.alive())
-                died = t;
         }
         Combat::regenerate(v, 0.01);
     }
-    CHECK(volleys == 7 && std::abs(died - 27) < 0.01);
+    CHECK(v.shields < 1 && v.alive());
 }
 
 // The computer player's build list: read as the game's, and its next
@@ -730,7 +724,7 @@ void testSpecials() {
     CHECK(Combat::researchKeyOf("Chain Reaction Pulsar (^F^2) - Akira") ==
           Combat::researchKeyOf("^Chain Reaction Pulsar - Akira"));
     Combat::Vitals v;
-    v.maxShields = v.shields = v.maxHull = v.hull = 150;
+    v.maxShields = v.shields = 150;
     v.maxEnergy = 1000;
     v.energyRate = 10;
     Combat::regenerate(v, 30);
@@ -749,7 +743,6 @@ void testCrewAndSystems() {
     using reluva::storm3d::Combat;
     Combat::Vitals v;
     v.maxShields = v.shields = 100;
-    v.maxHull = v.hull = 700;
     v.maxCrew = v.crew = 500;
     v.lifeSupportLoss = 2;
     const Combat::CrewCost pulse{0.2f, 0.3f, 23}; // the starbase's fbpulseo
@@ -764,13 +757,12 @@ void testCrewAndSystems() {
     life.hitPercent = 100;
     life.repairTime = 10;
     life.crewLoss = 3;
-    // 22 with 10 shields left: 10 on them, 12 past, 24 off the hull, and
-    // life support out: 3% of the crew, and 1.
+    // 22 with 10 shields left: 10 on them, 12 past, life support's 10
+    // points gone: 3% of the crew, and 1.
     v.shields = 10;
     v.crew = 500;
     Combat::hit(v, 22, {0.2f, 0.3f, 0}, 0.5f);
-    CHECK(std::fabs(v.hull - 676) < 1e-3f);
-    CHECK(life.out() && v.damaged());
+    CHECK(v.shields == 0 && life.out() && v.damaged());
     CHECK(std::fabs(v.crew - (500 - 15 - 1)) < 1e-3f);
     // On the hull alone: 0.3% a point of the 12, and 1.
     Combat::Vitals hull = v;
@@ -778,12 +770,34 @@ void testCrewAndSystems() {
     hull.hullHitPercent = 100;
     hull.crew = 500;
     Combat::hit(hull, 12, {0.2f, 0.3f, 0}, 0.5f);
-    CHECK(std::fabs(hull.crew - (500 - 18 - 1)) < 1e-3f && hull.hull > 0);
-    // A critical hit: gone.
-    hull.hullHitPercent = 0;
-    hull.criticalHitPercent = 100;
-    Combat::hit(hull, 12, {}, 0.5f);
-    CHECK(!hull.alive());
+    CHECK(std::fabs(hull.crew - (500 - 18 - 1)) < 1e-3f && hull.alive());
+    // Past every share, a critical hit of a whole point or more: gone; under
+    // one, kept for the next.
+    hull.hullHitPercent = 50;
+    Combat::Vitals critical = hull;
+    Combat::hit(critical, 0.6f, {}, 0.9f);
+    CHECK(critical.alive() && std::fabs(critical.carry - 0.6f) < 1e-6f);
+    Combat::hit(critical, 0.6f, {}, 0.9f);
+    CHECK(!critical.alive());
+    // The roll's order: life support's share first, then the shield
+    // generator's.
+    Combat::Vitals order;
+    order.maxCrew = order.crew = 100;
+    for (Combat::System s : {Combat::kLifeSupport, Combat::kShieldGenerator}) {
+        order.systems[s].maxHitPoints = order.systems[s].hitPoints = 10;
+        order.systems[s].hitPercent = 50;
+    }
+    Combat::hit(order, 5, {}, 0.49f);
+    CHECK(order.systems[Combat::kLifeSupport].hitPoints == 5 &&
+          order.systems[Combat::kShieldGenerator].hitPoints == 10);
+    Combat::hit(order, 5, {}, 0.5f);
+    CHECK(order.systems[Combat::kShieldGenerator].hitPoints == 5);
+    // Under one crew left: none, derelict.
+    order.crew = 1.5f;
+    order.hullHitPercent = 100;
+    order.systems = {};
+    Combat::hit(order, 1, {0, 0, 0}, 0.5f);
+    CHECK(order.crew == 0 && order.derelict() && order.alive());
     // Out, its crew drains 2% a second; repaired over its 10 seconds.
     const float before = v.crew;
     Combat::regenerate(v, 1);
@@ -806,7 +820,7 @@ void testBoardingAndRepair() {
     CHECK(Combat::raceFileOf("Federation") == "fed" && Combat::raceFileOf("klingon") == "kling");
 
     Combat::Vitals v;
-    v.maxShields = v.shields = v.maxHull = v.hull = 100;
+    v.maxShields = v.shields = 100;
     v.maxCrew = 100;
     v.crew = 100;
     v.repairStrength = 1.5f;

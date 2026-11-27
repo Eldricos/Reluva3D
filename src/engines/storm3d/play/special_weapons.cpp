@@ -226,8 +226,10 @@ bool MissionView::fireMore(size_t unit, Combat::Special &special, int target) {
         _scene.moveUnit(size_t(target), ship.at, ship.heading);
         e.enginesOff = now + lastingOf(special, 20);
     } else if (shot == "polerontorpedo") {
-        // Through its shields: its damage on the hull, and a system out.
-        v.hull = std::max(0.0f, v.hull - special.damage * 2);
+        // Through its shields: its damage landing as a hit does, and a
+        // system out.
+        _roll = _roll * 1664525u + 1013904223u;
+        Combat::hit(v, special.damage, special.crew, float(_roll >> 8) / float(1u << 24), true);
         _roll = _roll * 1664525u + 1013904223u;
         Combat::SystemState &sys = v.systems[(_roll >> 8) % Combat::kSystems];
         sys.hitPoints = 0;

@@ -560,7 +560,7 @@ void MissionView::pressControl(int slot) {
         const size_t one = size_t(_selection.front());
         for (const Hud::Unit::Button &b : _orders.controls)
             if (b.slot == slot && b.sprite == "b_repair" && one < _vitals.size() &&
-                (_vitals[one].hull < _vitals[one].maxHull || _vitals[one].crew < _vitals[one].maxCrew ||
+                (_vitals[one].shields < _vitals[one].maxShields || _vitals[one].crew < _vitals[one].maxCrew ||
                  _vitals[one].damaged()))
                 if (auto station = repairStationFor(one)) {
                     _repairingAt[one] = *station;
@@ -1083,7 +1083,7 @@ void MissionView::fight(double seconds) {
             const float d = std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
             if (_dead[j] || radius <= 0 || d > radius)
                 continue;
-            Combat::hit(_vitals[j], _vitals[unit].maxHull * (1 - d / radius));
+            Combat::hit(_vitals[j], _vitals[unit].maxShields * (1 - d / radius));
             if (!_vitals[j].alive())
                 caught.push_back(j);
         }
@@ -1112,8 +1112,9 @@ void MissionView::fight(double seconds) {
     // Settled? Checked each frame, as the original's (0x43d6d9).
     if (!_settledAt && !_players.empty()) {
         std::set<int> standing;
+        // A derelict, without crew, doesn't keep its player in (+0x4dc).
         for (size_t i = 0; i < _scene.units().size() && i < _dead.size(); ++i)
-            if (!_dead[i])
+            if (!_dead[i] && !(i < _vitals.size() && _vitals[i].derelict()))
                 standing.insert(_scene.units()[i].slot);
         if (settled(_players, standing, _alliedVictory))
             _settledAt = double(_last) / 1000;
@@ -2422,9 +2423,9 @@ void MissionView::fireSpecial(size_t unit, Combat::Special &special, int target)
         return;
     }
     if (kind == "regeneration") {
-        // Its regenModifier percent of its hull back *(guessed)*.
+        // Its regenModifier percent of its shields back *(guessed)*.
         Combat::Vitals &v = _vitals[unit];
-        v.hull = std::min(v.maxHull, v.hull + v.maxHull * special.modifier / 100);
+        v.shields = std::min(v.maxShields, v.shields + v.maxShields * special.modifier / 100);
         return;
     }
     if (kind == "areamissile") {
@@ -2807,7 +2808,7 @@ void MissionView::draw(uint64_t millis) {
     if (_selection.size() == 1 && size_t(_selection.front()) < _vitals.size()) {
         const size_t one = size_t(_selection.front());
         const Combat::Vitals &v = _vitals[one];
-        const bool needs = v.hull < v.maxHull || v.crew < v.maxCrew || v.damaged();
+        const bool needs = v.shields < v.maxShields || v.crew < v.maxCrew || v.damaged();
         for (Hud::Unit::Button &b : orders.controls)
             if (b.sprite == "b_repair")
                 b.enabled = needs && repairStationFor(one).has_value();

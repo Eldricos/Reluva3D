@@ -172,13 +172,12 @@ void MissionView::runCrew(double seconds) {
         }
         _ships[ship].goal.reset();
         const float pace = float(seconds) / 30 * v.repairStrength;
-        v.hull = std::min(v.maxHull, v.hull + v.maxHull * pace);
         v.shields = std::min(v.maxShields, v.shields + v.maxShields * pace);
         for (Combat::SystemState &s : v.systems)
             s.hitPoints = std::min(s.maxHitPoints, s.hitPoints + s.maxHitPoints * pace);
         if (Hud::Resources *bank = bankOf(units[ship].slot))
             fromPool(ship, *bank, seconds);
-        const bool whole = v.hull >= v.maxHull && v.crew >= v.maxCrew && !v.damaged();
+        const bool whole = v.shields >= v.maxShields && v.crew >= v.maxCrew && !v.damaged();
         it = whole ? _repairingAt.erase(it) : std::next(it);
     }
     // Recrew: a station's crew from the pool, 20 a second, to its most.
