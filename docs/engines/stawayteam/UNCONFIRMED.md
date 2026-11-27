@@ -25,8 +25,8 @@ None now.
 - **Warps:** the team shown fading in as they beam in, though their
   warp's behaviour would leave them unseen, and the noise's blend even
   in its amount ([systems/items.md](systems/items.md#in-reluva)).
-- **The remote mine's Activate:** played once and held at its last
-  frame as it's set off, as the proximity mine's is
+- **The remote mine's going:** at once on DETONATE, its Activate not
+  shown, its model having no AI to play it
   ([systems/items.md](systems/items.md#in-reluva)).
 - **Network games:** only the host starting, the chat's lines' form,
   the chosen game's and mission's font, the host starting on the first

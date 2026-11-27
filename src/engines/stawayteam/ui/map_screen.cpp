@@ -1343,7 +1343,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     // Sequence once as they're put down, then Idle (0x48eb9d), not their
     // model's Default Sequence; set off, its Activate once, its last frame
     // held till it goes (the proximity mine's Enter Action plays it, and
-    // its last frame destroys it; inferred for the remote mine).
+    // its last frame destroys it; the remote mine goes at once).
     for (const Mine &m : _mines) {
         const ModelInfo &info = modelInfo(m.model);
         const auto once = [&](const std::string &sequence, float seconds) -> const Animation::Picture * {

@@ -483,7 +483,8 @@ the charge and BREAK CONTROL.
 A mine put down plays its drop action's `Deploy Sequence` once, then
 `Idle`; set off, its `Activate`, its last frame held till it goes (the
 proximity mine's Enter Action plays it, and that sequence's last frame
-destroys it; the remote mine's *(inferred)*). A part beamed away (a `CAddEffectAction` that's `Delete When
+destroys it). The remote mine's model has no AIs to play one: DETONATE
+sets it off and it goes at once, its Activate not shown *(inferred)*. A part beamed away (a `CAddEffectAction` that's `Delete When
 Finished`) has its `Warp Overlay Effect` drawn over it: the overlay's
 frames are `Num Rotations` (4) directions' worth, the figure's
 direction's chosen when its own sequence has as many, else the first,
