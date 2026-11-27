@@ -32,15 +32,11 @@ namespace {
 
 // How long the briefing's EXIT fades the screen out (0x474a6d: 0.5 s).
 constexpr uint64_t kFadeOutMs = 500;
-// The briefing music's queue fade (0x5c3104: 0.1 s).
+// The briefing's and debriefing's music queued with a tenth of a
+// second's fade (0x5c3104, 0x5c2b67), the maps' Primary Song with 0.2
+// (0x5c3263).
 constexpr uint64_t kBriefingFadeMs = 100;
-
-// A song fading out as another's queued: down to -33.33 dB over the
-// fade, evenly in dB (0x4d5cb0, -3333 at 0x621ba0).
-int queueFadeVolume(uint64_t gone, uint64_t fade) {
-    const float t = float(gone) / float(fade);
-    return int(float(audio::kMaxVolume) * std::pow(10.0f, -33.33f * t / 20.0f));
-}
+constexpr uint64_t kMapsFadeMs = 200;
 
 const char *const kPointer = "Cache/Interface/Cursors/Pointer.seq16";
 
@@ -118,7 +114,7 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
                    const TextObject &rules, GameOptions &options, audio::Mixer *mixer, int firstMission,
                    std::filesystem::path saves)
     : _sys(sys), _screen(screen), _data(data), _install(install), _rules(rules), _options(options), _mixer(mixer),
-      _firstMission(firstMission), _saves(std::move(saves)) {
+      _music(data, mixer), _firstMission(firstMission), _saves(std::move(saves)) {
     (void)_pointer.loadFile(data, kPointer);
     const TextObject *menu = menuDefinition(rules, "Main Menu");
     const TextObject *nernies = menu ? menu->object("Nernie") : nullptr;
@@ -184,24 +180,21 @@ MainMenu::MainMenu(System &sys, Surface &screen, const Archive &data, const std:
 
     // The startup song, from Music/.
     const std::string song = readText(&rules, "Startup Song");
-    std::vector<uint8_t> bytes;
-    auto decoded = std::make_shared<audio::Sound>();
-    if (!song.empty() && !data.read("Music/" + song, bytes) && !audio::decodeSound(bytes, *decoded)) {
-        _song = std::move(decoded);
+    if (!song.empty() && data.has("Music/" + song))
         _contents.push_back("song " + song);
-    }
 }
 
 MainMenu::~MainMenu() = default;
 
 bool MainMenu::run() {
-    audio::SoundHandle song = audio::kNoSound;
-    if (_mixer && _song)
-        song = _mixer->play(_song, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
-    const auto stopSong = [&] {
-        if (_mixer && song != audio::kNoSound)
-            _mixer->stop(song);
-    };
+    // The startup song as the game starts (0x4f629b); as it ends, the
+    // first mission's Random Songs, the program's current mission being
+    // its table's first till one's begun (0x5b72c0).
+    Mission first;
+    if (!loadMission(_data, 1, first))
+        _music.setRandomSongs(first.randomSongs);
+    _music.play(readText(&_rules, "Startup Song"));
+    const auto stopSong = [&] { _music.stop(); };
     _sys.setMouseCursorVisible(true);
     for (;;) {
         Event ev;
@@ -318,12 +311,15 @@ bool MainMenu::run() {
                     const std::string name = _mapScreen->nextMission();
                     if (std::sscanf(name.c_str(), "Mission %d", &_nextMission) != 1)
                         _nextMission = 0;
+                    // Its Debriefing Music queued as the maps end (0x5c2b6e).
+                    if (!_mission.debriefingMusic.empty())
+                        _music.queue(_mission.debriefingMusic, kBriefingFadeMs, _sys.getMillis());
                     if (_mission.showDebriefing)
                         _debriefing = std::make_unique<DebriefingScreen>(_data, _rules, _mission, _options, _mixer,
                                                                          _mapScreen->objectiveLines(),
                                                                          _mapScreen->missionTime(), _sys.getMillis());
                     endMaps();
-                    if (!_debriefing && _nextMission > 0)
+                    if (!_debriefing && !finishGame() && _nextMission > 0)
                         beginMission(_nextMission);
                 } else if (choice != MapScreen::Choice::kNone) {
                     endMaps();
@@ -333,7 +329,7 @@ bool MainMenu::run() {
             if (_debriefing) {
                 if (_debriefing->handleEvent(ev, _sys.getMillis()) == DebriefingScreen::Choice::kContinue) {
                     _debriefing.reset();
-                    if (_nextMission > 0)
+                    if (!finishGame() && _nextMission > 0)
                         beginMission(_nextMission);
                 }
                 continue;
@@ -391,25 +387,12 @@ bool MainMenu::run() {
             else if (chosen == int(kCreditsButton))
                 _credits = std::make_unique<CreditsWindow>(_data, _rules, _screen.w, _screen.h, _sys.getMillis());
         }
-        // The menu's song stops for the game's screens, which have their
-        // own music, and comes back with the menu (inferred).
-        const bool inGame = _briefing || _teamSelection || _mapScreen || _debriefing;
-        if (inGame && song != audio::kNoSound) {
-            if (_briefingQueued && _sys.getMillis() - *_briefingQueued < kBriefingFadeMs) {
-                _mixer->setVolume(song, queueFadeVolume(_sys.getMillis() - *_briefingQueued, kBriefingFadeMs));
-            } else {
-                stopSong();
-                song = audio::kNoSound;
-            }
-        } else if (!inGame && song == audio::kNoSound && _mixer && _song) {
-            song = _mixer->play(_song, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
-        }
         if (_fadeOutStart && _sys.getMillis() - *_fadeOutStart >= kFadeOutMs) {
             _fadeOutStart.reset();
             _briefing.reset();
             _teamSelection.reset();
         }
-        playMissionMusic();
+        _music.update(_sys.getMillis());
         updateNetScreens(_sys.getMillis());
         draw();
         brighten();
@@ -445,98 +428,6 @@ void MainMenu::showCursor(const Animation::Picture *p) {
     for (int y = 0; y < p->image.h; ++y)
         std::memcpy(c.pixel(-x0, y - y0), p->image.pixel(0, y), size_t(p->image.w) * 4);
     _sys.setMouseCursor(&c);
-}
-
-void MainMenu::playMissionMusic() {
-    // On a mission's maps, its Primary Song as they start (0x5c3258); as
-    // each song ends, the next of its Random Songs, shuffled, all of them
-    // before they're shuffled again (0x507460); without them, the last
-    // song again (0x5bcbeb). The maps' Map Song isn't played. It stops as
-    // the maps are left.
-    if (!_mixer)
-        return;
-    // The briefing music, queued, starts once the song before has faded;
-    // a briefing music still playing fades too.
-    if (_briefingQueued) {
-        const uint64_t gone = _sys.getMillis() - *_briefingQueued;
-        if (gone < kBriefingFadeMs) {
-            if (_briefingSong != audio::kNoSound)
-                _mixer->setVolume(_briefingSong, queueFadeVolume(gone, kBriefingFadeMs));
-        } else {
-            _briefingQueued.reset();
-            if (_briefingSong != audio::kNoSound)
-                _mixer->stop(_briefingSong);
-            _briefingSong = _briefingMusic
-                                ? _mixer->play(_briefingMusic, audio::SoundType::kMusic, audio::kMaxVolume, 0, true)
-                                : audio::kNoSound;
-        }
-    }
-    const bool briefed = _briefing || _teamSelection;
-    if (_briefingSong != audio::kNoSound && !_mapScreen && !briefed) {
-        _mixer->stop(_briefingSong);
-        _briefingSong = audio::kNoSound;
-    }
-    if (_mapScreen && _songsPlayed == 0) {
-        // The Primary Song is queued with a 0.2-second fade (0x5c3263):
-        // what's playing goes down to -33.33 dB, evenly in dB, and the
-        // song starts at full once the time's up, playing or not
-        // (0x4d5640, 0x4d5cb0).
-        constexpr uint64_t kFadeMs = 200;
-        const uint64_t now = _sys.getMillis();
-        if (!_songFadeStart)
-            _songFadeStart = now;
-        if (now - *_songFadeStart < kFadeMs) {
-            if (_briefingSong != audio::kNoSound)
-                _mixer->setVolume(_briefingSong, queueFadeVolume(now - *_songFadeStart, kFadeMs));
-            return;
-        }
-        if (_briefingSong != audio::kNoSound)
-            _mixer->stop(_briefingSong);
-        _briefingSong = audio::kNoSound;
-    }
-    if (!_mapScreen) {
-        _songFadeStart.reset();
-        if (_missionSong != audio::kNoSound)
-            _mixer->stop(_missionSong);
-        _missionSong = audio::kNoSound;
-        _songsPlayed = 0;
-        _playlist.clear();
-        _playlistNext = 0;
-        _lastSong.clear();
-        return;
-    }
-    if (_missionSong != audio::kNoSound && _mixer->isPlaying(_missionSong))
-        return;
-    std::string name;
-    if (_songsPlayed == 0) {
-        name = _mission.primarySong;
-    } else if (!_mission.randomSongs.empty()) {
-        if (_playlistNext >= _playlist.size()) {
-            // Each in turn swapped with one chosen by chance; one that
-            // would come straight after itself goes last instead (0x507380).
-            const std::string previous = _playlist.empty() ? std::string() : _playlist.back();
-            _playlist = _mission.randomSongs;
-            for (size_t i = 0; i < _playlist.size(); ++i) {
-                _songRandom = _songRandom * 1103515245u + 12345u;
-                std::swap(_playlist[i], _playlist[(_songRandom >> 16) % _playlist.size()]);
-            }
-            if (!previous.empty() && _playlist.front() == previous)
-                std::swap(_playlist.front(), _playlist.back());
-            _playlistNext = 0;
-        }
-        name = _playlist[_playlistNext++];
-    } else {
-        name = _lastSong;
-    }
-    _lastSong = name;
-    _missionSong = audio::kNoSound;
-    ++_songsPlayed;
-    std::vector<uint8_t> bytes;
-    auto sound = std::make_shared<audio::Sound>();
-    if (name.empty() || name == "!None.ogg" || _data.read("Music/" + name, bytes) || audio::decodeSound(bytes, *sound))
-        return;
-    _missionMusic = std::move(sound);
-    _missionSong = _mixer->play(_missionMusic, audio::SoundType::kMusic, audio::kMaxVolume, 0, false);
 }
 
 void MainMenu::openSaveScreen(SaveGameScreen::Mode mode) {
@@ -641,6 +532,8 @@ bool MainMenu::gameState(StateIo &s) {
             return false;
         _maps.begin()->second->setObjectives(readMissionObjectives(_mission.objectives));
     }
+    if (s.reading() && !_mission.primarySong.empty())
+        _music.queue(_mission.primarySong, kMapsFadeMs, _sys.getMillis());
     for (auto &[key, map] : _maps)
         map->state(s);
     if (!_maps.empty())
@@ -650,6 +543,16 @@ bool MainMenu::gameState(StateIo &s) {
     if (s.failed())
         return false;
     showMap(_maps[shown].get());
+    return true;
+}
+
+bool MainMenu::finishGame() {
+    // After a mission that's End Game After Mission (the 18th), the
+    // EndGame movie, then the main menu (0x5c2cd5).
+    if (!_mission.endGameAfterMission)
+        return false;
+    if (const auto file = movieFile(_install, "EndGame"))
+        (void)playMovie(_sys, _screen, _mixer, *file);
     return true;
 }
 
@@ -686,18 +589,11 @@ void MainMenu::beginMission(int number) {
         if (std::find(_campaign.discovered.begin(), _campaign.discovered.end(), name) == _campaign.discovered.end())
             _campaign.discovered.push_back(name);
     _campaign.toDescribe.clear();
-    // The mission's Briefing Music starts as it begins, with or without a
-    // briefing to show (0x5c3104); as it ends it plays again, there being
-    // no other song (0x5bcbeb), until the maps' songs.
-    std::vector<uint8_t> bytes;
-    auto music = std::make_shared<audio::Sound>();
-    if (_mixer && !_mission.briefingMusic.empty() && !_data.read("Music/" + _mission.briefingMusic, bytes) &&
-        !audio::decodeSound(bytes, *music)) {
-        // Queued with a tenth of a second's fade (0x5c3104): the song
-        // playing fades out, then this starts (0x4d5cb0).
-        _briefingMusic = std::move(music);
-        _briefingQueued = _sys.getMillis();
-    }
+    // The mission's Briefing Music is queued as it begins, with or without
+    // a briefing to show (0x5c3104); its Random Songs follow what ends.
+    _music.setRandomSongs(_mission.randomSongs);
+    if (!_mission.briefingMusic.empty())
+        _music.queue(_mission.briefingMusic, kBriefingFadeMs, _sys.getMillis());
     if (_mission.showBriefing)
         _briefing =
             std::make_unique<BriefingScreen>(_data, _install, _rules, _mission, _options, _mixer, _sys.getMillis());
@@ -731,6 +627,9 @@ void MainMenu::startMission(std::vector<TeamMember> team) {
         _mapScreen->setObjectives(readMissionObjectives(_mission.objectives));
         _mapScreen->setDiscovered(_campaign.discovered);
     }
+    // As the maps start, the mission's Primary Song is queued (0x5c3258).
+    if (!_mission.primarySong.empty())
+        _music.queue(_mission.primarySong, kMapsFadeMs, _sys.getMillis());
 }
 
 void MainMenu::endMaps() {

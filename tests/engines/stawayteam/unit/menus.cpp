@@ -17,6 +17,8 @@
 #include "engines/stawayteam/ui/font.h"
 #include "engines/stawayteam/ui/key_config.h"
 #include "engines/stawayteam/ui/main_menu.h"
+#include "engines/stawayteam/ui/music.h"
+#include "engines/stawayteam/ui/objectives_window.h"
 #include "engines/stawayteam/game/controls.h"
 #include "engines/stawayteam/game/options.h"
 #include "engines/stawayteam/game/team.h"
@@ -792,6 +794,56 @@ void testSaveScreen(const std::filesystem::path &tmp) {
           load.chosen().state == std::vector<uint8_t>{7});
 }
 
+void testMusic() {
+    // A song queued fades the one playing out, then starts; one ending is
+    // followed by the next of the Random Songs.
+    std::vector<uint8_t> wav = {'R', 'I', 'F', 'F', 40,  0,   0,   0,   'W',  'A',  'V', 'E', 'f',  'm',  't', ' ',
+                                16,  0,   0,   0,   1,   0,   1,   0,   0x22, 0x56, 0,   0,   0x44, 0xac, 0,   0,
+                                2,   0,   16,  0,   'd', 'a', 't', 'a', 4,    0,    0,   0,   1,    0,    1,   0};
+    MemoryArchive data;
+    data.files["Music/Startup.ogg"] = wav;
+    data.files["Music/Briefing.ogg"] = wav;
+    data.files["Music/Random.ogg"] = wav;
+    audio::Mixer mixer(22050);
+    MusicQueue music(data, &mixer);
+    music.setRandomSongs({"Random.ogg"});
+    music.play("Startup.ogg");
+    CHECK(music.current() == "Startup.ogg" && mixer.isTypePlaying(audio::SoundType::kMusic));
+    music.queue("Briefing.ogg", 100, 1000);
+    music.update(1050);
+    CHECK(music.current() == "Startup.ogg" && music.queued());
+    music.update(1100);
+    CHECK(music.current() == "Briefing.ogg" && !music.queued());
+    int16_t out[256];
+    mixer.mix(out, 128);
+    CHECK(!mixer.isTypePlaying(audio::SoundType::kMusic));
+    music.update(1200);
+    CHECK(music.current() == "Random.ogg" && mixer.isTypePlaying(audio::SoundType::kMusic));
+    // Without Random Songs, the last song again.
+    mixer.mix(out, 128);
+    music.setRandomSongs({});
+    music.update(1300);
+    CHECK(music.current() == "Random.ogg");
+}
+
+void testEndGameWindow() {
+    // A failed mission's END GAME asks to be pressed again (0x50d981).
+    MemoryArchive data;
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tMenu=Array\n\t\t{\n\t\t\tItem Count=1\n"
+                          "\t\t\tMenu=CAnimatedMenuInfo\n\t\t\t{\n\t\t\t\tMenu Name=End Game Menu\n"
+                          "\t\t\t\tMenu Definition=CStarTrekEndGameDisplay\n\t\t\t\t{\n"
+                          "\t\t\t\t\tEndGameButton Text=&END GAME\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
+                          rules));
+    EndGameWindow window(data, rules, false, "Failed.", 640, 480);
+    Event key;
+    key.type = EventType::kKeyDown;
+    key.key = 'e';
+    key.mods = keymod::kAlt;
+    CHECK(window.handleEvent(key, nullptr) == EndGameWindow::Choice::kNone);
+    CHECK(window.handleEvent(key, nullptr) == EndGameWindow::Choice::kEndGame);
+}
+
 void testEscapeMenu() {
     MemoryArchive data;
     TextObject rules;
@@ -851,6 +903,8 @@ static const reluva::test::Suite
                                         {"briefing", [](const std::filesystem::path &) { testBriefing(); }},
                                         {"debriefing", [](const std::filesystem::path &) { testDebriefing(); }},
                                         {"escape menu", [](const std::filesystem::path &) { testEscapeMenu(); }},
+                                        {"music", [](const std::filesystem::path &) { testMusic(); }},
+                                        {"end game window", [](const std::filesystem::path &) { testEndGameWindow(); }},
                                         {"campaign", [](const std::filesystem::path &tmp) { testCampaign(tmp); }},
                                         {"save screen", [](const std::filesystem::path &tmp) { testSaveScreen(tmp); }},
                                     });

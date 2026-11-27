@@ -54,8 +54,13 @@ position:
 | `CImageNernie` | 8,439 | `Main Menu/Reflexive Logo`: a picture (`Cache/Interface/Screens/Main Menu/Reflexive Logo.frm16`) |
 
 The menu's buttons, over it, are in [menus.md](menus.md#the-main-menu).
-The song is `Rules.txt`'s `Startup Song`,
-`Startup.ogg` in `DATA.dat`'s `Music/`.
+Each movie nernie plays its movie over and over: it opens it with the
+player's loop flag set (`0x51139d`), so the player goes on from its last
+frame to its first rather than stopping (`0x44a6de`). Neither has a
+sound track (their Bink headers give none), so they're silent. The
+song is `Rules.txt`'s `Startup Song`, `Startup.ogg` in `DATA.dat`'s
+`Music/`, played once: as it ends the first mission's Random Songs
+follow ([maps.md](maps.md#the-music)).
 
 ## In Reluva
 
@@ -69,8 +74,8 @@ The song is `Rules.txt`'s `Startup Song`,
   (`0x510bf0`). The engine's setting "Opening movies" leaves them out.
 - **The main menu's screen:** `MainMenu`
   (`src/engines/stawayteam/ui/main_menu.cpp`) reads the main menu's nernies
-  from `Rules.txt` and shows each at its place, the movies over and over,
-  with the startup song, and its buttons over them
+  from `Rules.txt` and shows each at its place, the movies over and over
+  without sound, with the startup song, and its buttons over them
   ([menus.md](menus.md)).
 
 ## Sources and checks
@@ -87,7 +92,4 @@ The song is `Rules.txt`'s `Startup Song`,
 
 ## Open questions
 
-- **The main menu's movies:** whether both play over and over, or the
-  title once; and whether they play their own sound, if they have any.
-  Reluva loops both, without sound.
-- **The startup song:** whether it loops. Reluva loops it.
+None now.

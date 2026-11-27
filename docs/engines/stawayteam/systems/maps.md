@@ -462,10 +462,16 @@ with none playing, asks the mission for the next (`0x4d5d23`,
 `0x4e4200`, `0x5bcbd0`): the next of its Random Songs from a list of
 them shuffled, each in turn swapped with one chosen by chance, and the
 last played put at the end if it would come first; the list played
-through, it's shuffled again (`0x507460`, `0x507380`). Without Random
-Songs, the song just played again. Nothing reads a map's `Map Song`:
-it's never played. Rules.txt's `Startup Song` is queued as the game
-starts (`0x4f629b`), and `Startup.wav` by the main menu (`0x503555`).
+through, it's shuffled again (`0x507460`, `0x507380`). The mission
+asked is the current one, read as it's wanted (`0x5b72c0`): on every
+screen, the main menu's and the briefing's too, so no song plays over
+and over while its mission has Random Songs (all 18 have 3). Without a
+mission, the song last queued again (`0x5bcbeb`). Nothing reads a map's
+`Map Song`: it's never played. Rules.txt's `Startup Song` is started as
+the game starts (`0x4f629b`, `0x4d5b80`), the program's current
+mission its table's first, and `Startup.wav` by the main menu
+(`0x503555`). Nothing else stops the music: going back to the main
+menu, the song playing goes on.
 
 ### The map's triggers
 
@@ -1230,11 +1236,14 @@ chosen on the team bar shows their map *(inferred)*. The mission's
 objectives, end and time are the same on all its maps, the time counted
 while one's shown.
 
-The music (`ui/main_menu.cpp`): on a mission's maps, its Primary Song,
-then its Random Songs shuffled as the program does, or the last song
-again without them; stopping as the maps are left. The briefing's
-music fades out under the first as the game's does. Reluva's random
-numbers aren't the program's.
+The music (`MusicQueue`, `ui/music.cpp`, played by `MainMenu`): the
+startup song, then the first mission's Random Songs; as a mission
+begins, its Briefing Music queued; as its maps start, its Primary Song;
+as they end, its Debriefing Music; each song ending followed by the
+mission's Random Songs, shuffled as the program does. The startup
+mission's Random Songs are Mission 01's, taking it for the program's
+table's first *(inferred)*. Reluva's random numbers aren't the
+program's.
 
 A `CSendMessageAction`'s messages in the maps are `particle system on`
 (51, [particles.md](particles.md)) and `stop animation` (9, to the

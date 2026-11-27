@@ -58,9 +58,8 @@ None now.
   look; the enemies pursuing, retreating,
   holding the place and acting on their messages, and officers stunned
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **Objectives:** the game held still under the End Game Menu, and
-  CONTINUE going to the next mission's briefing
-  ([systems/objectives.md](systems/objectives.md#open-questions)).
+- **Objectives:** the debriefing's lines typed only once their panel's
+  in ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **Items:** the counts for -1, the keys matched to items by name,
   walking into range before using one, what a grenade's explosion's
   hurt falls from, healing up to the whole, and where the bar
@@ -127,8 +126,9 @@ None now.
 
 ## Guessed
 
-- **The main menu's movies and song loop,** the movies without sound
-  ([systems/startup.md](systems/startup.md#open-questions)).
+- **The music at the start:** the first mission's Random Songs after the
+  startup song, taking Mission 01 for the program's table's first
+  ([systems/maps.md](systems/maps.md#in-reluva)).
 
 ## Settled
 

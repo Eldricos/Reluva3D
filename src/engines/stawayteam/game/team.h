@@ -90,6 +90,7 @@ struct Mission {
     std::string briefingMusic; // of Music/
     std::vector<BriefingLine> briefing;
     bool showDebriefing = false;
+    bool endGameAfterMission = false;     // the game's last: its EndGame movie after it
     std::vector<BriefingLine> debriefing; // its Debrief Script
     std::string debriefingMusic;
     std::string primarySong;                      // of Music/, played on its maps

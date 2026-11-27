@@ -106,10 +106,22 @@ void ObjectivesWindow::draw(Surface &screen, const std::vector<ObjectiveLine> &l
     _buttons.draw(screen);
 }
 
+namespace {
+
+// The line under a failed mission's buttons (0x6408cc, 0x6408f8), and how
+// far above the window's foot it's drawn (0x50d7e1).
+const char *const kEndOnce = "Click 'End Game' to exit to the main menu.";
+const char *const kEndAgain = "Click 'End Game' again to exit to the main menu.";
+constexpr int kHintAbove = 54;
+
+} // namespace
+
 EndGameWindow::EndGameWindow(const Archive &data, const TextObject &rules, bool completed, std::string message,
                              int screenW, int screenH)
     : _background(screenPicture(data, "End Game Menu/Background")), _list(data), _message(std::move(message)),
-      _x((screenW - _background.w) / 2), _y((screenH - _background.h) / 2) {
+      _completed(completed), _x((screenW - _background.w) / 2), _y((screenH - _background.h) / 2) {
+    (void)_hintFont.load(data, "Trek Small");
+    (void)_warningFont.load(data, "Trek Small Red");
     const TextObject *def = menuDefinition(rules, "End Game Menu");
     int h = 0;
     readPoint(def, "EndGameDisplay Pos", _textX, _textY);
@@ -151,7 +163,13 @@ EndGameWindow::EndGameWindow(const Archive &data, const TextObject &rules, bool 
 
 EndGameWindow::Choice EndGameWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
     const int chosen = _buttons.handleEvent(ev, mixer);
-    return chosen >= 0 ? _choices[size_t(chosen)] : Choice::kNone;
+    const Choice choice = chosen >= 0 ? _choices[size_t(chosen)] : Choice::kNone;
+    // END GAME asks to be pressed again first (0x50d981).
+    if (choice == Choice::kEndGame && !_endPressed) {
+        _endPressed = true;
+        return Choice::kNone;
+    }
+    return choice;
 }
 
 void EndGameWindow::draw(Surface &screen, const std::vector<ObjectiveLine> &lines) const {
@@ -165,6 +183,14 @@ void EndGameWindow::draw(Surface &screen, const std::vector<ObjectiveLine> &line
     }
     _list.draw(screen, _x + _textX, _y + _textY + below + kListBelow, _textW, _spacing, lines);
     _buttons.draw(screen);
+    // Failed, what END GAME does, centred 54 above the window's foot; once
+    // pressed, in red (0x50d6c5).
+    if (!_completed) {
+        const Font &font = _endPressed ? _warningFont : _hintFont;
+        const std::string_view hint = _endPressed ? kEndAgain : kEndOnce;
+        if (font.loaded())
+            font.draw(screen, _x + (_background.w - font.width(hint)) / 2, _y + _background.h - kHintAbove, hint);
+    }
 }
 
 } // namespace reluva::stawayteam

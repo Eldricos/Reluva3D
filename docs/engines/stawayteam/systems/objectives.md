@@ -125,6 +125,28 @@ and centred across the top of `EndGameDisplay Pos` and `Size` (60, 26;
 buttons, of `End Game Menu/Button`: completed, CONTINUE alone; failed,
 LOAD GAME, RESTART and END GAME (`0x50d08d`).
 
+It takes the map's input (`0x5ca130`: the count at the game's `+0x60c`
+that the map's keys and mouse look at, `0x5c8820`) but, unlike the
+objectives window, the escape menu, the save and load screens, isn't
+counted on the program's holds: the game goes on under it, its
+characters moving and its time counted (`0x5b597f`). Its buttons
+(`0x50d8a0`):
+
+- **CONTINUE** asks the game for its next step (`0x5c2a50`, step 4,
+  `0x5c2b22`): the mission's `Debriefing Music` queued with a tenth of a
+  second's fade, then its debriefing if it has one, and after it (step
+  5, `0x5c2cd5`), with `End Game After Mission` (Mission 18 alone), the
+  `EndGame` movie and the main menu; else the mission named by its last
+  `CSetNextMissionAction` becomes the current one (`0x5b7560`) and
+  begins, from its briefing. Every mission but the 18th names one.
+- **END GAME** asks first: pressed once, it's marked (`0x50d98b`), and a
+  second time it opens the main menu. Under the buttons, centred and 54
+  above the window's foot (`0x50d6c5`, `0x50d7bd`), "Click 'End Game' to
+  exit to the main menu." in `Trek Small`, and once pressed, "Click 'End
+  Game' again to exit to the main menu." in `Trek Small Red`.
+- **RESTART** (`0x50d8f6`) and **LOAD GAME** (`0x50d8bc`, the Load Game
+  screen).
+
 ### The score
 
 The game keeps a score (`CStarTrekSaveData`'s `Score`, at its `0xdc`),
@@ -184,6 +206,18 @@ Rules.txt's `Debriefing Screen` (`CStarTrekDebriefingMenu`, made at
   at `TextDisplay Text Speed` (60) in `Debriefing Text Font`, beside the
   speaker's portrait on its `Portrait Background`, with their
   voice-overs; CONTINUE and REPLAY on the panel, at their places on it.
+  The text runs across the panel, `TextDisplay Text Pos`'s margin either
+  side (`0x48a1a1`). A line typed goes on to the next by itself once its
+  voice-over has been over half a second (`0x48ad4b`, 0.5 at
+  `0x616fb0`), or at once without one; under the text, in its font, the
+  prompt: "Press 'Space' to display all text" while typing, "Press
+  'Space' to continue debriefing" with a line to come, and "Press
+  'Continue' to end debriefing" after the last (`0x48ad64`), centred on
+  the panel but its right end no further than 343 across it, and 6
+  above its foot (`0x48a1eb`).
+- **The sounds:** the rumble is the game's ambient sound, its loop bit
+  set (`0x5ba010`, `0x5ba02e`), so it plays over and over; the music is
+  queued as the mission's maps end ([maps.md](maps.md#the-music)).
 
 ## In Reluva
 
@@ -213,20 +247,23 @@ Menu shows as a mission ends. Both open in the middle of the screen
 and `0x50d434`). The objectives window holds the game still while it's
 open: it counts itself on the program's holds (`0x51ad9b`, `0x4d53e0`),
 and while any are counted the frame doesn't run the map (`0x4f645c`).
-The End Game Menu takes the map's input away (`0x5ca130`); the game is
-held still under it as well *(inferred)*. CONTINUE goes to the mission the triggers named next,
-from its briefing, or to the main menu without one *(inferred)*; RESTART
-starts the mission's map again with the same team; END GAME goes to the
-main menu. LOAD GAME opens the Load Game screen
+The End Game Menu takes the map's input away; the game goes on under
+it, as above. CONTINUE goes to the mission the triggers named next,
+from its briefing, or after the last, the `EndGame` movie and the main
+menu (Reluva goes to the main menu after a mission naming none, which
+no retail mission is); RESTART starts the mission's map again with the
+same team; END GAME, pressed twice, goes to the main menu, the line
+under the buttons as above. LOAD GAME opens the Load Game screen
 ([menus.md](menus.md#saved-games)).
 
 The debriefing (`ui/debriefing.cpp`) comes between a mission completed
-and the next, as above; its lines are typed once their panel's in, and,
-as the briefing's, go on by themselves a second after their voice-over
-*(inferred)*; CONTINUE or Space shows a line whole, then the next, and
-after the last goes on; REPLAY starts the lines again. The text stops
-short of the buttons *(inferred)*, and the music and rumble play over and
-over *(inferred)*. The mission's time is counted while its map's played,
+and the next, as above; its lines are typed once their panel's in
+*(inferred)*, and go on by themselves half a second after their
+voice-over, or at once without one; CONTINUE or Space shows a line
+whole, then the next, and after the last goes on; REPLAY starts the
+lines again. The text runs across the panel and its prompt is under
+it, as above; the rumble plays over and over, and the music is the
+menu's ([maps.md](maps.md#in-reluva)). The mission's time is counted while its map's played,
 not while a window holds it.
 
 Where to go is shown on the minimap by its points of interest
@@ -268,8 +305,8 @@ Damage Increase in place of the Phaser once the score's 400.
 
 ## Open questions
 
-- **The windows:** where they're placed, whether the game's held still
-  under them, and what the Objectives Menu's `Placar Condensed` font is
-  for.
-- **Going on:** what's done without a next mission, and the
-  debriefing's lines going on by themselves.
+- **The windows:** what the Objectives Menu's `Placar Condensed` font
+  is for.
+- **Going on:** what the program does after a mission that names no
+  next one (none does): it would make the mission its table's first
+  (`0x5b7560` moves an empty choice in).

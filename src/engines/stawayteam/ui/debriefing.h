@@ -80,8 +80,6 @@ private:
     std::array<Font, 2> _buttonFonts;
     ButtonGroup _buttons; // CONTINUE, REPLAY
     std::shared_ptr<audio::Sound> _fadeSound;
-    std::shared_ptr<audio::Sound> _music;
-    audio::SoundHandle _musicHandle = audio::kNoSound;
     std::shared_ptr<audio::Sound> _ambience;
     audio::SoundHandle _ambienceHandle = audio::kNoSound;
     audio::SoundHandle _voice = audio::kNoSound;

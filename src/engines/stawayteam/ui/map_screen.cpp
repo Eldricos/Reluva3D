@@ -895,8 +895,11 @@ void MapScreen::update(uint64_t now) {
     const float seconds = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
     _itemTitle = std::max(0.0f, _itemTitle - seconds);
-    // The windows over the map hold the game still (inferred).
-    if (_endGame || _objectivesWindow || _escape || _progress->over)
+    // The objectives window and the escape menu hold the game still,
+    // counted on the program's holds (0x51ad9b, 0x5ba9f9); the End Game
+    // Menu only takes the map's input (0x5ca130), the game going on under
+    // it and its time counted (0x5b597f).
+    if (_objectivesWindow || _escape)
         return;
     // Time stopped, the view can still be moved (inferred).
     if (_paused) {

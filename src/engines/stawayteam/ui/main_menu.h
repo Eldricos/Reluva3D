@@ -16,6 +16,7 @@
 #include "engines/stawayteam/ui/settings.h"
 #include "engines/stawayteam/ui/key_config.h"
 #include "engines/stawayteam/ui/map_screen.h"
+#include "engines/stawayteam/ui/music.h"
 #include "engines/stawayteam/ui/net_menus.h"
 #include "engines/stawayteam/ui/save_menu.h"
 #include "engines/stawayteam/ui/sound_options.h"
@@ -125,8 +126,8 @@ private:
     void moveOfficers();
     // The settings' windows, over the main menu or a map.
     void drawWindows(uint64_t now);
-    // The mission's music on its maps.
-    void playMissionMusic();
+    // After the game's last mission, its end: false if it isn't the last.
+    bool finishGame();
     std::vector<TeamMember> startingTeam() const;
 
     System &_sys;
@@ -138,7 +139,6 @@ private:
     audio::Mixer *_mixer;
     std::vector<std::unique_ptr<Part>> _parts;
     std::vector<std::string> _contents;
-    std::shared_ptr<audio::Sound> _song;
     Font _font;
     ButtonGroup _buttons;
     std::unique_ptr<ConfirmDialog> _dialog;
@@ -155,20 +155,9 @@ private:
     Animation _pointer;                               // Interface/Cursors' Pointer
     const Animation::Picture *_cursorShown = nullptr; // the pointer as it was last set
     std::unique_ptr<DebriefingScreen> _debriefing;
-    std::shared_ptr<audio::Sound> _missionMusic;
-    audio::SoundHandle _missionSong = audio::kNoSound;
-    std::shared_ptr<audio::Sound> _briefingMusic;
-    audio::SoundHandle _briefingSong = audio::kNoSound;
-    int _songsPlayed = 0;
-    std::optional<uint64_t> _songFadeStart;  // ms; the song before the maps' first fading out
-    std::optional<uint64_t> _fadeOutStart;   // ms; the briefing's EXIT fading the screen out
-    std::optional<uint64_t> _briefingQueued; // ms; the briefing music queued, the song before fading out
-    unsigned _songRandom = 1;
-    // The mission's Random Songs shuffled, and the next of them to play.
-    std::vector<std::string> _playlist;
-    size_t _playlistNext = 0;
-    std::string _lastSong;
-    int _nextMission = 0; // the mission after the debriefing; 0 for the main menu
+    MusicQueue _music;
+    std::optional<uint64_t> _fadeOutStart; // ms; the briefing's EXIT fading the screen out
+    int _nextMission = 0;                  // the mission after the debriefing; 0 for the main menu
     Mission _mission;
     std::vector<TeamMember> _missionTeam; // the team it started with, for a restart
     Difficulty _difficulty = Difficulty::kNormal;

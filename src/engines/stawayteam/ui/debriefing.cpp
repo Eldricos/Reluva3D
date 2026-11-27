@@ -33,16 +33,16 @@ constexpr int kMiddleGap = 2;
 // The typing's speed until Rules.txt's is read, characters a second.
 constexpr float kDefaultSpeed = 60.0f;
 // After a line's voice-over, this long before the next comes on its own
-// (inferred: as the briefing's).
-constexpr float kAfterVoice = 1.0f;
-
-std::shared_ptr<audio::Sound> music(const Archive &data, const std::string &name) {
-    std::vector<uint8_t> bytes;
-    auto sound = std::make_shared<audio::Sound>();
-    if (name.empty() || data.read("Music/" + name, bytes) || audio::decodeSound(bytes, *sound))
-        return nullptr;
-    return sound;
-}
+// (0x48ad4b, 0x616fb0).
+constexpr float kAfterVoice = 0.5f;
+// The prompt under the lines (0x63aa24, 0x63bba8, 0x63bb84): centred on
+// the panel, but its right end no further than 343 across it, and 6 above
+// its foot (0x48a1eb).
+const char *const kTypingPrompt = "Press 'Space' to display all text";
+const char *const kNextPrompt = "Press 'Space' to continue debriefing";
+const char *const kEndPrompt = "Press 'Continue' to end debriefing";
+constexpr int kPromptRight = 343;
+constexpr int kPromptAbove = 6;
 
 } // namespace
 
@@ -81,12 +81,9 @@ DebriefingScreen::DebriefingScreen(const Archive &data, const TextObject &rules,
     readPoint(_def, "TextDisplay Window Pos", wx, wy);
     _buttons.setOrigin(wx, wy);
     _fadeSound = gameSound(data, kFadeSound);
-    // The mission's Debriefing Music over and over, and the bridge's rumble
-    // under it (inferred: as the briefing's music).
-    _music = music(data, _mission.debriefingMusic);
+    // The bridge's rumble over and over (its loop bit set, 0x5ba02e); the
+    // music's the menu's to queue.
     _ambience = gameSound(data, kAmbience);
-    if (_mixer && _music)
-        _musicHandle = _mixer->play(_music, audio::SoundType::kMusic, audio::kMaxVolume, 0, true);
     if (_mixer && _ambience)
         _ambienceHandle = _mixer->play(_ambience, audio::SoundType::kEffects, audio::kMaxVolume, 0, true);
     showLine(0);
@@ -94,8 +91,6 @@ DebriefingScreen::DebriefingScreen(const Archive &data, const TextObject &rules,
 
 DebriefingScreen::~DebriefingScreen() {
     stopSounds();
-    if (_mixer && _musicHandle != audio::kNoSound)
-        _mixer->stop(_musicHandle);
     if (_mixer && _ambienceHandle != audio::kNoSound)
         _mixer->stop(_ambienceHandle);
 }
@@ -155,7 +150,7 @@ void DebriefingScreen::update(uint64_t now) {
     const float typing = std::min(dt, _time - (kFadeFrom[2] + kFadeTime));
     _typed = std::min(float(_text.size()), _typed + typing * float(speed));
     // A line typed goes on to the next by itself once its voice-over's
-    // been over a while (inferred: as the briefing's).
+    // been over half a second, or at once without one (0x48ad32).
     const bool speaking = _mixer && _voice != audio::kNoSound && _mixer->isPlaying(_voice);
     if (_hadVoice && !speaking)
         _sinceVoice += dt;
@@ -165,7 +160,7 @@ void DebriefingScreen::update(uint64_t now) {
 
 DebriefingScreen::Choice DebriefingScreen::handleEvent(const Event &ev, uint64_t /*now*/) {
     // CONTINUE, or Space, shows a line whole, then the next, and after the
-    // last goes on (inferred: as the briefing's); REPLAY starts the lines
+    // last goes on, as its prompts say (0x48ad64); REPLAY starts the lines
     // again.
     int chosen = _buttons.handleEvent(ev, _mixer);
     if (ev.type == EventType::kKeyDown && ev.key == ' ')
@@ -245,11 +240,8 @@ void DebriefingScreen::draw(Surface &screen, uint64_t now) {
             indent = _portraitBackground.w + 2;
             narrow = lineHeight > 0 ? _portraitBackground.h / lineHeight + 1 : 0;
         }
-        // The words stop short of the buttons (inferred).
-        int bx = 0;
-        int by = 0;
-        readPoint(_def, "ContinueButton Pos", bx, by);
-        const int width = (bx > tx ? bx : _textPanel.w) - 2 * tx;
+        // The words across the panel, its margin either side (0x48a1a1).
+        const int width = _textPanel.w - 2 * tx;
         if (_textFont.loaded() && lineHeight > 0) {
             const auto lines = _textFont.wrap(std::string_view(_text).substr(0, size_t(_typed)), width, indent, narrow);
             const int rows = std::max(1, (_textPanel.h - 2 * ty) / lineHeight);
@@ -257,6 +249,15 @@ void DebriefingScreen::draw(Surface &screen, uint64_t now) {
             for (int n = first; n < int(lines.size()); ++n)
                 _textFont.draw(screen, x + (n < narrow ? indent : 0), y + (n - first) * lineHeight, lines[size_t(n)],
                                opacity(2));
+        }
+        if (_textFont.loaded()) {
+            const char *prompt = !typed()                                 ? kTypingPrompt
+                                 : _line + 1 < _mission.debriefing.size() ? kNextPrompt
+                                                                          : kEndPrompt;
+            const int half = _textFont.width(prompt) / 2;
+            const int middle = std::min(_textPanel.w / 2, kPromptRight - half);
+            _textFont.draw(screen, px + middle - half, py + _textPanel.h - _textFont.height() - kPromptAbove, prompt,
+                           opacity(2));
         }
         if (shown(2) >= 1.0f)
             _buttons.draw(screen);

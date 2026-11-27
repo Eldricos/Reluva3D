@@ -426,6 +426,36 @@ void testEnemies() {
     CHECK(screen.enemies()[0].state == "Attack" && screen.enemies()[0].target == 0);
 }
 
+void testEndGameGoesOn() {
+    // Under the End Game Menu the game goes on, its time counted: it only
+    // takes the map's input (0x5ca130).
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=100.000000,100.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n}\n", rules));
+    GameOptions options;
+    TeamMember officer;
+    officer.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {officer});
+    screen.order(300.0f, 100.0f);
+    screen.update(500);
+    TextObject failed;
+    CHECK(!readTextObject("CDisplayMissionFailedScreenAction\n{\n}\n", failed));
+    screen.runAction(&failed);
+    Surface surface;
+    surface.create(640, 480, PixelFormat::kRGBA32);
+    screen.draw(surface, 600);
+    CHECK(screen.missionOver());
+    const float x = screen.officers()[0].x;
+    const float time = screen.missionTime();
+    screen.update(1500);
+    CHECK(screen.officers()[0].x > x && screen.missionTime() > time);
+}
+
 void testSavedMap() {
     // A guard partway along its route saved, and read back into the map
     // as it's first opened: the same to the byte, saved again, and going
@@ -3216,6 +3246,7 @@ static const reluva::test::Suite
                {"triggers", [](const std::filesystem::path &) { testTriggers(); }},
                {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
                {"saved map", [](const std::filesystem::path &) { testSavedMap(); }},
+               {"end game goes on", [](const std::filesystem::path &) { testEndGameGoesOn(); }},
                {"closest", [](const std::filesystem::path &) { testClosest(); }},
                {"foes", [](const std::filesystem::path &) { testFoes(); }},
                {"hostage", [](const std::filesystem::path &) { testHostage(); }},

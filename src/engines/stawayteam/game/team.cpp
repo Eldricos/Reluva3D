@@ -339,6 +339,7 @@ Error loadMission(const Archive &data, int number, Mission &out) {
     readScript("Script", out.briefing);
     readScript("Debrief Script", out.debriefing);
     out.showDebriefing = mds.integer("Show Debriefing").value_or(0) != 0;
+    out.endGameAfterMission = mds.integer("End Game After Mission").value_or(0) != 0;
     out.debriefingMusic = text(mds, "Debriefing Music");
     out.primarySong = text(mds, "Primary Song");
     if (const TextObject *songs = mds.object("Random Song"))

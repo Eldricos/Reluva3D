@@ -29,6 +29,7 @@ reluva_add_engine(stawayteam
         ui/map_triggers.cpp
         ui/map_vision.cpp
         ui/map_state.cpp
+        ui/music.cpp
         ui/objectives_window.cpp
         ui/settings.cpp
         ui/sound_options.cpp

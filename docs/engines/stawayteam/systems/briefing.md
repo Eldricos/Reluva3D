@@ -29,9 +29,10 @@ The mission's `.MDS` (a `CMissionDescription`) gives:
   and then this one starts (as the maps' song,
   [maps.md](maps.md#the-music)), whether or not there's a briefing to show
   (`0x5c3104`; Mission 13 has none, so it plays over its team
-  selection); with no other song to follow, it plays again as it ends
-  (`0x5bcbeb`), until the maps' Primary Song takes over. The
-  debriefing's `Debriefing Music` starts the same way (`0x5c2b6e`).
+  selection); as it ends, the mission's Random Songs follow
+  ([maps.md](maps.md#the-music)), until the maps' Primary Song takes
+  over. The debriefing's `Debriefing Music` is queued the same way as
+  the maps end (`0x5c2b6e`).
 - **`Script`**, a `CBriefingScript` of `CBriefingScriptLine`s, each
   with `Script` (a script of `Levels/`: `Mission 02/Mission 02` is
   `Levels/Mission 02/Mission 02.RDS`), `Text` (the entry's label),
@@ -136,8 +137,8 @@ random numbers are as above, and yes to EXIT fades the screen out over
 half a second, the screen's fade times the gamma going evenly from 1 to
 0 *(inferred)*. Not there yet: a movie's delay (the retail's is 0).
 `MainMenu` queues the briefing music as the mission begins: the song
-playing fades out over a tenth of a second, then it plays over and over
-until the maps start or the menu comes back.
+playing fades out over a tenth of a second, then it plays once, the
+mission's Random Songs after it ([maps.md](maps.md#in-reluva)).
 
 ## Sources and checks
 

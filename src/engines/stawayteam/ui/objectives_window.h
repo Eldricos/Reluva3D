@@ -98,6 +98,10 @@ private:
     ButtonGroup _buttons;
     std::vector<Choice> _choices; // each button's
     std::string _message;
+    bool _completed;
+    bool _endPressed = false; // END GAME once: a second time leaves
+    Font _hintFont;           // the line under the buttons: Trek Small, then Trek Small Red
+    Font _warningFont;
     int _textX = 0;
     int _textY = 0;
     int _textW = 0;
