@@ -36,12 +36,9 @@ None now.
   mission, the countdown stopped by another mission or a player leaving
   ([systems/network.md](systems/network.md#open-questions)).
 - **The menus:** the credits' underlines blended by their alpha, the
-  toolkit's brightness scaling colours smoothly outside the credits and
-  the buttons, the slider's texture tiled, the sliders' focus, the
-  keyboard screen's list of changes, voiceovers' and movies'
-  volume following the effects', the
-  buttons' fades counted in seconds, and the main menu's focus starting
-  on START NEW GAME
+  slider's texture tiled, a click giving a slider the focus, the
+  keyboard screen's borders, voiceovers' and movies' volume following
+  the effects'
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the camera's and zoom's frames taken as 30 a second, the
   drawing order's ties, the water's clock stopping while

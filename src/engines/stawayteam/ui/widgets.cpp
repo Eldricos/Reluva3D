@@ -90,6 +90,25 @@ bool isEscape(const Event &ev) {
     return ev.type == EventType::kKeyDown && ev.key == key::kEscape;
 }
 
+int moveFocus(const Event &ev, int focus, int count, const std::function<bool(int)> &takes, bool sideways) {
+    if (ev.type != EventType::kKeyDown || count <= 0)
+        return focus;
+    const bool shift = (ev.mods & keymod::kShift) != 0;
+    int step = 0;
+    if (ev.key == key::kDown || (ev.key == key::kTab && !shift) || (sideways && ev.key == key::kRight))
+        step = 1;
+    else if (ev.key == key::kUp || (ev.key == key::kTab && shift) || (sideways && ev.key == key::kLeft))
+        step = -1;
+    if (!step)
+        return focus;
+    for (int i = 1; i <= count; ++i) {
+        const int next = ((focus + step * i) % count + count) % count;
+        if (takes(next))
+            return next;
+    }
+    return focus;
+}
+
 bool isShortcut(const Event &ev, char shortcut) {
     const auto lower = [](uint32_t c) { return c < 0x80 ? uint32_t(std::tolower(int(c))) : c; };
     return ev.type == EventType::kKeyDown && shortcut && (ev.mods & keymod::kAlt) && !(ev.mods & keymod::kCtrl) &&
@@ -146,7 +165,8 @@ void PictureButton::draw(Surface &screen, int originX, int originY, uint64_t now
     _brightness = _brightness < target ? std::min(target, _brightness + step) : std::max(target, _brightness - step);
     const int x = originX + _x;
     const int y = originY + _y;
-    image::blit(screen, dimmed(_picture, _brightness), x, y);
+    // Through the toolkit's brightness, in its six steps (0x5ba92e).
+    image::blit(screen, dimmed(_picture, toolkitScale(_brightness)), x, y);
     const int in = _pressed && _hover ? 1 : 0;
     // A disabled one's label at the picture's dimness (inferred).
     if (_font && _font->loaded())
@@ -241,7 +261,7 @@ void TextButton::draw(Surface &screen, int originX, int originY, uint64_t now) {
         return;
     const int in = _pressed && _hover ? 1 : 0;
     const int x = originX + _x + (_rightAligned ? _w - _textX - _font->width(_label) : _textX) + in;
-    _font->draw(screen, x, originY + _y + _textY + in, _label, 255, _brightness);
+    _font->draw(screen, x, originY + _y + _textY + in, _label, 255, toolkitScale(_brightness)); // 0x5f0135
 }
 
 void drawBevel(Surface &screen, int x, int y, int w, int h, int thickness, bool raised) {

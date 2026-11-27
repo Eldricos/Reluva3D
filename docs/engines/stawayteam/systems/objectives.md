@@ -191,7 +191,9 @@ Rules.txt's `Debriefing Screen` (`CStarTrekDebriefingMenu`, made at
 
 - **Three panels** fading in over 0.75 seconds each, from 0.75, 1.25 and
   1.75 seconds (`0x48a898`), `Interface/Mission Debrief Fade.ogg` as each
-  starts (`0x4895ae`), and out again on leaving.
+  starts (`0x4895ae`), and out again on leaving: each panel and what's on
+  it drawn through the toolkit's brightness, in its six steps, from
+  dark (`0x48977c`), not see-through.
 - **The mission's**, `Mission Background` at `Success Pos` (22, 50)
   (`0x48a600`): "MISSION SUCCESSFUL" in `Placar Condensed`, "PRIMARY
   OBJECTIVES COMPLETE" and "TIME TAKEN: " in `Placar Blue`, each centred

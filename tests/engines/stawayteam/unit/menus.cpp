@@ -844,6 +844,30 @@ void testEndGameWindow() {
     CHECK(window.handleEvent(key, nullptr) == EndGameWindow::Choice::kEndGame);
 }
 
+void testFocus() {
+    // The escape menu's focus starts on RESUME, made last; Down goes round
+    // to CONFIGURE, which Enter then presses (0x5bae31, 0x401e00).
+    MemoryArchive data;
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n}\n", rules));
+    EscapeWindow window(data, rules, 640, 480);
+    Event down;
+    down.type = EventType::kKeyDown;
+    down.key = key::kDown;
+    Event enter;
+    enter.type = EventType::kKeyDown;
+    enter.key = key::kReturn;
+    CHECK(window.handleEvent(down, nullptr) == EscapeWindow::Choice::kNone);
+    CHECK(window.handleEvent(enter, nullptr) == EscapeWindow::Choice::kConfigure);
+    // The ring passes over what won't take the focus.
+    const auto even = [](int i) { return i % 2 == 0; };
+    CHECK(moveFocus(down, 0, 5, even) == 2 && moveFocus(down, 4, 5, even) == 0);
+    Event left;
+    left.type = EventType::kKeyDown;
+    left.key = key::kLeft;
+    CHECK(moveFocus(left, 2, 5, even) == 0 && moveFocus(left, 2, 5, even, false) == 2);
+}
+
 void testEscapeMenu() {
     MemoryArchive data;
     TextObject rules;
@@ -904,6 +928,7 @@ static const reluva::test::Suite
                                         {"debriefing", [](const std::filesystem::path &) { testDebriefing(); }},
                                         {"escape menu", [](const std::filesystem::path &) { testEscapeMenu(); }},
                                         {"music", [](const std::filesystem::path &) { testMusic(); }},
+                                        {"focus", [](const std::filesystem::path &) { testFocus(); }},
                                         {"end game window", [](const std::filesystem::path &) { testEndGameWindow(); }},
                                         {"campaign", [](const std::filesystem::path &tmp) { testCampaign(tmp); }},
                                         {"save screen", [](const std::filesystem::path &tmp) { testSaveScreen(tmp); }},

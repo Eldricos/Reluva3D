@@ -58,6 +58,11 @@ private:
     PictureButton _continue;
     PictureButton _reset;
     PictureButton _difficulty;
+    // The keyboard's focus round the children as they're made: the two
+    // CONFIGURE buttons, the sliders, the check box, CONTINUE, RESET
+    // DEFAULTS and DIFFICULTY SETTING (0x486499 to 0x486a6f).
+    int _focus = kContinueFocus;
+    static constexpr int kContinueFocus = 6;
     int _x;
     int _y;
     int _labelX = 0;

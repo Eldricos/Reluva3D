@@ -48,6 +48,9 @@ private:
     std::shared_ptr<audio::Sound> _switch; // UI/Button Switch.wav
     PictureButton _start;
     PictureButton _cancel;
+    // The keyboard's focus round the children as they're made: CANCEL,
+    // START GAME, then the levels (0x48bef9, 0x48bf5b, 0x48c0ab).
+    int _focus = 1;
     Difficulty _current;
     int _x;
     int _y;

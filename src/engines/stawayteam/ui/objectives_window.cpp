@@ -4,6 +4,7 @@
 #include "engines/stawayteam/ui/objectives_window.h"
 
 #include "engines/stawayteam/ui/layout.h"
+#include "engines/stawayteam/ui/widgets.h"
 
 #include <algorithm>
 
@@ -48,14 +49,14 @@ ObjectiveList::ObjectiveList(const Archive &data) {
 }
 
 void ObjectiveList::draw(Surface &screen, int x, int y, int width, int spacing, const std::vector<ObjectiveLine> &lines,
-                         int opacity) const {
+                         float brightness) const {
     for (const bool primary : {true, false}) {
         bool headed = false;
         for (const ObjectiveLine &line : lines) {
             if (line.primary != primary)
                 continue;
             if (!headed && _heading.loaded()) {
-                _heading.draw(screen, x, y, primary ? "Primary Objectives" : "Secondary Objectives", opacity);
+                _heading.draw(screen, x, y, primary ? "Primary Objectives" : "Secondary Objectives", 255, brightness);
                 y += _heading.height() + kIconGap;
             }
             headed = true;
@@ -65,11 +66,11 @@ void ObjectiveList::draw(Surface &screen, int x, int y, int width, int spacing, 
             const int textW = width - icon.w - kIconGap;
             const auto wrapped = _text.loaded() ? _text.wrap(line.text, textW) : std::vector<std::string>{};
             const int textH = int(wrapped.size()) * _text.height();
-            const float brightness = line.status == ObjectiveStatus::kDisabled ? kDisabledBrightness : 1.0f;
-            image::blit(screen, icon, x, y + (textH - icon.h) / 2, opacity);
+            const float lit = brightness * (line.status == ObjectiveStatus::kDisabled ? kDisabledBrightness : 1.0f);
+            image::blit(screen, brightness < 1.0f ? dimmed(icon, brightness) : icon, x, y + (textH - icon.h) / 2);
             int ly = y;
             for (const std::string &l : wrapped) {
-                _text.draw(screen, x + icon.w + kIconGap, ly, l, opacity, brightness);
+                _text.draw(screen, x + icon.w + kIconGap, ly, l, 255, lit);
                 ly += _text.height();
             }
             y += std::max(textH, icon.h) + spacing;
@@ -159,10 +160,13 @@ EndGameWindow::EndGameWindow(const Archive &data, const TextObject &rules, bool 
         _choices.push_back(k.choice);
     }
     _buttons.setOrigin(_x, _y);
+    _buttons.setFocus(0);
 }
 
 EndGameWindow::Choice EndGameWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    const int chosen = _buttons.handleEvent(ev, mixer);
+    // The first button made has the focus, the window giving none
+    // (0x50cfd0); Enter presses the one with it.
+    const int chosen = isEnter(ev) ? _buttons.pressFocused(0, mixer) : _buttons.handleEvent(ev, mixer);
     const Choice choice = chosen >= 0 ? _choices[size_t(chosen)] : Choice::kNone;
     // END GAME asks to be pressed again first (0x50d981).
     if (choice == Choice::kEndGame && !_endPressed) {

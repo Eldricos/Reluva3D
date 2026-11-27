@@ -109,12 +109,28 @@ void SettingsWindow::showOptions() {
 }
 
 SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
-    // CONTINUE is the window's default and cancel button (0x486311).
-    if ((isEnter(ev) || isEscape(ev)) && _continue.press(mixer))
-        return Choice::kContinue;
+    // CONTINUE is the window's default and cancel button, and has the
+    // focus to start with (0x486ad0); the keys move it, a slider with it
+    // taking Left and Right itself, and Enter presses the one with it, or
+    // CONTINUE for a slider.
+    const bool sliding = _focus >= 2 && _focus <= 4;
+    _focus = moveFocus(ev, _focus, 9, [](int) { return true; }, !sliding);
+    if (isEscape(ev) || (isEnter(ev) && (_focus == kContinueFocus || (_focus >= 2 && _focus <= 4)))) {
+        if (_continue.press(mixer))
+            return Choice::kContinue;
+    }
+    // A slider clicked takes the focus.
     if (ev.type == EventType::kMouseDown)
-        for (Slider &slider : _sliders)
-            slider.setFocused(false);
+        for (size_t i = 0; i < _sliders.size(); ++i)
+            if (const int mx = ev.mouseX - _x, my = ev.mouseY - _y; mx >= _sliders[i].x() && my >= _sliders[i].y() &&
+                                                                    mx < _sliders[i].x() + _sliders[i].width() &&
+                                                                    my < _sliders[i].y() + _sliders[i].height())
+                _focus = 2 + int(i);
+    for (size_t i = 0; i < _sliders.size(); ++i)
+        _sliders[i].setFocused(_focus == 2 + int(i));
+    const auto entered = [&](int child, PictureButton &button) {
+        return isEnter(ev) && _focus == child && button.press(mixer);
+    };
     bool changed = false;
     if (_sliders[0].handleEvent(ev, _x, _y)) {
         // Gamma 1 to 1.5 (0x486e5f).
@@ -132,7 +148,9 @@ SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer
             fromSlider(_sliders[2].value(), GameOptions::kScrollAccelMin, GameOptions::kScrollAccelMax);
         changed = true;
     }
-    if (_pause.handleEvent(ev, _x, _y)) {
+    if (_pause.handleEvent(ev, _x, _y) || (isEnter(ev) && _focus == 5)) {
+        if (isEnter(ev))
+            _pause.setChecked(!_pause.checked());
         // Button Switch as a check box changes (0x4e64b0).
         if (mixer && _switch)
             mixer->play(_switch, audio::SoundType::kEffects);
@@ -140,11 +158,11 @@ SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer
         changed = true;
     }
     Choice choice = Choice::kNone;
-    if (_keyboard.handleEvent(ev, _x, _y, mixer))
+    if (entered(0, _keyboard) || _keyboard.handleEvent(ev, _x, _y, mixer))
         choice = Choice::kKeyboard;
-    if (_sound.handleEvent(ev, _x, _y, mixer))
+    if (entered(1, _sound) || _sound.handleEvent(ev, _x, _y, mixer))
         choice = Choice::kSound;
-    if (_reset.handleEvent(ev, _x, _y, mixer)) {
+    if (entered(7, _reset) || _reset.handleEvent(ev, _x, _y, mixer)) {
         // The program's defaults, and pausing when hit (0x486d32).
         _options.scrollSpeed = GameOptions::kScrollSpeedDefault;
         _options.scrollAccel = GameOptions::kScrollAccelDefault;
@@ -153,7 +171,7 @@ SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer
         showOptions();
         changed = true;
     }
-    if (_difficulty.handleEvent(ev, _x, _y, mixer))
+    if (entered(8, _difficulty) || _difficulty.handleEvent(ev, _x, _y, mixer))
         choice = Choice::kDifficulty;
     if (_continue.handleEvent(ev, _x, _y, mixer))
         choice = Choice::kContinue;

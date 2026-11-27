@@ -7,6 +7,7 @@
 #include "engines/stawayteam/formats/frame.h"
 #include "engines/stawayteam/formats/rds_script.h"
 #include "engines/stawayteam/ui/layout.h"
+#include "engines/stawayteam/ui/widgets.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -181,35 +182,40 @@ DebriefingScreen::Choice DebriefingScreen::handleEvent(const Event &ev, uint64_t
 void DebriefingScreen::draw(Surface &screen, uint64_t now) {
     update(now);
     image::blit(screen, _background, 0, 0);
-    const auto opacity = [&](size_t panel) { return int(255.0f * shown(panel)); };
+    // Each panel faded in and out through the toolkit's brightness, in its
+    // six steps (0x48977c).
+    const auto bright = [&](size_t panel) { return toolkitScale(shown(panel)); };
+    const auto blitPanel = [&](const image::Image &picture, int x, int y, size_t panel) {
+        image::blit(screen, bright(panel) < 1.0f ? dimmed(picture, bright(panel)) : picture, x, y);
+    };
     // The mission's panel: its success, its primary objectives complete, and
     // the time taken, each centred about its middle at its row (0x48a600).
     int px = 0;
     int py = 0;
     readPoint(_def, "Success Pos", px, py);
     if (shown(0) > 0.0f) {
-        const int a = opacity(0);
-        image::blit(screen, _missionPanel, px, py, a);
+        const float a = bright(0);
+        blitPanel(_missionPanel, px, py, 0);
         const int middle = px + _missionPanel.w / 2 - kMiddleGap;
         const int successY = _def ? int(_def->integer("Mission Success Text").value_or(0)) : 0;
         const int doneY = _def ? int(_def->integer("Objective Complete Text").value_or(0)) : 0;
         const int timeY = _def ? int(_def->integer("Time Text").value_or(0)) : 0;
         if (_titleFont.loaded())
-            _titleFont.draw(screen, middle - _titleFont.width(kSuccess) / 2, py + successY, kSuccess, a);
+            _titleFont.draw(screen, middle - _titleFont.width(kSuccess) / 2, py + successY, kSuccess, 255, a);
         if (_lineFont.loaded()) {
-            _lineFont.draw(screen, middle - _lineFont.width(kObjectivesDone) / 2, py + doneY, kObjectivesDone, a);
-            _lineFont.draw(screen, middle - _lineFont.width(kTimeTaken), py + timeY, kTimeTaken, a);
+            _lineFont.draw(screen, middle - _lineFont.width(kObjectivesDone) / 2, py + doneY, kObjectivesDone, 255, a);
+            _lineFont.draw(screen, middle - _lineFont.width(kTimeTaken), py + timeY, kTimeTaken, 255, a);
             // Hours, minutes and seconds, two figures each (0x5c4700).
             const int s = int(_seconds) % 86400;
             char time[16];
             std::snprintf(time, sizeof time, "%02d:%02d:%02d", s / 3600, s / 60 % 60, s % 60);
-            _lineFont.draw(screen, middle + 2 * kMiddleGap, py + timeY, time, a);
+            _lineFont.draw(screen, middle + 2 * kMiddleGap, py + timeY, time, 255, a);
         }
     }
     // The objectives' panel, the list in it (0x489630).
     readPoint(_def, "Objective Pos", px, py);
     if (shown(1) > 0.0f) {
-        image::blit(screen, _objectivePanel, px, py, opacity(1));
+        blitPanel(_objectivePanel, px, py, 1);
         int lx = 0;
         int ly = 0;
         int lw = 0;
@@ -217,13 +223,13 @@ void DebriefingScreen::draw(Surface &screen, uint64_t now) {
         readPoint(_def, "ObjectiveText Pos", lx, ly);
         readPoint(_def, "ObjectiveText Size", lw, lh);
         const int spacing = _def ? int(_def->integer("Objective Text Spacing").value_or(0)) : 0;
-        _list.draw(screen, px + lx, py + ly, lw, spacing, _objectives, opacity(1));
+        _list.draw(screen, px + lx, py + ly, lw, spacing, _objectives, bright(1));
     }
     // The text's panel: the speaker's portrait, the lines typed beside it
     // as the briefing's, and the buttons (0x4897b0).
     readPoint(_def, "TextDisplay Window Pos", px, py);
     if (shown(2) > 0.0f) {
-        image::blit(screen, _textPanel, px, py, opacity(2));
+        blitPanel(_textPanel, px, py, 2);
         int tx = 0;
         int ty = 0;
         readPoint(_def, "TextDisplay Text Pos", tx, ty);
@@ -234,9 +240,9 @@ void DebriefingScreen::draw(Surface &screen, uint64_t now) {
         const int spacing = _def ? int(_def->integer("TextDisplay Text Spacing").value_or(0)) : 0;
         const int lineHeight = _textFont.height() + spacing;
         if (_portrait.w) {
-            image::blit(screen, _portraitBackground, x, y, opacity(2));
-            image::blit(screen, _portrait, x + (_portraitBackground.w - _portrait.w) / 2,
-                        y + (_portraitBackground.h - _portrait.h) / 2, opacity(2));
+            blitPanel(_portraitBackground, x, y, 2);
+            blitPanel(_portrait, x + (_portraitBackground.w - _portrait.w) / 2,
+                      y + (_portraitBackground.h - _portrait.h) / 2, 2);
             indent = _portraitBackground.w + 2;
             narrow = lineHeight > 0 ? _portraitBackground.h / lineHeight + 1 : 0;
         }
@@ -248,7 +254,7 @@ void DebriefingScreen::draw(Surface &screen, uint64_t now) {
             const int first = std::max(0, int(lines.size()) - rows);
             for (int n = first; n < int(lines.size()); ++n)
                 _textFont.draw(screen, x + (n < narrow ? indent : 0), y + (n - first) * lineHeight, lines[size_t(n)],
-                               opacity(2));
+                               255, bright(2));
         }
         if (_textFont.loaded()) {
             const char *prompt = !typed()                                 ? kTypingPrompt
@@ -257,7 +263,7 @@ void DebriefingScreen::draw(Surface &screen, uint64_t now) {
             const int half = _textFont.width(prompt) / 2;
             const int middle = std::min(_textPanel.w / 2, kPromptRight - half);
             _textFont.draw(screen, px + middle - half, py + _textPanel.h - _textFont.height() - kPromptAbove, prompt,
-                           opacity(2));
+                           255, bright(2));
         }
         if (shown(2) >= 1.0f)
             _buttons.draw(screen);

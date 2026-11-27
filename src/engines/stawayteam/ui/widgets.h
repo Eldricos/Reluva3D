@@ -10,6 +10,7 @@
 #include "image/image.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -30,6 +31,16 @@ bool isEnter(const Event &ev);
 
 /** Whether `ev` is Esc pressed, which presses a window's cancel button (0x401e83). */
 bool isEscape(const Event &ev);
+
+/**
+ * The child of a window with the keyboard's focus after `ev`, as the
+ * program's dialogs move it among their `count` children in the order
+ * they were made (0x401e00): Up or Shift+Tab to the one before, Down or
+ * Tab to the next, and Left and Right the same while `sideways` (a focused
+ * slider or toggle takes them itself, 0x409250), round past the ends,
+ * passing over those `takes` refuses (0x409b60, 0x409ba0, 0x409be0).
+ */
+int moveFocus(const Event &ev, int focus, int count, const std::function<bool(int)> &takes, bool sideways = true);
 
 /**
  * Whether `ev` is the key of shortcut `shortcut` (0: none), in either

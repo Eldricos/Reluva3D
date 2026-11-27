@@ -67,12 +67,30 @@ DifficultyWindow::DifficultyWindow(const Archive &data, int screenW, int screenH
 std::optional<std::optional<Difficulty>> DifficultyWindow::handleEvent(const Event &ev, audio::Mixer *mixer) {
     // START GAME is the window's default button, CANCEL its cancel
     // button (0x48c1ad, 0x48c1c0).
+    // START GAME has the focus to start with (0x48c1b3); the keys move it,
+    // a level's toggle taking Left and Right itself (0x4e4890), and Enter
+    // presses the one with it.
     if (isEscape(ev) && _cancel.press(mixer))
         return std::optional<Difficulty>();
+    const int count = 2 + int(_toggles.size());
+    _focus = moveFocus(ev, _focus, count, [](int) { return true; }, _focus < 2);
+    const bool enter = isEnter(ev);
+    if (enter && _focus == 0 && _cancel.press(mixer))
+        return std::optional<Difficulty>();
+    // A level's toggle focused, Left and Right check the one before or
+    // after it.
+    int keyed = -1;
+    if (_focus >= 2 && ev.type == EventType::kKeyDown && (ev.key == key::kLeft || ev.key == key::kRight)) {
+        const int n = int(_toggles.size());
+        _focus = 2 + ((_focus - 2 + (ev.key == key::kRight ? 1 : n - 1)) % n);
+        keyed = _focus - 2;
+    } else if (_focus >= 2 && enter) {
+        keyed = _focus - 2;
+    }
     // One level checked at a time (0x48c36a); Button Switch as it changes
     // to another (0x40786f).
     for (size_t i = 0; i < _toggles.size(); ++i)
-        if (_toggles[i].handleEvent(ev, _x, _y)) {
+        if (int(i) == keyed || _toggles[i].handleEvent(ev, _x, _y)) {
             bool changed = false;
             for (size_t j = 0; j < _toggles.size(); ++j) {
                 changed = changed || (_toggles[j].checked() != (j == i));
@@ -81,7 +99,7 @@ std::optional<std::optional<Difficulty>> DifficultyWindow::handleEvent(const Eve
             if (changed && mixer && _switch)
                 mixer->play(_switch, audio::SoundType::kEffects);
         }
-    if ((isEnter(ev) && _start.press(mixer)) || _start.handleEvent(ev, _x, _y, mixer)) {
+    if ((enter && _focus == 1 && _start.press(mixer)) || _start.handleEvent(ev, _x, _y, mixer)) {
         for (size_t i = 0; i < _toggles.size(); ++i)
             if (_toggles[i].checked())
                 return std::optional<Difficulty>(Difficulty(i + 1));

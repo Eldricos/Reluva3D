@@ -31,7 +31,7 @@ const char *const kRestartQuestion = "Are you sure you want to restart this game
 
 EscapeWindow::EscapeWindow(const Archive &data, const TextObject &rules, int screenW, int screenH)
     : _data(data), _rules(rules), _background(screenPicture(data, "Escape Menu/Escape Menu Background")),
-      _x((screenW - _background.w) / 2), _y((screenH - _background.h) / 2) {
+      _x((screenW - _background.w) / 2), _y((screenH - _background.h) / 2), _focus(kResume) {
     (void)_font.load(data, "Placar Condensed");
     const image::Image picture = screenPicture(data, "Escape Menu/Button Background");
     int y = kFirstY;
@@ -58,12 +58,16 @@ EscapeWindow::Choice EscapeWindow::handleEvent(const Event &ev, audio::Mixer *mi
         _confirm.reset();
         return *answer ? std::exchange(_asking, Choice::kNone) : Choice::kNone;
     }
-    // RESUME, made last, is the window's default and cancel button
-    // (0x5bae25).
-    if ((isEnter(ev) || isEscape(ev)) && _buttons[kResume].press(mixer))
+    // RESUME, made last, is the window's default and cancel button, and
+    // has the focus to start with (0x5bae25); the keys move it round the
+    // buttons, and Enter presses the one with it.
+    if (isEscape(ev) && _buttons[kResume].press(mixer))
         return Choice::kResume;
+    _focus =
+        size_t(moveFocus(ev, int(_focus), int(_buttons.size()), [&](int i) { return _buttons[size_t(i)].enabled(); }));
     for (size_t i = 0; i < _buttons.size(); ++i) {
-        if (!_buttons[i].handleEvent(ev, _x, _y, mixer))
+        const bool entered = i == _focus && isEnter(ev) && _buttons[i].press(mixer);
+        if (!entered && !_buttons[i].handleEvent(ev, _x, _y, mixer))
             continue;
         switch (i) {
         case kConfigure:

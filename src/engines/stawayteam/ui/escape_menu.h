@@ -50,6 +50,7 @@ private:
     Choice _asking = Choice::kNone; // what the dialog's asking about
     int _x;
     int _y;
+    size_t _focus; // the button the keyboard's on: RESUME to start with
 };
 
 } // namespace reluva::stawayteam

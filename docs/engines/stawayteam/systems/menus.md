@@ -72,7 +72,9 @@ and `<name> Press`, from `Cache/Interface/Screens/<menu>/`, and a label
   from 0 to 1, over the old one's going from 1 to 0 (`0x5ccef0`); and the
   label's brightness, 0.66 plus 0.34 times a number going to 1 (states
   0 and 1) or 0 (2 and 3), so 0.66 for an idle or disabled button and 1
-  for one lit (`0x5cd0fe`). Both move at the button's rate a second: at
+  for one lit (`0x5cd0fe`). Both move at the button's rate a second (the
+  windows' update gets the frame's time as the mission's clock does,
+  in seconds, `0x4f6482`, `0x5b598c`): at
   once (100000, `0x5ccc51`) but for the main menu's, 4 (`0x50377e`), a
   quarter of a second. Through the toolkit's brightness, 0.66 is a
   quarter of the colours.
@@ -250,10 +252,16 @@ typed characters. The scan code is kept too (`0x4e8ec0`).
   The children make a ring: the one with the focus is moved to its
   start (`0x409a70`), and the next or the one before is the nearest
   that takes the focus (`+0x59`) and is shown (`+0x5c`), round past the
-  end (`0x409be0`, `0x409c30`). The dialogs give their default button
-  the focus as they're made (the confirm dialog's, `0x4871e9`); the main
-  menu gives none, so its first child has it. Pressed, a button plays its
-  sound and does what a click does. The menus set them:
+  end (`0x409be0`, `0x409c30`); a window's children are kept in the
+  order they're made, each put at the end (`0x409869`). Most dialogs
+  give their default button the focus as they're made (`0x409a70`: the
+  confirm dialog's, `0x4871e9`; the difficulty window's, `0x48c1b3`; the
+  settings', `0x486adc`; the credits', `0x5bb620`; the escape menu's,
+  `0x5bae31`); the main menu, the sound window and the End Game Menu
+  give none, so their first child that takes it has it: the main menu's
+  START NEW GAME, made first (`0x50382b`), and the End Game Menu's first
+  button. Pressed, a button plays its sound and does what a click does.
+  The menus set them:
 
   | Window | Default (Enter) | Cancel (Esc) |
   |---|---|---|
@@ -261,8 +269,8 @@ typed characters. The scan code is kept too (`0x4e8ec0`).
   | The confirm dialog, Yes and No | No | No (`0x4871dd`) |
   | The confirm dialog, one button | OK | OK |
   | The difficulty window | START GAME | CANCEL (`0x48c1ad`, `0x48c1c0`) |
-  | The settings | CONTINUE | CONTINUE (`0x486311`) |
-  | The sound's settings | CONTINUE | CONTINUE (`0x486ad0`) |
+  | The settings | CONTINUE | CONTINUE (`0x486ad0`) |
+  | The sound's settings | CONTINUE | CONTINUE (`0x56f46b`) |
   | The credits | RESUME | RESUME (`0x5bb614`) |
   | The escape menu | RESUME, made last | the same (`0x5bae25`) |
 
@@ -271,6 +279,12 @@ typed characters. The scan code is kept too (`0x4e8ec0`).
   Enter takes what's typed, `0x4dfca0`); in a mission the screen's own
   handler (`0x4f6ee0`, from `0x5c8f46`); and a drop-down list closes, as
   Enter or F4 choose from it (`0x4055d0`).
+- **The order made,** for the focus to go round: the difficulty
+  window's CANCEL, START GAME, then the levels (`0x48bef9`, `0x48bf5b`,
+  `0x48c0ab`); the settings' CONFIGURE KEYBOARD and SOUND, the three
+  labels (which don't take it), the sliders, the check box, then
+  CONTINUE, RESET DEFAULTS and DIFFICULTY SETTING (`0x486499` to
+  `0x486a6f`); the escape menu's from CONFIGURE to RESUME.
 - **A group of buttons** (tabs, toggles, linked in a ring, `0x4e43ad`):
   Right gives the next the focus and presses it, Left the one before
   (`0x4e4890`).
@@ -563,7 +577,12 @@ Game/Background`:
 - **The main menu:** `MainMenu` (`ui/main_menu.cpp`), its screen and its
   buttons as above; Enter and Esc press the focused (START NEW GAME to
   start with) and cancel buttons as above, the button's sound played,
-  and the arrows and Tab move the focus round the buttons. Quit opens the confirm dialog, in
+  and the arrows and Tab move the focus round the buttons. In the
+  difficulty window, the settings, the escape menu and the End Game
+  Menu (`moveFocus`, `ui/widgets.cpp`) the arrows and Tab move the focus
+  round their children in the order above, from the button the window
+  gives it, a focused slider or level taking Left and Right itself;
+  Enter presses the one with it, or CONTINUE for a slider. Quit opens the confirm dialog, in
   the middle of the screen; Yes (or Y) ends the game and goes back to the
   launcher, No (N, Enter, Esc) closes it. Credits opens the credits
   window (`CreditsWindow`, `ui/credits.cpp`, the roll a `CreditsRoll`),
@@ -596,13 +615,16 @@ Game/Background`:
   another with it; Esc while waiting gives up,
   Delete clears it; Delete or Backspace takes the chosen action's key
   away; EXIT, Enter or Esc closes it. The maps take their keys from
-  the bindings, and a joystick's buttons too. A slider
-  clicked takes the keys: Home, End, Left and Right. Play
+  the bindings, and a joystick's buttons too. A slider with the focus,
+  by the keys or clicked, takes Home, End, Left and Right. Play
   Network Game opens Choose Netgame ([network.md](network.md)).
 - **The toolkit's widgets:** `PictureButton`, `Toggle`, `Slider`,
   `CheckBox` and the frames' `drawBevel` (`ui/widgets.cpp`), as above, placed where the program's layout puts
   them, worked out by hand for each window. A picture button's click plays
-  `Button Action`; a toggle's and a tab's change, `Button Switch`.
+  `Button Action`; a toggle's and a tab's change, `Button Switch`. Picture
+  buttons and text buttons fade through the toolkit's brightness, in its
+  six steps (`0x5ba92e`, `0x5f0135`), as the debriefing's panels do
+  ([objectives.md](objectives.md#in-reluva)).
 
 - **Saved games:** `SaveGameScreen` (`ui/save_menu.cpp`), the screens as
   above, the list's rows a line of the menu's font each, the chosen one
@@ -652,28 +674,23 @@ Game/Background`:
 
 ## Open questions
 
-- **The keyboard screen:** the order of the list of changes (Reluva adds
-  each at the end) and the borders' widths of its texts. Reluva's
-  choices are noted in the code.
-- **A slider's focus:** how a slider gets the keyboard's focus other than
-  by Tab. Reluva gives it to the last slider clicked, and has no Tab.
-- **The keyboard screen's default and cancel buttons:** not traced;
-  Reluva closes it with Esc.
-- **The main menu's first child:** which of its parts and buttons comes
-  first, and so has the focus. Reluva gives it to START NEW GAME.
-- **The focus outside the main menu and the dialog:** the other
-  windows' arrows and Tab move no focus in Reluva, and Enter presses
-  their default button.
+- **The keyboard screen:** the borders' widths of its texts. Reluva's
+  choices are noted in the code. Its list of changes takes each at its
+  end (`0x4eaa07`, a list that grows at its end, `0x48c3a0`); EXIT is its
+  default and cancel button, with the focus (`0x4ea923`).
+- **A click's focus:** whether a click gives a child the focus. Reluva
+  gives it to a slider clicked.
+- **The sound window's focus:** its first child that takes it, its
+  children being labels, toggles and sliders made in turn
+  (`0x56ea8b` on). Reluva keeps Enter for CONTINUE there.
 - **Speech's volume:** whether voiceovers and the movies follow the
-  effects' scale. Reluva has them do so.
+  effects' scale. Every sound the game plays has its volume scaled by it
+  (`0x56afa0`), but voice-overs are streamed as the music is
+  (`0x48bd8e`), and the movies' sound is Bink's own. Reluva has them
+  follow it.
 - **A slider's thumb texture:** whether the drawing tiles it where the
   thumb is bigger. Reluva does.
-- **Brightness:** the toolkit's darkens toward black in six steps
-  (`0x44c1e8`); Reluva scales colours smoothly but for the credits.
 - **The credits' underlines:** how the line drawing uses its colour's
   alpha. Reluva blends them over the roll by it.
-- **The fade's clock:** the buttons' update (`0x5cd290`) is taken to
-  count in seconds, as the game's other updates do.
-- **Saved games:** how the save screens' rows, time, picture and game
-  info are drawn, and the original's save files, for Reluva to read
-  them.
+- **Saved games:** how the save screens' rows, time and game info are
+  drawn, and the original's save files, for Reluva to read them.
