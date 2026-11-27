@@ -165,6 +165,15 @@ strip of one (`0x4913c0`):
   Sorting Y Offset` left of it for the others (`0x5512c0`); that times 8,
   plus the layer drawn, the first 0 (`0x4915d2`). A wall cut so lets
   someone stand in front of one end and behind the other.
+- **Ties:** the list's sorted by `qsort` (`0x4a8170`), its comparison
+  the key and then, for equal keys, where the picture's drawn across,
+  its x (`+0x1c`, set at `0x4915b5`), the left first (`0x4a80e0`);
+  equal in both, they're in no set order.
+- **A polygon drawn standing** (not `On Ground`) has a key of its
+  bounds' foot plus its `YSort`, times 8, and its bounds' left across
+  (`0x54e9a3`). Which list it's sorted into isn't traced: drawn among
+  the models by that key, the Borg Cube's black polygons cover its walls,
+  so Reluva keeps them on the ground, under everyone, as before.
 
 ### The interface
 
@@ -1501,8 +1510,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
-- **Drawing order:** how the program breaks ties between equal keys,
-  and where the polygons' `YSort` puts those drawn standing.
+- **Drawing order:** which list a polygon drawn standing is sorted
+  into, and so where its `YSort` puts it.
 - **The triggers:** the order the program finds those in a touching
   trigger in (the last found is the one it holds), and the anything-,
   team- and every-touching triggers' own code, read from the maps' fields.

@@ -1366,7 +1366,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     // The models and the officers among them, back to front: each picture,
     // or each strip of it its sequence's cuts make, by where it stands, its
     // model's Sorting Y and the strip's offset, eight times over, and the
-    // layer drawn (0x4915d2); ties as they come.
+    // layer drawn (0x4915d2); ties below.
     struct Look {
         const Animation *body = nullptr;
         std::string sequence;
@@ -1463,7 +1463,15 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         at.y = d.y - top;
         order.push_back({d.key, -2, 0, INT_MIN, INT_MAX, at, d.picture});
     }
-    std::stable_sort(order.begin(), order.end(), [](const Piece &a, const Piece &b) { return a.key < b.key; });
+    // Equal keys by where they're drawn across, the left first (0x4a80e0,
+    // the x at 0x4915b5); equal both, as they come (inferred: the program's
+    // qsort leaves those in no set order).
+    const auto across = [&](const Piece &p) {
+        return p.part == -1 ? int(std::lround(_officers[p.officer].x)) - left : p.look.x;
+    };
+    std::stable_sort(order.begin(), order.end(), [&](const Piece &a, const Piece &b) {
+        return a.key != b.key ? a.key < b.key : across(a) < across(b);
+    });
     _drawn.clear();
     for (const Piece &piece : order) {
         if (piece.part == -2) {
