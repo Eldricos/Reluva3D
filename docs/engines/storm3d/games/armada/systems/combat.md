@@ -178,9 +178,11 @@ From the same run's frames and draws:
   density, flying and turning as above; and its fireball's shockwave
   follows by its `shockwaveDelay`, a flat ring of `xshock`'s 16 rays
   in `wselfdes`'s texture and its colour, out at its rate to its
-  `radiusFactor` times the unit's size, at least `shockwaveMinimum`,
-  fading over its last `fadeFactor` *(guessed)*: what the factor
-  multiplies isn't known, nor the fade.
+  `radiusFactor` times the unit's size, fading over its last
+  `fadeFactor` *(guessed)*: what the factor multiplies isn't known, nor
+  the fade. Only a unit as big as `shockwaveMinimum` (40) throws one:
+  the original's construction ship, about 30, threw none, where
+  Reluva's first drew a ring 300 across.
 - **Chasing:** a ship whose target is out of its weapons' reach flies
   to the point on its way at 0.95 of that reach from the target, set
   afresh as the target moves, and stops there; within reach it holds

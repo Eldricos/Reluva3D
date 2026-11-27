@@ -987,15 +987,17 @@ void MissionView::destroy(size_t unit, int by) {
             e.model = fireball.string("dbName");
             e.at = _scene.units()[unit].middle();
             e.began = double(_last) / 1000;
-            // Its shockwave follows: xfirebmd's shockwaveDelay, out to
-            // xshock's radiusFactor times the unit's size, at least
-            // shockwaveMinimum *(guessed: what the factor multiplies)*.
+            // Its shockwave follows, xfirebmd's shockwaveDelay on, out to
+            // xshock's radiusFactor times the unit's size; only from a unit
+            // as big as shockwaveMinimum: the original's construction ship,
+            // about 30, threw none.
             Odf shock;
-            if (!fireball.string("shockwave").empty() && !shock.load(fireball.string("shockwave") + ".odf", loader)) {
+            const float size = _scene.units()[unit].radius();
+            if (!fireball.string("shockwave").empty() && size >= float(fireball.number("shockwaveMinimum")) &&
+                !shock.load(fireball.string("shockwave") + ".odf", loader)) {
                 e.shockDelay = fireball.number("shockwaveDelay");
                 e.shockRate = float(shock.number("rate"));
-                e.shockRadius = std::max(float(fireball.number("shockwaveMinimum")),
-                                         float(shock.number("radiusFactor")) * _scene.units()[unit].radius());
+                e.shockRadius = float(shock.number("radiusFactor")) * size;
                 e.shockFade = float(shock.number("fadeFactor"));
                 e.shockRays = int(shock.number("rays", 16));
                 e.shockTexture = shock.string("texture");
