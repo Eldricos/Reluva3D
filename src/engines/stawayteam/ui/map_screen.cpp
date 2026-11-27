@@ -1080,31 +1080,64 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     }
     if (hud.objectives)
         _objectivesWindow = std::make_unique<ObjectivesWindow>(_data, _rules, 640, 480);
-    // On the map, the left button: a click on an officer chooses them
-    // (Shift: adds or takes them away), a box dragged chooses those in it,
-    // a click on an enemy sends them to shoot it, a click elsewhere sends
-    // them there (inferred: the mouse's scheme isn't traced).
+    // On the map, the mouse's buttons by its scheme (the options' Control
+    // Scheme, 0x5bec60): normally the left the Move Button and the right
+    // the Action Button, the other way round reversed; the middle cycles
+    // the inventory. The Move Button "moves the selected team to the
+    // current mouse position", the Action Button has them "execute an
+    // action in the world" (Rules.txt's help). Either chooses an officer
+    // clicked (Shift: adds or takes them away) or those in a box dragged
+    // (inferred: what each does past its help isn't traced).
     const auto toMapX = [&](int sx) { return mapX(sx); };
     const auto toMapY = [&](int sy) { return mapY(sy); };
     const bool inView =
         ev.mouseX >= _viewX && ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW && ev.mouseY < _viewY + _viewH;
     const bool playing = _scripts.empty() && _teamShown;
+    const bool reversed = _options.controls.scheme == 1;
+    const auto isMove = [&](MouseButton b) { return b == (reversed ? MouseButton::kRight : MouseButton::kLeft); };
+    const auto isAction = [&](MouseButton b) { return b == (reversed ? MouseButton::kLeft : MouseButton::kRight); };
     if (!hud.used && playing && inView && ev.type == EventType::kMouseMove && !_pressed)
         hoverAt(toMapX(ev.mouseX), toMapY(ev.mouseY));
-    if (!hud.used && playing && inView && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+    if (!hud.used && playing && inView && ev.type == EventType::kMouseDown &&
+        (isMove(ev.button) || isAction(ev.button))) {
         _pressed = true;
+        _pressedMove = isMove(ev.button);
         _dragging = false;
         _pressX = ev.mouseX;
         _pressY = ev.mouseY;
     }
+    if (!hud.used && playing && inView && ev.type == EventType::kMouseDown && ev.button == MouseButton::kMiddle &&
+        _selected >= 0)
+        stepItem(_selected, 1);
+    // The wheel by the bindings: Inventory Next down, Prev up.
+    if (!hud.used && playing && ev.type == EventType::kMouseWheel && ev.wheelY != 0 && _selected >= 0) {
+        const int bit = ev.wheelY < 0 ? 8 : 16;
+        const int next = actionIndex("Inventory Next");
+        const int prev = actionIndex("Inventory Prev");
+        if (next >= 0 && (_options.controls.binding(size_t(next)).mouse & bit))
+            stepItem(_selected, 1);
+        else if (prev >= 0 && (_options.controls.binding(size_t(prev)).mouse & bit))
+            stepItem(_selected, -1);
+    }
     if (_pressed && ev.type == EventType::kMouseMove &&
         (std::abs(ev.mouseX - _pressX) > kDrag || std::abs(ev.mouseY - _pressY) > kDrag))
         _dragging = true;
-    if (_pressed && ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+    if (_pressed && ev.type == EventType::kMouseUp && (_pressedMove ? isMove(ev.button) : isAction(ev.button))) {
         _pressed = false;
         const bool add = (ev.mods & keymod::kShift) != 0;
+        const float px = toMapX(_pressX);
+        const float py = toMapY(_pressY);
         if (_dragging) {
-            chooseIn(toMapX(_pressX), toMapY(_pressY), toMapX(ev.mouseX), toMapY(ev.mouseY), add);
+            chooseIn(px, py, toMapX(ev.mouseX), toMapY(ev.mouseY), add);
+        } else if (_pressedMove) {
+            if (_melded >= 0 && enemyAt(px, py) == _melded && !_meldChosen)
+                chooseMelded();
+            else if (const int officer = officerAt(px, py); officer >= 0)
+                choose(officer, add);
+            else if (_meldChosen)
+                orderMelded(px, py);
+            else
+                order(px, py);
         } else if (const int seen = enemyAt(toMapX(_pressX), toMapY(_pressY)); _vision == 1 && seen >= 0) {
             // Choosing whose sight to show: the enemy clicked (inferred).
             _visionEnemy = seen;
@@ -1122,8 +1155,6 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
             // The part's process, with the chosen item or none.
         } else if (const int enemy = enemyAt(toMapX(_pressX), toMapY(_pressY)); enemy >= 0) {
             attack(enemy);
-        } else {
-            order(toMapX(_pressX), toMapY(_pressY));
         }
         _dragging = false;
     }

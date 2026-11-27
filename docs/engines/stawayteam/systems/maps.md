@@ -1013,13 +1013,22 @@ map's models as they stand; the one chosen has the selection's marker
 officer, or their slot on the team bar, chooses them alone, with Shift
 adds them or takes them away, a double click on the slot shows them; a
 box dragged on the map chooses those in it (with Shift, as well); Select
-Entire Team's key (A) and the select-all button choose everyone; a click
-elsewhere on the map sends those chosen walking there, every one to
+Entire Team's key (A) and the select-all button choose everyone. The
+mouse's buttons go by the options' Control Scheme (`0x5bec60`): normally
+the left is the Move Button and the right the Action Button, reversed
+the other way round, the middle the third; each goes to what's bound
+to it (`0x52ee50`). The Move Button "moves the selected team to the
+current mouse position", the Action Button has them "execute an action
+in the world" (Rules.txt's help texts): in Reluva the Action Button
+uses the chosen item, goes through a part's process, attacks an enemy
+or chooses whose sight to show; either chooses an officer clicked
+*(inferred)*; the middle steps the item on *(inferred)*, and the wheel
+does what it's bound to (Inventory Next down, Prev up). A Move Button
+click elsewhere on the map sends those chosen walking there, every one to
 the place itself: the game cancels their orders (`0x5b80e0`), gives
 each the point (`0x5bfcdb`, by `0x5c78a0`) and starts each moving to the
 first one's point (`0x5b8050`, `0x5b7e50`), and a place with only a
-character on it is walked onto, so they end up together on it *(the
-game's mouse buttons aren't traced)*, each by the waypoints (`loadWayPoints`, the
+character on it is walked onto, so they end up together on it, each by the waypoints (`loadWayPoints`, the
 shortest way along their lines by A*, then straight to the place),
 facing the way they go, at their walk's own pace, its
 frames by how far into its cycle they are. In the game a moving

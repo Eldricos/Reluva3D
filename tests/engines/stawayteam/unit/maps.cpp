@@ -1926,13 +1926,21 @@ void testProcesses() {
     mv.mouseY = int(300.0f - screen.mapY(0));
     screen.handleEvent(mv, nullptr, now);
     CHECK(screen.cursorName() == "Generic Use");
-    // Clicked, she walks to the console; its line's on the tricorder's
-    // panel, and the crate's on the minimap.
+    // The Move Button (the left) there only sends her there; the Action
+    // Button (the right) has her go through its process: she walks to the
+    // console; its line's on the tricorder's panel, and the crate's on the
+    // minimap.
     Event click;
     click.type = EventType::kMouseDown;
     click.button = MouseButton::kLeft;
     click.mouseX = mv.mouseX;
     click.mouseY = mv.mouseY;
+    screen.handleEvent(click, nullptr, now);
+    click.type = EventType::kMouseUp;
+    screen.handleEvent(click, nullptr, now);
+    CHECK(a.task == MapScreen::Officer::Task::kNone && !a.path.empty());
+    click.type = EventType::kMouseDown;
+    click.button = MouseButton::kRight;
     screen.handleEvent(click, nullptr, now);
     click.type = EventType::kMouseUp;
     screen.handleEvent(click, nullptr, now);
@@ -1948,6 +1956,21 @@ void testProcesses() {
     CHECK(screen.useItem(600.0f, 300.0f));
     run(12000);
     CHECK(screen.scanText() == "A console.");
+    // Reversed, the right button's the Move Button.
+    const float backX = a.x;
+    const float backY = a.y;
+    options.controls.scheme = 1;
+    click.button = MouseButton::kRight;
+    click.mouseX = int(a.x - screen.mapX(0));
+    click.mouseY = int(a.y + 60.0f - screen.mapY(0));
+    click.type = EventType::kMouseDown;
+    screen.handleEvent(click, nullptr, now);
+    click.type = EventType::kMouseUp;
+    screen.handleEvent(click, nullptr, now);
+    CHECK(!a.path.empty() && a.task == MapScreen::Officer::Task::kNone);
+    options.controls.scheme = 0;
+    screen.order(backX, backY);
+    run(16000);
     // Over the ground the tricorder, used only on something, can't be; the
     // rifle out of its reach shows its Obscured Cursor, and over the
     // console in reach, the console's Use process's.

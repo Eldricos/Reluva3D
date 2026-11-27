@@ -837,6 +837,7 @@ private:
     // A box being dragged to choose officers: where it started, on the
     // screen, and whether it's moved far enough to be one.
     bool _pressed = false;
+    bool _pressedMove = false; // the press was the Move button's, else the Action button's
     bool _dragging = false;
     int _pressX = 0;
     int _pressY = 0;
