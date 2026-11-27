@@ -223,5 +223,11 @@ Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
   race still round its points 120 and 250 (laps of 174 to 179 s, 1st);
   round 250 the road's left edge moves from 6 to 17 units out and back,
   its middle with it, and the line.
+- The knockout, against the game's quickest cars: out in the second
+  round in the latest run (8th of 8 on the Outback, its second lap 110 s
+  against 93 s in a single race), after a crash 4.6 m into a pass at
+  90 to 100 m/s (point 1462), and slow through the split road's
+  stretches (points 1663 to 1770, 37 to 52 m/s); in the two before, the
+  third.
 - The computer cars' slots across the road (`[0x4c2b0c]`): zero at
   every point of the tables the single races loaded, so not taken.
