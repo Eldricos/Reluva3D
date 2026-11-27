@@ -121,7 +121,7 @@ int cmdHost(int argc, char **argv) {
             "usage: reluva-tool sfc host <game folder> [-limit instructions] [-trace count] "
             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
-            "[-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] [-key frame name]... "
+            "[-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] [-key frame name[+name]]... [-down frame name] [-up frame name] "
             "[-net]\n");
         return 2;
     }
@@ -173,18 +173,45 @@ int cmdHost(int argc, char **argv) {
         else if (arg == "-net")
             network = true;
         else if (arg == "-key" && a + 2 < argc) {
-            // Pressed at the frame, released at the next.
+            // Pressed at the frame, released at the next; keys joined by
+            // + (ctrl+3) are pressed a frame apart and released the other
+            // way round, as a hand holds a modifier around a key.
             const uint64_t at = std::strtoull(argv[a + 1], nullptr, 0);
-            const uint32_t k = keyByName(argv[a + 2]);
-            if (!k)
-                std::fprintf(stderr, "no key named %s\n", argv[a + 2]);
-            for (const bool down : {true, false}) {
-                Step s;
-                s.frame = at + (down ? 0 : 1);
-                s.key = k, s.down = down;
-                if (k)
-                    steps.push_back(s);
+            std::vector<uint32_t> keys;
+            const std::string names = argv[a + 2];
+            for (size_t from = 0;;) {
+                const size_t plus = names.find('+', from + 1);
+                const std::string name = names.substr(from, plus == std::string::npos ? plus : plus - from);
+                uint32_t k = keyByName(name);
+                if (!k && name.size() == 1)
+                    k = uint32_t(uint8_t(std::tolower(static_cast<unsigned char>(name[0]))));
+                if (!k)
+                    std::fprintf(stderr, "no key named %s\n", name.c_str());
+                else
+                    keys.push_back(k);
+                if (plus == std::string::npos)
+                    break;
+                from = plus + 1;
             }
+            uint64_t frame = at;
+            for (size_t i = 0; i < 2 * keys.size(); ++i) {
+                Step s;
+                s.frame = frame++;
+                s.down = i < keys.size();
+                s.key = s.down ? keys[i] : keys[2 * keys.size() - 1 - i];
+                steps.push_back(s);
+            }
+            a += 2;
+        } else if ((arg == "-down" || arg == "-up") && a + 2 < argc) {
+            // A key held from one frame to another: Shift around a click.
+            Step s;
+            s.frame = std::strtoull(argv[a + 1], nullptr, 0);
+            s.key = keyByName(argv[a + 2]);
+            s.down = arg == "-down";
+            if (s.key)
+                steps.push_back(s);
+            else
+                std::fprintf(stderr, "no key named %s\n", argv[a + 2]);
             a += 2;
         } else if (arg == "-rate" && a + 2 < argc) {
             rateFrom = std::strtoull(argv[a + 1], nullptr, 0);

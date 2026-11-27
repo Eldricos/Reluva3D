@@ -616,7 +616,9 @@ known.
   file or folder function is.
   `reluva-tool sfc disasm <game folder or program> <start> <end>`
   disassembles the program, or another (a mission's DLL). `-key <frame>
-  <name>` presses a key by name (`num5`, `numplus`, `left`, `f1`...);
+  <name>` presses a key by name (`num5`, `numplus`, `left`, `f1`...), or
+  keys joined by `+` together (`ctrl+3`), and `-down`/`-up <frame>
+  <name>` hold one between frames (Shift around a click);
   `-fixed-clock` runs the program's clock by the instructions run (40,000
   a millisecond), its sleeps, and a millisecond each time every thread
   waits (without that, a tutorial waiting on the clock stood still for
