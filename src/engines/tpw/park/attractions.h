@@ -38,6 +38,12 @@ public:
          * free, `2` its entrance, `N` its exit, anything else its own.
          */
         std::vector<std::string> shape;
+        /**
+         * Info.Hoarding: the boarding round a special ride till it's
+         * activated, as its shape's rows: `F` `7` `L` `J` its corners, `^`
+         * `_` `[` `]` its top, bottom, left and right edges, `.` none.
+         */
+        std::vector<std::string> hoarding;
         int excitement = -1;     // UsageInfo.ExcitementLevel, 0 to 100; −1 without
         int capacity = -1;       // Upgrades[0].InitCapacity
         int workingLife = -1;    // Info.WorkingLife, 0 to 100

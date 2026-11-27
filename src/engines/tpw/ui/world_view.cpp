@@ -142,10 +142,36 @@ void drawObjects(Surface &screen, const soft3d::OrbitCamera &camera, const Objec
 
 } // namespace
 
+namespace {
+
+// A mesh's box as its node's matrix places it.
+std::array<float, 6> placedBox(const Model::Mesh &mesh) {
+    std::array<float, 6> box{1e9f, 1e9f, 1e9f, -1e9f, -1e9f, -1e9f};
+    for (int corner = 0; corner < 8; ++corner) {
+        const gfx::Vec3 p =
+            gfx::transformPoint(mesh.transform, {mesh.bounds[corner & 1 ? 3 : 0], mesh.bounds[corner & 2 ? 4 : 1],
+                                                 mesh.bounds[corner & 4 ? 5 : 2]});
+        for (size_t axis = 0; axis < 3; ++axis) {
+            box[axis] = std::min(box[axis], p[axis]);
+            box[axis + 3] = std::max(box[axis + 3], p[axis]);
+        }
+    }
+    return box;
+}
+
+} // namespace
+
 Error LoadedWorld::load(const SearchSet &files, const std::string &folder) {
     *this = {};
     if (Error err = surroundings.load(files, folder + "/terrain/base.MD2"))
         return err;
+    const std::vector<Model::Mesh> &meshes = surroundings.model.meshes();
+    for (size_t i = 0; i < meshes.size(); ++i)
+        if (meshes[i].name.rfind("basic hoard", 0) == 0)
+            fenceMeshes.push_back(i);
+        else if (meshes[i].name == "signpost")
+            billboard = placedBox(meshes[i]);
+
     std::vector<uint8_t> data;
     if (!files.read(folder + "/terrain/base.lnd", data) && !land.parse(data)) {
         hasLand = true;
@@ -181,7 +207,16 @@ void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorl
         light = soft3d::normalize(toViewerWorld(world.sky.light));
     }
     rasterizer.begin(screen);
-    drawMeshes(rasterizer, camera, world.surroundings, view.textured, light);
+    if (view.fence || world.fenceMeshes.empty()) {
+        drawMeshes(rasterizer, camera, world.surroundings, view.textured, light);
+    } else {
+        // The fence's meshes folded to nothing.
+        std::vector<gfx::Mat4> transforms = meshTransforms(world.surroundings, -1, 0);
+        for (size_t i : world.fenceMeshes)
+            if (i < transforms.size())
+                transforms[i] = gfx::Mat4{};
+        drawMeshes(rasterizer, camera, world.surroundings, view.textured, light, &transforms);
+    }
     if (view.ground && world.hasLand && world.ground.w > 0)
         drawGround(rasterizer, camera, world, light);
     if (view.objects && world.hasObjects)

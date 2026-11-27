@@ -191,9 +191,8 @@ parks are bare, and show the red sign.
 general settings, the world's and the mission's, and keeps its clock;
 `ParkScreen` (`src/engines/tpw/ui/park_screen.cpp`) draws its world, as the viewer draws it
 ([lnd.md](../formats/lnd.md#in-reluva)), through a camera that starts
-on the road before the entrance, the fixed items marked (the entrance
-yellow, the booths red, the bus stops blue), the money and date over
-it, and its visitors; `ParkHud` (`src/engines/tpw/ui/park_hud.cpp`)
+on the road before the entrance, the money and date over it, and its
+visitors; `ParkHud` (`src/engines/tpw/ui/park_hud.cpp`)
 draws the HUD over it and follows the mouse over its buttons. After the
 loading screen the mission's briefing shows over it
 ([briefing.md](briefing.md)), then `playPark` runs it: the arrow keys

@@ -50,7 +50,7 @@ None yet.
   ([park-awards.md](systems/park-awards.md)); challenges by guessed rules, their
   triggers partly ([challenges.md](systems/challenges.md)); special rides
   activated in a window laid out by guess, abilities discovered and
-  learnt by guessed rules, their hoardings not drawn
+    learnt by guessed rules, their hoardings laid by guessed rules
   ([special-rides.md](systems/special-rides.md)); an obstacle cleared by the staff chosen in
   3 days, a guess, and each park set up anew as the missions done leave it
   ([missions.md](systems/missions.md)); the Assign staff, financial summary and naming windows laid out
@@ -63,8 +63,11 @@ None yet.
   ([building.md](systems/building.md#their-names)), and the Buy window
   describes only those a rule or the guessed rides' table finds; staff
   learn the ability the player picks of those discovered, by a guessed
-  rule ([staff.md](systems/staff.md)); no building but attractions and path yet, its
-  fixed items' cells marked; the fly-in under the world's sky, where the
+  rule ([staff.md](systems/staff.md)); the missions' fences laid in
+  pieces by guessed rules, the world's own hidden once one stands
+  ([hoardings.md](formats/hoardings.md)); the billboard outside the gates
+  opening the Overview Map, a guess; no building but attractions and
+  path yet; the fly-in under the world's sky, where the
   recording's is black, and ended by a click or a key, a guess
   ([fly-in.md](systems/fly-in.md)); the advisor bare, with no lip-sync,
   saying seven of his lines, each once a park

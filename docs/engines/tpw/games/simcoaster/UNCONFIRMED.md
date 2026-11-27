@@ -166,6 +166,14 @@ None yet.
   ([challenges.md](systems/challenges.md)). The game's challenges played
   through would settle them.
 
+- **Fences and hoardings**: how the game lays a fence's pieces, which
+  look where and which way they face, and that the world's own fence
+  goes once a mission's comes; that the billboard outside the gates is
+  the world's `signpost` and opens the Overview Map
+  ([hoardings.md](formats/hoardings.md),
+  [park-windows.md](systems/park-windows.md#the-overview-map)). The game
+  played past Operation Expand! would settle it.
+
 - **Missions**: how long an obstacle's staff work at it, what clearing
   costs, what training teaches with no ability picked, and the staff numbering
   of `ObstacleStaff[n].StaffType` past 0, 1 and 5

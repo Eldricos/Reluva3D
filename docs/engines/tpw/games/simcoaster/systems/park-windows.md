@@ -132,7 +132,12 @@ area has been opened" or "This area has not yet been opened" (494, 495);
 in the globe's order, in a window laid out by guess, the park's own
 marked as a chosen row is; a click on another open world closes the park
 and opens that world's, the player's file kept as quitting keeps it, its
-briefing over it ([players.md](players.md)). The recording never opens
+briefing over it ([players.md](players.md)). "Once a new themed zone
+is open, you can get to it by clicking the billboard outside the
+current park's gate, or by using the Overview Map" (`TOTD` 3): the
+billboard is the `signpost` of the world's model, outside the gates by
+the crossing in all three worlds, and a click on it opens the Overview
+Map *(guessed)*. The recording never opens
 it, and what the game shows (a map, or the globe) isn't known.
 
 ### The game's menu

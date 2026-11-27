@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <map>
 #include <optional>
@@ -645,6 +646,51 @@ public:
     bool isPath(const Cell &cell) const { return ground(cell) == Ground::kPath; }
     /** Whether path is laid on a cell, the park's or beyond its fence, as the prebuilt park has it there. */
     bool pathLaid(const Cell &cell) const;
+    /**
+     * The park's fence as the last mission done here gave it
+     * (`BoundaryClicks`): its corners, in cells from the map's corner,
+     * where the cells' edges meet. Empty while the world's own fence, a
+     * part of its model, stands.
+     */
+    const std::vector<Cell> &fence() const { return _fence; }
+
+    /** The hoardings' models (`hoarding/ho_fos1.md2` and the rest). */
+    enum class FenceModel : uint8_t {
+        kStraight, // ho_fos: two cells of fence, a cell each way along the edge from its point
+        kDiagonal, // ho_fob: a corner, cut across from a cell along one edge to a cell along the other
+        kEnd,      // ho_end: a cell of fence from its point, ended there
+    };
+    /**
+     * A piece of fence: its model and look (1 to 4; an end has one),
+     * centred on a point where the cells' corners meet, turned so many
+     * degrees (east towards south). Unturned, a straight runs north and
+     * south, a diagonal joins the south and east, an end runs south; and
+     * the side they show their face on is the east.
+     */
+    struct FencePiece {
+        Cell at;
+        FenceModel model = FenceModel::kStraight;
+        int look = 1;
+        int angle = 0;
+    };
+    /** A cell's edge: from one point where cells' corners meet to the next, along x or y. */
+    using Edge = std::pair<Cell, Cell>;
+    /**
+     * The pieces a fence of edges is drawn with: a diagonal where it turns,
+     * an end where it stops, straights between, each straight's face
+     * towards the cells `facing` takes (inferred, see
+     * docs/engines/tpw/games/simcoaster/formats/hoardings.md).
+     */
+    static std::vector<FencePiece> fencePieces(const std::vector<Edge> &edges,
+                                               const std::function<bool(const Cell &)> &facing);
+    /** The park's fence's pieces, their faces inwards; none while the world's own stands. */
+    std::vector<FencePiece> fencePieces() const;
+    /**
+     * The hoarding round a special ride waiting to be activated, by its
+     * settings' `Info.Hoarding`, its faces outwards; none for another.
+     */
+    std::vector<FencePiece> hoardingPieces(size_t object) const;
+
     /** An object standing in the park, by its number (its settings' `Info.Id`). */
     struct PlacedObject {
         int id = 0;
@@ -1178,6 +1224,8 @@ private:
     int _mapHeight = 0;
     std::vector<Ground> _ground;
     std::vector<uint8_t> _owned; // by cell, as _ground; 1 where it's the park's
+    std::vector<Cell> _fence;    // the corners of the last mission's fence, from the map's corner
+
     bool _prebuilt = false;
     std::vector<int> _fixedObjects;
     // The obstacle being cleared: the staff at it, and the days they've worked.

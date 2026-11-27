@@ -1,6 +1,6 @@
-park: fd3737ffbd27cac4 | park: 1130 screens shown, left at 45200 ms, 11.Jan.00, cash 48730, 1 visitors, 83 path cells, 15 objects, 6 queues of 14 cells, 0 kiosks, 2 briefings, tool 2, md5 e5fe6dd17ec9b1fa7a0e9d516fffb1ac
+park: 61766d4867dce155 | park: 1130 screens shown, left at 45200 ms, 11.Jan.00, cash 48730, 1 visitors, 83 path cells, 15 objects, 6 queues of 14 cells, 0 kiosks, 2 briefings, tool 2, md5 8239dca51f94e71d513c035f853a672f
 signs: 5d397343ec66bb3a | 26 signs lettered
 signs.png: 96966b657a640b21
 flyin: 27329cff96fb04dd | frame 330 of 500: eye 477.8, 31.3, 11.3, looking -0.00, 1.00, -0.07
-saving: d104bbfa68cbc3fa | saved: levels/science, day 15, 35849 bytes of park, 12 of screen, the same as saved, the same 60 s on, 4 visitors, 14 objects, cash 50110, md5 41a0ec49b8c889d9e70681bb029a7200
-flyin.png: c99c1faad2db30b5
+saving: 32d41fbff44907e7 | saved: levels/science, day 15, 35853 bytes of park, 12 of screen, the same as saved, the same 60 s on, 4 visitors, 14 objects, cash 50110, md5 6e2049a34673e610ab701da9a90a9f00
+flyin.png: 50820646b7af7308

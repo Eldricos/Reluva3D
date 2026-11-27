@@ -13,7 +13,10 @@
 #include "graphics/soft3d/view3d.h"
 #include "image/image.h"
 
+#include <array>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace reluva::tpw {
 
@@ -42,6 +45,10 @@ struct LoadedWorld {
      * (docs/engines/tpw/games/simcoaster/formats/lnd.md).
      */
     image::Image ground;
+    /** Its model's meshes that are the park's fence as a new park has it ("basic hoard01" and on). */
+    std::vector<size_t> fenceMeshes;
+    /** The billboard outside the gates, its model's `signpost`: its box, least x, y, z then most, y up. */
+    std::optional<std::array<float, 6>> billboard;
 
     /**
      * Reads the world in `folder`, as `levels/arabian`. Fails only when
@@ -64,6 +71,7 @@ struct WorldView {
     bool ground = true;  // the park's ground drawn
     bool objects = true; // the placed objects drawn as markers
     bool sky = true;     // the sky drawn behind, the world lit by its light
+    bool fence = true;   // the world's own fence, its model's `basic hoard` meshes, drawn
 };
 
 /** The camera drawWorld draws through, for a screen of w × h. */

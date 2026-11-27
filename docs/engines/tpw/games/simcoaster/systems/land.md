@@ -55,5 +55,5 @@ Map as the missions before n leave the land. The unit tests
 
 - Whether a mission's fence replaces the land or adds to it, where it
   leaves out a few of the earlier cells.
-- How the fence is drawn: the hoardings' models (`hoarding.wad`'s
-  `ho_fob`, `ho_fos` and `ho_end` pieces) aren't drawn yet.
+- How the game lays a mission's fence's pieces
+  ([hoardings.md](../formats/hoardings.md)).

@@ -1266,7 +1266,8 @@ void testSpecialRides(const std::filesystem::path &tmp) {
     writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nResearch.Group 0\r\n");
     writeText(world / "rides" / "vict_hs" / "vict_hs.sam",
               "Info.Id 1110\r\nInfo.IsSpecial 1\r\nUsageInfo.GoldenTicketCost 1\r\nSkillSet[9].Num 1\r\n"
-              "SkillSet[11].Num 1\r\nUsageInfo.ExcitementLevel 40\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n");
+              "SkillSet[11].Num 1\r\nUsageInfo.ExcitementLevel 40\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\n"
+              "Info.Hoarding\r\n---\r\nF7\r\n---\r\n");
     writeText(world / "Facilities" / "train_rm" / "train_rm.sam",
               "Info.Id 1440\r\nUsageInfo.TrainingRoom 1\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\n");
     constexpr int kRows = 8;    // x
@@ -1284,6 +1285,17 @@ void testSpecialRides(const std::filesystem::path &tmp) {
     CHECK(!early.load(files, "levels/science", 0));
     const int q0 = early.place(1110, 0, {"2N"}, true, {2, 2}, 0);
     CHECK(q0 >= 0 && early.awaitsActivation(0) && !early.objects()[0].open);
+    // Its hoarding, "F7" over its two cells from (2, 2): their top and
+    // sides boarded, a diagonal at each top corner, an end at each foot.
+    const std::vector<Park::FencePiece> hoarding = early.hoardingPieces(0);
+    CHECK(hoarding.size() == 4);
+    int diagonals = 0;
+    int ends = 0;
+    for (const Park::FencePiece &piece : hoarding) {
+        diagonals += piece.model == Park::FenceModel::kDiagonal;
+        ends += piece.model == Park::FenceModel::kEnd;
+    }
+    CHECK(diagonals == 2 && ends == 2);
     CHECK(early.abilityDiscovered(9) && !early.abilityDiscovered(11));
     CHECK(early.activate(0) == Park::Activation::kUndiscovered);
 
@@ -1337,7 +1349,7 @@ void testSpecialRides(const std::filesystem::path &tmp) {
     CHECK(!again.load(files, "levels/science", 1));
     CHECK(again.place(1110, 0, {"2N"}, true, {2, 2}, 0) >= 0 && again.awaitsActivation(0));
     again.setRidesActivated({1110});
-    CHECK(!again.awaitsActivation(0) && again.objects()[0].open);
+    CHECK(!again.awaitsActivation(0) && again.objects()[0].open && again.hoardingPieces(0).empty());
 }
 
 void testAwards(const std::filesystem::path &tmp) {
@@ -1400,6 +1412,41 @@ void testAwards(const std::filesystem::path &tmp) {
     CHECK(park.statisticValue(6) == 3);
 }
 
+// Fences laid in pieces: a square's corners cut across and its sides'
+// straights facing in; a run of three edges between two ends, an end
+// piece to close the odd edge.
+void testFencePieces() {
+    using Edge = Park::Edge;
+    std::vector<Edge> square;
+    for (int i = 0; i < 4; ++i) {
+        square.push_back({{i, 0}, {i + 1, 0}});
+        square.push_back({{i, 4}, {i + 1, 4}});
+        square.push_back({{0, i}, {0, i + 1}});
+        square.push_back({{4, i}, {4, i + 1}});
+    }
+    auto inside = [](const Park::Cell &c) { return c.x >= 0 && c.x < 4 && c.y >= 0 && c.y < 4; };
+    const std::vector<Park::FencePiece> pieces = Park::fencePieces(square, inside);
+    CHECK(pieces.size() == 8);
+    for (const Park::FencePiece &p : pieces) {
+        if (p.at.x == 0 && p.at.y == 0)
+            CHECK(p.model == Park::FenceModel::kDiagonal && p.angle == 0);
+        if (p.at.x == 4 && p.at.y == 4)
+            CHECK(p.model == Park::FenceModel::kDiagonal && p.angle == 180);
+        if (p.at.x == 2 && p.at.y == 0)
+            CHECK(p.model == Park::FenceModel::kStraight && p.angle == 90);
+        if (p.at.x == 0 && p.at.y == 2)
+            CHECK(p.model == Park::FenceModel::kStraight && p.angle == 0);
+        if (p.at.x == 4 && p.at.y == 2)
+            CHECK(p.model == Park::FenceModel::kStraight && p.angle == 180);
+        CHECK(p.look >= 1 && p.look <= 4);
+    }
+    const std::vector<Park::FencePiece> run =
+        Park::fencePieces({{{0, 0}, {1, 0}}, {{1, 0}, {2, 0}}, {{2, 0}, {3, 0}}}, inside);
+    CHECK(run.size() == 3);
+    for (const Park::FencePiece &p : run)
+        CHECK(p.model == Park::FenceModel::kEnd && p.look == 1);
+}
+
 void testLand(const std::filesystem::path &tmp) {
     const std::filesystem::path data = tmp / "game" / "Data";
     writeText(data / "levels" / "Standard.sam", "BankAccountInfo.InitialCash 100000\r\nArrival.MinPeople 0\r\n");
@@ -1436,6 +1483,7 @@ void testLand(const std::filesystem::path &tmp) {
     Park park;
     CHECK(!park.load(files, "levels/science", 0));
     CHECK(park.missions()[0].boundary.size() == 4 && park.missions()[0].newLand);
+    CHECK(park.fence().empty() && park.fencePieces().empty());
     CHECK(park.owns({3, 5}) && !park.owns({4, 0}) && park.ground({5, 2}) == Park::Ground::kOutside);
     CHECK(park.place(1209, 0, {"*"}, false, {5, 2}, 0) == Park::kNotPlaced);
     CHECK(park.place(1209, 0, {"*"}, false, {1, 2}, 0) == -1);
@@ -1443,6 +1491,8 @@ void testLand(const std::filesystem::path &tmp) {
     for (int t = 0; t < 3 && park.progress() == 0; ++t)
         park.advance(Park::kDayMillis);
     CHECK(park.progress() == 1 && park.owns({7, 5}) && park.ground({5, 2}) == Park::Ground::kOpen);
+    // Its fence stands in the world's own's place, from by the entrance.
+    CHECK(park.fence().size() == 4 && park.fence()[0].x == 0 && park.fence()[0].y == 0 && !park.fencePieces().empty());
     CHECK(park.place(1209, 0, {"*"}, false, {5, 2}, 0) == -1);
 
     // A park set up after it has the land from the start.
@@ -1568,5 +1618,6 @@ static const reluva::test::Suite
                                 {"special-rides", [](const std::filesystem::path &tmp) { testSpecialRides(tmp); }},
                                 {"awards", [](const std::filesystem::path &tmp) { testAwards(tmp); }},
                                 {"land", [](const std::filesystem::path &tmp) { testLand(tmp); }},
+                                {"fence-pieces", [](const std::filesystem::path &) { testFencePieces(); }},
                                 {"saving", [](const std::filesystem::path &tmp) { testSaving(tmp); }},
                             });

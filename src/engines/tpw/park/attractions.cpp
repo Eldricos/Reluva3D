@@ -119,6 +119,8 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             // out: it stands on its first cell.
             if (const SamFile::Entry *shape = own.find("Info.Shape"); shape && !a.obstacle)
                 a.shape = shape->grid;
+            if (const SamFile::Entry *hoarding = own.find("Info.Hoarding"))
+                a.hoarding = hoarding->grid;
             a.replaceWith = int(number("Obstacle.ReplaceWithID", 0));
             a.openedAutomatically = number("Obstacle.OpenedAutomaticly", 0) != 0;
             a.excitement = int(number("UsageInfo.ExcitementLevel", -1));

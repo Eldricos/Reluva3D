@@ -25,6 +25,7 @@
 #include <string_view>
 #include <optional>
 #include <set>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -65,10 +66,6 @@ constexpr float kTurnPerSecond = 1.6f;
 constexpr float kZoomPerSecond = 2.5f;
 constexpr float kWheelZoom = 1.15f;
 
-// The fixed items' markers, by kind, until their models are placed.
-constexpr Color kEntranceColour{255, 220, 0};
-constexpr Color kBoothColour{255, 80, 40};
-constexpr Color kBusStopColour{80, 160, 255};
 // The visitors' sprites (esprites.wad), whole and their heads alone, by
 // the settings' numbering of people (Park::Visitor::person), as their
 // comments describe them: the boy, the girl with pigtails, the girl with
@@ -242,6 +239,16 @@ const std::array<std::pair<Park::QueueModel, const char *>, 7> kQueueModels{{
     {Park::QueueModel::kJoinBendEast, "quebin2.MD2"},
     {Park::QueueModel::kDeadEnd, "quedead.MD2"},
 }};
+// The hoardings' models, each in so many looks: `ho_fos1.md2` to 4.
+const std::array<std::tuple<Park::FenceModel, const char *, int>, 3> kFenceModels{{
+    {Park::FenceModel::kStraight, "ho_fos", 4},
+    {Park::FenceModel::kDiagonal, "ho_fob", 4},
+    {Park::FenceModel::kEnd, "ho_end", 1},
+}};
+
+int fenceKey(Park::FenceModel model, int look) {
+    return int(model) * 8 + look;
+}
 constexpr float kRadiansPerDegree = 3.14159265f / 180;
 // How far path lies over the ground, in units, and objects' models (their
 // bases flat at 0, as the ground) over the path.
@@ -320,6 +327,24 @@ gfx::Mat4 placeOf(const Park::Cell &at, int angle) {
     const float cz = float(at.y) * Park::kCellUnits + half;
     return {c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, cx - (c * half - s * half), kObjectLift, cz - (s * half + c * half),
             1};
+}
+
+// A piece of fence: its model two cells square, its middle on the point
+// where the cells' corners meet, turned about it.
+void drawFencePiece(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
+                    const Park::FencePiece &piece, const soft3d::Vec &light) {
+    const float turn = float(piece.angle) * kRadiansPerDegree;
+    const float c = std::cos(turn);
+    const float s = std::sin(turn);
+    const float half = Park::kCellUnits;
+    const float px = float(piece.at.x) * Park::kCellUnits;
+    const float pz = float(piece.at.y) * Park::kCellUnits;
+    const gfx::Mat4 place{
+        c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, px - (c * half - s * half), kObjectLift, pz - (s * half + c * half), 1};
+    std::vector<gfx::Mat4> transforms = meshTransforms(model, -1, 0);
+    for (gfx::Mat4 &m : transforms)
+        m = gfx::multiply(place, m);
+    drawMeshes(rasterizer, eye, model, true, light, &transforms);
 }
 
 void drawPlaced(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
@@ -493,6 +518,13 @@ void ParkScreen::loadObjects(const SearchSet &files, const Park &park) {
         if (!model.load(files, prefix + "queue/" + file))
             _queueModels.emplace(int(piece), std::move(model));
     }
+    _fenceModels.clear();
+    for (const auto &[piece, stem, looks] : kFenceModels)
+        for (int look = 1; look <= looks; ++look) {
+            LoadedModel model;
+            if (!model.load(files, prefix + "hoarding/" + stem + std::to_string(look) + ".md2"))
+                _fenceModels.emplace(fenceKey(piece, look), std::move(model));
+        }
 }
 
 void ParkScreen::letterSign(int id, const std::string &path, LoadedModel &model) const {
@@ -686,6 +718,16 @@ void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::Orbit
             m = gfx::multiply(place, m);
         const std::vector<std::vector<gfx::Vec3>> positions = meshPositions(*model, pose.animation, pose.frame);
         drawMeshes(rasterizer, eye, *model, true, light, &transforms, &positions);
+    }
+    // The park's fence, once a mission's stands, and the special rides' hoardings.
+    std::vector<Park::FencePiece> fence = park.fencePieces();
+    for (size_t i = 0; i < park.objects().size(); ++i)
+        for (const Park::FencePiece &piece : park.hoardingPieces(i))
+            fence.push_back(piece);
+    for (const Park::FencePiece &piece : fence) {
+        const auto model = _fenceModels.find(fenceKey(piece.model, piece.look));
+        if (model != _fenceModels.end())
+            drawFencePiece(rasterizer, eye, model->second, piece, light);
     }
     // The queue being laid drawn as it would be, in its own's place.
     for (const Park::Queue &queue : park.queues()) {
@@ -1115,7 +1157,8 @@ void ParkScreen::drawWeather(Surface &screen, const Park &park) const {
 
 void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Park &park, const Camera &camera) const {
     std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
-    const WorldView view = viewOf(camera);
+    WorldView view = viewOf(camera);
+    view.fence = park.fence().empty();
     drawWorld(screen, rasterizer, _world, view);
     const soft3d::OrbitCamera eye = worldCamera(_world, view, screen.w, screen.h);
     drawPaths(rasterizer, eye, park);
@@ -1124,13 +1167,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     for (const Park::Cell &c : _preview)
         if (park.ground(c) == Park::Ground::kOutside)
             mark(screen, eye, c, kBlockedColour);
-    const Park::FixedItems &fixed = park.fixedItems();
-    for (const Park::Cell &c : fixed.entrance)
-        mark(screen, eye, c, kEntranceColour);
-    for (const Park::Cell &c : fixed.ticketBooths)
-        mark(screen, eye, c, kBoothColour);
-    for (const Park::Cell &c : fixed.busStops)
-        mark(screen, eye, c, kBusStopColour);
+
     drawVisitors(screen, rasterizer, eye, park, camera);
     drawWeather(screen, park);
     if (_furnitureRead) {
@@ -1231,6 +1268,30 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     }
 }
 
+// The billboard's box, its corners as the screen has them.
+bool ParkScreen::onBillboard(const Camera &camera, int x, int y) const {
+    if (!_world.billboard)
+        return false;
+    const soft3d::OrbitCamera eye = worldCamera(_world, viewOf(camera), kWidth, kHeight);
+    const std::array<float, 6> &box = *_world.billboard;
+    float left = 1e9f;
+    float top = 1e9f;
+    float right = -1e9f;
+    float bottom = -1e9f;
+    for (int corner = 0; corner < 8; ++corner) {
+        const soft3d::ViewVertex v =
+            eye.toView(toViewerWorld({box[corner & 1 ? 3 : 0], box[corner & 2 ? 4 : 1], box[corner & 4 ? 5 : 2]}));
+        if (v.z < eye.nearZ)
+            return false;
+        const soft3d::ScreenVertex p = eye.project(v);
+        left = std::min(left, p.x);
+        right = std::max(right, p.x);
+        top = std::min(top, p.y);
+        bottom = std::max(bottom, p.y);
+    }
+    return float(x) >= left && float(x) <= right && float(y) >= top && float(y) <= bottom;
+}
+
 std::vector<OverviewMapWindow::World> ParkScreen::worlds(const Park &park) const {
     // Land of Invention, Polar Zone, Arabian Nights, as the globe has them.
     constexpr std::array<int, 3> kGlobeOrder{1, 2, 0};
@@ -1249,7 +1310,9 @@ void ParkScreen::drawScene(Surface &screen, soft3d::Rasterizer &rasterizer, cons
     std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
     Camera facing;
     facing.yaw = yaw;
-    drawWorld(screen, rasterizer, _world, viewOf(facing), eye);
+    WorldView view = viewOf(facing);
+    view.fence = park.fence().empty();
+    drawWorld(screen, rasterizer, _world, view, eye);
     drawPaths(rasterizer, eye, park);
     drawObjects(rasterizer, eye, park);
     drawVisitors(screen, rasterizer, eye, park, facing);
@@ -1979,6 +2042,12 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     }
                     if (left || !items.empty())
                         continue;
+                }
+                // The billboard outside the gates: the way to the other
+                // zones, as the Overview Map is (TOTD 3).
+                if (left && screen.onBillboard(camera, mouseX, mouseY)) {
+                    screen.overviewMap().open(screen.worlds(park), park.theme());
+                    continue;
                 }
                 if (onGround && onGates(under)) {
                     if (left)

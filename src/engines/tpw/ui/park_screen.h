@@ -207,6 +207,8 @@ public:
      * player's file and the missions done here have it; the park's own
      * world always.
      */
+    /** Whether a point of the screen is on the billboard outside the gates (the world's model's `signpost`). */
+    bool onBillboard(const Camera &camera, int x, int y) const;
     std::vector<OverviewMapWindow::World> worlds(const Park &park) const;
     /**
      * What a saved game keeps of the screen: the Message Center's
@@ -355,6 +357,8 @@ private:
     int _placementPrice = 0;
     std::optional<Park::Queue> _queuePreview;
     std::map<int, LoadedModel> _queueModels; // by Park::QueueModel, those read
+    std::map<int, LoadedModel> _fenceModels; // by Park::FenceModel and look, as fenceKey makes them
+
     bool _furnitureRead = false;
     std::array<std::optional<LoadedSprite>, Park::kPeople> _personLooks; // by Park::Visitor::person, those read
     std::array<std::optional<LoadedSprite>, Park::kPeople> _personHeads; // their heads alone, for riders

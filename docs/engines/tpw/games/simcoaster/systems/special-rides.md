@@ -25,7 +25,7 @@ A special ride's own settings (`rides/vict_hs/vict_hs.sam`):
 | `Info.IsSpecial` | 1 |
 | `UsageInfo.GoldenTicketCost` | "Golden Tickets required to open" (1 each) |
 | `SkillSet[n].Num` | "skill and number of staff required": so many staff with ability n (`ABILITIES.str`); where it's given twice the last counts |
-| `Info.Hoarding` | its hoarding's shape, which Reluva doesn't draw yet |
+| `Info.Hoarding` | the hoarding round it till it's activated, a grid of its shape's size ([hoardings.md](../formats/hoardings.md#a-special-rides-hoarding)) |
 
 Land of Invention's need First Aid (9) and Landfill (11) for the
 boating lake, First Aid for the waterwheel, Excavation (13) and Ride
@@ -122,6 +122,6 @@ challenge's promotion.
 
 - How an ability is discovered, and which; how the player chooses one to
   learn.
-- The hoardings, and what activating shows.
+- What activating shows, the hoarding taken down.
 - What the special rides' challenges measure: satisfaction, excitement.
 - Whether a ride costs anything else to activate.
