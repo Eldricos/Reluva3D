@@ -61,6 +61,7 @@ constexpr uint32_t kNonContinuable = 0x1; // EXCEPTION_NONCONTINUABLE
 constexpr uint32_t kUnwinding = 0x2;      // EXCEPTION_UNWINDING
 constexpr uint32_t kExitUnwind = 0x4;     // EXCEPTION_EXIT_UNWIND
 constexpr uint32_t kStatusUnwind = 0xc0000027u;
+constexpr uint32_t kAccessViolation = 0xc0000005u; // EXCEPTION_ACCESS_VIOLATION
 
 // The handler's dispositions (EXCEPTION_DISPOSITION).
 constexpr uint32_t kContinueExecution = 0;
@@ -175,6 +176,35 @@ void Win32Process::addExceptionStandIns() {
         (*search)(c, state, c.read32(c.fsBase));
         return 0u;
     });
+
+    // A fault in the program's code (a read through a null pointer, say)
+    // raised as Windows raises it: EXCEPTION_ACCESS_VIOLATION at the
+    // instruction, its two arguments whether it wrote (0: whether it read
+    // or wrote isn't told by the processor here) and the address. Visual
+    // C++'s catch (...) catches it. Nothing on the chain: the run ends.
+    cpu.memoryFaulted = [this, search](Cpu &c, uint32_t address) {
+        const uint32_t registration = c.read32(c.fsBase);
+        if (registration == kEndOfChain || registration == 0 || !c.valid(registration, 8))
+            return false;
+        const uint32_t esp = c.reg[Cpu::ESP];
+        const uint32_t state = (esp - kStateSize) & ~15u;
+        const uint32_t record = state + kStRecord;
+        for (uint32_t i = 0; i < kRecordSize; i += 4)
+            c.write32(record + i, 0);
+        c.write32(record, kAccessViolation);
+        c.write32(record + 12, c.eip);
+        c.write32(record + 16, 2);
+        c.write32(record + 24, address);
+        saveContext(c, state + kStContext, c.eip, esp);
+        if (exceptionRaised)
+            exceptionRaised(c, record);
+        (*search)(c, state, registration);
+        // The search left the handler's address for a native's return:
+        // there's no native here, so it's gone to at once.
+        c.eip = c.read32(c.reg[Cpu::ESP]);
+        c.reg[Cpu::ESP] += 4;
+        return true;
+    };
 
     // RtlUnwind(target frame, target eip, record, return value): each
     // handler from fs:[0] up to the target frame, called to unwind and

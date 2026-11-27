@@ -88,7 +88,14 @@ C++ library have pages of their own ([directx.md](directx.md),
   at it, with a native function as its return address, not by a nested
   `Cpu::call`: a handler that catches jumps to its catch's continuation
   itself, so nothing is left behind on the host's side, however many
-  exceptions are thrown. `exceptionRaised` tells the engine of each one
+  exceptions are thrown. A load or store of the program's own code
+  outside memory is raised the same way, as Windows raises it:
+  `EXCEPTION_ACCESS_VIOLATION` at the instruction, the registers as
+  before it, with the address (`Cpu::memoryFaulted`). Whether it read or
+  wrote isn't told: 0 (read) is given. Only at the outermost run, not in
+  code a native called (a handler jumping away would skip the native's
+  frames on the host), and only with a handler registered: otherwise the
+  run ends as before. `exceptionRaised` tells the engine of each one
   raised. Visual C++'s `throw`, `catch`, `__try` and `__except`, in a
   program's own C runtime, are built on these.
 - **`msvcrt.h`, `msvcrt.cpp`: MSVCRT.dll**, for programs that link
@@ -302,7 +309,9 @@ executable's entry point on the main thread until it ends the process.
 - `testExceptions` raises exceptions under handlers assembled in the test:
   one that goes on with the program, its context changed; one that
   searches on and one that catches, unwinding the first and jumping to its
-  continuation; and one nothing handles, which ends the run.
+  continuation; one nothing handles, which ends the run; and a read
+  outside memory, raised as an access violation to a handler that skips
+  it, and with no handler, ending the run.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.

@@ -358,6 +358,29 @@ static void testExceptions() {
     third.push_back(0xc3);
     const Error err = cpu.call(code(third), {}, r);
     CHECK(err && err.message.find("nothing handled") != std::string::npos && told == 0xe0000001u);
+
+    // A read outside memory, raised as EXCEPTION_ACCESS_VIOLATION with the
+    // address: the handler skips the instruction, sets eax to 55 and ecx
+    // to the address, and goes on.
+    const uint32_t skip = code({0x8b, 0x44, 0x24, 0x0c,                    // mov eax, [esp+12]: the context
+                                0x83, 0x80, 0xb8, 0,    0, 0, 2,           // add dword [eax+0xb8], 2: its eip
+                                0xc7, 0x80, 0xb0, 0,    0, 0, 55, 0, 0, 0, // mov dword [eax+0xb0], 55: its eax
+                                0x8b, 0x4c, 0x24, 0x04,                    // mov ecx, [esp+4]: the record
+                                0x8b, 0x49, 0x18,                          // mov ecx, [ecx+24]: the address
+                                0x89, 0x88, 0xac, 0,    0, 0,              // mov [eax+0xac], ecx: its ecx
+                                0x31, 0xc0, 0xc3});                        // xor eax, eax; ret
+    std::vector<uint8_t> fourth;
+    registerHandler(fourth, skip);
+    fourth.insert(fourth.end(), {0xb9, 0x10, 0, 0, 0, // mov ecx, 0x10
+                                 0x8b, 0x01,          // mov eax, [ecx]: faults
+                                 0x01, 0xc8});        // add eax, ecx
+    fourth.insert(fourth.end(), unregister.begin(), unregister.end());
+    fourth.push_back(0xc3);
+    CHECK(!cpu.call(code(fourth), {}, r) && r == 55 + 0x10 && told == 0xc0000005u &&
+          cpu.read32(cpu.fsBase) == chainStart);
+    // With no handler, the fault ends the run as before.
+    const Error unhandled = cpu.call(code({0xb9, 0x10, 0, 0, 0, 0x8b, 0x01, 0xc3}), {}, r);
+    CHECK(unhandled && unhandled.message.find("outside memory") != std::string::npos);
 }
 
 // MSVCRT's stand-ins and KERNEL32's files, called as the program would.

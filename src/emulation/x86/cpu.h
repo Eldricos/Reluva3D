@@ -340,6 +340,15 @@ public:
     // Called before each instruction, and before each native function is
     // entered (eip is then its address); for tracing.
     std::function<void(Cpu &cpu)> trace;
+    /**
+     * A load or store of the program's own code outside memory, offered
+     * before the run ends: eip is the instruction's and the registers are
+     * as before it. True if the fault was passed to the program (its
+     * exception handlers), which goes on from eip. Only at the outermost
+     * run: not from code a native called, whose host frames a handler
+     * jumping away would skip.
+     */
+    std::function<bool(Cpu &cpu, uint32_t address)> memoryFaulted;
     // What RDTSC reads; without it, the instructions run so far.
     std::function<uint64_t()> timeStamp;
 
@@ -379,6 +388,8 @@ public:
 private:
     struct Fault {
         std::string message;
+        bool memory = false; // a load or store outside memory (memoryFault)
+        uint32_t address = 0;
     };
     [[noreturn]] void fault(const std::string &message);
     [[noreturn]] void memoryFault(uint32_t address, uint32_t size);

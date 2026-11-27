@@ -155,7 +155,10 @@ const std::string *Cpu::nativeName(uint32_t address) const {
 }
 
 void Cpu::memoryFault(uint32_t a, uint32_t size) {
-    fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
+    uncountBlock();
+    throw Fault{"memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory at " +
+                    hex(_instructionStart),
+                true, a};
 }
 
 uint32_t Cpu::loadOutside(uint32_t a, int size) {
@@ -1305,10 +1308,19 @@ void Cpu::runUntil(uint32_t returnAddress) {
     // A thread that yields (a native asked, by Cpu::yield) stops here, with
     // eip where it goes on from: resume() runs it again later.
     while (eip != returnAddress && !_yield) {
-        if (eip >= nativeStart || !cacheOn || trace || watchEnd > watchStart)
-            step();
-        else
-            runCached(returnAddress, nativeStart);
+        try {
+            if (eip >= nativeStart || !cacheOn || trace || watchEnd > watchStart)
+                step();
+            else
+                runCached(returnAddress, nativeStart);
+        } catch (Fault &f) {
+            if (!f.memory || !memoryFaulted || _depth != 1 || _instructionStart >= nativeStart)
+                throw;
+            _counting.ops = nullptr;
+            eip = _instructionStart;
+            if (!memoryFaulted(*this, f.address))
+                throw;
+        }
     }
 }
 
