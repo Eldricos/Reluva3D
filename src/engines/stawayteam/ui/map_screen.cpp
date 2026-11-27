@@ -671,6 +671,33 @@ void MapScreen::drawLine(Surface &view, float x0, float y0, float x1, float y1, 
     }
 }
 
+bool MapScreen::blockedAt(size_t part, float x, float y) const {
+    const std::vector<std::pair<float, float>> &shape = modelInfo(_map.parts[part].model).footprint;
+    if (shape.size() < 3)
+        return false;
+    std::vector<std::pair<float, float>> outline;
+    float x0 = 1e9f;
+    float y0 = 1e9f;
+    float x1 = -1e9f;
+    float y1 = -1e9f;
+    for (const auto &[px, py] : shape) {
+        outline.emplace_back(px + x, py + y);
+        x0 = std::min(x0, px + x);
+        y0 = std::min(y0, py + y);
+        x1 = std::max(x1, px + x);
+        y1 = std::max(y1, py + y);
+    }
+    for (const Wall &w : _walls) {
+        const PartState &state = _partStates[w.part];
+        if (w.part == part || !state.active || state.deleted || !state.collideable || w.x1 < x0 || w.x0 > x1 ||
+            w.y1 < y0 || w.y0 > y1)
+            continue;
+        if (meet(outline, w.points))
+            return true;
+    }
+    return false;
+}
+
 std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float x1, float y1, int officer,
                                                       int enemy) const {
     // Planned as the move starts, round where the characters stand then,

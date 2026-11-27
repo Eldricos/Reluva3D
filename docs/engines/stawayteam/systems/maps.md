@@ -373,8 +373,13 @@ the main menu?" (`0x5bb190`).
   the other, `0x53ba20`, tested against the map's parts, `0x4ef720`). So a way past someone standing costs five
   times its length, and is taken only if going round is dearer. Walking,
   they go through one another: the move ignores one character meeting
-  another (`0x497c60`), and an officer's, Tries To Collide off, doesn't
-  collide at all (`0x497c0f`). A destination with nothing collideable
+  another (`0x497c60`). One with `Tries To Collide` off (the team, and
+  442 of the 768 characters in the maps) doesn't collide at all
+  (`0x497c0f`): it's set where it's going. One with it on is tested
+  there, and if it meets something it's put back where it was, after
+  its collision's handled (`0x4effe0`, `0x4f0089`). So a closed door
+  stops only those as they walk; the rest it stops only in their
+  planning. A destination with nothing collideable
   but a character on it is gone onto (`0x449481`, `0x438f10`). A
   wanderer's AI keeps a `TimeOfLastChangeDirectionDueToCollide`.
 - **Joining the team:** `CAddToTeamAction` (`Who To Add`: Data, Ambassador
@@ -1134,7 +1139,9 @@ Sound, Opening played and then Open, out of the way only then, and its
 After Opened; closing likewise, back in the way at once. A way's planned through a closed
 door's outline only if it's not locked and answers to the walker's kind,
 officers by Triggered By Players, enemies by Enemies; without a way,
-they don't go (inferred: the program's goes straight there). The messages
+they don't go (inferred: the program's goes straight there). An enemy
+that Tries To Collide doesn't take a step that would put its outline
+into a part that collides, a closed door too; the rest walk through. The messages
 above are acted on: told to look, one on patrol or looking goes there;
 given a target, it attacks them; a radius's action reaches the enemies,
 and the other parts of its categories, in its oval, a part its own
@@ -1330,8 +1337,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   and the reaction time Got a Target waits on.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
-- **Doors:** whether a closed one stops a walker as it walks, or only its
-  planning.
 - **Noise:** how the rings are drawn, and the investigating AI's rules.
 - **Fighting:** the program's rules for sight (whether the footprints
   are what blocks it, `Half Height`), the bolt's hitting someone moving

@@ -41,8 +41,7 @@ None yet.
   ([systems/menus.md](systems/menus.md)).
 - **Maps:** the animations'
   messages aren't there; particles are drawn over the models rather than
-  among them ([systems/particles.md](systems/particles.md)); a way's
-  planned round closed doors, which don't stop one walking; a walker goes straight along its way, not the way its
+  among them ([systems/particles.md](systems/particles.md)); a walker goes straight along its way, not the way its
   direction's frames move
   ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the

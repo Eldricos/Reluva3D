@@ -170,9 +170,17 @@ bool MapScreen::walkTo(Enemy &e, float x, float y, float ratio, float seconds, b
         step = std::min(distance, kDefaultWalk * play * seconds);
         e.travelled = 0.0f;
     }
-    // Through anyone in its way, as the officers go (0x497c60).
-    e.x += dx / distance * step;
-    e.y += dy / distance * step;
+    // Through anyone in its way, as the officers go (0x497c60); one that
+    // Tries To Collide is put back where it was if its step meets
+    // something that collides, a closed door too (0x497c0f, 0x4f0089).
+    const float nx = e.x + dx / distance * step;
+    const float ny = e.y + dy / distance * step;
+    if (_map.parts[e.part].triesToCollide && blockedAt(e.part, nx, ny)) {
+        e.walking = false;
+        return false;
+    }
+    e.x = nx;
+    e.y = ny;
     e.walking = true;
     e.running = running;
     return step >= distance;

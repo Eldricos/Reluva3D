@@ -2705,6 +2705,53 @@ void testDoors() {
     CHECK(screen.partState(part("Gathered")).active);
 }
 
+void testTriesToCollide() {
+    // Two guards sent past a crate each: the one that Tries To Collide
+    // stops against it, the other walks through.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto guard = [](const std::string &name, int y, int tries) {
+        return "Level Part=CEntityWalking\n{\nName=" + name +
+               "\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nCurrent State=Patrol\nMax Distance=10\n"
+               "Investigate=CBorgStateInvestigate\n{\nInvestigate AI=CChaseInvestigateAI\n{\nTime To Investigate=30\n}\n}\n"
+               "}\n}\nModel=Characters/Guard\nPosition X=100\nPosition Y=" +
+               std::to_string(y) + "\nTries To Collide=" + std::to_string(tries) + "\n}\n";
+    };
+    const auto at = [](const std::string &name, const std::string &model, int x, int y) {
+        return "Level Part=CEntityBase\n{\nName=" + name + "\n" + model + "Position X=" + std::to_string(x) +
+               "\nPosition Y=" + std::to_string(y) + "\n}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n" +
+        guard("Careful", 300, 1) + guard("Ghost", 600, 0) + at("Crate", "Model=Props/Box\n", 300, 300) +
+        at("Crate 2", "Model=Props/Box\n", 300, 600) + at("Spot", "", 500, 300) + at("Spot 2", "", 500, 600) + "}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Characters/Guard.mdl16"] =
+        modelFile("Guard", 1, 1, 100.0f, {{-5.0f, -5.0f}, {5.0f, -5.0f}, {5.0f, 5.0f}, {-5.0f, 5.0f}});
+    data.files["Cache/Models/Props/Box.mdl16"] =
+        modelFile("Box", 1, 1, 100.0f, {{-20.0f, -20.0f}, {20.0f, -20.0f}, {20.0f, 20.0f}, {-20.0f, 20.0f}});
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    MapScreen screen(data, rules, map, options, 0);
+    TextObject send;
+    CHECK(!readTextObject("CSendInvestigateHereMessageAction\n{\nTarget=Careful\n}\n", send));
+    screen.runAction(&send, -1, 4);
+    TextObject send2;
+    CHECK(!readTextObject("CSendInvestigateHereMessageAction\n{\nTarget=Ghost\n}\n", send2));
+    screen.runAction(&send2, -1, 5);
+    uint64_t now = 0;
+    while (now < 10000)
+        screen.update(now += 50);
+    const auto &enemies = screen.enemies();
+    CHECK(enemies[0].x < 276.0f && enemies[0].x > 200.0f);
+    CHECK(enemies[1].x > 400.0f);
+}
+
 void testCompany() {
     // Ann and Bo; a prisoner to rescue, another to join the team, a third
     // held still; a lamp lit for a scientist.
@@ -3045,6 +3092,7 @@ static const reluva::test::Suite
                {"maps", [](const std::filesystem::path &) { testMaps(); }},
                {"interface", [](const std::filesystem::path &) { testInterface(); }},
                {"warp", [](const std::filesystem::path &) { testWarp(); }},
+               {"tries to collide", [](const std::filesystem::path &) { testTriesToCollide(); }},
                {"team bar", [](const std::filesystem::path &) { testTeamBar(); }},
                {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},

@@ -43,6 +43,7 @@ struct MapPart {
     bool active = true;                         // an inactive part isn't drawn, and its triggers wait (inferred)
     std::vector<const TextObject *> activities; // its AIs (Activity), in the map's object
     bool collideable = true;
+    bool triesToCollide = false;                  // its moves stopped by what collides (Tries To Collide)
     bool fullHeight = true;                       // tall enough to hide what's behind it (inferred)
     int settled = 0;                              // updates since it was put there (Updates Since Relocate)
     std::vector<std::string> inventory;           // its items' definitions (Inventory's Definition Index)

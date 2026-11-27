@@ -407,6 +407,11 @@ public:
     int enemyAt(float x, float y) const;
     /** Whether nothing that stands full height is between two points on the map. */
     bool clearSight(float x0, float y0, float x1, float y1) const;
+    /**
+     * Whether part `part`'s outline (its model's Bounds Poly) at (x, y)
+     * meets a part that collides: a wall, a closed door; not a character.
+     */
+    bool blockedAt(size_t part, float x, float y) const;
     // A thrown thing going from (x0, y0) to (x1, y1) on the ground: false if
     // a wall or a collideable polygon's in the way, its velocity turned off
     // it (map_combat.cpp).
