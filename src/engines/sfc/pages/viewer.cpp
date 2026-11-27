@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Starfleet Command's data viewer, in reluva-viewer: the pictures, fonts,
-// models, tables and sounds of a game's folder (pages/viewers.h has each
-// page's keys). Tab moves between the pages, Esc leaves.
+// Starfleet Command's data viewer, in reluva-viewer: the pictures, screens,
+// fonts, models, tables, settings, maps and sounds of a game's folder
+// (pages/viewers.h has each page's keys). Tab moves between the pages, Esc
+// leaves.
 
 #include "audio/mixer.h"
 #include "common/fs.h"
@@ -141,9 +142,12 @@ public:
         ViewerContext ctx{_sys, _screen, _target.path, audioOut ? &mixer : nullptr, _target.description};
         std::vector<std::unique_ptr<Page>> pages;
         pages.push_back(std::make_unique<ImagePage>(ctx));
+        pages.push_back(std::make_unique<ScreenPage>(ctx));
         pages.push_back(std::make_unique<FontPage>(ctx));
         pages.push_back(std::make_unique<ModelPage>(ctx));
         pages.push_back(std::make_unique<TablePage>(ctx));
+        pages.push_back(std::make_unique<SettingsPage>(ctx));
+        pages.push_back(std::make_unique<MapPage>(ctx));
         pages.push_back(std::make_unique<SoundPage>(ctx));
         return runPages(ctx, pages);
     }

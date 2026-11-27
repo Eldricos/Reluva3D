@@ -43,6 +43,8 @@ line's end, as the game presumably does *(inferred)*.
   values found by section and key without case.
 - **Commands:** `reluva-tool sfc settings <game folder>` reads every
   `.gf` and `.mct`, counting their sections and keys.
+- **The data viewer:** the Settings page lists each `.gf` and `.mct`
+  file's sections and keys.
 - **Not yet:** the game's use of them is its own program's, hosted;
   nothing in Reluva acts on a value yet.
 

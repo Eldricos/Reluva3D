@@ -28,7 +28,10 @@ reluva_add_engine_viewers(sfc
         pages/image_page.cpp
         pages/model_page.cpp
         pages/sound_page.cpp
-        pages/table_page.cpp)
+        pages/table_page.cpp
+        pages/screen_page.cpp
+        pages/settings_page.cpp
+        pages/map_page.cpp)
 
 # Its reluva-tool commands (reluva-tool help sfc lists them).
 reluva_add_engine_tools(sfc

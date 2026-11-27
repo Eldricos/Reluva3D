@@ -11,6 +11,7 @@
 #include "common/zip.h"
 #include "engines/sfc/formats/bft_font.h"
 #include "engines/sfc/formats/model.h"
+#include "engines/sfc/formats/settings.h"
 #include "engines/sfc/formats/sprite_archive.h"
 #include "engines/sfc/formats/text_tables.h"
 #include "graphics/gfx3d.h"
@@ -21,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 // The Starfleet Command engine's data viewer, in reluva-viewer only: a
@@ -253,6 +255,84 @@ private:
     audio::SoundHandle _playing = audio::kNoSound;
     bool _autoPlay = false;
     uint64_t _lastDrawMs = 0;
+};
+
+/**
+ * sprites.q3's screens: each group of the interface's objects drawn as it
+ * stands before the program fills it in (no text, each button at rest).
+ *   Left/Right: previous/next   PageUp/PageDown: by 10   Home/End: first/last
+ *   N: the next named one   F: whole-size or fitted to the screen
+ */
+class ScreenPage : public Page {
+public:
+    /** Reads sprites.q3 and lists its groups that have children. */
+    explicit ScreenPage(ViewerContext &ctx);
+    const char *name() const override { return "Screens"; }
+    size_t count() const override { return _screens.size(); }
+    void activate() override { show(); }
+    void handleEvent(const Event &ev) override;
+
+private:
+    void show();
+
+    SpriteArchive _sprites;
+    std::vector<uint32_t> _screens; // their records
+    size_t _current = 0;
+    bool _fit = true;
+};
+
+/**
+ * The settings files (.gf, .mct, and the campaign maps' headers): their
+ * sections and keys, a line each.
+ *   Left/Right: previous/next file   Up/Down, PageUp/PageDown, Home/End: lines
+ */
+class SettingsPage : public Page {
+public:
+    /** Finds the settings files under the game's folder. */
+    explicit SettingsPage(ViewerContext &ctx);
+    const char *name() const override { return "Settings"; }
+    size_t count() const override { return _files.size(); }
+    void activate() override;
+    void handleEvent(const Event &ev) override;
+
+private:
+    void load();
+    void show();
+
+    std::vector<std::filesystem::path> _files; // relative to the root
+    size_t _current = 0;
+    std::vector<std::pair<std::string, bool>> _lines; // the text, and whether it's a section's name
+    std::string _error;
+    size_t _first = 0;
+};
+
+/**
+ * The campaign maps (.mvm): their hexes, coloured by a field, with the
+ * names the map gives that field's values.
+ *   Left/Right: previous/next map   F: the field shown (empire, terrain,
+ *   planet, base, economic value)   the mouse over a hex: its fields
+ */
+class MapPage : public Page {
+public:
+    /** Finds the maps under the game's folder. */
+    explicit MapPage(ViewerContext &ctx);
+    const char *name() const override { return "Maps"; }
+    size_t count() const override { return _files.size(); }
+    void activate() override;
+    void handleEvent(const Event &ev) override;
+
+private:
+    void load();
+    void show();
+    // The hex under a point of the screen; -1 if none.
+    int hexAt(int x, int y) const;
+
+    std::vector<std::filesystem::path> _files; // relative to the root
+    size_t _current = 0;
+    MetaverseMap _map;
+    std::string _error;
+    int _field = 0;
+    int _hover = -1;
 };
 
 /** Every file under `dir` whose extension, in lower case, is `ext` ("." first); sorted, relative to `dir`. */

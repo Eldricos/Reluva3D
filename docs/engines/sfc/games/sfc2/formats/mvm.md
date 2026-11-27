@@ -46,7 +46,11 @@ the data from the offset it gives, little-endian:
   the size, the cells, and the header's names for each index.
 - **Commands:** `reluva-tool sfc maps <game folder>` reads every `.mvm`
   and counts its bases and planets by kind.
-- **Not yet:** a page in the data viewer drawing the map.
+- **The data viewer:** the Maps page draws each map's hexes, coloured by
+  empire, terrain, planet, base or economic value, with the names the
+  header gives them, and a hex's fields under the mouse. The hexes stand
+  in columns, every other one half a hex lower, as the game's map shows
+  them; which columns are the lower ones is guessed.
 
 ## Sources and checks
 

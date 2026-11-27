@@ -56,8 +56,10 @@ on their pages in `formats/` and `systems/`.
    file, and a page of the data viewer for each. Then the settings
    files and campaigns ([formats/settings.md](formats/settings.md)), the
    campaign maps ([formats/mvm.md](formats/mvm.md)), and the objects in
-   `sprites.q3` found and named by kind; left: those objects' fields,
-   and viewer pages for the settings and maps. The opening movie, inside `SFC2Intro.exe`, came later: it
+   `sprites.q3` found and named by kind, then the groups' children and
+   the buttons' images read, the screens drawn from them, with viewer
+   pages for the screens, settings and maps; left: the objects' other
+   fields. The opening movie, inside `SFC2Intro.exe`, came later: it
    plays before the game ([formats/intro.md](formats/intro.md)).
 4. **Hosting spike (a gate)** (done): `StarFleet2.exe` loaded in the x86
    emulator: it runs its start-up, reads its first files and settings,

@@ -65,8 +65,9 @@ Detection signatures (MD5 of each file's start, and its size, as
 - **Tutorials:** all six passed
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Not yet:** a multiplayer game between two physical machines (tried between
-  copies on one, each with a network and address of its own); the fields of the objects in `sprites.q3` past
-  their kinds and names; data viewer pages for the settings and maps.
+  copies on one, each with a network and address of its own); the
+  fields of `sprites.q3`'s objects but the groups' and the buttons'
+  images.
 
 The plan is in [PLAN.md](PLAN.md).
 
@@ -108,6 +109,10 @@ Tab moves between its pages, Esc leaves:
   sprites.q3 and the BMPs, N goes to the next named image, B changes the
   background (a checkerboard shows what's transparent), Z shows a big
   picture whole-size or fitted.
+- **Screens:** sprites.q3's groups (screens, panels, sets of icons)
+  drawn from their objects, without the program's text. Left/Right,
+  PageUp/PageDown, Home/End step; N the next named one, F fitted or
+  whole-size.
 - **Fonts:** Left/Right pick a font; B shows each glyph's box.
 - **Models:** Left/Right, PageUp/PageDown pick a model; L the next level
   of detail, T textures on or off, P the named points, R resets the view,
@@ -115,6 +120,10 @@ Tab moves between its pages, Esc leaves:
   to zoom.
 - **Tables:** Left/Right pick a table; Up/Down, PageUp/PageDown,
   Home/End scroll; [ and ] the first column shown; C the comment rows.
+- **Settings:** Left/Right pick a `.gf` or `.mct` file; Up/Down,
+  PageUp/PageDown, Home/End scroll its sections and keys.
+- **Maps:** Left/Right pick a campaign map; F the field its hexes are
+  coloured by; the mouse over a hex shows its fields.
 - **Sounds:** Up/Down pick a sound, Left/Right a zip; Space plays or
   stops it, A plays each as it's picked.
 
