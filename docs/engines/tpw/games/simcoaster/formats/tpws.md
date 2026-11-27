@@ -11,8 +11,9 @@ starts with ([paths.md](../systems/paths.md#where-path-can-go)). After a
 short header the park's whole state is one zlib stream, 1,692,641 bytes
 inflated: much of it the game's structures written as they lay in
 memory, padding and all (runs of 0xCD, a debugging build's fill for
-memory never set). Of the state, only the park's grid of cells is
-worked out, and of each cell only a few fields.
+memory never set). Of the state, the park's grid of cells is worked
+out, and of each cell a few fields; of the records after it, the
+objects', the bank's, the challenges' and the research lab's in part.
 
 ## Layout
 
@@ -51,8 +52,9 @@ backwards, most a second tag after it, also backwards
 ### The grid
 
 128 × 128 cells, column by column of the park's cells: cell (x, y) is
-the record y × 128 + x, (x, y) as the settings number them *(confirmed:
-the tiles below are the world's attribute map's, every one)*. The grid
+the record y × 128 + x, (x, y) as the settings number them
+*(confirmed)*: the tiles below are the world's attribute map's, every
+one. The grid
 has no tag; it ends where the first tagged section (`EATC`, with its
 size) begins, and starts at the first byte from which 16,384 whole
 records run on to there.
@@ -101,10 +103,15 @@ number isn't a size: `PARK`'s is 13 and it runs 76,621 bytes
 |---|---|---|
 | 37 | `EATC` | Not worked out |
 | 3 | `LDMT` `EJBO` ("TMDL", "OBJE") | An object, 24 of them ([the objects](#the-objects)) |
-| 21, 22, 19, 17 | `TMDL` with `OBJH`, `CUTS`, `CHHQ`, `UIMS` | Not worked out |
-| 16 | `TMDL` `BANK` | The bank (below) |
+| 21, 22 | `TMDL` with `OBJH`, `CUTS` | Not worked out |
+| 19 | `TMDL` `CHHQ` | The challenges ([below](#the-challenges)) |
+| 17 | `TMDL` `UIMS` | Not worked out |
+| 16 | `TMDL` `BANK` | The bank ([below](#the-bank)) |
 | 15 | `TMDL` `WEAT` | The weather, it seems |
-| 23, 14, 13, 12 | `TMDL` with `TRNR`, `RLAB`, `PARK`, `TAGS` | Not worked out; `PARK` 76,621 bytes |
+| 23 | `TMDL` `TRNR` | Not worked out |
+| 14 | `TMDL` `RLAB` | The research lab ([below](#the-research-lab)) |
+| 13 | `TMDL` `PARK` | The park ([below](#the-park)) |
+| 12 | `TMDL` `TAGS` | Not worked out |
 | 11 | `TMDL` `ADVI` | The advisor, it seems |
 | 10, 9 | `TMDL` with `MEHQ`, `STAF` | `STAF` the staff, it seems |
 | 0 | `DONE` | The end of the `TMDL` records |
@@ -126,13 +133,111 @@ The prebuilt park has no track laid: the grid has none, the
 waterwheel's cells only its own and its margin's, and its record's
 slots are empty *(inferred)*.
 
-The `BANK` section holds the park's balance, 47,375, twice, and
-−2,625, then a table of loans of 20 bytes each: an amount, a rate and
-months, then a word not worked out; the first three the general
-settings' `LoanInfo`, 100,000, 50,000 and 25,000 at 20% over 36 months,
-the same numbers *(inferred)*, then 10,000 likewise and 18,000 at 23%
-over 24. A new park's money is the settings'
+### The records' heads
+
+Every `TMDL` record but an object's goes on, after its tags, as an
+object's does: 0x80 and 0x80 where an object has its place (0.5, 0.5,
+"kept aside"), then two numbers a step apart either side of one between
+(`OBJH` 12 and 14, `CUTS` 11 and 13, `UIMS` 9 and 11, down to `MEHQ` 1
+and 3), the record's neighbours in a list, it seems *(guessed)*.
+
+### The bank
+
+`BANK`, after its head:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0x14 | 4 | 25, not worked out |
+| 0x18 | 4 | 47,375 |
+| 0x20 | 4 | 1 |
+| 0x24 | 4 | 47,375 again |
+| 0x2C | 4 | −2,625: 47,375 less 50,000, the settings' money |
+| 0x30 | 32 × 8 | The loans on offer, below |
+| 0x130 | 4 | 7, not worked out |
+
+A loan, 32 bytes:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | 0, but 1 on the fourth (§ 10,000): taken, perhaps *(guessed)* |
+| 4 | 4 | Its amount |
+| 8 | 4 | Its APR, percent |
+| 12 | 4 | Its months |
+| 16 | 4 | Its monthly repayment |
+| 20 | 8 | Zeros |
+| 28 | 4 | Its lender, in `LOANNAMES.str` |
+
+The eight are the settings' `LoanInfo[0]` to `[7]` in order, their
+amounts, rates and months the general settings', their lenders Land of
+Invention's own (0, 3, 2, 10, 6, 5, 11, 7) *(confirmed)*. Each
+repayment is its amount × (1 + APR)^(months ÷ 24) ÷ months, rounded
+down: § 100,000 at 20% over 36 months § 3,651, § 18,000 at 23% over 24
+§ 922 *(confirmed)*: all eight. A new park's money is the settings'
 50,000 whatever the save's, as the recording's is.
+
+### The challenges
+
+`CHHQ`, after its head, holds the world's ten challenges in its
+settings' order (`ChallengesInThisLevel`, Land of Invention's 2, 4, 5,
+14 and the rest), 125 bytes each, packed without padding; each its
+settings' in `Data/Challenges.sam` *(confirmed)*, all ten, every field
+below:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | `Type` |
+| 4 | 4 | `TargetTime` |
+| 8 | 4 | `TargetVal` |
+| 12 | 4 | `TargetVal2` |
+| 16 | 4 | `TargetObj` |
+| 24 | 4 | `CashPrize` |
+| 32 | 1 | `CheckAtEndOnly` |
+| 43 | 4 | `DaysDelay` |
+| 51 | 4 | `MaxDaysTilTrigger` |
+| 55 | 4 | `GracePeriodLimit` |
+| 88 | 4 | `TriggerData` |
+| 92 | 4 | `GTPrize` |
+| 96 | 4 | `SharePrize` |
+| 100 | 4 | `SharePriceEffectWon` |
+| 104 | 4 | `SharePriceEffectLost` |
+| 108 | 4 | `Sender` |
+| 112 | 4 | Its number (`ScriptIndex`) |
+| 116 | 4 | `MissionNeededToActivate` |
+| 120 | 4 | `PromoGiven` |
+
+The rest are zeros in all ten; none is offered yet.
+
+### The research lab
+
+`RLAB`, after its head, lists the world's research projects, 50 of
+them, 32 bytes each; then 6,000 bytes or so unset, and a few numbers,
+85 twice among them, the settings' `Research.StartingWorkLoad`, it
+seems *(guessed)*. A project:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 2 | The attraction's number |
+| 2 | 1 | Its kind: 0 a ride, 1 a shop, 2 a sideshow, 3 a feature, 4 an upgrade or add-on, 6 a facility (the Info Kiosk, the Security Camera); the rides on sale have 4 *(inferred)* |
+| 6 | 1 | Its `Research.Group` *(confirmed)* |
+| 7 | 1 | On a ride on sale: 1 where it has an `Upgrades[1]`, else 2, it seems *(guessed)* |
+| 8 | 4 | Its research cost, a float: its `Upgrades[0].CostOfResearch`, 300 for a ride without (the Bungee's), and for a ride on sale 100, its `Upgrades[1].CostOfResearch` *(confirmed)* |
+| 12 | 4 | 1 or 2, not worked out |
+| 20 | 4 | Its `Research.Type` (unset on a ride on sale) *(confirmed)* |
+| 24 | 4 | Its consultant's kind, `RStaff[0].SType` *(confirmed)* |
+
+The 50 are Land of Invention's rides, features, shops, sideshows,
+facilities and add-ons, the rides first; the special rides among those
+on sale.
+
+### The park
+
+`PARK`, after its head: 4, 32, 32, 128, 128, then a grid of 32 × 32
+squares of four cells, 61 bytes each: the square's first cell's x and
+y, its size (4, 4), then two floats and seven numbers, each after a
+zero byte, every one −999 in the prebuilt park, unset, it seems
+(statistics of the visitors there, perhaps) *(guessed)*. Then empty
+lists, and an 8-byte number most of the records have, 0x0001BF53EB256D40
+(a time, perhaps).
 
 ### The objects
 
@@ -148,6 +253,11 @@ Each object the park has is a record of the section tagged `LDMT` then
 | 22 | 2 | 2000 in all |
 | 0xCC | 2 | Its handle, which its cells have ([the grid](#the-grid)) *(confirmed)* |
 | 0xCE | 2 | The same, but for a ride's: another, near it (the robot's 0xD2C after 0xD2B) |
+| 0xEC | 1 | A ride's capacity: its `Upgrades[0].InitCapacity` (the robot's 8, the waterwheel's 3) *(confirmed)*: the five rides |
+| 0xED | 1 | A ride's duration: its `Upgrades[0].InitDuration` where it has one (40), else 3 *(confirmed)*: the five rides |
+| 0xEE | 1 | 60 on every ride, not worked out |
+| 0x100 | 4 | A ride's price: its `UsageInfo.InitPricePerUse` (the robot's 10, the tour ride's 35) *(confirmed)*: the five rides |
+| 0x118 | 4 | Its working life, a float: its `Info.WorkingLife`, else 100 (the robot's 75, the log mill's 95) *(confirmed)* |
 
 Then its name, at 0x3C: UTF-16 characters four bytes apart, with older
 text between them where the buffer was written twice ("Giant " and
@@ -194,8 +304,10 @@ is; the game-files test runs it (`tpw.gamedata.saves`). The unit tests
   release (November 2026): its chunk inflated; the grid found by the
   period of its records; its fields by drawing each byte of every cell as
   a picture of the park, and setting them beside the world's attribute
-  map and the recording; the objects by their numbers, against the
-  world's objects' settings and models' sizes.
+    map and the recording; the objects by their numbers, against the
+  world's objects' settings and models' sizes; the bank's, challenges'
+  and research projects' numbers set beside the general settings',
+  `Challenges.sam`'s and each attraction's, field by field.
 - **How it was checked:** `tpws-check`: 16,384 cells read to the first
   section, every tile the attribute map's; the path, queue and objects
   laid in a new park drawn beside the recording at 2:35: the robot left
@@ -205,11 +317,12 @@ is; the game-files test runs it (`tpw.gamedata.saves`). The unit tests
 ## Open questions
 
 - Everything else in the state: the records before the grid, the
-  sections' fields (the bank's other numbers, the park's, the staff's),
-    the objects' other fields, the cells' other fields and their entries;
-  the rides' slots; what `KARTFLY_` holds with a track laid.
+  records' fields (the bank's other numbers, whether its fourth loan's
+  taken, the park's, the staff's), the objects' other fields, the
+  cells' other fields and their entries; the rides' slots; what
+  `KARTFLY_` holds with a track laid.
 - A save the game wrote of a park played, with visitors and money
-  spent, to set the sections against.
+  spent, to set the records against.
 - Whether every new park of Land of Invention starts from it, and what
   the other worlds start from.
 - Saving a park.

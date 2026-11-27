@@ -896,23 +896,23 @@ void testFinance(const std::filesystem::path &tmp) {
         return std::any_of(messages.begin(), messages.end(), [&](const Park::Message &m) { return m.text == text; });
     };
 
-    // The offers: 12,000 over a year at 12% is 1,066 a month; the world's
+    // The offers: 12,000 over a year at 12% is 1,058 a month; the world's
     // lender over the general one's.
     std::vector<Park::Loan> offers = park.availableLoans();
     CHECK(offers.size() == 2);
-    CHECK(offers.size() == 2 && offers[0].repayment == 1066 && offers[0].totalPayable() == 12792 &&
+    CHECK(offers.size() == 2 && offers[0].repayment == 1058 && offers[0].totalPayable() == 12696 &&
           offers[0].lender == 2);
     CHECK(offers.size() == 2 && offers[1].repayment == 1000 && offers[1].lender == 7);
     CHECK(park.shares().issued == 30000 && park.shares().owned == 1000 && park.shares().price == 100);
 
-    // Taken once; on 1 February a month's interest is added and a repayment made.
-    CHECK(park.takeLoan(0) && !park.takeLoan(0) && park.cash() == 13000 && park.owed() == 12000);
+    // Taken once, owing all it'll cost; on 1 February a repayment made.
+    CHECK(park.takeLoan(0) && !park.takeLoan(0) && park.cash() == 13000 && park.owed() == 12696);
     CHECK(park.availableLoans().size() == 1);
     toDay(31);
-    CHECK(park.loans().size() == 1 && park.loans()[0].balance == 11054 && park.loans()[0].monthsLeft == 11);
-    CHECK(park.cash() == 11934 && park.lastMonth()[size_t(Park::Ledger::kLoans)] == 1066);
-    CHECK(Park::expenditure(park.lastMonth()) == 1066 && Park::income(park.lastMonth()) == 0);
-    CHECK(park.repayLoan(0) && park.cash() == 880 && park.loans().empty() && park.owed() == 0);
+    CHECK(park.loans().size() == 1 && park.loans()[0].balance == 11638 && park.loans()[0].monthsLeft == 11);
+    CHECK(park.cash() == 11942 && park.lastMonth()[size_t(Park::Ledger::kLoans)] == 1058);
+    CHECK(Park::expenditure(park.lastMonth()) == 1058 && Park::income(park.lastMonth()) == 0);
+    CHECK(park.repayLoan(0) && park.cash() == 304 && park.loans().empty() && park.owed() == 0);
 
     // Prices by kind: the entry fee set, the rides' raised half again.
     const int q = park.place(1101, 100, {"2N"}, true, {2, 2}, 0);

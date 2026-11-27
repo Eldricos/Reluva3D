@@ -63,15 +63,14 @@ constexpr uint32_t kValueLine = 277;
 constexpr uint32_t kVisitorsLine = 278;
 constexpr uint32_t kSatisfactionLine = 279;
 
-// A loan's monthly repayment: its amount and interest paid off in equal
-// months, the APR a twelfth a month (guessed).
+// A loan's monthly repayment, rounded down: its amount grown by the APR
+// over half its term, paid in equal months, as every loan in the
+// prebuilt park's save has it.
 int repaymentOf(int amount, float rate, int months) {
     if (months <= 0)
         return amount;
-    const double monthly = double(rate) / 1200;
-    if (monthly <= 0)
-        return int(std::lround(double(amount) / months));
-    return int(std::lround(double(amount) * monthly / (1 - std::pow(1 + monthly, -months))));
+    constexpr double kMonthsInTwoYears = 24;
+    return int(double(amount) * std::pow(1 + double(rate) / 100, months / kMonthsInTwoYears) / months);
 }
 
 } // namespace
@@ -147,7 +146,7 @@ bool Park::takeLoan(int offer) {
         if (o.offer == offer) {
             Loan taken = o;
             taken.monthsLeft = o.months;
-            taken.balance = o.amount;
+            taken.balance = o.totalPayable();
             _loans.push_back(taken);
             _cash += o.amount;
             _repayAdvised = false;
@@ -156,7 +155,7 @@ bool Park::takeLoan(int offer) {
     return false;
 }
 
-// What's owed, without the interest of months to come (guessed).
+// What's still to pay, interest and all (guessed).
 bool Park::repayLoan(size_t loan) {
     if (loan >= _loans.size() || _cash < _loans[loan].balance)
         return false;
@@ -283,15 +282,13 @@ void Park::financeDay() {
         financeMonth();
 }
 
-// A month's close: the loans' repayments, the interest added to what's
-// owed; the months in the red counted, six closing the park; advice to
+// A month's close: the loans' repayments; the months in the red counted, six closing the park; advice to
 // repay when the money's there; the year's report each January.
 void Park::financeMonth() {
     for (Loan &l : _loans) {
-        const int interest = int(std::lround(double(l.balance) * l.rate / 1200));
-        const int paid = l.monthsLeft <= 1 ? l.balance + interest : std::min(l.repayment, l.balance + interest);
+        const int paid = l.monthsLeft <= 1 ? l.balance : std::min(l.repayment, l.balance);
         book(Ledger::kLoans, paid);
-        l.balance += interest - paid;
+        l.balance -= paid;
         --l.monthsLeft;
     }
     std::erase_if(_loans, [](const Loan &l) { return l.monthsLeft <= 0 || l.balance <= 0; });

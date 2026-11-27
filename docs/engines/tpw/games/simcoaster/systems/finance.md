@@ -47,11 +47,14 @@ in summary: its takings, less its expenditure, and the balance (399 to
 Invention's offers Loans To Your Door, PoshDosh Lending, Cash In A
 Dash and Millstone Finance). Each is taken once at a time, after "Are
 you sure you want to take out a loan of ${18}" (421). It's repaid in
-equal monthly sums, its APR a twelfth a month *(guessed)*: § 100,000 at
-20 percent over 36 months is § 3,716 a month, § 133,776 in all. Each
-month's first day the interest is added to what's owed and a repayment
-made, the last month what's left. A loan can be paid off at once for
-what's owed (417), if the money's there (419).
+equal monthly sums: its amount grown by its APR over half its term,
+over its months, rounded down, so § 100,000 at 20 percent over 36
+months is 100,000 × 1.2^1.5 ÷ 36, § 3,651 a month *(confirmed)*: all
+eight loans of the prebuilt park's save have just these
+([tpws.md](../formats/tpws.md#the-bank)). Reluva has what's owed start
+at all it'll cost and a repayment made each month's first day, the
+last month what's left; a loan paid off at once (417), if the money's
+there (419), costs all that's still owed *(guessed)*.
 
 The Loans window lists those available (Lender Name, Loan Term
 (months), Amount, Interest Rate, Monthly Repayment, Total Payable, 407 to

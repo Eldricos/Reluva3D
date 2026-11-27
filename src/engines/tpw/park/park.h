@@ -1063,7 +1063,7 @@ public:
         int months = 0;
         int repayment = 0;  // monthly
         int monthsLeft = 0; // taken: months still to pay
-        int balance = 0;    // taken: what's owed, less interest not yet due
+        int balance = 0;    // taken: what's still to pay, interest and all
         int totalPayable() const { return repayment * months; }
     };
     /** The loans on offer, those not taken. */
