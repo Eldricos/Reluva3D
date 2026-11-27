@@ -13,7 +13,7 @@ namespace reluva::tpw {
 namespace {
 
 // The state's own version: a save of another is refused.
-constexpr uint32_t kStateVersion = 4;
+constexpr uint32_t kStateVersion = 5;
 
 } // namespace
 
@@ -55,6 +55,7 @@ void Park::ioState(A &a) {
     io(a, _sold);
     io(a, _shopProfit);
     io(a, _usesById);
+    io(a, _photosById);
     io(a, _kidPranks);
     io(a, _adultPranks);
     io(a, _heatwaves);

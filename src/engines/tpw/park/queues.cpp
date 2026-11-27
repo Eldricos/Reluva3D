@@ -165,6 +165,9 @@ int Park::place(int id, int price, const std::vector<std::string> &shape, bool h
     const Footprint f = footprint(shape, at, angle);
     if (!canPlace(f) || _cash < price)
         return kNotPlaced;
+    // A photo kiosk goes by a ride.
+    if (const Attractions::Attraction *a = _attractions.find(id); a && a->photo && photoRideNear(f) < 0)
+        return kNotPlaced;
     book(Ledger::kBuilding, price);
     for (const Cell &c : f.cells)
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kTaken;
@@ -202,7 +205,7 @@ Park::Queue Park::queueWith(int index, const std::vector<Cell> &run) const {
         if (isPath(c)) {
             q.atPath = true;
             q.pathEnd = c;
-        } else if (ground(c) == Ground::kOpen) {
+        } else if (ground(c) == Ground::kOpen || (ground(c) == Ground::kTrack && bridgeable(c))) {
             q.cells.push_back(c);
         } else {
             break;
@@ -239,7 +242,7 @@ void Park::undoQueue(int index, size_t count) {
         const Cell c = q.cells.back();
         q.cells.pop_back();
         if (ground(c) == Ground::kQueue) {
-            _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kOpen;
+            _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = bare(c);
             book(Ledger::kBuilding, -_queueCost);
         }
     }

@@ -78,6 +78,10 @@ public:
         bool lab = false;              // UsageInfo.ThinkingSpace: a research room, which scientists need
         bool trainingRoom = false;     // UsageInfo.TrainingRoom
         bool requiresWatering = false; // UsageInfo.RequiresWatering: a plant
+        // Info.IsPhotoBooth: a photo kiosk, of the world's upgrades/, bought
+        // for a ride near it and selling its riders their photos; not in
+        // the Buy window.
+        bool photo = false;
         // An obstacle (Info.IsObstacle, the world's obstacles folder): what
         // clearing it leaves, Obstacle.ReplaceWithID's object or nothing
         // (DeleteAfterUse); and whether it opens of itself as its mission's
@@ -110,6 +114,12 @@ public:
         struct Level {
             int capacity = -1; // InitCapacity
             int duration = 0;  // InitDuration
+            int speed = 0;     // InitSpeed, percent
+            // RedLineCapacity, RedLineDuration, RedLineSpeed: past them, it
+            // wears out quicker ("in the red zone", UIHELPTEXT 275).
+            int redLineCapacity = 0;
+            int redLineDuration = 0;
+            int redLineSpeed = 0;
             int wearRate = 0;
             int runningCost = 0;
             int cost = 0;     // CostOfUpgrade: 0, none to buy
@@ -117,6 +127,15 @@ public:
             int days = 0;     // DurationOfUpgrade
         };
         std::array<Level, 3> levels{};
+        // UsageInfo.MinCapacity and MaxCapacity, MinDuration and
+        // MaxDuration, MinSpeed and MaxSpeed: what its window's sliders
+        // set it to.
+        int minCapacity = 1;
+        int maxCapacity = 1;
+        int minDuration = 1;
+        int maxDuration = 1;
+        int minSpeed = 1;
+        int maxSpeed = 100;
         int costOfGoods = 0;   // UsageInfo.InitCostOfGoods: what a sale costs a shop
         int researchGroup = 0; // Research.Group: 0 on sale from the start, 1 on by research
         /**

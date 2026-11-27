@@ -21,7 +21,7 @@ namespace reluva::tpw {
 
 /**
  * The park's screen furniture, from the interface's models: the
- * thermometer of the park's mood (empty: its fill isn't drawn yet) and
+ * thermometer of the park's mood and
  * its face, the compass with its turn
  * and zoom buttons, the date's box, the tools down the left and the
  * buttons along the bottom, their menus and the buttons' tooltips. It
@@ -49,7 +49,12 @@ public:
 
     /** What the HUD shows besides its buttons' states. */
     struct View {
-        size_t mood = kMoods - 1;
+        /**
+         * The park's mood, the visitors' average happiness in percent
+         * (Park::mood()); −1 for a park without visitors, its thermometer
+         * empty and its face the no-entry sign.
+         */
+        int mood = -1;
         bool canZoomIn = true;
         bool canZoomOut = true;
         int unread = 0; // messages, counted by the envelope
@@ -118,7 +123,7 @@ public:
 
 private:
     // A button: where it is in the list of all of them, to follow the mouse.
-    enum class Hit { kNone, kTool, kGizmo, kCompass, kHelp };
+    enum class Hit { kNone, kTool, kGizmo, kCompass, kHelp, kGauge };
     struct Spot {
         Hit kind = Hit::kNone;
         size_t index = 0;
@@ -155,6 +160,7 @@ private:
     Spot _over;    // under the mouse
     Spot _pressed; // the left button held down on it
     uint32_t _clock = 0;
+    mutable int _mood = -1;  // as last drawn, for the gauge's tooltip
     uint32_t _overSince = 0; // when the mouse came onto what it's over
     int _mouseX = 0;
     int _mouseY = 0;

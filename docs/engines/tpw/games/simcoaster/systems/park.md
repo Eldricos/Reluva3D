@@ -204,8 +204,19 @@ black above the face. In a bare park it's empty and its face the red
 no-entry sign, until the first attraction is built (the recording's
 first sideshow, at 2:45): then the face turns to the middle one and the
 liquid rises, orange over blue, and the face turns happier as it does
-(4:40) *(inferred)*. The park's mood isn't worked out yet: Reluva's
-parks are bare, and show the red sign.
+(4:40) *(inferred)*.
+
+Measured on the recording, the liquid's top stands at 48 percent of the
+tube just after the first visitors come (2:50), 50 to 64 for most of the
+game, 75 at 6:00; its colour runs from orange (about 232, 126, 16) at
+its top to light blue (42, 140, 186) at its foot, however full. The
+face is the middle one up to about 60, a smile past it (6:00, 22:30,
+24:00). The visitors start at happiness 50 (`kStartingHappiness`), so
+Reluva takes the mood to be their average happiness, which the
+thermometer's tooltip names: "Overall visitor happiness: {2}%"
+(`UIHELPTEXT` 336) *(inferred)*. Without visitors, it's empty with the
+no-entry sign; with them, filled to the mood, the face a fifth of it each
+(the unhappiest to 20, the happiest from 80) *(guessed)*.
 
 ## In Reluva
 
@@ -270,8 +281,9 @@ holds its compass's buttons and picks from its menus.
   on a bottom button opens ("Right-click to Buy Attractions"); the
   Finance and Maps menus' order; the round newspaper button at the date box's right end
   (no model of `ui.wad` matched it); whether the dial turns with the
-  view, and the small green arrow (`compgizn2`) at its edge; the
-  thermometer's level and the faces by the park's mood; `compgiz`'s
+  view, and the small green arrow (`compgizn2`) at its edge; how the
+  game measures the park's mood, and whether a park is empty of it till
+  its first visitors or its first attraction built; `compgiz`'s
   five meshes (the compass whole, in states), `gizmojoin`.
 - How fast the clock runs at each of the game's speeds, and when it
   stops.

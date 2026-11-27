@@ -1586,6 +1586,84 @@ void testTracks(const std::filesystem::path &tmp) {
     // Taken down, its track goes with it.
     park.remove(0, false);
     CHECK(park.ground({6, 9}) == Park::Ground::kOpen && park.ground({6, 5}) == Park::Ground::kOpen);
+
+    // Bridges: track over a path, which stays, not stopping on it; path
+    // laid under a straight; a ramp up and one down; taken up, the path
+    // leaves the track.
+    Park bridges;
+    CHECK(!bridges.load(files, "levels/science", 0));
+    CHECK(bridges.place(1150, 0, karts->shape, true, {8, 8}, 0) >= 0);
+    CHECK(bridges.buildPath(Park::pathRun({0, 5}, {5, 5})) == 6);
+    bridges.buildPath(Park::pathRun({6, 5}, {7, 5}));
+    CHECK(bridges.layTrack(0, {6, 5}) == Park::TrackLaying::kBlocked && bridges.objects()[0].track.size() == 2);
+    CHECK(bridges.layTrack(0, {6, 3}) == Park::TrackLaying::kLaid && bridges.objects()[0].track.size() == 4);
+    CHECK(bridges.isPath({6, 5}) && bridges.ground({6, 6}) == Park::Ground::kTrack);
+    CHECK(bridges.buildPath(Park::pathRun({4, 7}, {7, 7})) == 4 && bridges.isPath({7, 7}));
+    std::vector<Park::TrackModel> models;
+    for (const Park::TrackPiece &p : bridges.trackPieces(0))
+        models.push_back(p.model);
+    CHECK((models == std::vector<Park::TrackModel>{Park::TrackModel::kStart, Park::TrackModel::kRampUp,
+                                                   Park::TrackModel::kRampDown, Park::TrackModel::kEnd}));
+    CHECK(bridges.removePath({6, 7}) && bridges.ground({6, 7}) == Park::Ground::kTrack);
+    // Not under the track's first block, nor its end.
+    CHECK(bridges.buildPath({{6, 10}, {6, 3}}) == 0);
+}
+
+// A ride's sliders: its speed, capacity and duration from its level, set
+// within its least and most; its excitement by its speed; past a red line.
+// A photo kiosk, of the upgrades, not on sale in the Buy window, placed
+// only near a ride, which it serves. A park without visitors has no mood.
+void testRideExtras(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(data / "levels" / "Standard.sam", "BankAccountInfo.InitialCash 10000\r\nArrival.MinPeople 0\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\nCompletion.EndingTheme 1\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam",
+              "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nResearch.Group 0\r\nUsageInfo.MinDuration 1\r\n"
+              "UsageInfo.MaxDuration 10\r\nUsageInfo.MinSpeed 1\r\nUsageInfo.MaxSpeed 100\r\n"
+              "Upgrades[0].InitDuration 3\r\nUpgrades[0].RedLineDuration 7\r\nUpgrades[0].InitSpeed 60\r\n"
+              "Upgrades[0].RedLineSpeed 60\r\n");
+    writeText(world / "rides" / "robot" / "robot.sam",
+              "Info.Id 1101\r\nInfo.Shape\r\n---\r\n2N\r\n---\r\nUsageInfo.ExcitementLevel 70\r\n"
+              "UsageInfo.MinCapacity 1\r\nUsageInfo.MaxCapacity 16\r\nUpgrades[0].InitCapacity 8\r\n"
+              "Upgrades[0].RedLineCapacity 8\r\nUpgrades[0].WearRate 5\r\nUpgrades[0].CostOfUpgrade 100\r\n");
+    writeText(world / "upgrades" / "Upgrades.sam", "Info.IsChoosable 0\r\nResearch.Group 0\r\n");
+    writeText(world / "upgrades" / "fotobth" / "fotobth.sam",
+              "Info.Id 1500\r\nInfo.Shape\r\n---\r\n**\r\n*2\r\n---\r\nInfo.HasQueue 0\r\n"
+              "Info.IsPhotoBooth 1\r\nUsageInfo.InitPricePerUse 40\r\nUpgrades[0].CostOfUpgrade 400\r\n");
+    writeText(world / "upgrades" / "dr_jump" / "dr_jump.sam", "Info.Id 1501\r\nUpgrades[0].CostOfUpgrade 400\r\n");
+    constexpr int kSide = 32;
+    tpw::testing::Bytes tiles(size_t(kSide) * kSide, 0);
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kSide, kSide, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.mood() == -1);
+    CHECK(park.place(1101, 0, {"2N"}, true, {2, 2}, 0) >= 0);
+    using Setting = Park::RideSetting;
+    const auto speed = park.rideSetting(0, Setting::kSpeed);
+    CHECK(speed && speed->value == 60 && speed->least == 1 && speed->most == 100 && speed->redLine == 60);
+    const auto capacity = park.rideSetting(0, Setting::kCapacity);
+    CHECK(capacity && capacity->value == 8 && capacity->most == 16 && capacity->redLine == 8);
+    CHECK(park.rideSetting(0, Setting::kDuration)->value == 3 && park.excitementOf(0) == 70 && !park.pastRedLine(0));
+    park.setRideSetting(0, Setting::kSpeed, 30);
+    CHECK(park.excitementOf(0) == 35);
+    park.setRideSetting(0, Setting::kSpeed, 500);
+    CHECK(park.rideSetting(0, Setting::kSpeed)->value == 100 && park.excitementOf(0) == 100 && park.pastRedLine(0));
+    park.setRideSetting(0, Setting::kSpeed, 60);
+    park.setRideSetting(0, Setting::kCapacity, 12);
+    CHECK(park.pastRedLine(0));
+
+    // The kiosk: far off, refused; by the ride, its.
+    const Attractions::Attraction *kiosk = park.attractions().find(1500);
+    CHECK(kiosk && kiosk->photo && !kiosk->available && kiosk->kind == Attractions::Kind::kShop);
+    CHECK(!park.attractions().find(1501));
+    CHECK(park.place(1500, 400, kiosk->shape, false, {25, 25}, 0) == Park::kNotPlaced);
+    CHECK(park.place(1500, 400, kiosk->shape, false, {6, 2}, 0) != Park::kNotPlaced);
+    CHECK(park.photoRideOf(1) == 0 && park.photoRideOf(0) == -1);
 }
 
 void testSaving(const std::filesystem::path &tmp) {
@@ -1707,5 +1785,6 @@ static const reluva::test::Suite
                                 {"land", [](const std::filesystem::path &tmp) { testLand(tmp); }},
                                 {"fence-pieces", [](const std::filesystem::path &) { testFencePieces(); }},
                                 {"tracks", [](const std::filesystem::path &tmp) { testTracks(tmp); }},
+                                {"ride-extras", [](const std::filesystem::path &tmp) { testRideExtras(tmp); }},
                                 {"saving", [](const std::filesystem::path &tmp) { testSaving(tmp); }},
                             });

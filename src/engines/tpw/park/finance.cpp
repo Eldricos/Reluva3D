@@ -175,9 +175,8 @@ void Park::adjustPrices(PriceKind kind, Adjustment how, int amount) {
         setAdmissionFee(adjusted(_admissionFee));
         return;
     }
-    // Photos aren't sold yet: nothing has their price.
-    if (kind == PriceKind::kPhoto)
-        return;
+    // The photo kiosks are shops of their own kind here; the bathrooms are
+    // the facilities.
     const Attractions::Kind matching = kind == PriceKind::kRide       ? Attractions::Kind::kRide
                                        : kind == PriceKind::kShop     ? Attractions::Kind::kShop
                                        : kind == PriceKind::kSideshow ? Attractions::Kind::kSideshow
@@ -185,7 +184,7 @@ void Park::adjustPrices(PriceKind kind, Adjustment how, int amount) {
     for (size_t q = 0; q < _queues.size(); ++q) {
         const int object = _queues[q].object;
         const Attractions::Attraction *a = object >= 0 ? _attractions.find(_objects[size_t(object)].id) : nullptr;
-        if (a && a->kind == matching)
+        if (a && (kind == PriceKind::kPhoto ? a->photo : a->kind == matching && !a->photo))
             setFare(int(q), adjusted(_queues[q].fare));
     }
 }

@@ -41,6 +41,9 @@ void drawUiMesh(Surface &screen, const LoadedModel &model, size_t mesh);
  */
 void drawUiMesh(Surface &screen, const LoadedModel &model, size_t mesh, const ScreenRect &to);
 
+/** Fills a rectangle of an RGBA32 surface with a colour, as far as it's on it. */
+void fillRect(Surface &screen, const ScreenRect &r, Color c);
+
 /** A UI model's mesh's place on the screen, as drawUiMesh puts it. */
 ScreenRect uiMeshRect(const LoadedModel &model, size_t mesh);
 

@@ -567,8 +567,9 @@ int cmdBuyShot(int argc, char **argv) {
 // many seconds, drawn close over it; its pieces listed.
 int cmdTrackShot(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr,
-                     "usage: reluva-tool tpw track-shot <game folder> <world folder> <out.png> [seconds] [-water]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool tpw track-shot <game folder> <world folder> <out.png> [seconds] [-water] [-bridge]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -577,8 +578,11 @@ int cmdTrackShot(int argc, char **argv) {
     if (!newPark(argv[2], argv[3], 0, files, park, screen))
         return 1;
     bool water = false;
-    for (int i = 5; i < argc; ++i)
+    bool bridge = false;
+    for (int i = 5; i < argc; ++i) {
         water = water || std::string(argv[i]) == "-water";
+        bridge = bridge || std::string(argv[i]) == "-bridge";
+    }
     const reluva::tpw::Attractions::Attraction *ride = nullptr;
     for (const reluva::tpw::Attractions::Attraction &a : park.attractions().all())
         if (a.trackType == (water ? 2 : 1))
@@ -589,14 +593,18 @@ int cmdTrackShot(int argc, char **argv) {
     }
     using Cell = reluva::tpw::Park::Cell;
     // From beside the ride: north a block, west two, south two, east two,
-    // and north back in.
-    const std::vector<Cell> legs{{0, -2}, {-4, -2}, {-4, 2}, {0, 2}, {0, 0}};
+    // and north back in. With -bridge, west three and south three, over a
+    // band of path four cells wide laid first across its west side.
+    const std::vector<Cell> legs = bridge ? std::vector<Cell>{{0, -2}, {-6, -2}, {-6, 4}, {0, 4}, {0, 0}}
+                                          : std::vector<Cell>{{0, -2}, {-4, -2}, {-4, 2}, {0, 2}, {0, 0}};
+    const int west = bridge ? 10 : 6;
+    const int south = bridge ? 7 : 4;
     bool placed = false;
-    for (int y = 4; y < park.groundHeight() - 6 && !placed; ++y)
-        for (int x = 6; x < park.groundWidth() - 4 && !placed; ++x) {
+    for (int y = 4; y < park.groundHeight() - south - 2 && !placed; ++y)
+        for (int x = west; x < park.groundWidth() - 4 && !placed; ++x) {
             bool open = true;
-            for (int dy = -3; dy <= 4 && open; ++dy)
-                for (int dx = -6; dx <= 3 && open; ++dx)
+            for (int dy = -3; dy <= south && open; ++dy)
+                for (int dx = -west; dx <= 3 && open; ++dx)
                     open = park.ground({x + dx, y + dy}) == reluva::tpw::Park::Ground::kOpen;
             if (!open ||
                 park.place(ride->id, 0, ride->shape, ride->hasQueue, {x, y}, 0) == reluva::tpw::Park::kNotPlaced)
@@ -609,6 +617,9 @@ int cmdTrackShot(int argc, char **argv) {
     }
     const size_t object = park.objects().size() - 1;
     const Cell start = park.trackStart(object);
+    if (bridge)
+        for (int dy = 0; dy < 4; ++dy)
+            park.buildPath(reluva::tpw::Park::pathRun({start.x - 9, start.y + dy}, {start.x - 4, start.y + dy}));
     for (const Cell &leg : legs)
         park.layTrack(object, {start.x + leg.x, start.y + leg.y});
     const uint32_t runMs = argc > 5 && argv[5][0] != '-' ? uint32_t(std::strtof(argv[5], nullptr) * 1000) : 1000;
@@ -618,9 +629,11 @@ int cmdTrackShot(int argc, char **argv) {
         screen.advance(park);
     }
     reluva::tpw::ParkScreen::Camera camera = screen.startCamera(park);
-    camera.target = reluva::tpw::Park::cellCentre({start.x - 1, start.y});
-    camera.distance = 160;
-    camera.pitch = 0.75f;
+    camera.target = reluva::tpw::Park::cellCentre(bridge ? Cell{start.x - 5, start.y + 2} : Cell{start.x - 1, start.y});
+    camera.distance = bridge ? 110 : 160;
+    camera.pitch = bridge ? 0.35f : 0.75f;
+    if (bridge)
+        camera.yaw += 1.2f;
     reluva::Surface surface;
     surface.create(640, 480, reluva::PixelFormat::kRGBA32);
     reluva::soft3d::Rasterizer rasterizer;
@@ -1056,8 +1069,9 @@ const Commands kCommands(
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
          "letter every attraction's sign of a world, to a PNG, half size, and list their fonts and lines", cmdSignShot},
-        {"track-shot", "<game folder> <world folder> <out.png> [seconds] [-water]",
-         "place a world's go-kart ride (or water ride) with a loop of track, run the park on and draw it, to a PNG",
+        {"track-shot", "<game folder> <world folder> <out.png> [seconds] [-water] [-bridge]",
+         "place a world's go-kart ride (or water ride) with a loop of track, over path with -bridge, run the park on "
+         "and draw it, to a PNG",
          cmdTrackShot},
         {"names", "<game folder> <world folder>",
          "list every attraction of a world: its settings' name, the name the game shows and its description", cmdNames},

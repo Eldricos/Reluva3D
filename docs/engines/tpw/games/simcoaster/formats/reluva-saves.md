@@ -34,12 +34,13 @@ bytes), then its bytes; texts are UTF-8.
 
 ### The park's state
 
-Its version (4 bytes, 4), then each field the park keeps in turn, as
+Its version (4 bytes, 5), then each field the park keeps in turn, as
 `Park::ioState` lists them: the missions' progress, golden tickets and
 rank; the money, the accounts, the loans and shares; the messages
 waiting; the challenges' standing, each by its number; the counts for
-challenges and awards; the date and the weather; the ground's cells and
-the land's, and the fence's corners; the objects (with their tracks), the queues, the litter and stink bombs; the
+challenges and awards, and the photos each ride's sold; the date and the weather; the ground's cells and
+the land's, and the fence's corners; the objects (with their tracks
+and their sliders' settings), the queues, the litter and stink bombs; the
 research projects and what's researched; the staff (each with the
 ability they're learning), the candidates and the wage demands; the
 visitors; the next numbers to give; and whether an obstacle is being

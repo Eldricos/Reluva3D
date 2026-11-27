@@ -308,7 +308,7 @@ std::vector<Park::Cell> Park::pathRun(const Cell &from, const Cell &to) {
 bool Park::removePath(const Cell &cell) {
     if (!isPath(cell))
         return false;
-    _ground[size_t(cell.y) * size_t(_mapWidth) + size_t(cell.x)] = Ground::kOpen;
+    _ground[size_t(cell.y) * size_t(_mapWidth) + size_t(cell.x)] = bare(cell);
     for (Queue &q : _queues)
         if (q.atPath && q.pathEnd == cell)
             q.atPath = false;
@@ -319,7 +319,10 @@ bool Park::removePath(const Cell &cell) {
 int Park::buildPath(const std::vector<Cell> &cells, std::vector<Cell> *laid) {
     int count = 0;
     for (const Cell &c : cells) {
-        if (ground(c) != Ground::kOpen || _cash < _pathCost)
+        // Under track, a bridge over it ("drag paths and lines under existing
+        // track, and bridges will be built", TOTD 1).
+        const Ground g = ground(c);
+        if ((g != Ground::kOpen && !(g == Ground::kTrack && bridgeable(c))) || _cash < _pathCost)
             continue;
         _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kPath;
         book(Ledger::kBuilding, _pathCost);

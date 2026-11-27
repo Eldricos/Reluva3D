@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,11 @@ namespace {
 // Bumper.WhichTrackType's: 1 a car track, 2 a water track.
 constexpr int kKartTrack = 1;
 constexpr int kWaterTrack = 2;
+
+// How far a bridge lifts the track's floor over its ground: a ramp's and
+// a level span's (gk_trckH_U's wood02, 5 to 9.4), a hump's (gk_trckH's, 5 to 10).
+constexpr float kBridgeRise = 4.4f;
+constexpr float kHumpRise = 5;
 
 // "Coaster Problem", "Re: {0} ... haven't built any track" (TAG_SYSTEM).
 constexpr uint32_t kCoasterProblemTitle = 256;
@@ -49,6 +55,11 @@ int opposite(int way) {
 // A bend's turn by the two sides it joins: unturned, east and south.
 int bendAngle(int ways) {
     return ways == (kSouth | kEast) ? 0 : ways == (kWest | kSouth) ? 90 : ways == (kNorth | kWest) ? 180 : 270;
+}
+
+// A ramp's turn by the way the track goes up it: unturned, north.
+int rampAngle(int way) {
+    return way == kNorth ? 0 : way == kEast ? 90 : way == kSouth ? 180 : 270;
 }
 
 // An end's turn by the side it's open to: unturned, south.
@@ -116,16 +127,22 @@ bool Park::trackComplete(size_t object) const {
     return hasTrack(object) && _objects[object].trackClosed;
 }
 
+// Over bare land, or over path and lines, which stay, the track a bridge
+// over them ("drag over paths and lines to build bridges", TOTD 1); the
+// first block over bare land only.
 bool Park::layTrackBlock(PlacedObject &o, const Cell &block, int cost) {
     if (_cash < cost)
         return false;
     for (int dy = 0; dy < kTrackBlock; ++dy)
-        for (int dx = 0; dx < kTrackBlock; ++dx)
-            if (ground({block.x + dx, block.y + dy}) != Ground::kOpen)
+        for (int dx = 0; dx < kTrackBlock; ++dx) {
+            const Ground g = ground({block.x + dx, block.y + dy});
+            if (g != Ground::kOpen && (o.track.empty() || (g != Ground::kPath && g != Ground::kQueue)))
                 return false;
+        }
     for (int dy = 0; dy < kTrackBlock; ++dy)
         for (int dx = 0; dx < kTrackBlock; ++dx)
-            _ground[size_t(block.y + dy) * size_t(_mapWidth) + size_t(block.x + dx)] = Ground::kTrack;
+            if (ground({block.x + dx, block.y + dy}) == Ground::kOpen)
+                _ground[size_t(block.y + dy) * size_t(_mapWidth) + size_t(block.x + dx)] = Ground::kTrack;
     book(Ledger::kBuilding, cost);
     o.track.push_back(block);
     return true;
@@ -160,7 +177,7 @@ Park::TrackLaying Park::layTrack(size_t object, const Cell &to) {
         const int way = wayBetween(before, end);
         if (wayOf(dx, dy) == opposite(way))
             return TrackLaying::kNotInLine;
-        if (timesIn(o.track, end) > 1 && wayOf(dx, dy) != way)
+        if ((timesIn(o.track, end) > 1 || overWay(end)) && wayOf(dx, dy) != way)
             return TrackLaying::kNotInLine;
     }
     Cell at = end;
@@ -189,6 +206,9 @@ Park::TrackLaying Park::layTrack(size_t object, const Cell &to) {
         }
         if (seen > 0)
             return TrackLaying::kBlocked;
+        // A bridge goes on past: a run doesn't stop on one.
+        if (overWay(next) && same(next, target))
+            return TrackLaying::kBlocked;
         if (!layTrackBlock(o, next, cost))
             return _cash < cost ? TrackLaying::kNoMoney : TrackLaying::kBlocked;
         at = next;
@@ -206,6 +226,47 @@ bool Park::undoTrack(size_t object) {
     if (timesIn(o.track, last) == 0)
         freeTrackBlock(last);
     return true;
+}
+
+bool Park::overWay(const Cell &block) const {
+    for (int dy = 0; dy < kTrackBlock; ++dy)
+        for (int dx = 0; dx < kTrackBlock; ++dx) {
+            const Ground g = ground({block.x + dx, block.y + dy});
+            if (g == Ground::kPath || g == Ground::kQueue)
+                return true;
+        }
+    return false;
+}
+
+std::optional<std::pair<size_t, size_t>> Park::trackOver(const Cell &cell) const {
+    for (size_t i = 0; i < _objects.size(); ++i) {
+        if (!hasTrack(i))
+            continue;
+        const std::vector<Cell> &track = _objects[i].track;
+        for (size_t k = 0; k < track.size(); ++k)
+            if (cell.x >= track[k].x && cell.x < track[k].x + kTrackBlock && cell.y >= track[k].y &&
+                cell.y < track[k].y + kTrackBlock)
+                return std::make_pair(i, k);
+    }
+    return std::nullopt;
+}
+
+// A straight block, once in its track, with blocks on both sides of it
+// going the same way.
+bool Park::bridgeable(const Cell &cell) const {
+    const auto over = trackOver(cell);
+    if (!over)
+        return false;
+    const PlacedObject &o = _objects[over->first];
+    const std::vector<Cell> &track = o.track;
+    const size_t k = over->second;
+    if (k == 0 || timesIn(track, track[k]) > 1 || (k + 1 >= track.size() && !o.trackClosed))
+        return false;
+    return wayBetween(track[k - 1], track[k]) == wayBetween(track[k], track[(k + 1) % track.size()]);
+}
+
+Park::Ground Park::bare(const Cell &cell) const {
+    return trackOver(cell) ? Ground::kTrack : Ground::kOpen;
 }
 
 void Park::freeTrackBlock(const Cell &block) {
@@ -242,10 +303,26 @@ std::vector<Park::TrackPiece> Park::trackPieces(size_t object) const {
         }
         const bool hasOut = i + 1 < n || o.trackClosed;
         const int out2 = hasOut ? wayBetween(b, track[(i + 1) % n]) : in;
-        if (in == out2)
-            out.push_back({b, TrackModel::kStraight, (in & (kNorth | kSouth)) ? 0 : 90});
-        else
+        if (in != out2) {
             out.push_back({b, TrackModel::kBend, bendAngle(opposite(in) | out2)});
+            continue;
+        }
+        if (!overWay(b)) {
+            out.push_back({b, TrackModel::kStraight, (in & (kNorth | kSouth)) ? 0 : 90});
+            continue;
+        }
+        // Its place in the run of bridge blocks it's in, the ramps
+        // turned to rise the way the track goes.
+        const auto bridged = [&](size_t k) {
+            return k > 0 && k < n && overWay(track[k]) && timesIn(track, track[k]) == 1;
+        };
+        const bool before = bridged(i - 1) && wayBetween(track[i - 1], b) == in;
+        const bool after = i + 1 < n && bridged(i + 1) && wayBetween(b, track[i + 1]) == in;
+        const TrackModel model = before && after ? TrackModel::kBridgeMiddle
+                                 : after         ? TrackModel::kRampUp
+                                 : before        ? TrackModel::kRampDown
+                                                 : TrackModel::kBridge;
+        out.push_back({b, model, rampAngle(in)});
     }
     return out;
 }
@@ -255,12 +332,17 @@ std::vector<gfx::Vec3> Park::trackCircuit(size_t object) const {
     if (!trackComplete(object))
         return out;
     const std::vector<Cell> &track = _objects[object].track;
-    for (size_t i = 0; i < track.size(); ++i) {
+    const size_t n = track.size();
+    const auto bridged = [&](size_t k) { return k > 0 && timesIn(track, track[k]) == 1 && overWay(track[k]); };
+    for (size_t i = 0; i < n; ++i) {
         const Cell &a = track[i];
-        const Cell &b = track[(i + 1) % track.size()];
+        const Cell &b = track[(i + 1) % n];
+        // A bridge of one block humps up in its middle.
+        if (bridged(i) && !bridged(i - 1) && !bridged((i + 1) % n))
+            out.push_back({(float(a.x) + 1) * kCellUnits, kHumpRise, (float(a.y) + 1) * kCellUnits});
         const float x = float(a.x) + 1 + float(sign(b.x - a.x));
         const float y = float(a.y) + 1 + float(sign(b.y - a.y));
-        out.push_back({x * kCellUnits, 0, y * kCellUnits});
+        out.push_back({x * kCellUnits, bridged(i) && bridged((i + 1) % n) ? kBridgeRise : 0, y * kCellUnits});
     }
     return out;
 }

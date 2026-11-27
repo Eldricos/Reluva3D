@@ -178,9 +178,11 @@ std::optional<std::array<std::string, 2>> ObjectNames::find(const Attractions::A
 // The loudspeakers of a world all have the settings' name "Loudspeaker",
 // and which of OBJECT_NAMES' tunes is whose isn't known: they keep it.
 // The recording shows Land of Invention's "Chips Shop" as "Fries Shop",
-// the old name of the shops' pair.
+// the old name of the shops' pair. The photo kiosks' settings name them
+// "Bellow Photo" and "Photo Booth", as other objects; the game calls them
+// "Photo Kiosk" (UITEXT 44), OBJECT_NAMES' string 2.
 std::array<std::string, 2> ObjectNames::lines(const Attractions::Attraction &a) const {
-    const std::string own = lower(a.name) == "chips shop" ? "fries shop" : lower(a.name);
+    const std::string own = a.photo ? "photo kiosk" : lower(a.name) == "chips shop" ? "fries shop" : lower(a.name);
     if (has(own, "speaker"))
         return split(a.name);
     const size_t at = a.folder.find('/');

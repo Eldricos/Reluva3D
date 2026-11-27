@@ -105,7 +105,32 @@ constexpr int kStatLine = 16;
 constexpr int kValueX = 372;
 constexpr int kBarWidth = 75;
 constexpr ScreenRect kPriceBox{286, 250, 124, 50};
-constexpr ScreenRect kSideBox{462, 104, 133, 55};
+// A ride's sliders: speed, capacity and duration (UITEXT 932, 936, 938
+// "Speed : {32}", "Capacity : {34}", "Duration : {35} secs", 937 for one
+// second), green to the level's red line and red past it, the value marked
+// white (guessed: the recording's window shows them only small).
+constexpr ScreenRect kSideBox{462, 104, 133, 148};
+constexpr int kSliderX = 470;
+constexpr int kSliderLabelY = 110;
+constexpr int kSliderStep = 40;
+constexpr int kSliderBarY = 126;
+constexpr int kSliderWidth = 117;
+constexpr int kSliderHeight = 10;
+constexpr int kSliderReach = 5; // above and below the bar, where a click still sets it
+constexpr int kUpgradeLineY = 232;
+constexpr uint32_t kSpeedText = 932;
+constexpr uint32_t kCapacityLineText = 936;
+constexpr uint32_t kSecondText = 937;
+constexpr uint32_t kSecondsText = 938;
+constexpr uint32_t kGreenZoneTip = 274;
+constexpr uint32_t kRedZoneTip = 275;
+constexpr Color kSliderGreen{40, 170, 60};
+constexpr Color kSliderRed{190, 40, 30};
+constexpr Color kSliderMark{255, 255, 255};
+
+ScreenRect sliderBar(size_t setting) {
+    return {kSliderX, kSliderBarY + int(setting) * kSliderStep, kSliderWidth, kSliderHeight};
+}
 constexpr uint32_t kNotUpgradedText = 37;
 constexpr uint32_t kUpgradedText = 38;
 constexpr ScreenRect kAttractionMinus{290, 257, 18, 18};
@@ -582,6 +607,12 @@ ScreenRect AttractionWindow::placeOf(Control control) {
         return kAttractionOk;
     case Control::kClose:
         return kAttractionClose;
+    case Control::kSpeed:
+    case Control::kCapacity:
+    case Control::kDuration: {
+        const ScreenRect bar = sliderBar(size_t(control) - size_t(Control::kSpeed));
+        return {bar.x, bar.y - kSliderReach, bar.w, bar.h + 2 * kSliderReach};
+    }
     default:
         return {};
     }
@@ -595,6 +626,17 @@ WindowResult AttractionWindow::handle(const Event &ev, Park &park) {
                                  std::pair{Control::kOk, kAttractionOk}, std::pair{Control::kClose, kAttractionClose}});
     if (!isClick(ev) || _object >= park.objects().size())
         return WindowResult::kNone;
+    // A slider set where it's clicked, its least at its left.
+    for (const Control c : {Control::kSpeed, Control::kCapacity, Control::kDuration}) {
+        const auto setting = Park::RideSetting(size_t(c) - size_t(Control::kSpeed));
+        const std::optional<Park::SettingRange> r = park.rideSetting(_object, setting);
+        const ScreenRect at = placeOf(c);
+        if (!r || !at.contains(ev.mouseX, ev.mouseY))
+            continue;
+        const float along = float(ev.mouseX - at.x) / float(std::max(1, at.w - 1));
+        park.setRideSetting(_object, setting, r->least + int(std::lround(along * float(r->most - r->least))));
+        return WindowResult::kNone;
+    }
     const int queue = park.queueOf(_object);
     switch (_over) {
     case Control::kMinus:
@@ -654,8 +696,8 @@ void AttractionWindow::draw(Surface &screen, const WindowKit &kit, const Park &p
     };
     const bool ride = a && a->kind == Attractions::Kind::kRide;
     line(ride ? kUsersText : kCustomersText, std::to_string(o.lastUsers));
-    if (a && a->excitement >= 0)
-        rating(kExcitementText, float(a->excitement) / 100);
+    if (const int excitement = park.excitementOf(_object); excitement >= 0)
+        rating(kExcitementText, float(excitement) / 100);
     if (a && a->wearRate > 0) {
         rating(kReliabilityText, 1 - float(a->wearRate) / 10);
         rating(kRepairText, o.repair / 100);
@@ -665,14 +707,29 @@ void AttractionWindow::draw(Surface &screen, const WindowKit &kit, const Park &p
     line(kScrapText, money(park.scrapValue(_object)));
     if (a && a->capacity >= 0) {
         kit.frame(screen, kSideBox);
-        const std::string capacity =
-            kit.ui(kCapacityText) + " : " + std::to_string(level ? level->capacity : a->capacity);
+        for (size_t s = 0; s < Park::kRideSettings; ++s) {
+            const std::optional<Park::SettingRange> r = park.rideSetting(_object, Park::RideSetting(s));
+            if (!r)
+                continue;
+            const std::string value = std::to_string(r->value);
+            const std::string label = s == 0   ? kit.ui(kSpeedText, {{32, value + "%"}})
+                                      : s == 1 ? kit.ui(kCapacityLineText, {{34, value}})
+                                               : kit.ui(r->value == 1 ? kSecondText : kSecondsText, {{35, value}});
+            kit.text(screen, kSliderX, kSliderLabelY + int(s) * kSliderStep, label);
+            const ScreenRect bar = sliderBar(s);
+            const auto at = [&](int v) {
+                return bar.x + (r->most > r->least ? (v - r->least) * (bar.w - 1) / (r->most - r->least) : 0);
+            };
+            const int red = r->redLine > 0 ? std::clamp(at(r->redLine), bar.x, bar.x + bar.w) : bar.x + bar.w;
+            fillRect(screen, {bar.x, bar.y, red - bar.x, bar.h}, kSliderGreen);
+            fillRect(screen, {red, bar.y, bar.x + bar.w - red, bar.h}, kSliderRed);
+            fillRect(screen, {at(r->value) - 1, bar.y - 2, 3, bar.h + 4}, kSliderMark);
+            kit.addTip({bar.x, bar.y, red - bar.x, bar.h}, kGreenZoneTip);
+            kit.addTip({red, bar.y, bar.x + bar.w - red, bar.h}, kRedZoneTip);
+        }
         const std::string upgraded =
             o.level > 0 ? kit.ui(kUpgradedText, {{3, std::to_string(o.level)}}) : kit.ui(kNotUpgradedText);
-        kit.text(screen, kSideBox.x + (kSideBox.w - kit.textWidth(capacity)) / 2, kSideBox.y + kSideBox.h / 2 - 10,
-                 capacity);
-        kit.text(screen, kSideBox.x + (kSideBox.w - kit.textWidth(upgraded)) / 2, kSideBox.y + kSideBox.h / 2 + 4,
-                 upgraded);
+        kit.text(screen, kSideBox.x + (kSideBox.w - kit.textWidth(upgraded)) / 2, kUpgradeLineY, upgraded);
     }
     // Its price, and the door: lit while it's open.
     const int queue = park.queueOf(_object);

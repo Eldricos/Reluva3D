@@ -149,8 +149,7 @@ fail, win and promote on a world built in the test.
 
 ## Open questions
 
-- The coaster's loops and the photos (types 51 and 57), which Reluva
-  never offers.
+- The coaster's loops (type 51), which Reluva never offers.
 - What each `TriggerData` means where its comment doesn't say; whether
   offers wait while one is under way; whether one may be declined.
 - Whether a kept measure fails at once or only at the end

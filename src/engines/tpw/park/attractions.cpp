@@ -18,13 +18,15 @@ namespace {
 
 // The kinds' folders of a world, as their names are (any case).
 // Obstacles are features no one can buy.
-const std::array<std::pair<const char *, Attractions::Kind>, 6> kKindFolders{{
+const std::array<std::pair<const char *, Attractions::Kind>, 7> kKindFolders{{
     {"rides", Attractions::Kind::kRide},
     {"sideshow", Attractions::Kind::kSideshow},
     {"shops", Attractions::Kind::kShop},
     {"facilities", Attractions::Kind::kFacility},
     {"features", Attractions::Kind::kFeature},
     {"obstacles", Attractions::Kind::kFeature},
+    // Its add-ons; of them, the photo kiosk alone ("WhichUIType 1 // A shop").
+    {"upgrades", Attractions::Kind::kShop},
 }};
 constexpr const char *kOnline = "online_"; // the online game's settings, beside the kinds'
 // ABILITIES.str's abilities, 0 "None" to 14 "Logging".
@@ -116,7 +118,10 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             for (int ability = 0; ability < kAbilities; ++ability)
                 if (const int count = int(own.number("SkillSet[" + std::to_string(ability) + "].Num", 0)); count > 0)
                     a.skills.emplace_back(ability, count);
-            a.available = !a.obstacle && number("Research.Group", -1) == 0 && a.price > 0;
+            a.photo = number("Info.IsPhotoBooth", 0) != 0;
+            if (kind == Attractions::Kind::kShop && parts[0] == "upgrades" && !a.photo)
+                continue;
+            a.available = !a.obstacle && !a.photo && number("Research.Group", -1) == 0 && a.price > 0;
             // An obstacle's shape marks land its own way, which isn't worked
             // out: it stands on its first cell.
             if (const SamFile::Entry *shape = own.find("Info.Shape"); shape && !a.obstacle)
@@ -167,12 +172,22 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
                 Attraction::Level &level = a.levels[l];
                 level.capacity = value("InitCapacity", -1);
                 level.duration = value("InitDuration", 0);
+                level.speed = value("InitSpeed", 0);
+                level.redLineCapacity = value("RedLineCapacity", 0);
+                level.redLineDuration = value("RedLineDuration", 0);
+                level.redLineSpeed = value("RedLineSpeed", 0);
                 level.wearRate = value("WearRate", 0);
                 level.runningCost = value("RunningCost", 0);
                 level.cost = value("CostOfUpgrade", 0);
                 level.research = value("CostOfResearch", 0);
                 level.days = value("DurationOfUpgrade", 0);
             }
+            a.minCapacity = int(number("UsageInfo.MinCapacity", 1));
+            a.maxCapacity = int(number("UsageInfo.MaxCapacity", 1));
+            a.minDuration = int(number("UsageInfo.MinDuration", 1));
+            a.maxDuration = int(number("UsageInfo.MaxDuration", 1));
+            a.minSpeed = int(number("UsageInfo.MinSpeed", 1));
+            a.maxSpeed = int(number("UsageInfo.MaxSpeed", 100));
             a.wearRate = a.levels[0].wearRate;
             a.runningCost = a.levels[0].runningCost;
             a.costOfGoods = int(number("UsageInfo.InitCostOfGoods", 0));

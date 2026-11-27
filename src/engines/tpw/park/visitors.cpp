@@ -133,9 +133,8 @@ Park::PriceOpinion Park::priceOpinion(int price, int fair) const {
 
 int Park::fairEntryFee() const {
     int excitement = 0;
-    for (const PlacedObject &o : _objects)
-        if (const Attractions::Attraction *a = _attractions.find(o.id))
-            excitement += std::max(0, a->excitement);
+    for (size_t i = 0; i < _objects.size(); ++i)
+        excitement += std::max(0, excitementOf(i));
     return std::max(_rules.minimumEntryFee, excitement / _rules.excitementToCost);
 }
 
@@ -344,8 +343,9 @@ bool Park::letOff(int queue, int id) {
             continue;
         const Attractions::Attraction *a = q.object >= 0 ? _attractions.find(_objects[size_t(q.object)].id) : nullptr;
         if (a) {
-            if (a->excitement >= 0 && v.type < int(_visitorTypes.size())) {
-                const int miss = std::abs(_visitorTypes[size_t(v.type)].excitement - a->excitement);
+            const int excitement = excitementOf(size_t(q.object));
+            if (excitement >= 0 && v.type < int(_visitorTypes.size())) {
+                const int miss = std::abs(_visitorTypes[size_t(v.type)].excitement - excitement);
                 bool liked = false;
                 for (size_t m = 0; m < _rules.rideMatch.size(); ++m)
                     if (miss <= _rules.rideMatch[m]) {
@@ -355,7 +355,7 @@ bool Park::letOff(int queue, int id) {
                     }
                 think(v, liked ? Thought::kLiked : Thought::kDisliked);
                 // Excitement makes them queasy: RideVomitDivisor's comment.
-                v.sickness += float(a->excitement / _rules.vomitDivisor);
+                v.sickness += float(excitement / _rules.vomitDivisor);
             }
             v.sickness += float(a->vomitEffect);
             v.carrying = std::max(v.carrying, a->litterEffect);
@@ -371,6 +371,8 @@ bool Park::letOff(int queue, int id) {
         v.thirst = std::clamp(v.thirst, 0.0f, 100.0f);
         v.toilet = std::clamp(v.toilet, 0.0f, 100.0f);
         v.bored = 0;
+        if (a && a->kind == Attractions::Kind::kRide)
+            sellPhoto(v, size_t(q.object));
         ++v.rides;
         const Cell off = q.hasExit ? q.exit : q.entrance;
         const gfx::Vec3 at = cellCentre(off);
@@ -509,9 +511,9 @@ void Park::chooseTarget(Visitor &v) {
             (a->appearance && a->appearance == v.appearance) || (a->appearance == kCostume && v.generation != 0))
             continue;
         float score = 0;
-        if (a->excitement >= 0 && type)
+        if (const int excitement = excitementOf(size_t(q.object)); excitement >= 0 && type)
             score += kRideWorth + float(_rules.excitementWeight) *
-                                      float(_rules.rideMatch.back() - std::abs(type->excitement - a->excitement));
+                                      float(_rules.rideMatch.back() - std::abs(type->excitement - excitement));
         const auto need = [](float level) { return std::max(0.0f, level - kNeedFloor) * kNeedWorth; };
         const bool meetsNeed = a->thirstEffect > 0 || a->hungerEffect > 0 || a->relief;
         if (a->thirstEffect > 0)

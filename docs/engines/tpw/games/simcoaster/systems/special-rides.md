@@ -91,10 +91,12 @@ offered once the ride is activated. As their letters ask
 | 55 | 28 (Genie Spinner; Assistant Managing Director) | its excitement at its most, "Too messy" not among the commonest thoughts |
 | 56 | 21 (the log mill; Managing Director) | its excitement, its satisfaction above `TargetVal2` |
 | 58 | 25 | so many percent of the park's visitors use it |
-| 51, 57 | 29, 26 | the coaster's loops, its users' photos: no coasters or photos yet, so they're never offered |
+| 51 | 29 | the coaster's loops: no coasters yet, so it's never offered |
+| 57 | 26 | its users' photos, bought from its photo kiosks ([building.md](building.md#photo-kiosks)) |
 
-A ride's excitement is its `ExcitementLevel`, as there are no sliders to
-change it yet; satisfaction is the visitors' happiness *(guessed)*.
+A ride's excitement is its `ExcitementLevel` by its speed as its slider
+sets it ([building.md](building.md#its-window-and-menu)); satisfaction is
+the visitors' happiness *(guessed)*.
 
 ## In Reluva
 

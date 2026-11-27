@@ -90,6 +90,7 @@ void Park::remove(size_t object, bool sell) {
         for (const Cell &c : footprint(a->shape, gone.at, gone.angle).cells)
             if (ground(c) == Ground::kTaken)
                 _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kOpen;
+    _objects[object].track.clear();
     for (const Cell &block : gone.track)
         freeTrackBlock(block);
     const int queue = queueOf(object);
@@ -97,7 +98,7 @@ void Park::remove(size_t object, bool sell) {
         const Queue &q = _queues[size_t(queue)];
         for (const Cell &c : q.cells)
             if (ground(c) == Ground::kQueue)
-                _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kOpen;
+                _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = bare(c);
         for (Visitor &v : _people) {
             if (v.queue == queue && (v.doing == Doing::kQueueing || v.doing == Doing::kRiding)) {
                 const gfx::Vec3 at = cellCentre(v.doing == Doing::kRiding ? q.entrance : v.cell);

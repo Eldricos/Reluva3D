@@ -48,7 +48,7 @@ enum Type : int {
     kRideFastAndSafe = 53,      // its excitement, its repair above TargetVal2
     kRideExcitingNotMessy = 55, // its excitement, "Too messy" not among the commonest thoughts
     kRideExcitingAndLiked = 56, // its excitement, satisfaction above TargetVal2
-    kRidePhotos = 57,           // its users buying photos: no photos yet
+    kRidePhotos = 57,           // its users buying photos
     kRideWidelyUsed = 58,       // so many percent of the park's visitors use it
 };
 
@@ -171,7 +171,6 @@ bool Park::challengeTriggered(const Challenge &c) const {
     case kDrinkProfit:
         return _heatwaves >= c.trigger; // "after nth heatwave"
     case kCoasterLoops:
-    case kRidePhotos:
         return false;
     case kRideUsers:
     default:
@@ -243,6 +242,9 @@ void Park::startCounting(size_t index) {
     } else if (countsUses) {
         const auto uses = _usesById.find(state.challenge.targetObject);
         state.baseline = uses == _usesById.end() ? 0 : uses->second;
+    } else if (type == kRidePhotos) {
+        const auto photos = _photosById.find(state.challenge.targetObject);
+        state.baseline = photos == _photosById.end() ? 0 : photos->second;
     }
     if (type == kRideLoved)
         state.baseline2 = _kidPranks + _adultPranks;
@@ -328,9 +330,16 @@ int Park::challengeValue(size_t index) const {
         const auto uses = _usesById.find(c.targetObject);
         return (uses == _usesById.end() ? 0 : uses->second) - state.baseline;
     }
+    case kRidePhotos: {
+        const auto photos = _photosById.find(c.targetObject);
+        return (photos == _photosById.end() ? 0 : photos->second) - state.baseline;
+    }
     case kRideFastAndSafe:
     case kRideExcitingNotMessy:
     case kRideExcitingAndLiked: {
+        for (size_t i = 0; i < _objects.size(); ++i)
+            if (_objects[i].id == c.targetObject)
+                return std::max(0, excitementOf(i));
         const Attractions::Attraction *a = _attractions.find(c.targetObject);
         return a ? std::max(0, a->excitement) : 0;
     }

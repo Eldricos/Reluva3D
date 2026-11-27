@@ -96,6 +96,13 @@ constexpr Color kMenuItemGreyed{40, 80, 115};
 constexpr std::array<uint32_t, ParkHud::kTools> kToolTips{116, 117, 118, 119, 120};
 constexpr std::array<uint32_t, ParkHud::kGizmos> kGizmoTips{167, 169, 168, 170, 171, 172, 173};
 constexpr std::array<uint32_t, ParkHud::kCompassButtons> kCompassTips{112, 113, 102, 103};
+// The thermometer's: "Overall visitor happiness: {2}%".
+constexpr uint32_t kGaugeTip = 336;
+// The liquid's colours at its top and foot, from the recording's.
+constexpr Color kLiquidTop{232, 126, 16};
+constexpr Color kLiquidFoot{42, 140, 186};
+// The mood's percent a face takes.
+constexpr size_t kMoodBand = 20;
 
 constexpr std::array<const char *, ParkHud::kTools> kToolModels{
     "ui/tb_pointer.MD2", "ui/tb_path.MD2", "ui/tb_delete.MD2", "ui/tb_camera.MD2", "ui/tb_postcard.MD2"};
@@ -216,6 +223,8 @@ ParkHud::Spot ParkHud::spotAt(int x, int y) {
             return {Hit::kCompass, i};
     if (kHelp.contains(x, y))
         return {Hit::kHelp, 0};
+    if (kGauge.contains(x, y))
+        return {Hit::kGauge, 0};
     return {};
 }
 
@@ -302,18 +311,35 @@ size_t ParkHud::stateOf(const Spot &spot, bool chosen, bool disabled) const {
     return over ? kLit : kPlain;
 }
 
+// The tube filled to the mood, black above, the liquid orange at its top
+// to light blue at its foot, as the recording has it at 2:50 to 24:00;
+// the face by the mood, a fifth of it each, unhappiest first (guessed:
+// the recording's smiles from about 60).
 void ParkHud::draw(Surface &screen, const View &view) const {
+    _mood = view.mood;
     drawUiMesh(screen, _gauge, 0, kGauge);
+    const int filled = view.mood < 0 ? 0 : kTube.h * std::clamp(view.mood, 0, 100) / 100;
+    const int surface = kTube.y + kTube.h - filled;
     for (int y = kTube.y; y < kTube.y + kTube.h; ++y) {
         uint8_t *row = screen.pixels.data() + size_t(y) * screen.pitch;
         // Its top rounded off.
         const int inset = y < kTube.y + 2 ? 2 : 0;
+        Color c{0, 0, 0};
+        if (y >= surface) {
+            const float up = filled > 1 ? float(kTube.y + kTube.h - 1 - y) / float(filled - 1) : 1;
+            c = {uint8_t(kLiquidFoot.r + (kLiquidTop.r - kLiquidFoot.r) * up),
+                 uint8_t(kLiquidFoot.g + (kLiquidTop.g - kLiquidFoot.g) * up),
+                 uint8_t(kLiquidFoot.b + (kLiquidTop.b - kLiquidFoot.b) * up)};
+        }
         for (int x = kTube.x + inset; x < kTube.x + kTube.w - inset; ++x) {
-            row[x * 4] = row[x * 4 + 1] = row[x * 4 + 2] = 0;
+            row[x * 4] = c.r;
+            row[x * 4 + 1] = c.g;
+            row[x * 4 + 2] = c.b;
             row[x * 4 + 3] = 255;
         }
     }
-    drawUiMesh(screen, _faces, view.mood < kMoods ? view.mood : kMoods - 1, kFace);
+    const size_t face = view.mood < 0 ? kMoods - 1 : std::min<size_t>(kMoods - 2, size_t(view.mood) / kMoodBand);
+    drawUiMesh(screen, _faces, face, kFace);
 
     drawUiMesh(screen, _compassPlate, 0, kCompass);
     for (size_t i = 0; i < kCompassButtons; ++i) {
@@ -387,6 +413,8 @@ uint32_t ParkHud::tooltipText() const {
         return kGizmoTips[_over.index];
     case Hit::kCompass:
         return kCompassTips[_over.index];
+    case Hit::kGauge:
+        return _mood >= 0 ? kGaugeTip : 0;
     default:
         return 0;
     }
@@ -396,7 +424,9 @@ void ParkHud::drawTooltip(Surface &screen) const {
     const uint32_t text = tooltipText();
     if (text == 0 || _pressed.kind != Hit::kNone)
         return;
-    _tip.draw(screen, _mouseX, _mouseY, _tip.help(text), _clock - _overSince);
+    _tip.draw(screen, _mouseX, _mouseY,
+              _over.kind == Hit::kGauge ? _tip.help(text, {{2, std::to_string(_mood)}}) : _tip.help(text),
+              _clock - _overSince);
 }
 
 } // namespace reluva::tpw

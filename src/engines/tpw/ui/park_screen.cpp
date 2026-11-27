@@ -134,6 +134,12 @@ constexpr uint32_t kCallEngineerItem = 524;
 constexpr uint32_t kCancelEngineerItem = 525;
 constexpr uint32_t kEditLineItem = 526;
 constexpr uint32_t kEditTrackItem = 527;
+// A ride's "Buy upgrade" asks which ("Upgrade Ride", UITEXT 10, by
+// guess): its next level ("Upgrade to level {3}", or "This ride is fully
+// upgraded") or a photo kiosk ("Photo Kiosk - {4}", the ride's name).
+constexpr uint32_t kUpgradeRideText = 10;
+constexpr uint32_t kUpgradeLevelItem = 126;
+constexpr uint32_t kPhotoKioskItem = 44;
 // UIHELPTEXT's tooltips for what's in the park: an attraction ("{0}\nClick
 // to view details\nRight-click for options"), a closed one, a special
 // ride not yet activated; a member of staff, a visitor ("... Experience:
@@ -313,17 +319,6 @@ constexpr std::string_view kSpritePrefix = "sprite";
 // far over the cushion they bounce on, and its animation moves them.
 constexpr float kSpriteMiddle = 2.5f;
 constexpr Color kVisitorColour{255, 255, 255}; // a visitor whose sprite isn't read
-
-void fillRect(Surface &s, const ScreenRect &r, Color c) {
-    for (int y = std::max(0, r.y); y < std::min(s.h, r.y + r.h); ++y)
-        for (int x = std::max(0, r.x); x < std::min(s.w, r.x + r.w); ++x) {
-            uint8_t *p = s.row(y) + 4 * x;
-            p[0] = c.r;
-            p[1] = c.g;
-            p[2] = c.b;
-            p[3] = 255;
-        }
-}
 
 // A square at a point of the world, `units` across.
 void mark(Surface &screen, const soft3d::OrbitCamera &camera, const gfx::Vec3 &at, float units, Color c) {
@@ -616,6 +611,18 @@ const LoadedModel *ParkScreen::trackModel(int id, Park::TrackModel model) const 
             case Park::TrackModel::kEnd:
                 piece = "Q";
                 break;
+            case Park::TrackModel::kBridge:
+                piece = "H";
+                break;
+            case Park::TrackModel::kRampUp:
+                piece = "H_U";
+                break;
+            case Park::TrackModel::kBridgeMiddle:
+                piece = "H_A";
+                break;
+            case Park::TrackModel::kRampDown:
+                piece = "H_D";
+                break;
             }
             loaded = std::make_unique<LoadedModel>();
             const std::string folder = a->model.substr(0, a->model.rfind('/') + 1);
@@ -692,9 +699,8 @@ void ParkScreen::drawTracks(soft3d::Rasterizer &rasterizer, const soft3d::OrbitC
             const float turn = std::atan2(dx, -dz);
             const float c = std::cos(turn);
             const float s = std::sin(turn);
-            const gfx::Mat4 place{
-                c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, from[0] + dx * t, karts ? kKartLift : kBoatLift, from[2] + dz * t,
-                1};
+            const float lift = (karts ? kKartLift : kBoatLift) + from[1] + (to[1] - from[1]) * t;
+            const gfx::Mat4 place{c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, from[0] + dx * t, lift, from[2] + dz * t, 1};
             std::vector<gfx::Mat4> transforms = meshTransforms(*model, -1, 0);
             for (gfx::Mat4 &m : transforms)
                 m = gfx::multiply(place, m);
@@ -808,13 +814,14 @@ void ParkScreen::advance(Park &park) {
                     machine->setVariable(v, o.open ? 0 : 1);
                 if (names[v] == "VAR_BROKEN" && !o.broken)
                     machine->setVariable(v, 0);
-                // Upgraded, its level's; before, the script's host gives its own settings'.
-                if (const Attractions::Attraction::Level *level = park.levelOf(i); level && o.level > 0) {
-                    if (names[v] == "VAR_CAPACITY")
-                        machine->setVariable(v, level->capacity);
-                    if (names[v] == "VAR_DURATION")
-                        machine->setVariable(v, level->duration);
-                }
+                // As its sliders set them, its level's to begin with; without
+                // them, the script's host gives its own settings'.
+                if (const auto capacity = park.rideSetting(i, Park::RideSetting::kCapacity);
+                    capacity && names[v] == "VAR_CAPACITY")
+                    machine->setVariable(v, capacity->value);
+                if (const auto duration = park.rideSetting(i, Park::RideSetting::kDuration);
+                    duration && names[v] == "VAR_DURATION")
+                    machine->setVariable(v, duration->value);
             }
         }
         run->advance(ms);
@@ -1328,6 +1335,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
     drawWeather(screen, park);
     if (_furnitureRead) {
         ParkHud::View hudView;
+        hudView.mood = park.mood();
         hudView.canZoomIn = camera.distance > kNearest;
         hudView.canZoomOut = camera.distance < kFarthest;
         hudView.unread = int(std::count_if(_inbox.begin(), _inbox.end(),
@@ -1854,6 +1862,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     };
     // A right-click menu's items, by what it's of (UITEXT's).
     auto canBuyAnother = [](const Attractions::Attraction &a) { return a.price > 0 && a.available; };
+    // The world's photo kiosk, bought for a ride from its menu.
+    const Attractions::Attraction *photoKiosk = nullptr;
+    for (const Attractions::Attraction &a : park.attractions().all())
+        if (a.photo && a.price > 0)
+            photoKiosk = &a;
     auto objectItems = [&](size_t object) {
         std::vector<uint32_t> items;
         const Park::PlacedObject &o = park.objects()[object];
@@ -1877,7 +1890,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 if (!park.objects()[object].track.empty())
                     items.push_back(kDeleteTrackItem);
             }
-            if (park.levelOf(object, o.level + 1))
+            if (park.levelOf(object, o.level + 1) || photoKiosk)
                 items.push_back(o.upgrading > 0 ? kCancelUpgradeItem : kBuyUpgradeItem);
             items.push_back(o.open ? kCloseItem : kOpenItem);
             items.push_back(kRideItem);
@@ -2043,7 +2056,19 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             else if (item == kOpenItem || item == kCloseItem || item == kKioskOpenItem ||
                                      item == kKioskCloseItem)
                                 park.setOpen(object, item == kOpenItem || item == kKioskOpenItem);
-                            else if (item == kBuyUpgradeItem)
+                            else if (item == kBuyUpgradeItem && photoKiosk)
+                                screen.popup().open(screen.kit().ui(kUpgradeRideText),
+                                                    {park.levelOf(object, park.objects()[object].level + 1)
+                                                         ? kUpgradeLevelItem
+                                                         : kFullyUpgradedText,
+                                                     kPhotoKioskItem},
+                                                    mouseX, mouseY,
+                                                    {{3, std::to_string(park.objects()[object].level + 1)},
+                                                     {4, screen.nameOf(park, object)}});
+                            else if (item == kPhotoKioskItem && photoKiosk) {
+                                placing = photoKiosk;
+                                placingAngle = 0;
+                            } else if (item == kBuyUpgradeItem || item == kUpgradeLevelItem)
                                 switch (park.upgrade(object)) {
                                 case Park::Upgrading::kFullyUpgraded:
                                     screen.notify(park, kFullyUpgradedText);
@@ -2563,7 +2588,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         bool fits = false;
         if (placing && !screen.hud().covers(mouseX, mouseY) && screen.cellAt(camera, mouseX, mouseY, under)) {
             footprint = Park::footprint(placing->shape, under, placingAngle);
-            fits = park.canPlace(*footprint) && park.cash() >= placing->price;
+            fits = park.canPlace(*footprint) && park.cash() >= placing->price &&
+                   (!placing->photo || park.photoRideNear(*footprint) >= 0);
         }
         // A patrol area being set shows as the footprint does, from its
         // first corner to the cell under the mouse.

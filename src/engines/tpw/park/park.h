@@ -723,6 +723,9 @@ public:
         std::vector<Cell> track;
         bool trackClosed = false;
         bool toldNoTrack = false; // its "haven't built any track" letter sent
+        // A ride's speed, capacity and duration as its window's sliders set
+        // them (RideSetting's order); −1 for its level's own.
+        std::array<int, 3> settings{-1, -1, -1};
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
     /**
@@ -755,6 +758,33 @@ public:
         std::vector<int> line; // the visitors in it, the first at its entrance first
     };
     const std::vector<Queue> &queues() const { return _queues; }
+
+    /** What a ride's window's sliders set (UITEXT 932, 936, 938). */
+    enum class RideSetting { kSpeed, kCapacity, kDuration };
+    static constexpr size_t kRideSettings = 3;
+    /** A setting: what it is, how low and high it goes, and its level's red line. */
+    struct SettingRange {
+        int value = 0;
+        int least = 0;
+        int most = 0;
+        int redLine = 0;
+    };
+    /**
+     * A ride's setting, from UsageInfo's least and most and its level's
+     * Init and RedLine; none for an attraction without it (a ride without
+     * a capacity, or not a ride).
+     */
+    std::optional<SettingRange> rideSetting(size_t object, RideSetting setting) const;
+    /** Sets one, as far as it goes. */
+    void setRideSetting(size_t object, RideSetting setting, int value);
+    /** Whether a ride's set past one of its red lines: it wears twice as fast (guessed). */
+    bool pastRedLine(size_t object) const;
+    /**
+     * A ride's excitement rating: its UsageInfo.ExcitementLevel by its
+     * speed against its first level's (guessed), 0 to 100; −1 for one
+     * without.
+     */
+    int excitementOf(size_t object) const;
 
     /** A track's blocks' side, in cells: its pieces' models are two cells square. */
     static constexpr int kTrackBlock = 2;
@@ -794,6 +824,12 @@ public:
         kBend,     // trckB: from its east side to its south
         kCrossing, // trckX
         kEnd,      // trckQ: where an unfinished track stops, open to the south
+        // Over path or a line: a bridge of one block, trckH; of more, trckH_U
+        // rising north to south, trckH_A level, trckH_D coming down.
+        kBridge,
+        kRampUp,
+        kBridgeMiddle,
+        kRampDown,
     };
     /** A block of track: its first cell, its model, turned so many degrees (east towards south). */
     struct TrackPiece {
@@ -803,9 +839,9 @@ public:
     };
     std::vector<TrackPiece> trackPieces(size_t object) const;
     /**
-     * The way a whole track's cars go: the middles of the sides its blocks
-     * meet at, in order, in the world's units (x, 0, z); empty while it's
-     * not whole.
+          * The way a whole track's cars go: the middles of the sides its blocks
+     * meet at, in order, in the world's units (x, height over the track's
+     * floor, z), raised over its bridges; empty while it's not whole.
      */
     std::vector<gfx::Vec3> trackCircuit(size_t object) const;
 
@@ -847,6 +883,16 @@ public:
         bool hasExit = false;
         Cell exit;
     };
+    /**
+     * How near a photo kiosk must be to its ride, in cells, from its
+     * nearest cell to the ride's: AddOn.UpgradeDistance's "4 - 10 cells
+     * distance from main object", its furthest (guessed).
+     */
+    static constexpr int kPhotoReach = 10;
+    /** The ride a photo kiosk's cells would serve: the nearest within kPhotoReach; −1 for none. */
+    int photoRideNear(const Footprint &f) const;
+    /** The ride a photo kiosk in the park serves; −1 for none, or for another attraction. */
+    int photoRideOf(size_t kiosk) const;
     static Footprint footprint(const std::vector<std::string> &shape, const Cell &at, int angle);
     static constexpr int kNotPlaced = -2;
     /** Whether every cell of a footprint is bare land. */
@@ -1108,6 +1154,12 @@ public:
     /** Each award as the park stands now. See docs/engines/tpw/games/simcoaster/systems/park-awards.md. */
     std::array<AwardStanding, kAwardCount> awards() const;
     int awardsHeld() const;
+    /**
+     * The park's mood, as its thermometer shows it: its visitors' average
+     * happiness, in percent ("Overall visitor happiness", UIHELPTEXT 336);
+     * −1 without visitors. See docs/engines/tpw/games/simcoaster/systems/park.md#the-hud.
+     */
+    int mood() const;
     /** Months the park's ended in the red, in a row. */
     int monthsInRed() const { return _monthsInRed; }
     /** Whether the park has been in the red six months, and is closed down (TAG_SYSTEM 166). */
@@ -1208,6 +1260,14 @@ private:
     /** Lays a block of track, its cells' ground and its cost. */
     bool layTrackBlock(PlacedObject &o, const Cell &block, int cost);
     void freeTrackBlock(const Cell &block);
+    /** Whether a block of track goes over path or a line, a bridge. */
+    bool overWay(const Cell &block) const;
+    /** The block of track a cell's under, if any: its track's ride and its place in it. */
+    std::optional<std::pair<size_t, size_t>> trackOver(const Cell &cell) const;
+    /** Whether path or a line can go under a cell's track: a straight's, not the first block. */
+    bool bridgeable(const Cell &cell) const;
+    /** What a cell's ground goes back to as what's on it's taken up: the track over it, or bare land. */
+    Ground bare(const Cell &cell) const;
     bool trackAlongY(size_t object) const;
     void trackDay();
     /** The longest straight of any whole go-kart track, in blocks; a whole water track's length, in cells. */
@@ -1285,6 +1345,8 @@ private:
     std::array<int, 16> _sold{};
     std::array<int, 16> _shopProfit{};
     std::map<int, int> _usesById;
+    std::map<int, int> _photosById; // by the rides' numbers: their photos sold
+    void sellPhoto(Visitor &v, size_t ride);
     int _kidPranks = 0;
     int _adultPranks = 0;
     int _heatwaves = 0;

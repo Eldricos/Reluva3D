@@ -125,4 +125,13 @@ int Park::awardsHeld() const {
     return int(std::count_if(standing.begin(), standing.end(), [](const AwardStanding &a) { return a.held; }));
 }
 
+int Park::mood() const {
+    if (_people.empty())
+        return -1;
+    float sum = 0;
+    for (const Visitor &v : _people)
+        sum += v.happiness;
+    return int(std::lround(sum / float(_people.size())));
+}
+
 } // namespace reluva::tpw

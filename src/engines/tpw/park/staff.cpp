@@ -17,6 +17,9 @@ namespace reluva::tpw {
 
 namespace {
 
+// How much faster a ride past a red line wears (guessed).
+constexpr float kRedLineWear = 2;
+
 // Each kind's names in the settings: StaffPoolInfo's plurals, and the
 // singular its own constants go by.
 constexpr std::array<const char *, Park::kStaffKinds> kPlurals{"Mechanics", "Handymen",     "Gardeners",
@@ -496,13 +499,15 @@ int Park::scrapValue(size_t object) const {
     return a->price * a->scrapPercent[std::min<size_t>(years, a->scrapPercent.size() - 1)] / 100;
 }
 
-// One rider's wear on a ride: its WearRate by kWearPerRider, broken at 0.
+// One rider's wear on a ride: its WearRate by kWearPerRider, twice that
+// past a red line, broken at 0.
 void Park::wear(size_t object) {
     PlacedObject &o = _objects[object];
     const Attractions::Attraction::Level *level = levelOf(object);
     if (!level || level->wearRate <= 0)
         return;
-    o.repair = std::max(0.0f, o.repair - float(level->wearRate) * kWearPerRider);
+    const float times = pastRedLine(object) ? kRedLineWear : 1;
+    o.repair = std::max(0.0f, o.repair - float(level->wearRate) * kWearPerRider * times);
     if (o.repair <= 0)
         o.broken = true;
 }

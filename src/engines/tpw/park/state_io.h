@@ -262,6 +262,8 @@ void io(A &a, Park::PlacedObject &o) {
     io(a, o.track);
     io(a, o.trackClosed);
     io(a, o.toldNoTrack);
+    for (int &setting : o.settings)
+        io(a, setting);
 }
 
 template<class A>

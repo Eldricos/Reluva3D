@@ -150,4 +150,15 @@ ScreenRect uiMeshRect(const LoadedModel &model, size_t mesh) {
     return {int(std::lround(x0)), int(std::lround(y0)), int(std::lround(x1 - x0)), int(std::lround(y1 - y0))};
 }
 
+void fillRect(Surface &screen, const ScreenRect &r, Color c) {
+    for (int y = std::max(0, r.y); y < std::min(screen.h, r.y + r.h); ++y)
+        for (int x = std::max(0, r.x); x < std::min(screen.w, r.x + r.w); ++x) {
+            uint8_t *p = screen.row(y) + 4 * x;
+            p[0] = c.r;
+            p[1] = c.g;
+            p[2] = c.b;
+            p[3] = 255;
+        }
+}
+
 } // namespace reluva::tpw

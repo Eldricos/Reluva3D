@@ -192,16 +192,52 @@ pixels, values at x 372: "Users last month", "Excitement rating",
 "Customer satisfaction", "Reliability", "State of repair", "Remaining
 life" (bars), "Monthly running cost", "Scrap value" (117 to 124); a
 shop's and sideshow's their own (128 to 143); the weather icons under
-the model; sliders for speed, capacity and duration at the right; and
+the model; sliders for speed, capacity and duration at the right
+("Speed : {32}", "Capacity : {34}", "Duration : {35} secs", 932, 936,
+938; "Ride runs at optimum in the green zone", "Ride wears out quicker
+in the red zone", `UIHELPTEXT` 274, 275); and
 its price in a box at (286, 250): − and + about it, "Entry Price"
 (428), a shop's "Sale price", a sideshow's "Price of game"; the door, open
 or shut, at the bottom left; the tick. Reluva draws the model, the ratings
 it has (users last month, excitement, reliability as 1 less its
 `WearRate` tenths *(guessed)*, the state of repair, the running cost, the
 scrap value), the capacity, the price, which − and + change by § 1, and
-the door, which opens and closes it, and its level by the capacity;
-not the sliders, customer satisfaction, remaining life or the weather
-icons.
+the door, which opens and closes it, and its level; not customer
+satisfaction, remaining life or the weather icons.
+
+A ride's sliders, laid out by guess, each green to the level's red line
+and red past it, the value marked white: speed from `UsageInfo.MinSpeed`
+to `MaxSpeed` (1 to 100, percent), capacity from `MinCapacity` to
+`MaxCapacity`, duration from `MinDuration` to `MaxDuration`, each
+starting at its level's `InitSpeed`, `InitCapacity`, `InitDuration`,
+its red line `RedLineSpeed`, `RedLineCapacity`, `RedLineDuration`
+(`rides/Rides.sam`'s: 60, 75, 90 percent by level; 7, 8, 9 seconds). A
+click on one sets it. Its capacity and duration are its script's
+`VAR_CAPACITY` and `VAR_DURATION`; its excitement rating is its
+`ExcitementLevel` by its speed against its first level's; past any red
+line it wears twice as fast *(guessed)*.
+
+### Photo kiosks
+
+"Make the most of popular rides by building Photo Kiosks for them"
+(`TOTD` 24, 54). The world's `upgrades/` folder holds rides' add-ons,
+the go-karts' jumps and tunnels and a mine drop for tracks
+(`AddOn.UpgradeType` 1), and a photo booth (`fotobth`, 1500, 2500,
+3500: "Bellow Photo", "Photo Booth" in the settings, "Photo Kiosk" in
+`OBJECT_NAMES` and the window's title "Photo Kiosk - {4}", `UITEXT` 44):
+`Info.IsPhotoBooth` 1, "A shop" (`WhichUIType` 1), `ShopType` 7, a
+photo § 40 (its cost § 12, happiness + 15), § 400 to build,
+`AddOn.UpgradesAnyRide` 1, `UpgradeDistance` "4 - 10 cells distance
+from main object". The recording's Buy window doesn't list it.
+
+Reluva buys one from a ride's "Buy upgrade", which asks "Upgrade Ride"
+(`UITEXT` 10): its next level ("Upgrade to level {3}", 126, or "This ride
+is fully upgraded", 125) or "Photo Kiosk - {4}" with the ride's name
+*(guessed)*. It's placed as an attraction is, within 10 cells of a ride,
+and serves the nearest; a third of the riders coming off buy a photo,
+if they have the money *(guessed)*. Attraction Finance Controls' "Photo
+Sale Price" sets the kiosks' price ([finance.md](finance.md)). The other
+add-ons aren't built.
 
 What it brings in, a month's users and takings; what it costs, its
 level's `RunningCost` paid each month, its upgrades, and its
@@ -269,7 +305,8 @@ and click the windows.
   particle effect on building, `Info.CreateParticleEffect`).
 - Exits: where visitors leave, and the path they need.
 - How wear comes, by rider or by cycle; `RideBreakDown.WarnPlayer`;
-  the sliders; the opinion summary; the game's view from a ride; the
+  what the sliders do to a ride's excitement and wear, and how they look;
+  how photo kiosks are bought and who buys a photo; the opinion summary; the game's view from a ride; the
   financial summary's and naming windows' looks.
 - The signs: how close Reluva's lettering is to the game's
   ([sgn.md](../formats/sgn.md#open-questions)).

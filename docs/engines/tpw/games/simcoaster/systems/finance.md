@@ -109,8 +109,9 @@ Attraction Finance Controls (179) sets one kind's prices at once, as the
 staff's finance controls do the wages: the kind (Ride Entry Price, Shop
 Sale Price, Sideshow Game Price, Bathroom Entry Price, Photo Sale Price,
 Park Entry Price, 184 to 189), and the adjustment (180: set to an amount,
-change by so much, by a percentage, 181 to 183). Photos aren't sold yet,
-so Reluva leaves that kind out.
+change by so much, by a percentage, 181 to 183). Photo Sale Price is the
+photo kiosks' ([building.md](building.md#its-window-and-menu)); Shop Sale
+Price leaves them out.
 
 ## In Reluva
 

@@ -175,6 +175,14 @@ None yet.
   [park.md](systems/park.md#menus-and-tooltips)). A recording of the game
   using them would settle them.
 
+- **The park's mood, the sliders and photo kiosks**: that the
+  thermometer shows the visitors' average happiness and its faces'
+  steps; what speed, capacity and duration do to a ride; how photo
+  kiosks are bought and sold from ([park.md](systems/park.md#the-hud),
+  [building.md](systems/building.md#photo-kiosks)). A recording of the
+  ride window's sliders and a photo kiosk being bought would settle most
+  of it.
+
 - **Go-kart and water tracks**: how the game lays them, from where by
   the station, on what grid, at what cost, and how their cars run; how
   the go-kart and water-ride awards are measured

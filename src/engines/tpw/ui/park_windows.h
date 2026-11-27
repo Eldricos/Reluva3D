@@ -74,6 +74,8 @@ public:
      */
     std::optional<uint32_t> tipAt(int x, int y) const;
     void clearTips() const { _tips.clear(); }
+    /** Adds a tooltip of UIHELPTEXT's where something's drawn. */
+    void addTip(const ScreenRect &r, uint32_t help) const { _tips.emplace_back(r, help); }
 
     /** UITEXT's string, with its parameters filled. */
     std::string ui(uint32_t index) const { return _ui.text(index); }
@@ -188,12 +190,15 @@ private:
  */
 class AttractionWindow {
 public:
-    enum class Control { kNone, kMinus, kPlus, kDoor, kOk, kClose };
+    enum class Control { kNone, kMinus, kPlus, kDoor, kOk, kClose, kSpeed, kCapacity, kDuration };
     void open(const Park &park, size_t object, std::string name, const LoadedModel *model);
     void close() { _open = false; }
     bool isOpen() const { return _open; }
     size_t object() const { return _object; }
-    /** Takes a mouse event, changing the park's price and opening as clicked. */
+    /**
+     * Takes a mouse event, changing the park's price and opening as clicked,
+     * and a ride's speed, capacity and duration where its sliders are clicked.
+     */
     WindowResult handle(const Event &ev, Park &park);
     void advance(uint32_t ms) { _clock += ms; }
     void draw(Surface &screen, const WindowKit &kit, const Park &park) const;

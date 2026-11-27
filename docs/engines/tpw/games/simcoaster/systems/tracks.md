@@ -73,8 +73,19 @@ itself. It may cross the track straight across a straight, making a
 crossing, but not stop on one. The track is whole when a run comes back
 into the first block going the way the track left it; then the ride can
 run. Backspace, or "Delete a section of track", takes up the last block,
-for nothing back. Over path, a bridge would be built (`TOTD` 1); Reluva
-doesn't build bridges yet.
+for nothing back.
+
+"Drag over paths and lines to build bridges. You can also drag paths
+and lines under existing track, and bridges will be built" (`TOTD` 1):
+a block may be laid over path or a line, which stay, so long as the
+track goes straight on through it, not stopping or turning there (its
+first block over bare land only); and path or a line may be laid under
+a straight block of track with blocks on both sides of it. A block over
+them is a bridge: one alone the hump `H`, a run of them `H_U` rising,
+`H_A` level and `H_D` coming down, their floors 4.4 higher, a hump's
+5 *(inferred)*. Taken up, the path or line under a track leaves the
+track there. Ramps turned so the track climbs the way it's laid, as they
+look right drawn so *(inferred)*.
 
 A new track ride's track is laid as soon as its line is. A day after
 one's built without a whole track, its letter comes, once.
@@ -96,14 +107,15 @@ the boats, each facing the way it goes (a kart's front is its model's
 a track's cells are `Ground::kTrack`, and go with the ride when it's
 taken down. The track a block at a time, `TrackModel`: the first block
 `M` (go-karts) or `S` (water), straights `S`, bends `B`, crossings `X`,
-and an unfinished track's end `Q`. `ParkScreen` draws the pieces and
+an unfinished track's end `Q`, and bridges `H`, `H_U`, `H_A`, `H_D`. `ParkScreen` draws the pieces and
 the cars, and tells each ride's script whether its track's whole.
 The prebuilt park's waterwheel has its track in the game's save, which
 isn't read: it runs as it did. `reluva-tool tpw track-shot <game folder>
 <world folder> <out.png> [seconds] [-water]` places a world's go-kart
 ride, or water ride, lays a loop of eight blocks beside it, and draws
-it. The unit tests (`tpw.unit.park`) lay a go-kart track that crosses
-itself, refuse the wrong runs, take a block up, and take the ride down.
+it; with `-bridge`, a longer loop over a band of path, bridged. The unit tests (`tpw.unit.park`) lay a go-kart track that crosses
+itself, refuse the wrong runs, take a block up, and take the ride down;
+and bridge a path, and lay path under the track.
 
 ## Sources and checks
 
@@ -122,7 +134,8 @@ itself, refuse the wrong runs, take a block up, and take the ride down.
   of `NorthXAdjust` and the others is for, and the piece models' uses
   (`M`, `B2`, `X2`, `Q`).
 - What a block costs: a cell, or the piece.
-- Bridges over path and lines, and their ramps.
+- Whether the game's bridges need the track straight, and how its ramps
+  go on a bridge of one block.
 - The cars: how many, how fast, their riders, and what `BUMP`'s other
   commands do.
 - How the go-kart award's "longest straight section" and the water
