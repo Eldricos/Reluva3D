@@ -19,7 +19,8 @@ sound.
 - **Sound:** `IACT` chunks of code 8, 16-bit stereo, at the rate
   `AHDR` gives. `takeAudio()` hands over what each frame carried.
 - **Subtitles:** `subtitle()`, the frame's `TRES` number; what it names
-  is the game's business.
+  is the game's business (Mysteries of the Sith's:
+  [mots/README.md](../../engines/sith/games/mots/README.md#its-files)).
 - **Not handled:** codec 47 and other codecs, `IACT` of other codes, and
   the `PSAD`/`SAUD` sound of earlier games: no file of the games Reluva
   plays has them.
@@ -152,5 +153,6 @@ in `JKM.EXE`, the picture at row 25 of its 640x480 screen *(confirmed)*.
 
 ## Open questions
 
-- The `TRES` words before the number: where the game draws a subtitle.
+- The `TRES` words before the number (a place and a box): Mysteries of
+  the Sith draws its subtitles below the picture whatever they hold.
 - `AHDR`'s word at 778.

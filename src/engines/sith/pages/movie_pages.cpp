@@ -242,18 +242,22 @@ private:
         return _strings.entries[place].second;
     }
 
-    // A SMUSH video's TRES number is its line's: COG_ and the number plus
-    // 50000, as the strings and the numbers pair up (S1L1ECS's 166 and
-    // 21101 are COG_50166 and COG_71101), inferred. A line starting
-    // with '|' is always shown, the rest only with full subtitles, as
-    // jkstrings.uni's own comment says.
+    // A SMUSH video's TRES number names its line, a COG_ string: its
+    // ten-thousands pick the first digit, 7 for 1 (the levels' openings),
+    // 9 for 2 (their endings), else 8, but 5 for 166 and 148; the rest are
+    // the other four (JKM.EXE 0x4247fc). A line starting with '|' is
+    // always shown, the rest only with full subtitles (0x424871).
     std::string smushSubtitle(const std::vector<uint8_t> &data) const {
         if (data.size() < 4)
             return {};
         const int number =
             int(uint32_t(data[0]) | uint32_t(data[1]) << 8 | uint32_t(data[2]) << 16 | uint32_t(data[3]) << 24);
+        const int rest = number % 10000;
+        int first = number / 10000 == 1 ? 7 : number / 10000 == 2 ? 9 : 8;
+        if (first == 8 && (rest == 166 || rest == 148))
+            first = 5;
         char key[32];
-        std::snprintf(key, sizeof key, "cog_%05d", number + 50000);
+        std::snprintf(key, sizeof key, "cog_%d%04d", first, rest);
         const auto it = _cogStrings.find(key);
         if (it == _cogStrings.end())
             return {};
@@ -267,10 +271,10 @@ private:
     // picture, in the subtitle font through the video's palette, as the
     // game's 8-bit screen draws it; broken into lines as the game breaks
     // them (subtitleLines), the lines the font's height and gap apart
-    // (0x434d34) (smk.md). Mysteries of the Sith's, where its taller picture
-    // ends (row 375): where it draws them hasn't been looked into.
+    // (0x434d34) (smk.md). Mysteries of the Sith's from row 385, below its
+    // taller picture, as the game shows them.
     void drawSubtitle(Surface &screen, const std::string &text, int ox, int oy, const uint8_t *pal) const {
-        const int top = oy + (_decoder->isSmush() ? 380 : 360);
+        const int top = oy + (_decoder->isSmush() ? 385 : 360);
         if (!_hasFont)
             return;
         Palette palette;

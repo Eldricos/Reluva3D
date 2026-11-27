@@ -124,12 +124,18 @@ version 50 (`0x44f6df`) *(from the code)*: `00skyline.mat` is empty and
   (the opening 640 by 300), 12 frames a second, and sound
   ([smush.md](../../../../common/video/smush.md)). Their subtitles are
   `COG_` strings, in `ui\jkstrings.uni` or the episode's
-  `misc\cogstrings.uni`: a `TRES` chunk's number plus 50,000 *(inferred:
-  166 and 21101 in `S1L1ECS.SAN` are `COG_50166` and `COG_71101`, and so
-  for four other files; `S5L3ECS.SAN`'s twelve, 5301 to 5312, have no
-  strings so)*. A line starting `|` (in Huttese, spoken) always shows,
-  the rest only with *full subtitles*, as `jkstrings.uni`'s own comment
-  says.
+  `misc\cogstrings.uni`, named by a `TRES` chunk's number (`0x4247fc`):
+  its last four digits, after a first digit its ten-thousands pick, 7
+  for 1 (the levels' openings, `S1L1OCS.SAN`'s 11101 is `COG_71101`), 9
+  for 2 (their endings, 21101 is `COG_91101`), else 8 (`S5L3ECS.SAN`'s
+  5301 is `COG_85301`), but 5 for 166 and 148 (`COG_50166`, "There he
+  is. Stop him!"). Every one of the 148 numbers in the 21 files with
+  lines names a string so. A line starting `|` (Huttese, translated)
+  always shows, the rest only with the player's *full subtitles*
+  (`fullsubtitles` in the player's `.plr`) (`0x424871`). The game draws
+  them centred below the picture, from row 385, in the subtitle font,
+  broken into lines as Jedi Knight's are *(confirmed: seen in the game
+  with full subtitles, and the viewer's the same pixels)*.
 
 ### Where Reluva reaches into the program
 
@@ -173,7 +179,8 @@ their handlers as the console starts (`0x422500` to `0x422a2f`):
 | `quickzap` | `0x423590` | *Unknown* |
 | `gameover` | `0x4235c0` | Ends the level (`0x403160`) *(confirmed)* |
 | `diediedie` | `0x4235e0` | *Unknown* |
-| `gimmestuff`, `iamagod`, `trainme`, `morelife`, `cartograph`, `trixie`, `takemeto` | `0x423870`, `0x423ba0`, `0x423f00`, `0x4240f0`, `0x424140`, `0x424180`, `0x423400` | Registered with their words (`0x423170`); *unknown* |
+| `gimmestuff`, `iamagod`, `trainme`, `morelife`, `cartograph`, `trixie` | `0x423870`, `0x423ba0`, `0x423f00`, `0x4240f0`, `0x424140`, `0x424180` | Registered with their words (`0x423170`); *unknown* |
+| `takemeto <n>` | `0x423400` | Goes to level *n* of the episode (`0x4035d0`): `takemeto 12` went to the Upper Sith *(confirmed)* |
 
 ## Using it
 
