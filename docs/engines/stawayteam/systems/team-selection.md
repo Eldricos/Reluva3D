@@ -69,8 +69,9 @@ said:
   `PortraitDisplay Pos`; at `InfoDisplay Pos`, a line each, "Name: ",
   "Rank: ", "Race: ", "Gender: ", "Field: " with the value after the
   label; at `AttributeDisplay Pos`, each attribute's `Attribute Bar` as
-  long as its value (of 100 *(inferred)*, the bar at most `AttributeDisplay
-  Width`), its name on it and its value at its end, `AttributeDisplay
+  long as its value of 100 (an attribute's most, `0x5e5830`), the bar at
+  most `AttributeDisplay Width` and the picture's own width (`0x5e8b96`),
+  its name on it and its value at its end, `AttributeDisplay
   Spacing` between them; the description, the character script's entry
   (`Levels/<Character Script>.RDS`), wrapped to `CharacterDescription
   Size` at `CharacterDescription Pos`, 2 pixels between lines. The
@@ -124,7 +125,8 @@ said:
   under it the icon on `Inventory Description Icon Background`, and its
   description typed out beside and under it at 90 characters a second
   (`0x5e8ec0`); CONTINUE (`Inventory Done`, at
-  `InventoryDescriptionExitButton Pos`) closes it.
+  `InventoryDescriptionExitButton Pos`) closes it, and is its default and
+  cancel button, so Enter and Esc do too (`0x5e8e55`).
 - **The mission** (`0x5e9f60`) at `MissionName Pos`: "Mission NN" over
   its name, each centred in `MissionName Size`.
 - **The items it needs** (`0x5e91e0`) at `Skill Pos`: two lists, each
@@ -140,7 +142,8 @@ said:
   who has it, choosing them on the transporter or in the roster, with
   `Interface/Generic Beep.wav` (`0x5e9ad9`, `0x5ebf10`).
 - **A message** at `Message Pos`, centred in `Message Size`, for 50
-  (`0x5ebc1f`; seconds *(inferred)*).
+  seconds (`0x5ebc1f`), counted down by the windows' frame time
+  (`0x5e9f2a`).
 
 ### What the buttons do
 
@@ -202,10 +205,6 @@ transporter's random numbers roll as the briefing's
 
 - **The officer's name over the transporter** falls on the shuttle's
   "Incursion Shuttle Ready" text where `Rules.txt` places it.
-- **The attributes' greatest value**, the bar's whole length. Reluva
-  takes 100.
-- **The items' lists and inventory:** the empty column's look, an item
-  lit under the mouse, and Esc closing a description. Reluva's choices
-  are noted in the code.
-- **A message's time:** Reluva takes the 50 as seconds.
+- **The items' lists and inventory:** the empty column's look, and an
+  item lit under the mouse. Reluva's choices are noted in the code.
 - **Where a place answers a click:** Reluva takes about the figure.

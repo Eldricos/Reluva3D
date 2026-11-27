@@ -32,11 +32,11 @@ const char *const kBeep = "Interface/Generic Beep.wav";                         
 // The description window's typing, the typewriter's own speed (0x568d68),
 // in characters a second.
 constexpr float kDescriptionSpeed = 90.0f;
-// A message's time on the screen: the 50 the program sets (0x5ebc1f),
-// taken as seconds (inferred).
+// A message's time on the screen: the 50 seconds the program sets
+// (0x5ebc1f), counted by the windows' frame time (0x5e9f2a).
 constexpr uint64_t kMessageMs = 50000;
-// An attribute's value that fills its bar (inferred: the roster's are all
-// under it).
+// An attribute's value that fills its bar: every attribute's most
+// (0x5e5830).
 constexpr int kAttributeMax = 100;
 
 // The screen's buttons, in ButtonGroup order: Rules.txt's key and the
@@ -259,9 +259,11 @@ TeamSelectionScreen::Choice TeamSelectionScreen::handleEvent(const Event &ev, au
         return Choice::kNone;
     }
     if (_describing) {
-        // CONTINUE, or Esc, closes it (inferred for Esc).
+        // CONTINUE closes it, its default and cancel button: Enter or Esc
+        // too (0x5e8e55).
         if (_descriptionButtons.handleEvent(ev, mixer) >= 0 ||
-            (ev.type == EventType::kKeyDown && ev.key == key::kEscape))
+            (ev.type == EventType::kKeyDown &&
+             (ev.key == key::kEscape || ev.key == key::kReturn || ev.key == key::kKpEnter)))
             _describing = false;
         return Choice::kNone;
     }

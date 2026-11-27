@@ -95,11 +95,9 @@ None now.
 - **Parts' processes:** the one chosen for an officer, and their walking
   into range first
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **The team selection:** the attributes out of 100, the inventory's
-  empty columns and lit items, Esc closing an item's description, a
-  message's time in seconds, the figures' time from the game's start,
-  where a place answers a click, and the officer's name over the
-  transporter's own text
+- **The team selection:** the inventory's empty columns and lit items,
+  the figures' time from the game's start, where a place answers a
+  click, and the officer's name over the transporter's own text
   ([systems/team-selection.md](systems/team-selection.md#open-questions)).
 - **Which fields are objects.** The game knows it from each class's
   properties; Reluva takes a field for an object when a `{` line follows
