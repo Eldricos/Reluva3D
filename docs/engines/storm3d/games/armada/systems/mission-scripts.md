@@ -34,6 +34,43 @@ for what they take from Armada.exe.
   `BuildObject`, `CineractiveShot`, `ShowTitle`, `SucceedMission`...);
   all 30 missions, 178 functions besides the engine's. Their own C
   runtime is linked in: from Windows they take KERNEL32 alone.
+- **Loading:** the map's `[AiMission]` object names the two DLLs, the
+  script's first; the program loads each from the missions folder, else
+  the AI folder, and frees them as the game ends, the rules first. All
+  their work is done in their start-up and through what they import
+  and export: nothing is looked up by name (0x4068a0, 0x406020,
+  0x403280) *(from the code)*.
+- **Variables** *(from the code)*: a `hot_int` is a value, -1 to start,
+  that on a change is marked and put on a list of those changed
+  (0x4052d0). A `timer_int` is one counting seconds down from `start`,
+  0 to start; run out, it's set to 1 (0x406ad0, 0x406b70); `stop`
+  leaves its value. `ALWAYS_EVALUATE` is a `dirty_int`, -1, never taken
+  clean (0x404ed0). Each rule depends on some of them.
+- **A pass** (0x4032b0), once a frame, with the frame's game seconds
+  (its real time, at most 0.2, times the game speed over 3; real time in
+  a cineractive) *(from the code)*:
+  1. the running timers count down;
+  2. each variable changed, newest first, queues the rules depending on
+     it and is taken clean; a timer run out reads 2, then 0, so its rules
+     see it true for that pass alone (0x406b50);
+  3. the queued rules are tested, newest first; one joins the satisfied
+     list when its result changes to true and leaves it when it changes
+     to false; as the whole result is compared, a change from one true
+     value to another adds it again (0x405770);
+  4. the world fires every satisfied rule, newest first (0x405ad0).
+     Firing doesn't change a rule: it fires every pass until tested
+     false, and the missions' actions make their own conditions false;
+  5. each script runs its next step, oldest first, and is gone after its
+     last (0x403d10). A rule's action starts a script (`WORLD`'s
+     `new_script`, `add_step`); Federation 1's are of one step but one.
+- **The cineractive's flags,** `isCineractiveDone` and
+  `isCineractiveCancel`, are set after each pass, for the next: done
+  once the shot's moves are, and each `CineractiveShot` puts done back
+  to 0 (0x4ecec0) *(from the code)*.
+- **Saving:** the script registers a function to write and one to read
+  its variables in the program's `save_scripts` and `load_scripts`
+  lists; running scripts aren't saved, and loading clears them
+  (0x403540, 0x403390) *(from the code)*.
 - **Calls:** the names are Visual C++'s decorated ones, which give each
   function's arguments and how it's called: `@@YA`, a function the
   caller pops the arguments of (cdecl); `@@QAE` and `@@UAE`, a member,
@@ -49,8 +86,16 @@ for what they take from Armada.exe.
   script passed them; a variable gets room of its own. Their C
   runtime's thread-local storage is a table of slots: they run on one
   thread.
-- **`reluva-tool storm3d mission-scripts <game folder> <mission>`**
-  loads a mission's scripts and lists each call they make of the game.
+- **The rule engine** is Reluva's, as above: the variables, timers,
+  rules and scripts kept by the address the scripts know them by, their
+  values written where the program keeps them too. `tick` runs a pass;
+  `setCineractive` sets the flags for the next. A script started during
+  a pass waits for the next to run its first step, a choice of Reluva's:
+  the program's walk by index would shift.
+- **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
+  seconds]`** loads a mission's scripts, runs them 30 passes a second
+  with each shot taken as done at once, and lists each call they make
+  of the game, with its arguments.
 
 ## Sources and checks
 
@@ -58,9 +103,12 @@ for what they take from Armada.exe.
   their disassembly (the `R` DLL's rule set-up at 0x100025a0 in
   `Federation1R.drl`), and Armada.exe's exports.
 - **How it was checked:** `mission-scripts` on Federation 1: both
-  DLLs start without a fault, the calls listed above.
+  DLLs start without a fault, the calls listed above; run, the opening
+  cineractive's calls (`CineractiveStart`, `FadeIn`, the shot
+  `ENTFLYBY`, `AudioMessage("Mfed25.wav")`) follow, and with no units
+  (every `GetHandle` 0) the rule for a lost construction ship fires.
 
 ## Open questions
 
-- The rule engine's cycle: when rules are tested and fired, and how
-  timers count; then the game functions, one by one.
+- The game functions, one by one, in play.
+- What sets a script's hold flag (its 0x18), which stops its steps.

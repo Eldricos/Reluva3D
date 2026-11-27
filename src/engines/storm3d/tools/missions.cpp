@@ -4,7 +4,7 @@
 // reluva-tool's commands for Star Trek: Armada's mission scripts
 // (docs/engines/storm3d/games/armada/systems/mission-scripts.md).
 //
-//   reluva-tool storm3d mission-scripts <game folder> <mission>
+//   reluva-tool storm3d mission-scripts <game folder> <mission> [-run seconds]
 
 #include "devtools/tool.h"
 #include "engines/storm3d/game_files.h"
@@ -22,7 +22,7 @@ using reluva::storm3d::MissionScripts;
 
 int cmdMissionScripts(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool storm3d mission-scripts <game folder> <mission>\n");
+        std::fprintf(stderr, "usage: reluva-tool storm3d mission-scripts <game folder> <mission> [-run seconds]\n");
         return 2;
     }
     GameFiles files;
@@ -46,15 +46,29 @@ int cmdMissionScripts(int argc, char **argv) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    // Then run, 30 passes a second, each cineractive shot taken as done at
+    // once *(Reluva's own)*: what the scripts do with no game round them.
+    float seconds = 0;
+    for (int i = 4; i + 1 < argc; ++i)
+        if (std::string(argv[i]) == "-run")
+            seconds = std::stof(argv[i + 1]);
+    std::printf("%zu rules, %zu scripts\n", scripts.ruleCount(), scripts.scriptCount());
+    for (int pass = 0; pass < int(seconds * 30); ++pass) {
+        if (Error err = scripts.tick(1.0f / 30)) {
+            std::fprintf(stderr, "%s\n", err.message.c_str());
+            return 1;
+        }
+        scripts.setCineractive(true, false);
+    }
     return 0;
 }
 
-const reluva::tool::Commands
-    kCommands("storm3d",
-              {
-                  {"mission-scripts", "<game folder> <mission>",
-                   "a campaign mission's scripts (Federation1) loaded and started, each call they make of the game",
-                   cmdMissionScripts},
-              });
+const reluva::tool::Commands kCommands(
+    "storm3d",
+    {
+        {"mission-scripts", "<game folder> <mission> [-run seconds]",
+         "a campaign mission's scripts (Federation1) loaded and started, then run for seconds, each call they make of the game",
+         cmdMissionScripts},
+    });
 
 } // namespace
