@@ -1123,11 +1123,11 @@ A collide trigger goes as one it answers to comes into the part's
 footprint or polygon, or 20 pixels about it, rather than as their
 movement meets its outline *(inferred)*, and not again within Disallow
 Retrigger; a thrown thing sets off a collide or pass-through
-one by its polygon only. An energy weapon's shot is its line from the
-shooter to the one shot, at once: a touching trigger Triggered By
-Projectiles it crosses runs its Enter and Exit Actions, the shooter
-their instigator *(inferred: the program's bolt flies, and its shape
-against the trigger's isn't traced)*. A door
+one by its polygon only. An energy weapon's shot is a bolt flying from
+the shooter at 1500 pixels a second, as the program's: a touching
+trigger Triggered By Projectiles the stretch it flew crosses runs its
+Enter and Exit Actions, once, the shooter their instigator *(inferred:
+its shape against the trigger's isn't traced)*. A door
 (`ui/map_gadgets.cpp`) opens unless locked: its Before Open, its Activate
 Sound, Opening played and then Open, out of the way only then, and its
 After Opened; closing likewise, back in the way at once. A way's planned through a closed
@@ -1155,13 +1155,13 @@ it: by the waypoints till it's in range and sight, then each Reuse Delay
 enemy fallen, they stop. A shot hits the first standing on its line
 from the shooter, by a figure's width either side, the one aimed at if
 no one's before them (lying stunned, only if aimed at); an officer's
-passes the other officers. The program's is a bolt (`CPhaserShot`) going
-at 1500 pixels a second, meeting the first thing standing full height
-in its way, the shooter left out and, for a Team Member's, the Team
-Members (`0x535c19`, `0x535dcf`, `0x535e05`); Reluva's meets them at
-once, as a quarter of a second over a weapon's range *(inferred)*. Its
-Shot Sound,
-its Shot Flash on the shooter and its Hit Flash on the one hit, the
+passes the other officers. It's a bolt (`CPhaserShot`) going at 1500
+pixels a second, as far as the weapon's range or the one aimed at,
+whichever's further, each frame meeting the first standing in its way
+on the stretch it flew, the shooter left out and, for a Team Member's,
+the Team Members (`0x535c19`, `0x535dcf`, `0x535e05`), and stopped by a
+wall. Its Shot Sound,
+its Shot Flash on the shooter and its Hit Flash on the one it meets, the
 shooter's `Shoot1` played through, the Weapon Damage taken off. A beam
 weapon's beam is drawn from its muzzle (Forward Position along the way
 to the target, Lateral Position across, Height up) to the target as high

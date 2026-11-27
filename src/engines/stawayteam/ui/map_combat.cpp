@@ -30,6 +30,8 @@ constexpr float kHitNoiseAge = 1.5f;
 // A shot meets a character this near its line, on the ground
 // unforeshortened: their outline, about 9 either side (inferred).
 constexpr float kHitReach = 9.0f;
+// An energy weapon's bolt's speed, pixels a second (0x535c19).
+constexpr float kBoltSpeed = 1500.0f;
 // Of the damage the enemy taken over by the Psychic Rack takes, its holder
 // takes as much, but no more than half the health they have left
 // (0x43b900).
@@ -250,7 +252,9 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
             _mixer->play(sound, audio::SoundType::kEffects);
     if (!weapon.shotFlash.empty())
         _flashes.push_back({weapon.shotFlash, x, y});
-    if (!weapon.hitFlash.empty())
+    // A strike's Hit Flash is on the one struck; a bolt's where it meets
+    // someone.
+    if (!weapon.hitFlash.empty() && weapon.dischargeAction == "CStrikeTargetAction")
         _flashes.push_back({weapon.hitFlash, tx, ty});
     // A beam weapon's line from its muzzle (Forward Position along the way
     // they face, Lateral Position across it, Height up) to the target, as
@@ -266,20 +270,19 @@ float MapScreen::shoot(const ItemDefinition &weapon, const std::string &model, f
         const float time = weapon.shotDuration > 0.0f ? weapon.shotDuration : kBeamTime;
         _beams.push_back({mx, my, tx, ty - weapon.height, weapon.beamOutside, weapon.beamMiddle, time, time});
     }
-    if (weapon.dischargeAction == "CShootEnergyWeaponAction")
-        shotThrough(x, y, tx, ty, instigator);
+    (void)instigator;
     const Animation &a = animation(model, weapon.dischargeSequence.empty() ? "Shoot1" : weapon.dischargeSequence);
     const int per = a.perDirection();
     return per > 0 && a.fps > 0.0f ? float(per) / a.fps : weapon.shotDuration;
 }
 
-void MapScreen::shotThrough(float x0, float y0, float x1, float y1, int instigator) {
+void MapScreen::shotThrough(float x0, float y0, float x1, float y1, int instigator, std::vector<size_t> *crossed) {
     // The shot's a CPhaserShot, a bolt going on from the muzzle at its
     // speed, with a CShotAI (0x5c95d0, 0x535c00), which is what a trigger
     // Triggered By Projectiles answers to (0x417fb3); a touching trigger
-    // asks for what's in its shape (0x417670). Here the shot's its line at
-    // once, coming into and leaving each it crosses (inferred: Reluva's
-    // shots are drawn as beams, not flown).
+    // asks for what's in its shape (0x417670). Here the stretch it flew,
+    // coming into and leaving each it crosses (inferred: its shape against
+    // the trigger's isn't traced).
     const auto meets = [&](const Trigger &t) {
         const MapPart &p = _map.parts[t.part];
         if (t.ai->className.find("Oval") != std::string::npos) {
@@ -319,8 +322,11 @@ void MapScreen::shotThrough(float x0, float y0, float x1, float y1, int instigat
         const std::string &kind = t.ai->className;
         if (t.done || !state.active || state.deleted ||
             (kind != "CTouchingOvalTriggerAI" && kind != "CTouchingPolygonTriggerAI") ||
-            !flag(t.ai, "Triggered By Projectiles") || !meets(t))
+            !flag(t.ai, "Triggered By Projectiles") ||
+            (crossed && std::find(crossed->begin(), crossed->end(), t.part) != crossed->end()) || !meets(t))
             continue;
+        if (crossed)
+            crossed->push_back(t.part);
         for (const char *key : {"Enter Action", "Exit Action"}) {
             const TextObject *action = t.ai->object(key);
             if (!action || t.done)
@@ -420,13 +426,16 @@ void MapScreen::officerHit(size_t officer) {
 }
 
 int MapScreen::firstInLine(float x0, float y0, float x1, float y1, int shooter) const {
-    // The bolt flies at 1500 pixels a second, meeting the first thing
-    // standing full height on its line, the shooter left out, and, for a
-    // Team Member's, the Team Members (0x535dcf, 0x535e05): an enemy
-    // between an officer and their target is hit, as is anyone between an
-    // enemy and its. Here at once, the characters by a figure's width
-    // either side of the line (inferred: their outlines, and the bolt's
-    // time, a quarter of a second over a weapon's range).
+    return firstOnStretch(x0, y0, x1, y1, shooter, 0.0f, x1, y1);
+}
+
+int MapScreen::firstOnStretch(float x0, float y0, float x1, float y1, int shooter, float from, float aimX,
+                              float aimY) const {
+    // The bolt meets the first thing standing full height on its line, the
+    // shooter left out, and, for a Team Member's, the Team Members
+    // (0x535dcf, 0x535e05): an enemy between an officer and their target
+    // is hit, as is anyone between an enemy and its. The characters by a
+    // figure's width either side of the line (inferred: their outlines).
     const float dx = x1 - x0;
     const float dy = (y1 - y0) / ParticleSystem::kYToX;
     const float length = dx * dx + dy * dy;
@@ -436,7 +445,7 @@ int MapScreen::firstInLine(float x0, float y0, float x1, float y1, int shooter) 
         const float px = cx - x0;
         const float py = (cy - y0) / ParticleSystem::kYToX;
         const float t = length > 0.0f ? (px * dx + py * dy) / length : 0.0f;
-        if (t <= 0.0f || t > 1.0f + kHitReach / std::sqrt(std::max(length, 1.0f)))
+        if (t <= from || t > 1.0f + kHitReach / std::sqrt(std::max(length, 1.0f)))
             return;
         if (std::hypot(px - t * dx, py - t * dy) < kHitReach && t < nearest) {
             nearest = t;
@@ -444,7 +453,7 @@ int MapScreen::firstInLine(float x0, float y0, float x1, float y1, int shooter) 
         }
     };
     // One lying stunned isn't in the way, but is hit aimed at (inferred).
-    const auto aimed = [&](float cx, float cy) { return std::hypot(cx - x1, cy - y1) < 1.0f; };
+    const auto aimed = [&](float cx, float cy) { return std::hypot(cx - aimX, cy - aimY) < 1.0f; };
     if (shooter < 0)
         for (size_t i = 0; i < _officers.size(); ++i) {
             const Officer &o = _officers[i];
@@ -498,7 +507,65 @@ void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool s
     officerFell(officer);
 }
 
+void MapScreen::fireBolt(const ItemDefinition &weapon, float x, float y, float tx, float ty, int self, int attacker,
+                         bool stun) {
+    // Up to the weapon's range, at least as far as the one aimed at.
+    const float distance = std::hypot(tx - x, ty - y);
+    if (distance <= 0.0f)
+        return;
+    const float range = std::max(weapon.range * enhancement(self), distance + kHitReach);
+    _bolts.push_back(
+        {&weapon, self, attacker, stun, x, y, (tx - x) / distance, (ty - y) / distance, tx, ty, 0.0f, range, {}});
+}
+
+void MapScreen::updateBolts(float seconds) {
+    // Each frame the bolt's head goes on at its speed, meeting the first
+    // in its way on the stretch it flew (0x535c00), or a wall, or going no
+    // further than its range.
+    for (size_t i = 0; i < _bolts.size();) {
+        Bolt &b = _bolts[i];
+        const float from = b.head;
+        b.head = std::min(b.range, b.head + kBoltSpeed * seconds);
+        const float x0 = b.x + b.ux * from;
+        const float y0 = b.y + b.uy * from;
+        const float x1 = b.x + b.ux * b.head;
+        const float y1 = b.y + b.uy * b.head;
+        const Bolt bolt = b;
+        if (bolt.weapon->dischargeAction == "CShootEnergyWeaponAction")
+            shotThrough(x0, y0, x1, y1, bolt.self, &_bolts[i].crossed);
+        const int hit = firstOnStretch(bolt.x, bolt.y, x1, y1, bolt.self, bolt.head > 0.0f ? from / bolt.head : 0.0f,
+                                       bolt.aimX, bolt.aimY);
+        bool done = bolt.head >= bolt.range;
+        if (hit != kNobody) {
+            float hx = 0.0f;
+            float hy = 0.0f;
+            if (hit >= 0) {
+                hx = _officers[size_t(hit)].x;
+                hy = _officers[size_t(hit)].y;
+            } else {
+                hx = _enemies[size_t(kEnemyInstigator - hit)].x;
+                hy = _enemies[size_t(kEnemyInstigator - hit)].y;
+            }
+            if (!bolt.weapon->hitFlash.empty())
+                _flashes.push_back({bolt.weapon->hitFlash, hx, hy});
+            // A Team Member's bolt makes a noise of 200 for 1.5 seconds
+            // where it meets someone (0x535ef4).
+            if (bolt.self >= 0 && hit <= kEnemyInstigator)
+                makeNoise(hx, hy, kHitNoise, kHitNoiseAge);
+            hitWith(hit, *bolt.weapon, bolt.attacker, bolt.stun);
+            done = true;
+        } else if (!clearSight(bolt.x, bolt.y, x1, y1)) {
+            done = true;
+        }
+        if (done)
+            _bolts.erase(_bolts.begin() + ptrdiff_t(i));
+        else
+            ++i;
+    }
+}
+
 void MapScreen::updateCombat(float seconds) {
+    updateBolts(seconds);
     for (Beam &b : _beams)
         b.left -= seconds;
     std::erase_if(_beams, [](const Beam &b) { return b.left <= 0.0f; });
@@ -562,14 +629,7 @@ void MapScreen::updateCombat(float seconds) {
                 if (o.weapon->dischargeAction == "CStrikeTargetAction") {
                     hurtEnemy(i, *o.weapon, self, stuns(o));
                 } else {
-                    // A Team Member's bolt makes a noise of 200 for 1.5
-                    // seconds where it meets someone (0x535ef4).
-                    const int hit = firstInLine(o.x, o.y, e.x, e.y, self);
-                    if (hit <= kEnemyInstigator) {
-                        const Enemy &met = _enemies[size_t(kEnemyInstigator - hit)];
-                        makeNoise(met.x, met.y, kHitNoise, kHitNoiseAge);
-                    }
-                    hitWith(hit, *o.weapon, self, stuns(o));
+                    fireBolt(*o.weapon, o.x, o.y, e.x, e.y, self, self, stuns(o));
                 }
             }
         } else if (o.path.empty()) {

@@ -891,7 +891,7 @@ void MapScreen::updateEnemies(float seconds) {
             if (e.weapon->dischargeAction == "CStrikeTargetAction")
                 hurtOfficer(size_t(e.target), *e.weapon, e.stuns);
             else
-                hitWith(firstInLine(e.x, e.y, o.x, o.y, self), *e.weapon, self, e.stuns);
+                fireBolt(*e.weapon, e.x, e.y, o.x, o.y, self, self, e.stuns);
         }
     }
 }
@@ -961,7 +961,7 @@ bool MapScreen::fightFoe(size_t self, float seconds) {
     if (e.weapon->dischargeAction == "CStrikeTargetAction")
         hurtEnemy(victim, *e.weapon, -1, e.stuns);
     else
-        hitWith(firstInLine(e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data())), *e.weapon, -1, e.stuns);
+        fireBolt(*e.weapon, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()), -1, e.stuns);
     Enemy &v = _enemies[victim];
     if (int(victim) != _melded && v.alive() && v.foe < 0 && v.target < 0 &&
         inCategory(_map.parts[e.part].category, v.validTargets)) {

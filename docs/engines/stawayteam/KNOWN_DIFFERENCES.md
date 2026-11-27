@@ -39,9 +39,7 @@ None yet.
   choices, and the keyboard's bindings, are kept but don't change
   anything yet
   ([systems/menus.md](systems/menus.md)).
-- **Maps:** the energy weapons' shots set off the triggers `Triggered
-  By Projectiles` they cross as soon as they're fired, rather than as
-  their bolt flies through, and the animations'
+- **Maps:** the animations'
   messages aren't there; particles are drawn over the models rather than
   among them ([systems/particles.md](systems/particles.md)); a way's
   planned round closed doors, which don't stop one walking; the transporter's pictures aren't drawn

@@ -1086,11 +1086,14 @@ void testEnemyAI() {
     screen.order(350.0f, 700.0f);
     run(2000);
     CHECK(a.x == 350.0f && a.y == 500.0f);
-    // Bo shoots Guard 4 once: at 75 of its 100 it retreats, running to its
-    // Alarm Spot, sets off the alarm there and holds the place.
+    // Bo shoots Guard 4 once, the bolt flying to it: at 75 of its 100 it
+    // retreats, running to its Alarm Spot, sets off the alarm there and
+    // holds the place.
     screen.choose(1);
     screen.attack(3);
     run(2050);
+    CHECK(enemies[3].health == 100.0f && screen.boltsFlying() == 1);
+    run(2500);
     CHECK(enemies[3].health == 75.0f && enemies[3].state == "Retreat");
     screen.order(300.0f, 150.0f);
     run(16000);

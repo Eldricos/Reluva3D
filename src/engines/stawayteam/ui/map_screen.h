@@ -388,6 +388,15 @@ public:
      * kEnemyInstigator less an enemy; kNobody for none.
      */
     int firstInLine(float x0, float y0, float x1, float y1, int shooter) const;
+    /**
+     * An energy weapon's bolt fired from (x, y) at (tx, ty) by `self` (an
+     * officer, or kEnemyInstigator less an enemy): it flies, hitting the
+     * first it meets as `attacker` with `weapon` (stunning with `stun`).
+     */
+    void fireBolt(const ItemDefinition &weapon, float x, float y, float tx, float ty, int self, int attacker,
+                  bool stun);
+    /** The bolts in flight. */
+    size_t boltsFlying() const { return _bolts.size(); }
     /** A shot by `shooter` with `weapon` hitting `who` (as firstInLine gives). */
     void hitWith(int who, const ItemDefinition &weapon, int shooter, bool stun);
     // What officer `officer`'s weapons' damage and range are multiplied by:
@@ -635,9 +644,10 @@ private:
     // `model` takes over shooting it.
     float shoot(const ItemDefinition &weapon, const std::string &model, float x, float y, float tx, float ty,
                 int instigator);
-    // An energy weapon's shot from (x0, y0) to (x1, y1) setting off the
-    // touching triggers Triggered By Projectiles it crosses.
-    void shotThrough(float x0, float y0, float x1, float y1, int instigator);
+    // An energy weapon's bolt flying from (x0, y0) to (x1, y1) setting off
+    // the touching triggers Triggered By Projectiles it crosses.
+    // Those in `crossed` (by part) are passed over, and those set off added.
+    void shotThrough(float x0, float y0, float x1, float y1, int instigator, std::vector<size_t> *crossed = nullptr);
     // The items (map_items.cpp).
     void setupItems();
     void updateItems(float seconds);
@@ -905,6 +915,28 @@ private:
     };
     std::vector<Flash> _flashes;
     std::vector<Beam> _beams;
+    // Bolts in flight: from (x, y) along (ux, uy), the head `head` on,
+    // flying up to `range`; the triggers they've crossed, by part.
+    struct Bolt {
+        const ItemDefinition *weapon = nullptr;
+        int self = kNobody;
+        int attacker = kNobody;
+        bool stun = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        float ux = 0.0f;
+        float uy = 0.0f;
+        float aimX = 0.0f;
+        float aimY = 0.0f;
+        float head = 0.0f;
+        float range = 0.0f;
+        std::vector<size_t> crossed;
+    };
+    std::vector<Bolt> _bolts;
+    void updateBolts(float seconds);
+    // firstInLine over the part of the line from `from` (0-1) on, the one
+    // aimed at at (aimX, aimY).
+    int firstOnStretch(float x0, float y0, float x1, float y1, int shooter, float from, float aimX, float aimY) const;
     std::vector<Thrown> _thrown;
     std::vector<Mine> _mines;
     // A model put down, as a part: its sequence and how far into it, the
