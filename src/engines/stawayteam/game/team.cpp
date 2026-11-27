@@ -148,6 +148,7 @@ std::map<std::string, ItemDefinition> loadItems(const Archive &data) {
         item.briefingScript = text(def, "Briefing Script");
         item.briefingText = text(def, "Briefing Text");
         item.weaponDamage = float(def.number("Weapon Damage").value_or(0.0));
+        item.damageType = text(def, "Damage Type");
         item.reuseDelay = float(def.number("Reuse Delay").value_or(0.0));
         item.range = float(def.number("Item Range").value_or(0.0));
         item.maxShootAngle = float(def.number("Max Shoot Angle").value_or(0.0));

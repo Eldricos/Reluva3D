@@ -269,6 +269,11 @@ public:
         int decoy = -1;        // the decoy's part it's after, or -1
         float reaction = 0.0f; // seconds before Got a Target takes a target again, hit by another
         float energy = 100.0f; // its energy weapon's, out of 100
+        // Its CShieldAI, if any: how far it's adapted to each damage type,
+        // out of 1, and the type that last hit it (Last Damage Type).
+        const TextObject *shield = nullptr;
+        std::map<std::string, float> adapted;
+        std::string lastDamage;
 
         bool alive() const { return dead < 0.0f; }
         bool down() const { return dead >= 0.0f || stunned > 0.0f; }
@@ -392,6 +397,8 @@ public:
      * `weapon`: stunning it with `stun`, else hurting it.
      */
     void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
+    /** Whether damage type `type` gets past every Borg shield (its Unavoidable damage). */
+    bool unavoidable(const std::string &type) const;
     /** A shot at officer `officer` with `weapon`: stunning them with `stun`, else hurting them. */
     void hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun);
     /**
@@ -981,6 +988,7 @@ private:
     // shots' flashes showing.
     std::map<std::string, ItemDefinition> _items;
     mutable std::map<std::string, ModelInfo> _modelInfos; // read as they're first wanted
+    mutable std::map<std::string, bool> _unavoidable;     // Damage Types/' Unavoidable damage, as wanted
     struct Wall {
         size_t part;
         bool full; // standing Full Height, so blocking sight
@@ -998,7 +1006,9 @@ private:
         std::string model;
         float x;
         float y;
-        float time = 0.0f; // seconds shown
+        float time = 0.0f;             // seconds shown
+        std::string sequence = "Idle"; // of its model, played once
+        int follow = -1;               // the enemy it's drawn on, or -1 where it is
     };
     std::vector<Flash> _flashes;
     std::vector<Beam> _beams;

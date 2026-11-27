@@ -2070,6 +2070,62 @@ void testStunSwitch() {
     CHECK(!screen.officers()[0].items[0].stun && !screen.officers()[1].items[0].stun);
 }
 
+void testBorgShields() {
+    // Two Borg with shields: phaser hits adapt both (0.2, then 0.33 for the
+    // same type again), and once at 1 a phaser does nothing; the sniper
+    // rifle's Unavoidable damage always gets through (0x43de10).
+    const std::string borg = "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=2\n"
+                             "\t\t\t\tActivity=CBorgAI\n\t\t\t\t{\n\t\t\t\t\tCurrent State=Patrol\n"
+                             "\t\t\t\t\tStun State=Attack\n\t\t\t\t}\n"
+                             "\t\t\t\tActivity=CShieldAI\n\t\t\t\t{\n"
+                             "\t\t\t\t\tRender Effect=CModelRenderEffect\n\t\t\t\t\t{\n"
+                             "\t\t\t\t\t\tModel=Special Effects/Shield\n\t\t\t\t\t\tSequence=Hit\n"
+                             "\t\t\t\t\t}\n\t\t\t\t\tWho To Adapt=Enemy\n\t\t\t\t}\n\t\t\t}\n"
+                             "\t\t\tModel=Characters/Borg\n";
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,300.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Borg 1\n\t\t\tVisible=1\n\t\t\tActive=1\n" +
+        borg +
+        "\t\t\tPosition X=900\n\t\t\tPosition Y=300\n\t\t}\n"
+        "\t\tLevel Part=CEntityWalking\n\t\t{\n\t\t\tName=Borg 2\n\t\t\tVisible=1\n\t\t\tActive=1\n" +
+        borg +
+        "\t\t\tPosition X=900\n\t\t\tPosition Y=600\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=300\n\t\t}\n\t}\n}\n";
+    const auto bytesOf = [](const std::string &text) { return std::vector<uint8_t>(text.begin(), text.end()); };
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Characters/Borg.mdl16"] = modelFile("Borg", 1, 1);
+    data.files["Damage Types/Unavoidable.txt"] = bytesOf("CDamageTypeDefinition\n{\n\tUnavoidable damage=1\n}\n");
+    data.files["Damage Types/Phaser Type 2.txt"] = bytesOf("CDamageTypeDefinition\n{\n\tUnavoidable damage=0\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n}\n", rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    MapScreen screen(data, rules, map, options, 0, {ann});
+    ItemDefinition phaser;
+    phaser.weaponDamage = 5.0f;
+    phaser.damageType = "Phaser Type 2";
+    ItemDefinition rifle = phaser;
+    rifle.damageType = "Unavoidable";
+    const MapScreen::Enemy &one = screen.enemies()[0];
+    const MapScreen::Enemy &two = screen.enemies()[1];
+    CHECK(one.health == 100.0f);
+    for (int hit = 0; hit < 4; ++hit)
+        screen.hurtEnemy(0, phaser, -1, false);
+    // 0.2, 0.53, 0.86, 1.19: four hits through, shared with the other.
+    CHECK(one.health == 80.0f && two.adapted.at("Phaser Type 2") >= 1.0f);
+    screen.hurtEnemy(0, phaser, -1, false);
+    screen.hurtEnemy(1, phaser, -1, false);
+    CHECK(one.health == 80.0f && two.health == 100.0f);
+    screen.hurtEnemy(1, rifle, -1, false);
+    CHECK(two.health == 95.0f);
+}
+
 void testProcesses() {
     // A console whose process, used with nothing chosen, walks the officer
     // to it and puts a line on the tricorder's panel and the crate on the
@@ -3439,6 +3495,7 @@ static const reluva::test::Suite
                {"scans per officer", [](const std::filesystem::path &) { testScansPerOfficer(); }},
                {"mine place", [](const std::filesystem::path &) { testMinePlace(); }},
                {"stun switch", [](const std::filesystem::path &) { testStunSwitch(); }},
+               {"borg shields", [](const std::filesystem::path &) { testBorgShields(); }},
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},

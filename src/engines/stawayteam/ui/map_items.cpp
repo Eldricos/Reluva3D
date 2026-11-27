@@ -340,6 +340,7 @@ void MapScreen::explode(const Thrown &t) {
     const auto at = [&](float x, float y) {
         ItemDefinition weakened = *t.item;
         weakened.weaponDamage = 2.0f * radius * (1.0f - off(x, y) / radius);
+        weakened.damageType = info.collideDamageType;
         return weakened;
     };
     for (size_t i = 0; i < _enemies.size(); ++i) {

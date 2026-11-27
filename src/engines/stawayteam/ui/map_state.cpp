@@ -279,6 +279,9 @@ void MapScreen::state(StateIo &s) {
         s.io(e.decoy);
         s.io(e.reaction);
         s.io(e.energy);
+        s.io(e.shield);
+        s.map(e.adapted, [&](std::string &, float &level) { s.io(level); });
+        s.io(e.lastDamage);
         s.map(e.progress, [&](const TextObject *&ai, Enemy::Progress &p) {
             s.io(ai);
             s.io(p.time);
@@ -335,6 +338,8 @@ void MapScreen::state(StateIo &s) {
         s.io(f.x);
         s.io(f.y);
         s.io(f.time);
+        s.io(f.sequence);
+        s.io(f.follow);
     });
     s.list(_beams, [&](Beam &b) {
         for (float *f : {&b.x0, &b.y0, &b.x1, &b.y1, &b.left, &b.shown})

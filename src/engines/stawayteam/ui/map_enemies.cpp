@@ -95,6 +95,9 @@ void MapScreen::setupEnemies() {
                 e.state = stateKey(readText(ai, "Current State"));
                 const TextObject *targeting = ai->object("Targeting");
                 e.validTargets = targeting ? readText(targeting, "Valid Targets") : std::string("Player,Team Member");
+                for (const TextObject *other : p.activities)
+                    if (other->className == "CShieldAI")
+                        e.shield = other;
                 _enemyOfPart[i] = _enemies.size();
                 _enemies.push_back(std::move(e));
                 break;

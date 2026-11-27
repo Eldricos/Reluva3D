@@ -1567,8 +1567,11 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     }
     // The shots' flashes, over everyone.
     for (const Flash &f : _flashes) {
-        const Animation &a = animation(f.model, "Idle");
-        blitBy(view, a.frame(int(f.time * a.fps), 0), int(std::lround(f.x)) - left, int(std::lround(f.y)) - top);
+        const Animation &a = animation(f.model, f.sequence);
+        const bool on = f.follow >= 0 && size_t(f.follow) < _enemies.size();
+        const float fx = on ? _enemies[size_t(f.follow)].x : f.x;
+        const float fy = on ? _enemies[size_t(f.follow)].y : f.y;
+        blitBy(view, a.frame(int(f.time * a.fps), 0), int(std::lround(fx)) - left, int(std::lround(fy)) - top);
     }
     if (viewW == _viewW && viewH == _viewH) {
         for (int y = 0; y < _viewH && _viewY + y < screen.h; ++y)

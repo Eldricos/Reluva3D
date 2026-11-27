@@ -118,6 +118,7 @@ struct ItemDefinition {
     std::string briefingText;
     // A weapon's (Weapon Damage 0 for anything else).
     float weaponDamage = 0.0f;
+    std::string damageType;        // of Damage Types/: what a Borg shield adapts to
     float reuseDelay = 0.0f;       // seconds between shots
     float range = 0.0f;            // Item Range, pixels
     float maxShootAngle = 0.0f;    // degrees off its aim it still shoots

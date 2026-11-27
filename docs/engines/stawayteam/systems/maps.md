@@ -867,6 +867,26 @@ They tell one another, by actions:
 The program's weapon code isn't traced yet: how these act is read from
 the fields.
 
+### Borg shields
+
+141 of the maps' Borg have a `CShieldAI` (137 with `Who To Adapt` Enemy,
+4 with it empty), its `Render Effect` the `Special Effects/BORG SHIELD`
+model's `Hit`. Each AI of a part that's hurt can change the hurt
+(`0x4952bc`, its slot `0x6c`); the shield's (`0x43de10`) keeps a level
+for each damage type, `Adaptation Level List`. A hit by a type whose
+definition (`Damage Types/`) is `Unavoidable damage` (Physical,
+Unavoidable, the EM Pulse Grenade's and the mines') is left alone, as is
+every hit on one without a Render Effect. Otherwise, below 1 the level
+goes up by 0.33 if the type's the `Last Damage Type`, else 0.2, the hit
+taken in full; the type becomes the last, and the level is given to
+every shield of the parts its Who To Adapt names (`0x43dc40`): all the
+Borg learn together. At 1 or more the hit does nothing (`0x43df19`):
+the shield's Render Effect is started again (`0x510800`) and the hit
+goes no further (`0x4952e2`), so no damage action, nothing else. A
+phaser (`Phaser Type 2`) so gets four hits in, the fourth taking the
+level to 1.19; the phaser rifle's, the disruptors' types each have
+their own four; the sniper rifle, grenades and mines are Unavoidable.
+
 ### Noise
 
 The team's footsteps and shots make noises, which the game keeps in a
@@ -1266,6 +1286,9 @@ surfaces' sounds aren't looked up, none being given. An enemy
 hit runs its Damage Action, and with Target If Hit, not attacking, goes to look where whoever hit it is;
 a weapon set to stun puts it down for the Stun Duration, then back on
 patrol, unless its Stun State is Attack, when it attacks *(inferred)*.
+A Borg shield adapts and blocks as above, the Render Effect's sequence
+played once over the Borg, following it; a Who To Adapt other than Enemy
+is taken to share with none *(inferred)*.
 An enemy's weapon set to stun puts an officer down for its Stun
 Duration unhurt, unable to move or shoot, and unseen as a target
 meanwhile *(inferred)*. With no health left a character plays `Death` once

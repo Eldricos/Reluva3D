@@ -354,10 +354,44 @@ constexpr float kReaction = 2.5f;
 
 } // namespace
 
+bool MapScreen::unavoidable(const std::string &type) const {
+    auto it = _unavoidable.find(type);
+    if (it == _unavoidable.end()) {
+        std::vector<uint8_t> bytes;
+        TextObject def;
+        const bool yes = !type.empty() && !_data.read("Damage Types/" + type + ".txt", bytes) &&
+                         !readTextObject(std::string(bytes.begin(), bytes.end()), def) &&
+                         def.integer("Unavoidable damage").value_or(0) != 0;
+        it = _unavoidable.emplace(type, yes).first;
+    }
+    return it->second;
+}
+
 void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun) {
     Enemy &e = _enemies[enemy];
     if (!e.alive())
         return;
+    // A Borg shield (CShieldAI, 0x43de10): a damage type that isn't
+    // Unavoidable adapts it, by 0.33 if it's the type that last hit it, else
+    // 0.2, every shield of its Who To Adapt taking the same (0x43dc40);
+    // once that's 1, the type does nothing, the shield's Render Effect
+    // shown (0x510800), and the hit's as if it weren't (0x4952e2).
+    if (e.shield && !stun && e.shield->object("Render Effect") && !unavoidable(weapon.damageType)) {
+        float &level = e.adapted[weapon.damageType];
+        if (level >= 1.0f) {
+            if (const TextObject *effect = e.shield->object("Render Effect"))
+                _flashes.push_back(
+                    {readText(effect, "Model"), e.x, e.y, 0.0f, readText(effect, "Sequence"), int(enemy)});
+            return;
+        }
+        level += weapon.damageType == e.lastDamage ? 0.33f : 0.2f;
+        e.lastDamage = weapon.damageType;
+        const float shared = level;
+        if (readText(e.shield, "Who To Adapt") == "Enemy")
+            for (Enemy &other : _enemies)
+                if (other.shield)
+                    other.adapted[weapon.damageType] = shared;
+    }
     // Hit by someone other than its target, it's slow to take a target
     // for 2.5 seconds (CHitTargetMessage, 0x434617).
     if (attacker != e.target)
@@ -621,7 +655,7 @@ void MapScreen::updateCombat(float seconds) {
     for (Flash &f : _flashes)
         f.time += seconds;
     std::erase_if(_flashes, [&](const Flash &f) {
-        const Animation &a = animation(f.model, "Idle");
+        const Animation &a = animation(f.model, f.sequence);
         return a.fps <= 0.0f || f.time * a.fps >= float(a.perDirection());
     });
     // An energy weapon's energy comes back at its Energy Recharge a second,

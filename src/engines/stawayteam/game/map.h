@@ -152,6 +152,7 @@ struct ModelInfo {
     std::string explosion;
     std::string deathSound;
     float explosionRadius = 0.0f;
+    std::string collideDamageType; // its explosion's damage type (Collide Damage Type)
     bool explosionNeedsSight = false;
     float maxVelocity = 0.0f;
     // How it bounces: the part of its fall's speed it keeps going up (Bounce

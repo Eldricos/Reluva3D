@@ -74,7 +74,11 @@ Destroyed Action is a `CDoOnAllWithinRadiusAction` about it, 150 across
 of 250 for 2 seconds as it starts, and each it reaches given a
 `CAssignOverrideTemporaryTaskAction` of a `CWaitAI` of 15 seconds, with
 sparks over it as long. In Mission 01 the Klingon prisoners are the
-Electronic Equipment.
+Electronic Equipment. That's all it does: with its Explosion Radial
+Damage and Collide Damage both 0 it hurts no one, its item's Weapon
+Damage (60) and Stun Duration (30) being unused by thrown things (see
+below), and its damage type, `EM Pulse Grenade`, is Unavoidable, so it
+would get past a Borg shield ([maps.md](maps.md#borg-shields)).
 
 ### The cloaking band
 
@@ -564,9 +568,6 @@ system ([particles.md](particles.md)).
   its model's Max Velocity.
 - **Gadgets:** how an enemy shoots a hologram, and how the player orders an enemy taken over, and how its own mind comes
   back.
-- **Grenades:** what the EM Pulse Grenade does beyond holding the
-  Electronic Equipment, and how a damage type's `Unavoidable damage`
-  weighs against a character's own (`0x495297`).
 - **The panels:** where each part of an item's panel is drawn, and
   whether it's over the minimap: the point the info bar hands the
   panel's draw (its slot `0x64`, `0x534a70`) isn't traced.
