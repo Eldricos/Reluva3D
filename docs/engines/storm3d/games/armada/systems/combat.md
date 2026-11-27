@@ -60,6 +60,27 @@ critical 0.5), `<system>RepairTime` and `<system>CrewLoss`, and
 to 4 a second, for up to 2.75 seconds, as the original's shards were
 gone within two.
 
+### Boarding, capture and repair
+
+From the files: the order buttons' tooltips (`Dynamic_Localized_Strings.h`)
+say what they do. Transport, the rail's last button, "sends a boarding
+party over to another vessel. On enemy vessels, the boarding party will
+fight the crew and take the ship over if no crew remains. It will
+reinforce crew on friendly vessels." Recrew, a station's, reinforces
+it "with crew taken from the crew pool"; Repair and Recrew sends a ship
+"to the nearest shipyard for faster repair and recrewing from the crew
+pool". `RTS_CFG.h` has the transporters: `TRANSPORTER_RANGE` 500,
+`TRANSPORTER_DELAY` and `TRANSPORTER_ACTION_DELAY` 1 second,
+`TRANSPORTER_MAX` 5. Each race's definition (`fed.odf`, `kling.odf`,
+`rom.odf`, `borg.odf`) has its crews' `boardingStrength` (the
+Federation's 1.0, the Klingons' 1.5, the Borg's 1.75), `repairStrength`
+(1.5, 0.75...), `crewYellowStatus` and `crewRedStatus` (the shares of a
+crew its display warns at) with `repairYellow` and `repairRed`, a
+`crewRetreatRatio`, and `crewAccumulationRate` 3.5: the crew a starbase
+adds a second, as the original's counter showed
+([play.md](play.md)). A unit starts with its `crewCost` aboard, of its
+`maximumCrew`: the starbase's 800 of 1500, as the original's display.
+
 ### Chasing
 
 A shipyard built, and a destroyer (`fdestroy`, its `dpulse` reaching
@@ -215,6 +236,26 @@ From the same run's frames and draws:
   panel shows the crew so, and each system's icon from green, whole, to
   red, out. A unit burns while one of its systems is out, as the
   original's caught fire after the first volley on its hull.
+- **Boarding:** the transport button, then a unit: the ship goes within
+  500 of it, then sends a party each second, a fifth of its crew
+  *(guessed)*, while it keeps its race's `crewRetreatRatio` of its crew
+  *(guessed)*; a party lands a second later. On an ally it adds to the
+  crew, to its most; on another's it fights the crew, each side's crew
+  times its race's `boardingStrength`, the stronger left with the
+  difference *(guessed)*; a crew beaten, the unit is the boarders'
+  player's, in their colour, counted lost and destroyed as a kill is.
+  A unit with no crew neither moves nor fires, its repairs stopped.
+  `engine-shot` sent a construction ship's crew to its starbase: 500 to
+  205 in four parties, the starbase's 800 to 1136.
+- **Repair:** systems mend by themselves faster by the race's
+  `repairStrength` and slower by `repairYellow` or `repairRed` with the
+  crew below those shares *(inferred)*: the keys' names say so. Repair
+  and Recrew, lit for a ship short of hull, systems or crew with a
+  shipyard or starbase of its player's *(inferred)*, as the original's
+  whole construction ship had it dark: the ship goes there, and is
+  mended over half a minute by its `repairStrength` and recrewed from the
+  pool, 20 a second *(guessed)*. A station's Recrew takes crew from the
+  pool the same way, to its most.
 - **Hit chance:** each shot hits by its weapon's `hitChance`, a roll of
   Reluva's own; one that misses flies past.
 - **Destroyed,** a unit breaks up: its model's parts (not its single
@@ -279,6 +320,9 @@ From the same run's frames and draws:
   fight.
 - Which pod node the original takes first (its Antimatter Mines went
   to an arm, not known which), and the pod growing as it's built.
+- How the original's boarding runs: a party's size, how the fight is
+  reckoned, `TRANSPORTER_MAX`, and how fast a yard repairs and recrews;
+  whether a starbase repairs too; what `crewRetreatRatio` does.
 - What `RTS_CFG.h`'s `DOGFIGHT_RANGE` (70) and anchor settings do: the
   destroyer chasing a construction ship didn't circle it, and two ships
   of different players haven't been seen fighting. Nor has a right

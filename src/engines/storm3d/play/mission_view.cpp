@@ -148,6 +148,7 @@ Hud::Unit MissionView::displayOf(const std::string &odfName, const Odf::Loader &
     u.controls.push_back({2, "b_attack", "bb_standard", attacks});
     u.controls.push_back({3, "b_stop", "bb_standard", true});
     // Seen dark on the construction ship, the one ship seen yet.
+    // Repair and Recrew, for a ship: lit as it draws, while it needs it.
     if (!starbase)
         u.controls.push_back({4, "b_repair", "bb_standard", false});
     u.controls.push_back({5, "b_order", "bb_standard", true});
@@ -498,6 +499,21 @@ void MissionView::pressControl(int slot) {
     if (slot == 0 || _selection.size() != 1)
         return;
     if (!_building) {
+        // Repair and Recrew: to the nearest shipyard or starbase.
+        const size_t one = size_t(_selection.front());
+        for (const Hud::Unit::Button &b : _orders.controls)
+            if (b.slot == slot && b.sprite == "b_repair" && one < _vitals.size() &&
+                (_vitals[one].hull < _vitals[one].maxHull || _vitals[one].crew < _vitals[one].maxCrew ||
+                 _vitals[one].damaged()))
+                if (auto station = repairStationFor(one)) {
+                    _repairingAt[one] = *station;
+                    _ships[one].goal = _scene.units()[*station].at;
+                    _targets[one] = -1;
+                }
+        // Recrew: a station's crew from the pool.
+        for (const Hud::Unit::Button &b : _orders.controls)
+            if (b.slot == slot && b.sprite == "b_recrew" && b.enabled)
+                _recrewing.insert(one);
         // The attack button: the next click on a unit is the target.
         for (const Hud::Unit::Button &b : _orders.controls)
             if (b.slot == slot && b.sprite == "b_attack" && b.enabled)
@@ -865,7 +881,16 @@ void MissionView::addFighter(const std::string &odf) {
     Odf def;
     const Odf::Loader loader = loaderOf(_files.files());
     const bool read = !def.load(odf + ".odf", loader);
-    _vitals.push_back(read ? Combat::vitalsOf(def) : Combat::Vitals{});
+    Combat::Vitals vitals = read ? Combat::vitalsOf(def) : Combat::Vitals{};
+    // Its crew's strengths, its race's (fed.odf...) where it gives none.
+    if (read) {
+        Odf race;
+        const std::string raceFile = Combat::raceFileOf(def.string("race"));
+        if (raceFile.empty() || race.load(raceFile + ".odf", loader))
+            race = Odf{};
+        Combat::raceInto(vitals, def, race);
+    }
+    _vitals.push_back(vitals);
     _weapons.push_back(read ? Combat::weaponsOf(def, loader) : std::vector<Combat::Weapon>{});
     _targets.push_back(-1);
     _chasing.push_back(false);
@@ -945,6 +970,7 @@ void MissionView::fight(double seconds) {
         return false;
     });
     runEffects(seconds);
+    runCrew(seconds);
     // A detector's sight wears off; a cloaked unit seen shows meanwhile.
     std::erase_if(_revealedUntil, [now](const auto &r) { return now >= r.second; });
     for (size_t i = 0; i < count && i < _cloaked.size(); ++i)
@@ -968,7 +994,7 @@ void MissionView::fight(double seconds) {
             // Its weapons out, it doesn't fire.
             const Effects &e = _effects[i];
             if (w.ready > 0 || distance > w.range || _vitals[i].systems[Combat::kWeapons].out() || _cloaked[i] ||
-                active(e.weaponsOff) || active(e.frozen))
+                active(e.weaponsOff) || active(e.frozen) || disabled(i))
                 continue;
             // A roll from a little generator of our own, the same each game.
             _roll = _roll * 1664525u + 1013904223u;
@@ -1812,6 +1838,13 @@ void MissionView::stop() {
     _expiresAt.clear();
     _takenOver.clear();
     _spies.clear();
+    _transporting = false;
+    _transportTo.clear();
+    _nextParty.clear();
+    _parties.clear();
+    _repairingAt.clear();
+    _recrewing.clear();
+    _poolCarry.clear();
     _revealedUntil.clear();
     _selfDestructAt.clear();
     _holds.clear();
@@ -1854,6 +1887,12 @@ void MissionView::handleEvent(const Event &ev) {
             _menuWanted = true;
             return;
         }
+        // The transport button: the next unit clicked is where crew go.
+        if (_hud.transportAt(ev.mouseX, ev.mouseY) && !_selection.empty()) {
+            _transporting = true;
+            _targeting = true;
+            return;
+        }
         if (const int sp = _hud.specialAt(ev.mouseX, ev.mouseY); sp >= 0 && size_t(sp) < _orders.specials.size()) {
             useSpecial(_orders.specials[size_t(sp)], -1);
             return;
@@ -1873,7 +1912,11 @@ void MissionView::handleEvent(const Event &ev) {
                            _specials[size_t(i)].begin(), _specials[size_t(i)].end(),
                            [this](const Combat::Special &sp) { return sp.button == _arming && wantsPoint(sp); });
             });
-            if (!_arming.empty() && point && !_selection.empty() && size_t(_selection.front()) < _ships.size()) {
+            if (_transporting) {
+                if (t >= 0)
+                    for (int i : obeying(_selection))
+                        transport(size_t(i), size_t(t));
+            } else if (!_arming.empty() && point && !_selection.empty() && size_t(_selection.front()) < _ships.size()) {
                 if (auto at =
                         MapScene::pointOn(camera(), _ships[size_t(_selection.front())].at[1], ev.mouseX, ev.mouseY))
                     firePoint(_arming, *at);
@@ -1883,6 +1926,7 @@ void MissionView::handleEvent(const Event &ev) {
                 attack(t);
         }
         _arming.clear();
+        _transporting = false;
         return;
     }
     if (_placing && ev.type == EventType::kMouseDown && !_hud.covers(ev.mouseX, ev.mouseY)) {
@@ -2279,7 +2323,8 @@ void MissionView::draw(uint64_t millis) {
             continue;
         // Its engines out, or held by a beam, it stops where it is.
         const bool held = std::any_of(_holds.begin(), _holds.end(), [i](const Hold &h) { return h.target == i; });
-        const bool stopped = i < _effects.size() && (active(_effects[i].enginesOff) || active(_effects[i].frozen));
+        const bool stopped =
+            disabled(i) || (i < _effects.size() && (active(_effects[i].enginesOff) || active(_effects[i].frozen)));
         if (held || stopped || (i < _vitals.size() && _vitals[i].systems[Combat::kEngines].out())) {
             _ships[i].speed = 0;
             continue;
@@ -2421,6 +2466,17 @@ void MissionView::draw(uint64_t millis) {
                         orders.specialsReady[b] = true;
     if (!_display.empty())
         orders.energy = _display.front().energy;
+    // Repair and Recrew lit for one ship short of hull, systems or crew,
+    // with a shipyard or starbase to go to: dark on the original's whole
+    // construction ship *(inferred)*.
+    if (_selection.size() == 1 && size_t(_selection.front()) < _vitals.size()) {
+        const size_t one = size_t(_selection.front());
+        const Combat::Vitals &v = _vitals[one];
+        const bool needs = v.hull < v.maxHull || v.crew < v.maxCrew || v.damaged();
+        for (Hud::Unit::Button &b : orders.controls)
+            if (b.sprite == "b_repair")
+                b.enabled = needs && repairStationFor(one).has_value();
+    }
     if (_building) {
         orders.controls = _buildMenu.controls;
         // The item being placed in orange; all dark while the ship builds,
@@ -2464,10 +2520,11 @@ void MissionView::draw(uint64_t millis) {
     for (int i : _selection)
         sending = sending || (size_t(i) < _moves.size() && _moves[size_t(i)]);
     const bool onMap = !_hud.covers(_mouseX, _mouseY);
-    const char *cursor = _targeting && onMap ? "c_attack"
-                         : _hover >= 0       ? "c_select"
-                         : sending && onMap  ? "c_move"
-                                             : "c_arrow";
+    const char *cursor = _transporting && onMap ? "c_transport"
+                         : _targeting && onMap  ? "c_attack"
+                         : _hover >= 0          ? "c_select"
+                         : sending && onMap     ? "c_move"
+                                                : "c_arrow";
     _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, cursor);
     _renderer->endFrame(&_overlay);
 }

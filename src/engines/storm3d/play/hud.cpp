@@ -446,6 +446,17 @@ int Hud::specialAt(int x, int y) const {
     return -1;
 }
 
+bool Hud::transportAt(int x, int y) const {
+    const std::array<int, 4> rail = _layout.area("speedPanelArea");
+    const std::array<int, 4> slot = _layout.area("speedSingleButtonArea");
+    const std::array<int, 4> separator = _layout.area("speedSeparatorArea");
+    const int step = slot[2] + int(_layout.number("speedSingleButtonGap"));
+    const int left =
+        rail[0] + slot[0] + int(kRailSlots) * step + separator[2] + int(_layout.number("speedSingleButtonGap"));
+    const int top = rail[1] + slot[1];
+    return x >= left && x < left + slot[2] && y >= top && y < top + slot[3];
+}
+
 int Hud::cinematicButtonAt(int x, int y) const {
     const std::array<int, 4> cinematic = _layout.area("cinematicPanelArea");
     int n = 0;

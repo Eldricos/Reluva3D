@@ -45,6 +45,15 @@ public:
         float crew = 0;
         float maxCrew = 0;
         float lifeSupportLoss = 0; // of its crew, in percent a second, while its life support is out
+        // Its race's (fed.odf, kling.odf...) or its own: how its crew
+        // boards and repairs, and the shares of its crew below which its
+        // repairs take repairYellow and repairRed times as long.
+        float boarding = 1;
+        float repairStrength = 1;
+        float crewYellow = 0;
+        float crewRed = 0;
+        float repairYellow = 1;
+        float repairRed = 1;
         std::array<SystemState, kSystems> systems{};
         bool alive() const { return hull > 0; }
         /** Whether any of its systems is out (its fires burn). */
@@ -55,6 +64,21 @@ public:
      * shields back at its shieldRate; its special energy full.
      */
     static Vitals vitalsOf(const Odf &unit);
+    /** The race's definition a unit's `race` names ("federation": fed.odf); empty if none. */
+    static std::string raceFileOf(const std::string &race);
+    /** Its crew's strengths and repair rates from its race's definition, where its own doesn't give them. */
+    static void raceInto(Vitals &vitals, const Odf &unit, const Odf &race);
+    /** How a boarding party fares: what's left of it if it took the ship, or of the crew if it didn't. */
+    struct Boarding {
+        bool taken = false;
+        float left = 0;
+    };
+    /**
+     * A party of `party` crew, boarding at `boarding` strength, against
+     * `crew` defending at `defending`: each side's crew times its strength,
+     * the bigger winning with the difference, in its own crew.
+     */
+    static Boarding board(float party, float boarding, float crew, float defending);
 
     /** One of a unit's weapons that fires at what it attacks (not its special weapons). */
     struct Weapon {

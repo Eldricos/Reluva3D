@@ -77,6 +77,8 @@ public:
                                                        float far) const;
     /** The rail's special weapon button under a point (into Unit::specials); -1 for none. */
     int specialAt(int x, int y) const;
+    /** Whether a point is on the rail's transport button, past its separator. */
+    bool transportAt(int x, int y) const;
     /** The control panel's button (1 to 12, controlButton<n>) under a point of the screen; 0 for none. */
     int controlAt(int x, int y) const;
     /** The cinematic view's display on the screen: x, y, width and height. */

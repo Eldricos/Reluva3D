@@ -674,6 +674,41 @@ void testCrewAndSystems() {
     CHECK(!life.out() && !v.damaged());
 }
 
+// A boarding party against a crew, each times its race's strength (the
+// Klingons' 1.5, the Federation's 1): the bigger side keeps the
+// difference, in its own crew. Repairs go by the crew: faster by the
+// race's repairStrength, slower by repairRed with the crew below its
+// share, none with no crew.
+void testBoardingAndRepair() {
+    using reluva::storm3d::Combat;
+    const Combat::Boarding took = Combat::board(100, 1.5f, 120, 1);
+    CHECK(took.taken && std::fabs(took.left - 20) < 1e-3f);
+    const Combat::Boarding held = Combat::board(50, 1, 80, 1);
+    CHECK(!held.taken && std::fabs(held.left - 30) < 1e-3f);
+    CHECK(Combat::raceFileOf("Federation") == "fed" && Combat::raceFileOf("klingon") == "kling");
+
+    Combat::Vitals v;
+    v.maxShields = v.shields = v.maxHull = v.hull = 100;
+    v.maxCrew = 100;
+    v.crew = 100;
+    v.repairStrength = 1.5f;
+    v.crewRed = 0.2f;
+    v.repairRed = 2;
+    Combat::SystemState &engines = v.systems[Combat::kEngines];
+    engines.maxHitPoints = 10;
+    engines.repairTime = 10;
+    Combat::regenerate(v, 2); // a full crew, 1.5 times as fast: 3 of 10
+    CHECK(std::fabs(engines.hitPoints - 3) < 1e-3f);
+    v.crew = 10; // below its red share: half again slower than that
+    engines.hitPoints = 0;
+    Combat::regenerate(v, 2);
+    CHECK(std::fabs(engines.hitPoints - 1.5f) < 1e-3f);
+    v.crew = 0; // none: no repairs
+    engines.hitPoints = 0;
+    Combat::regenerate(v, 2);
+    CHECK(engines.hitPoints == 0);
+}
+
 // The original's destroyer: within its reach of 250 it held; its target
 // flown to 300 away, it flew to the edge of its reach on the way.
 void testChase() {
@@ -683,32 +718,33 @@ void testChase() {
     CHECK(point && std::fabs(300 - (*point)[2] - 250 * 0.95f) < 1e-2f);
 }
 
-static const reluva::test::Suite kSuite("storm3d.unit.play",
-                                        {
-                                            {"keys", [](const std::filesystem::path &) { testKeys(); }},
-                                            {"moves", [](const std::filesystem::path &) { testMoves(); }},
-                                            {"start", [](const std::filesystem::path &) { testStart(); }},
-                                            {"layout", [](const std::filesystem::path &) { testLayout(); }},
-                                            {"counters", [](const std::filesystem::path &) { testCounters(); }},
-                                            {"selection", [](const std::filesystem::path &) { testSelection(); }},
-                                            {"display", [](const std::filesystem::path &) { testDisplay(); }},
-                                            {"box", [](const std::filesystem::path &) { testBox(); }},
-                                            {"group orders", [](const std::filesystem::path &) { testGroupOrders(); }},
-                                            {"movement", [](const std::filesystem::path &) { testMovement(); }},
-                                            {"point on", [](const std::filesystem::path &) { testPointOn(); }},
-                                            {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
-                                            {"crew", [](const std::filesystem::path &) { testCrew(); }},
-                                            {"minimap", [](const std::filesystem::path &) { testMinimap(); }},
-                                            {"close-up", [](const std::filesystem::path &) { testCloseUp(); }},
-                                            {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
-                                            {"orders", [](const std::filesystem::path &) { testOrders(); }},
-                                            {"placing", [](const std::filesystem::path &) { testPlacing(); }},
-                                            {"chase", [](const std::filesystem::path &) { testChase(); }},
-                                            {"specials", [](const std::filesystem::path &) { testSpecials(); }},
-                                            {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
-                                            {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
-                                            {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
-                                            {"combat", [](const std::filesystem::path &) { testCombat(); }},
-                                            {"build list", [](const std::filesystem::path &) { testBuildList(); }},
-                                            {"strategy", [](const std::filesystem::path &) { testStrategy(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("storm3d.unit.play", {
+                                    {"keys", [](const std::filesystem::path &) { testKeys(); }},
+                                    {"moves", [](const std::filesystem::path &) { testMoves(); }},
+                                    {"start", [](const std::filesystem::path &) { testStart(); }},
+                                    {"layout", [](const std::filesystem::path &) { testLayout(); }},
+                                    {"counters", [](const std::filesystem::path &) { testCounters(); }},
+                                    {"selection", [](const std::filesystem::path &) { testSelection(); }},
+                                    {"display", [](const std::filesystem::path &) { testDisplay(); }},
+                                    {"box", [](const std::filesystem::path &) { testBox(); }},
+                                    {"group orders", [](const std::filesystem::path &) { testGroupOrders(); }},
+                                    {"movement", [](const std::filesystem::path &) { testMovement(); }},
+                                    {"point on", [](const std::filesystem::path &) { testPointOn(); }},
+                                    {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
+                                    {"crew", [](const std::filesystem::path &) { testCrew(); }},
+                                    {"minimap", [](const std::filesystem::path &) { testMinimap(); }},
+                                    {"close-up", [](const std::filesystem::path &) { testCloseUp(); }},
+                                    {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
+                                    {"orders", [](const std::filesystem::path &) { testOrders(); }},
+                                    {"placing", [](const std::filesystem::path &) { testPlacing(); }},
+                                    {"chase", [](const std::filesystem::path &) { testChase(); }},
+                                    {"specials", [](const std::filesystem::path &) { testSpecials(); }},
+                                    {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
+                                    {"boarding", [](const std::filesystem::path &) { testBoardingAndRepair(); }},
+                                    {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
+                                    {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
+                                    {"combat", [](const std::filesystem::path &) { testCombat(); }},
+                                    {"build list", [](const std::filesystem::path &) { testBuildList(); }},
+                                    {"strategy", [](const std::filesystem::path &) { testStrategy(); }},
+                                });

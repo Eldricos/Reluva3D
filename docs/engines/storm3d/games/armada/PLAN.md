@@ -92,9 +92,8 @@ these phases start from, is in [formats/install.md](formats/install.md).
    screens. What needs play waits: the mission itself and Instant Action (phase
    7), saved games and the Load Game screen's list (phase 8), the ways
    to play over the network (phase 9).
-7. **Rules** (in progress): units from their object definitions: movement and
-   collision avoidance, weapons, shields, crews and boarding, officers,
-   mining dilithium, building and research, special weapons, the ships' specular
+7. **Rules** (in progress): units from their object definitions:
+   collision avoidance, warp and formations, the ships' specular
    highlights as they turn in the light; then
    skirmish against the computer player (its scheduler, the `.aip`
    personalities, its DLLs). The largest phase, checked against the
@@ -117,7 +116,12 @@ these phases start from, is in [formats/install.md](formats/install.md).
    ([systems/computer-player.md](systems/computer-player.md)); the
    shields' glow, fires and explosions; sight, the shroud lifting and
    the fog over what isn't seen now
-   ([systems/play.md](systems/play.md#sight-and-the-fog)).
+   ([systems/play.md](systems/play.md#sight-and-the-fog)); a skirmish's
+   menu, surrendering and its debriefing; attacking with A or a right
+   click, and ships chasing their target; research and the special
+   weapons; crew and systems hit, misses, debris and shockwaves;
+   boarding, capture, repair and recrew
+   ([systems/combat.md](systems/combat.md)).
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

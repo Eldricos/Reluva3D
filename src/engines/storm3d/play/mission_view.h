@@ -399,6 +399,24 @@ private:
         double until = 0;
     };
     std::vector<Spy> _spies;
+    // Crew: a unit transporting to another (boarding it, or reinforcing
+    // an ally), going near enough first; parties on their way; ships sent
+    // to be repaired, and stations recrewing from the pool.
+    bool _transporting = false;            // the transport button pressed: the next click's unit
+    std::map<size_t, size_t> _transportTo; // by unit: its target
+    std::map<size_t, double> _nextParty;   // by unit: when it can send another, the game's seconds
+    struct Party {
+        size_t from = 0;
+        size_t target = 0;
+        int slot = 0;
+        float crew = 0;
+        float boarding = 1;
+        double arrives = 0;
+    };
+    std::vector<Party> _parties;
+    std::map<size_t, size_t> _repairingAt; // by ship: the station it's repaired at
+    std::set<size_t> _recrewing;           // stations taking crew from the pool
+    std::map<size_t, double> _poolCarry;   // crew owed a unit from the pool, not yet a whole one
     std::vector<Hold> _holds;
     std::vector<bool> _chasing; // as _targets: its goal is its target's, set by pursue()
     std::vector<bool> _dead;
@@ -465,6 +483,13 @@ private:
     bool fireMore(size_t unit, Combat::Special &special, int target);
     void firePoint(const std::string &button, const gfx::Vec3 &point);
     void runEffects(double seconds); // the fields, beams, drains and what wears off
+    // crew.cpp: transporting, boarding and capture, repair and recrew.
+    void transport(size_t unit, size_t target);
+    void runCrew(double seconds);
+    void fromPool(size_t unit, Hud::Resources &bank, double seconds); // recrewing, 20 a second
+    void capture(size_t unit, int slot, float crew);
+    std::optional<size_t> repairStationFor(size_t ship) const;
+    bool disabled(size_t unit) const; // without crew, it neither moves nor fires
     bool active(double until) const { return double(_last) / 1000 < until; }
     std::vector<int> obeying(const std::vector<int> &selection) const; // those not scrambled
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,

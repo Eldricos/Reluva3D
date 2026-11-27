@@ -6,6 +6,7 @@
 #include "common/text.h"
 
 #include <algorithm>
+#include <map>
 
 namespace reluva::storm3d {
 
@@ -143,6 +144,31 @@ std::string Combat::researchKeyOf(const std::string &tooltip) {
     return text::toLower(squeezed);
 }
 
+std::string Combat::raceFileOf(const std::string &race) {
+    static const std::map<std::string, std::string> kFiles = {
+        {"federation", "fed"}, {"klingon", "kling"}, {"romulan", "rom"}, {"borg", "borg"}};
+    auto it = kFiles.find(text::toLower(race));
+    return it == kFiles.end() ? std::string() : it->second;
+}
+
+void Combat::raceInto(Vitals &vitals, const Odf &unit, const Odf &race) {
+    auto value = [&](const char *key, double fallback) { return float(unit.number(key, race.number(key, fallback))); };
+    vitals.boarding = value("boardingStrength", 1);
+    vitals.repairStrength = value("repairStrength", 1);
+    vitals.crewYellow = value("crewYellowStatus", 0);
+    vitals.crewRed = value("crewRedStatus", 0);
+    vitals.repairYellow = value("repairYellow", 1);
+    vitals.repairRed = value("repairRed", 1);
+}
+
+Combat::Boarding Combat::board(float party, float boarding, float crew, float defending) {
+    const float attack = party * boarding;
+    const float defence = crew * defending;
+    if (attack > defence)
+        return {true, boarding > 0 ? (attack - defence) / boarding : 0};
+    return {false, defending > 0 ? (defence - attack) / defending : 0};
+}
+
 bool Combat::Vitals::damaged() const {
     for (const SystemState &s : systems)
         if (s.out())
@@ -182,9 +208,17 @@ void Combat::regenerate(Vitals &vitals, double seconds) {
     vitals.energy = std::min(vitals.maxEnergy, vitals.energy + float(vitals.energyRate * seconds));
     if (vitals.systems[kLifeSupport].out())
         vitals.crew = std::max(0.0f, vitals.crew - vitals.crew * vitals.lifeSupportLoss / 100 * float(seconds));
+    // Repairs, by its crew: faster by its race's repairStrength, slower by
+    // repairYellow or repairRed with its crew below those shares, none
+    // without crew *(inferred: the keys' names)*.
+    const float share = vitals.maxCrew > 0 ? vitals.crew / vitals.maxCrew : 1;
+    const float slower = share < vitals.crewRed      ? vitals.repairRed
+                         : share < vitals.crewYellow ? vitals.repairYellow
+                                                     : 1;
+    const float pace = vitals.crew > 0 || vitals.maxCrew <= 0 ? vitals.repairStrength / std::max(0.01f, slower) : 0;
     for (SystemState &s : vitals.systems)
         if (s.maxHitPoints > 0 && s.repairTime > 0)
-            s.hitPoints = std::min(s.maxHitPoints, s.hitPoints + s.maxHitPoints / s.repairTime * float(seconds));
+            s.hitPoints = std::min(s.maxHitPoints, s.hitPoints + s.maxHitPoints / s.repairTime * pace * float(seconds));
 }
 
 float Combat::damageOf(const Weapon &weapon, float roll) {
