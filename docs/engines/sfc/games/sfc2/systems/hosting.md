@@ -621,11 +621,12 @@ never sets a colour key on any surface. Where the blit fails it calls
 with its background left out *(inferred)*: with `sfc.ini`'s `[Mouse]
 hwblit=0` it always does, and the pointer is drawn right. With
 `hwblit=1`, as the install has it, a blit that copied the pointer
-unkeyed showed its magenta background; the blit now fails as
-DirectDraw's documentation says it does for a source without a colour
-key, with `DDERR_NOCOLORKEY` *(published)*, and the game draws it
-itself. What the original's display drivers did with such a blit isn't
-known.
+unkeyed showed its magenta background. On Windows the blit never
+reaches a driver: DirectDraw itself refuses a blit keyed by a source
+that has no key, with `DDERR_INVALIDPARAMS`, as Wine's account of it
+has it ([directx.md](../../../../../common/x86/directx.md))
+*(published)*. So the original drew its pointer by 0x6a5520 whatever
+`hwblit` said, and Reluva fails the blit the same way.
 
 ## In Reluva
 
@@ -801,6 +802,10 @@ time isn't measured.
 - **The game's own Winsock functions:** Dynaverse II's, for its login
   ([Its multiplayer](#its-multiplayer)), and the machine's name and
   address for DirectPlay.
+- **How the original drew its pointer with `hwblit=1`:** by its own
+  routine (0x6a5520), as with `hwblit=0`: its blit keyed by a source
+  that has no colour key is refused by DirectDraw itself
+  ([Its mouse and keys](#its-mouse-and-keys)).
 - **Why a loaded campaign stopped starting missions:** Reluva's clock.
   A campaign loaded from a save made late in an earlier run (two missions
   in) offered missions, but once one was accepted it never started: the
@@ -825,9 +830,3 @@ time isn't measured.
 
 - Whether the game also asks for other files no install has, besides
   `uibitmaps.zip` and `uq3.txt` ([answered](#questions-answered)).
-- What the original's display drivers did with a blit keyed by a source
-  with no colour key, as the game's pointer is drawn with `hwblit=1`.
-  Microsoft's documentation has an error for a surface without a colour
-  key (`DDERR_NOCOLORKEY`, "the surface does not currently have a color
-  key"), but doesn't list it among `Blt`'s; Reluva fails such a blit, as
-  that error says.

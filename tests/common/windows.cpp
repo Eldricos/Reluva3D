@@ -990,7 +990,7 @@ static void testDirectX() {
     cpu.write16(texels + pitch + 2, 0x0000); // black
     CHECK(call(texture, 32, {0}) == 0);      // Unlock
     // A copy keyed by the source's colour key fails while it has none.
-    CHECK(call(texture, 5, {0, texture, 0, 0x8000, 0}) == 0x887600d7u); // Blt, KEYSRC: DDERR_NOCOLORKEY
+    CHECK(call(texture, 5, {0, texture, 0, 0x8000, 0}) == 0x80070057u); // Blt, KEYSRC: DDERR_INVALIDPARAMS
     const uint32_t key = mem(8);
     cpu.write32(key, 0), cpu.write32(key + 4, 0);
     CHECK(call(texture, 29, {0x8, key}) == 0); // SetColorKey: SRCBLT, black

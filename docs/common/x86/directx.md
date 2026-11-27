@@ -18,8 +18,9 @@ headers' (`directx/interfaces.cpp`).
     them;
   - blits (stretching, colour keys, colour and depth fills) and flipping
     chains; a blit keyed by its source's colour key, from a source with
-    none, fails with `DDERR_NOCOLORKEY`, as DirectDraw's documentation
-    gives it (Starfleet Command II then draws its pointer itself);
+    none, fails with `DDERR_INVALIDPARAMS`, as Windows' DirectDraw
+    refuses it before any driver sees it (Starfleet Command II then draws
+    its pointer itself);
   - palettes and clippers;
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
     surface).
@@ -123,6 +124,13 @@ checked without a GPU.
 - **Where the facts come from:** the DirectX 7 documentation, the
   DirectX 6 documentation for Direct3D 6, and the SDK headers for
   interfaces, method orders and IIDs.
+- **A keyed blit from a source with no key:** the documentation names
+  `DDERR_NOCOLORKEY` for a surface without a key but doesn't list it
+  among `Blt`'s errors. Wine's DirectDraw (`dlls/ddraw/surface.c`, whose
+  behaviour its tests check against Windows) refuses such a blit in
+  DirectDraw itself, before any driver, with `DDERR_INVALIDPARAMS`, and
+  its tests note that this error checking works the same on Microsoft's
+  WARP renderer *(published)*. No driver of the time could draw it, then.
 
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
