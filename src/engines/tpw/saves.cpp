@@ -122,6 +122,13 @@ std::vector<SaveSlot> listSaves(const std::filesystem::path &folder, const std::
     return slots;
 }
 
+Error deleteSave(const std::filesystem::path &file) {
+    std::error_code ec;
+    if (!std::filesystem::remove(file, ec) || ec)
+        return Error::fail("can't delete " + file.string());
+    return Error::success();
+}
+
 std::filesystem::path newSaveFile(const std::filesystem::path &folder) {
     for (int n = 1;; ++n) {
         const std::filesystem::path file = folder / ("save" + std::to_string(n) + kExtension);

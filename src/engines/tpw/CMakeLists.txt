@@ -24,6 +24,7 @@ reluva_add_engine(tpw
         park/saving.cpp
         park/research.cpp
         players.cpp
+        options.cpp
         saves.cpp
         sound_effects.cpp
         textures.cpp

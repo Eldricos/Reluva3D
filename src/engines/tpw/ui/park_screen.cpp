@@ -1215,6 +1215,7 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
                        int(std::floor(camera.target[2] / Park::kCellUnits))});
         _overviewMap.draw(screen, _kit);
         _saveLoad.draw(screen, _kit);
+        _optionsWindow.draw(screen, _kit);
         _messageCenter.draw(screen, _kit, _inbox, _playerName, [&](uint32_t day) { return dateText(day); });
         _messageWindow.draw(screen, _kit);
         _wageDemand.draw(screen, _kit, park, _hire);
@@ -1274,15 +1275,49 @@ void ioScreen(A &a, std::vector<MessageCenterWindow::Received> &inbox, std::vect
 
 } // namespace
 
-void ParkScreen::openSaveLoad(SaveLoadWindow::Mode mode) {
-    _slotFiles.clear();
+namespace {
+
+// A player's saves for the window's rows, and their files.
+std::vector<SaveLoadWindow::Row> saveRows(const std::filesystem::path &folder, const std::string &player,
+                                          std::vector<std::filesystem::path> &files,
+                                          const std::function<std::string(uint32_t)> &date) {
+    files.clear();
     std::vector<SaveLoadWindow::Row> rows;
-    if (!_savesFolder.empty())
-        for (const SaveSlot &slot : listSaves(_savesFolder, _saver)) {
-            _slotFiles.push_back(slot.file);
-            rows.push_back({slot.name, dateText(slot.day)});
+    if (!folder.empty())
+        for (const SaveSlot &slot : listSaves(folder, player)) {
+            files.push_back(slot.file);
+            rows.push_back({slot.name, date(slot.day)});
         }
-    _saveLoad.open(mode, std::move(rows));
+    return rows;
+}
+
+} // namespace
+
+void ParkScreen::openSaveLoad(SaveLoadWindow::Mode mode) {
+    _saveLoad.open(mode, saveRows(_savesFolder, _saver, _slotFiles, [&](uint32_t day) { return dateText(day); }));
+}
+
+void ParkScreen::setOptions(const GameOptions &options, std::filesystem::path saveFolder, audio::Mixer *mixer) {
+    _optionsFolder = std::move(saveFolder);
+    _mixer = mixer;
+    _options = options;
+    applyOptions(_options, _mixer);
+    _advisor.setEnabled(_options.advisor);
+}
+
+void ParkScreen::changeOptions(const GameOptions &options) {
+    _options = options;
+    applyOptions(_options, _mixer);
+    _advisor.setEnabled(_options.advisor);
+    (void)writeOptions(_optionsFolder, _options);
+}
+
+void ParkScreen::deleteChosen() {
+    const int row = _saveLoad.takeDelete();
+    if (row < 0 || size_t(row) >= _slotFiles.size())
+        return;
+    (void)deleteSave(_slotFiles[size_t(row)]);
+    _saveLoad.setRows(saveRows(_savesFolder, _saver, _slotFiles, [&](uint32_t day) { return dateText(day); }));
 }
 
 Error ParkScreen::saveChosen(const Park &park) {
@@ -1339,7 +1374,7 @@ bool ParkScreen::windowOpen() const {
            _attractionFinance.isOpen() || _messageWindow.isOpen() || _visitorStats.isOpen() ||
            _visitorWindow.isOpen() || _visitorList.isOpen() || _attractionList.isOpen() || _parkStats.isOpen() ||
            _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() || _parkMap.isOpen() ||
-           _overviewMap.isOpen() || _activateRide.isOpen() || _saveLoad.isOpen();
+           _overviewMap.isOpen() || _activateRide.isOpen() || _saveLoad.isOpen() || _optionsWindow.isOpen();
 }
 
 // Every message goes to the Message Center, unread; the president's
@@ -1458,6 +1493,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     ParkScreen::Camera camera = screen.startCamera(park);
     std::set<uint32_t> held;
     uint64_t last = sys.getMillis();
+    uint64_t speedCarry = 0;
     // The path tool's length being laid: from its start to the cell under
     // the mouse; or the queue it's laying ("Edit line"), on from its end.
     std::optional<Park::Cell> pathStart;
@@ -1536,13 +1572,19 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     const GameMenu::Choice choice = screen.gameMenu().handle(ev);
                     if (choice == GameMenu::Choice::kQuit)
                         return true;
+                    if (choice == GameMenu::Choice::kOptions)
+                        screen.optionsWindow().open(screen.options());
                     if (choice == GameMenu::Choice::kSave || choice == GameMenu::Choice::kLoad) {
                         screen.openSaveLoad(choice == GameMenu::Choice::kSave ? SaveLoadWindow::Mode::kSave
                                                                               : SaveLoadWindow::Mode::kLoad);
                     }
+                } else if (screen.optionsWindow().isOpen()) {
+                    if (screen.optionsWindow().handle(ev) == WindowResult::kChose)
+                        screen.changeOptions(screen.optionsWindow().options());
                 } else if (screen.saveLoad().isOpen()) {
                     // Saved, the game goes on; loaded, this park's left for the save's.
                     const WindowResult result = screen.saveLoad().handle(ev);
+                    screen.deleteChosen();
                     sys.setTextInput(screen.saveLoad().naming());
                     if (result == WindowResult::kChose && screen.saveLoad().mode() == SaveLoadWindow::Mode::kLoad) {
                         screen.takeLoadChosen();
@@ -1963,7 +2005,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         }
         const uint64_t now = sys.getMillis();
         const float seconds = float(now - last) / 1000;
-        park.advance(uint32_t(now - last));
+        // The park's clock at the game's speed: Reluva's own pace at the
+        // normal speed, the rest of a millisecond carried on.
+        speedCarry += (now - last) * uint64_t(screen.options().gameSpeed);
+        park.advance(uint32_t(speedCarry / GameOptions::kNormalSpeed));
+        speedCarry %= GameOptions::kNormalSpeed;
         screen.advance(park);
         screen.hud().advance(uint32_t(now - last));
         screen.buyWindow().advance(uint32_t(now - last));
@@ -2036,7 +2082,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             }
         }
         // The game's menu, and saving and loading from it, stop the park's clock.
-        park.setPaused(screen.gameMenu().isOpen() || screen.saveLoad().isOpen());
+        park.setPaused(screen.gameMenu().isOpen() || screen.saveLoad().isOpen() || screen.optionsWindow().isOpen());
         if (choice == kLocateStaffItem && !park.staff().empty()) {
             located = (located + 1) % park.staff().size();
             const Park::StaffMember &m = park.staff()[located];

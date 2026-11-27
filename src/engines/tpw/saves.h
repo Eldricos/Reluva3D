@@ -47,6 +47,9 @@ Error readSave(const std::filesystem::path &file, SavedGame &out, bool headerOnl
 /** A player's saves in the folder, newest first. */
 std::vector<SaveSlot> listSaves(const std::filesystem::path &folder, const std::string &player);
 
+/** Deletes a save. */
+Error deleteSave(const std::filesystem::path &file);
+
 /** A file for a new save in the folder: the first `save<n>.rsv` not there. */
 std::filesystem::path newSaveFile(const std::filesystem::path &folder);
 

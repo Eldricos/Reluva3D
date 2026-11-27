@@ -487,18 +487,27 @@ bool choosePlayer(System &sys, const SearchSet &files, const std::filesystem::pa
         WindowKit kit;
         if (kit.load(files))
             return std::filesystem::path();
-        const std::vector<SaveSlot> slots = savesOf(p);
-        std::vector<SaveLoadWindow::Row> rows;
-        for (const SaveSlot &s : slots)
-            rows.push_back({s.name, kit.date(s.day)});
+        std::vector<SaveSlot> slots;
+        const auto rows = [&] {
+            slots = savesOf(p);
+            std::vector<SaveLoadWindow::Row> out;
+            for (const SaveSlot &s : slots)
+                out.push_back({s.name, kit.date(s.day)});
+            return out;
+        };
         SaveLoadWindow window;
-        window.open(SaveLoadWindow::Mode::kLoad, std::move(rows));
+        window.open(SaveLoadWindow::Mode::kLoad, rows());
         for (;;) {
             Event ev;
             while (sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return std::filesystem::path();
                 const WindowResult result = window.handle(ev);
+                if (const int gone = window.takeDelete(); gone >= 0) {
+                    (void)deleteSave(slots[size_t(gone)].file);
+                    window.setRows(rows());
+                    view.canLoad = !slots.empty();
+                }
                 if (result == WindowResult::kChose)
                     return slots[size_t(window.chosen())].file;
                 if (result == WindowResult::kClosed || (ev.type == EventType::kKeyDown && ev.key == key::kEscape))

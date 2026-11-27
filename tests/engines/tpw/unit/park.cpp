@@ -8,6 +8,7 @@
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/park/attractions.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/options.h"
 #include "engines/tpw/saves.h"
 #include "engines/tpw/park/path_tiles.h"
 
@@ -1500,6 +1501,22 @@ void testSaving(const std::filesystem::path &tmp) {
           (read.screen == std::vector<uint8_t>{1, 2}));
     std::filesystem::resize_file(file, std::filesystem::file_size(file) - 1);
     CHECK(tpw::readSave(file, read));
+    CHECK(!tpw::deleteSave(file) && tpw::listSaves(folder, "Tester").empty() && tpw::deleteSave(file));
+
+    // The options: the game's speed by Config.sam's default config, the
+    // volumes by sound.sam's; kept and read back.
+    writeText(data / "Config.sam", "Defaults.DefaultConfig 1\r\nConfig[1].DefaultGameSpeed 70\r\n");
+    writeText(data / "sound.sam", "DefaultVolume.SFX 80\r\nDefaultVolume.MUSIC 60\r\n");
+    SearchSet withConfig;
+    CHECK(!mountGame(withConfig, tmp / "game", warnings));
+    tpw::GameOptions options = tpw::defaultOptions(withConfig);
+    CHECK(options.gameSpeed == 70 && (options.volume == std::array<int, 3>{80, 100, 60}) && options.advisor);
+    options.gameSpeed = 40;
+    options.advisor = false;
+    CHECK(!tpw::writeOptions(tmp / "player", options));
+    const tpw::GameOptions read2 = tpw::readOptions(tmp / "player", tpw::GameOptions{});
+    CHECK(read2.gameSpeed == 40 && !read2.advisor && read2.volume[2] == 60);
+    CHECK(tpw::readOptions(tmp / "nobody", options).gameSpeed == 40);
 
     // Cut short, or another version, it's refused.
     Park broken;

@@ -45,6 +45,8 @@ public:
     Error load(const SearchSet &files, const std::string &worldFolder);
     /** Where he speaks; nullptr to say nothing aloud, his lines timed as if he did. */
     void setMixer(audio::Mixer *mixer) { _mixer = mixer; }
+    /** Turned off (Options' "Advisor"), he says nothing, and stops what he's saying. */
+    void setEnabled(bool enabled);
     /** Says the cue's line, the first time it comes, after any he's saying. */
     void cue(Cue cue);
     /** Brings him on by `ms`: his line said, the next begun. */
@@ -69,6 +71,7 @@ private:
     int _talkAnimation = -1;
     SoundEffects _speech;
     bool _speechLoaded = false;
+    bool _enabled = true;
     audio::Mixer *_mixer = nullptr;
     std::set<Cue> _cued;
     std::deque<uint32_t> _waiting;

@@ -278,7 +278,7 @@ Error WindowKit::load(const SearchSet &files) {
         return err;
     // The other windows' tabs and buttons.
     for (const char *name : {"tab_vall", "tab_vchild", "tab_vadult", "tab_vsenior", "tab_arides", "tab_asshows",
-                             "tab_ashops", "tab_afeatures", "tab_afacility", "b_goto", "b_delete"})
+                             "tab_ashops", "tab_afeatures", "tab_afacility", "b_goto", "b_delete", "i_boxtick"})
         if (Error err = _pieces[name].load(files, std::string("ui/") + name + ".MD2"))
             return err;
     return readStringTable(files, folder, "THOUGHTS", _characters, _thoughts);

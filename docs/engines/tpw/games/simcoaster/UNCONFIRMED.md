@@ -142,6 +142,10 @@ None yet.
   are discovered, the player's choice of what to learn, what the special
   rides' challenges measure ([special-rides.md](systems/special-rides.md)).
 
+- **Options and the Park Map's layers**: the game's speed of 70 as
+  Reluva's own pace; what each map layer shows, and the windows' looks
+  ([options.md](systems/options.md), [park-windows.md](systems/park-windows.md#the-park-map)).
+
 - **The fly-in**: its pace along the path, 26 ms a frame, the fixed
   items with a cell stood up from it ([fly-in.md](systems/fly-in.md)).
 

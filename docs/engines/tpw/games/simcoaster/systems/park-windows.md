@@ -102,7 +102,21 @@ frame at (165, 86), 310 across *(guessed)*; on it, each attraction's mark
 (`2dmap/map_ride.tga` and the others of its kind), the visitors as white
 dots and the camera's place as a red cross; a click on it takes the
 camera there. The land beyond the park's fence is darkened, by guess
-([land.md](land.md)). The picture covers 96 cells across, the park's cell (0,
+([land.md](land.md)).
+
+Its controls ("By displaying different things using the map controls,
+you can identify problem areas", `TOTD` 21) are not seen; the map's own
+pictures (`2dmap/`) suggest what they show: stars (`map_stars1` to `5`)
+and upgrades (`map_upgradel1`, `2`), a wrench, a skull, a no-entry sign,
+soft glows and dots (`ksprite`, `msprite`, `nsprite`, `gsprite`,
+`esprite`, `lsprite`, `ssprite`, `vsprite`). Reluva puts a row of
+buttons under the map, each turning a layer on and off, by guess:
+attractions (on), their details (a ride's stars, a fifth of its
+excitement each; an attraction's upgrades), visitors (on; "the
+mischievous people will be shown in red", `TOTD` 0: those being
+naughty), staff, problems (broken rides, closed attractions, litter's
+glow, stink bombs' skulls) and cover (the guards' patrol areas, three
+cells round each entertainer). The picture covers 96 cells across, the park's cell (0,
 0) at its left and 5.6 cells from its top, as Land of Invention's
 entrance (47, 17), fence (y 48) and river (x 60) lie on it *(inferred)*.
 
@@ -128,15 +142,16 @@ apart from y 66, cyan and white under the mouse: "Load Game", "Save
 Game", "Select A New Player", "Go Online", "Options", "Go to Coaster
 Design Kit", "Resume Game", "Quit Game" (768, 769, 774, 766, 770, 50, 771,
 772). The park's clock stops meanwhile. "Load Game" and "Save Game"
-open their windows ([saving.md](saving.md)), "Resume Game" (or Esc)
-and "Quit Game" do as they say; the others are grey.
+open their windows ([saving.md](saving.md)), "Options" its
+([options.md](options.md)), "Resume Game" (or Esc) and "Quit Game" do
+as they say; the others are grey.
 
 ## In Reluva
 
 The windows are in `src/engines/tpw/ui/info_windows.cpp`, drawn and
 fed events by `ParkScreen` and `playPark`. `reluva-tool tpw window-shot
 <game folder> <world folder> <out.png>
-<visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview>`
+<visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview>`
 draws them; `messages` runs the park to its first annual report.
 `park-run` quits by the game's menu. The unit tests (`tpw.unit.ui`,
 `tpw.unit.park`) click the game's menu, the Message Center, the map and

@@ -9,10 +9,10 @@
 #include "audio/mixer.h"
 #include "common/settings.h"
 #include "engines/engine.h"
-#include "engines/tpw/formats/sam.h"
 #include "engines/tpw/game_files.h"
 #include "engines/tpw/games.h"
 #include "engines/tpw/park/park.h"
+#include "engines/tpw/options.h"
 #include "engines/tpw/players.h"
 #include "engines/tpw/saves.h"
 #include "engines/tpw/ui/briefing.h"
@@ -63,8 +63,10 @@ public:
         } audioOff{_sys, audioOut};
         if (!playOpening(_sys, audioOut ? &mixer : nullptr, _target.path, files))
             return Error::success();
-        // After the movie, which plays as music, at its own full level.
-        setTypeVolumes(files, mixer);
+        // After the movie, which plays as music, at its own full level: the
+        // player's options, else the game's own levels (sound.sam's).
+        _options = readOptions(_target.savePath, defaultOptions(files));
+        applyOptions(_options, &mixer);
         PlayerFile player;
         std::filesystem::path save;
         const int world = runFrontEnd(_sys, files, _target.savePath, audioOut ? &mixer : nullptr, &player, &save);
@@ -132,6 +134,7 @@ private:
         // The player's shares are the company's they hold, as their file keeps them.
         parkScreen.setPlayer(player.name, loaded ? park.rank() : player.rank);
         parkScreen.advisor().setMixer(_mixer);
+        parkScreen.setOptions(_options, _target.savePath, _mixer);
         for (const PlayerFile::World &w : player.worlds)
             for (int theme = 0; theme < 3; ++theme)
                 if (Park::themeName(theme) == w.theme)
@@ -170,6 +173,7 @@ private:
             for (size_t i = 0; i < Globe::worlds().size(); ++i)
                 if (Globe::worlds()[i].theme == Park::themeName(parkScreen.travel()))
                     next.world = int(i);
+        _options = parkScreen.options();
         // What the park did stays with the player, in their file too.
         keep(player, park);
         if (_target.savePath.empty() || !player.exists())
@@ -212,24 +216,12 @@ private:
                     w.won = park.challengesWonIn(theme);
     }
 
-    // The game's own levels for its sounds, music and speech, percent, as
-    // its settings give them (sound.sam's DefaultVolume); full without them.
-    static void setTypeVolumes(const SearchSet &files, audio::Mixer &mixer) {
-        std::vector<uint8_t> data;
-        SamFile sound;
-        if (files.read("sound.sam", data) || sound.parse(data))
-            return;
-        for (auto [type, name] : {std::pair{audio::SoundType::kEffects, "DefaultVolume.SFX"},
-                                  std::pair{audio::SoundType::kMusic, "DefaultVolume.MUSIC"},
-                                  std::pair{audio::SoundType::kSpeech, "DefaultVolume.SPEECH"}})
-            mixer.setTypeVolume(type, int(sound.number(name, 100) * audio::kMaxVolume / 100));
-    }
-
     static constexpr int kWidth = kOpeningWidth;
     static constexpr int kHeight = kOpeningHeight;
     System &_sys;
     GameTarget _target;
     audio::Mixer *_mixer = nullptr; // while the parks play, if the sound's on
+    GameOptions _options;
 };
 
 /**

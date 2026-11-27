@@ -5,6 +5,7 @@
 
 #include "common/events.h"
 #include "common/types.h"
+#include "engines/tpw/options.h"
 #include "engines/tpw/park/park.h"
 #include "engines/tpw/ui/object_names.h"
 #include "engines/tpw/ui/park_windows.h"
@@ -13,6 +14,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::tpw {
@@ -228,6 +230,24 @@ public:
      * colours its bars (guessed: the recording never opens it).
      */
     enum class Mode { kPark, kOpinion };
+    /**
+     * What the map shows, each turned on and off by its button below it
+     * ("By displaying different things using the map controls, you can
+     * identify problem areas", TOTD 21), its marks the map's own pictures
+     * (`2dmap/`). Which shows what is guessed.
+     */
+    enum class Layer {
+        kAttractions, // each by its kind's mark
+        kDetails,     // a ride's stars by its excitement, an attraction's upgrades
+        kVisitors,    // dots, the misbehaving red (TOTD 0)
+        kStaff,       // rings
+        kProblems,    // broken rides, closed attractions, litter, stink bombs
+        kCoverage,    // the guards' patrol areas, the entertainers' reach
+    };
+    static constexpr size_t kLayers = 6;
+    bool shows(Layer layer) const { return _layers[size_t(layer)]; }
+    /** A layer's button, by its place. */
+    static ScreenRect layerRect(Layer layer);
     /** Reads the world's map and the marks; without them it shows a bare frame. */
     void load(const SearchSet &files, const std::string &folder);
     void open(Mode mode = Mode::kPark) {
@@ -258,6 +278,12 @@ private:
     Park::Cell _target;
     image::Image _map;
     std::array<image::Image, Attractions::kKinds> _marks; // by Attractions::Kind
+    std::array<bool, kLayers> _layers{true, false, true, false, false, false};
+    // The layers' marks: stars (one to five), upgrades (one, two), and
+    // the dots, glows and signs, by kLayerMarks' order.
+    std::array<image::Image, 5> _stars;
+    std::array<image::Image, 2> _upgrades;
+    std::array<image::Image, 8> _layerMarks;
 };
 
 /**
@@ -303,7 +329,8 @@ private:
  * Save Game and Load Game (UITEXT 777, 778): the player's saves by name
  * and date (779, 780), "New Save" (782) first when saving; a new save
  * named by typing, an old one replaced once the player says yes ("FILE
- * ALREADY EXISTS", 781). Laid out by guess: the recording opens neither.
+  * ALREADY EXISTS", 781); one chosen deleted once the player says yes
+ * ("Delete Savegame", 4, 5). Laid out by guess: the recording opens neither.
  * See docs/engines/tpw/games/simcoaster/systems/saving.md.
  */
 class SaveLoadWindow {
@@ -314,7 +341,7 @@ public:
         std::string name;
         std::string date;
     };
-    enum class Control { kNone, kRow, kOk, kCancel };
+    enum class Control { kNone, kRow, kOk, kCancel, kDelete };
     void open(Mode mode, std::vector<Row> rows) {
         _open = true;
         _mode = mode;
@@ -322,8 +349,18 @@ public:
         _chosen = -1;
         _naming = false;
         _confirming = false;
+        _deleting = false;
+        _picked = false;
         _typed.clear();
     }
+    /** The saves again, after one's deleted: none chosen. */
+    void setRows(std::vector<Row> rows) {
+        _rows = std::move(rows);
+        _chosen = -1;
+        _picked = false;
+    }
+    /** Takes the save the player has said to delete: its row, or −1 for none. */
+    int takeDelete() { return std::exchange(_toDelete, -1); }
     void close() { _open = false; }
     bool isOpen() const { return _open; }
     Mode mode() const { return _mode; }
@@ -350,18 +387,53 @@ private:
     bool _picked = false;
     bool _naming = false;
     bool _confirming = false;
+    bool _deleting = false; // asking whether to delete the save chosen
+    int _toDelete = -1;
     std::string _typed;
+};
+
+/**
+ * Options (UITEXT 783): its Graphics, Sound and Game tabs (784 to 786).
+ * What Reluva follows can be changed: the three volumes, the game's
+ * speed and the advisor; the rest show as they are for Reluva, grey.
+ * Laid out by guess: the recording opens none. See
+ * docs/engines/tpw/games/simcoaster/systems/options.md.
+ */
+class OptionsWindow {
+public:
+    enum class Tab { kGraphics, kSound, kGame };
+    /** The volumes' rows, by GameOptions::volume's order, then the game's speed's. */
+    static constexpr size_t kSpeedRow = 3;
+    enum class Control { kNone, kTab, kMinus, kPlus, kAdvisor, kOk };
+    void open(const GameOptions &options) {
+        _open = true;
+        _options = options;
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    /** kChose when an option's changed (options() has it), kClosed on the tick. */
+    WindowResult handle(const Event &ev);
+    const GameOptions &options() const { return _options; }
+    Tab tab() const { return _tab; }
+    void draw(Surface &screen, const WindowKit &kit) const;
+    /** Where a control is: a tab by its place, a bar's minus or plus by its row. */
+    static ScreenRect placeOf(Control control, size_t index = 0);
+
+private:
+    bool _open = false;
+    Tab _tab = Tab::kSound;
+    GameOptions _options;
 };
 
 /**
  * The game's menu, over the park on Esc, as the recording shows it at
  * 4:20: Load Game, Save Game, Select A New Player, Go Online, Options,
- * Go to Coaster Design Kit, Resume Game, Quit Game. Loading, saving,
- * resuming and quitting work; the rest are grey.
+  * Go to Coaster Design Kit, Resume Game, Quit Game. Loading, saving,
+ * the options, resuming and quitting work; the rest are grey.
  */
 class GameMenu {
 public:
-    enum class Choice { kNone, kResume, kQuit, kLoad, kSave };
+    enum class Choice { kNone, kResume, kQuit, kLoad, kSave, kOptions };
     void open() {
         _open = true;
         _over = -1;

@@ -28,8 +28,10 @@ None yet.
   rules, drawn by their sprites at a guessed pace, under its HUD, the
   camera moved by Reluva's own keys and the compass; path can be laid, the
   bottom buttons' menus open, and all their items do something, the Overview
-  Map and Visitor Opinion by guess; the game's menu loads, saves,
-  resumes and quits, nothing else; attractions', staff's and the gates' windows
+  Map and Visitor Opinion by guess, the Park Map's layers too; the game's
+  menu loads, saves, sets the options Reluva follows (speed, volumes,
+  advisor: [options.md](systems/options.md)), resumes and quits, nothing
+  else; attractions', staff's and the gates' windows
   and menus have only some of their controls, and the windows the
   recording doesn't show are laid out by guess
   ([park-windows.md](systems/park-windows.md)); a new park has the prebuilt park's
@@ -80,7 +82,7 @@ None yet.
 - **Saved games** are files of Reluva's own (`saves/save1.rsv` in the
   game's save folder), as the game's `.TPWS` can't be written; their
   windows are laid out by guess, a loaded game opens without the fly-in
-  or briefing, its riders let off, and saves can't be deleted yet
+  or briefing, its riders let off
   ([saving.md](systems/saving.md), [reluva-saves.md](formats/reluva-saves.md)).
 - **The Personnel File** keeps its players in a file of Reluva's own,
   `players.txt` in the game's save folder, as the game's own aren't

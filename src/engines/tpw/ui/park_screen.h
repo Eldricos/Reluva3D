@@ -148,6 +148,16 @@ public:
     ParkMapWindow &parkMap() { return _parkMap; }
     OverviewMapWindow &overviewMap() { return _overviewMap; }
     SaveLoadWindow &saveLoad() { return _saveLoad; }
+    OptionsWindow &optionsWindow() { return _optionsWindow; }
+    /**
+     * The options followed: the advisor on or off, the volumes on the
+     * mixer (none for nullptr), the game's speed by playPark; kept in the
+     * save folder as they change (none kept without one).
+     */
+    void setOptions(const GameOptions &options, std::filesystem::path saveFolder, audio::Mixer *mixer);
+    /** Changes them, as the Options window has: followed and kept. */
+    void changeOptions(const GameOptions &options);
+    const GameOptions &options() const { return _options; }
     /** Where the player's games are saved, and whose; an empty folder saves nothing. */
     void setSaves(std::filesystem::path folder, std::string player) {
         _savesFolder = std::move(folder);
@@ -157,6 +167,8 @@ public:
     void openSaveLoad(SaveLoadWindow::Mode mode);
     /** Writes the game as the Save Game window chose: over an old save, or a new one. */
     Error saveChosen(const Park &park);
+    /** Deletes the save the window's been told to, if any, and lists the rest. */
+    void deleteChosen();
     /** Takes the save the Load Game window chose. */
     void takeLoadChosen() { _loadRequest = _slotFiles[size_t(_saveLoad.chosen())]; }
     /** The save to load in this park's place; empty for none. */
@@ -310,6 +322,10 @@ private:
     ParkMapWindow _parkMap;
     OverviewMapWindow _overviewMap;
     SaveLoadWindow _saveLoad;
+    OptionsWindow _optionsWindow;
+    GameOptions _options;
+    std::filesystem::path _optionsFolder;
+    audio::Mixer *_mixer = nullptr;
     std::filesystem::path _savesFolder;
     std::string _saver;
     std::vector<std::filesystem::path> _slotFiles; // the Save and Load windows' rows' files

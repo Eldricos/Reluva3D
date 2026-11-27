@@ -641,6 +641,11 @@ void testParkWindows() {
     CHECK(map.handle(at(EventType::kMouseDown, Map::okRect())) == tpw::WindowResult::kClosed);
     map.open(Map::Mode::kOpinion);
     CHECK(map.isOpen() && map.mode() == Map::Mode::kOpinion);
+    // Its layers' buttons turn them on and off.
+    CHECK(map.shows(Map::Layer::kAttractions) && !map.shows(Map::Layer::kProblems));
+    map.handle(at(EventType::kMouseDown, Map::layerRect(Map::Layer::kProblems)));
+    map.handle(at(EventType::kMouseDown, Map::layerRect(Map::Layer::kAttractions)));
+    CHECK(!map.shows(Map::Layer::kAttractions) && map.shows(Map::Layer::kProblems) && map.isOpen());
 
     // The advisor says each cue's line once, one after another.
     tpw::Advisor advisor;
@@ -681,6 +686,30 @@ void testParkWindows() {
     CHECK(click(loading, SaveLoad::Control::kOk) == tpw::WindowResult::kChose && loading.chosen() == 0);
     loading.open(SaveLoad::Mode::kLoad, {});
     CHECK(click(loading, SaveLoad::Control::kCancel) == tpw::WindowResult::kClosed);
+    // Deleting: a save chosen, the bin, then the tick says yes.
+    loading.open(SaveLoad::Mode::kLoad, {{"Old", "1.Jan.00"}, {"Older", "1.Jan.00"}});
+    click(loading, SaveLoad::Control::kDelete);
+    CHECK(loading.takeDelete() == -1);
+    click(loading, SaveLoad::Control::kRow, 1);
+    click(loading, SaveLoad::Control::kDelete);
+    CHECK(loading.takeDelete() == -1 && click(loading, SaveLoad::Control::kOk) == tpw::WindowResult::kNone);
+    CHECK(loading.takeDelete() == 1 && loading.isOpen());
+
+    // Options: the volumes, the speed and the advisor change, the rest don't.
+    using Options = tpw::OptionsWindow;
+    Options options;
+    options.open(tpw::GameOptions{});
+    const auto option = [&](Options::Control c, size_t i = 0) {
+        return options.handle(at(EventType::kMouseDown, Options::placeOf(c, i)));
+    };
+    option(Options::Control::kTab, 1);
+    CHECK(option(Options::Control::kMinus, 1) == tpw::WindowResult::kChose && options.options().volume[1] == 90);
+    CHECK(option(Options::Control::kPlus, 0) == tpw::WindowResult::kNone && options.options().volume[0] == 100);
+    option(Options::Control::kTab, 2);
+    CHECK(option(Options::Control::kPlus, Options::kSpeedRow) == tpw::WindowResult::kChose &&
+          options.options().gameSpeed == 80);
+    CHECK(option(Options::Control::kAdvisor) == tpw::WindowResult::kChose && !options.options().advisor);
+    CHECK(option(Options::Control::kOk) == tpw::WindowResult::kClosed && !options.isOpen());
 
     // The Overview Map goes to another open world, not a closed one or
     // the park's own.

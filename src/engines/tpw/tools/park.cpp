@@ -675,7 +675,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|save|load|activate> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -788,10 +788,22 @@ int cmdWindowShot(int argc, char **argv) {
         screen.gameMenu().open();
     else if (which == "map")
         screen.parkMap().open();
-    else if (which == "overview") {
+    else if (which == "map-layers") {
+        // Every layer on.
+        screen.parkMap().open();
+        for (size_t l = 0; l < reluva::tpw::ParkMapWindow::kLayers; ++l)
+            if (!screen.parkMap().shows(reluva::tpw::ParkMapWindow::Layer(l)))
+                screen.parkMap().handle(
+                    clickOn(reluva::tpw::ParkMapWindow::layerRect(reluva::tpw::ParkMapWindow::Layer(l))));
+    } else if (which == "overview") {
         // As a player who's opened Polar Zone, too, would see it.
         screen.setWorld(2, true, 10);
         screen.overviewMap().open(screen.worlds(park), park.theme());
+    } else if (which == "options" || which == "options-sound" || which == "options-game") {
+        screen.optionsWindow().open(screen.options());
+        const size_t tab = which == "options" ? 0 : which == "options-sound" ? 1 : 2;
+        screen.optionsWindow().handle(
+            clickOn(reluva::tpw::OptionsWindow::placeOf(reluva::tpw::OptionsWindow::Control::kTab, tab)));
     } else if (which == "save" || which == "load") {
         // As a player with two saves would see it, the first chosen.
         screen.saveLoad().open(which == "save" ? reluva::tpw::SaveLoadWindow::Mode::kSave
@@ -928,7 +940,7 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|opinion|overview|advisor|save|load|activate> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",

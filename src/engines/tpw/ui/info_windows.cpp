@@ -143,11 +143,12 @@ constexpr int kGameMenuStep = 46;
 constexpr int kGameMenuHeight = 36;
 constexpr size_t kLoadItem = 0;
 constexpr size_t kSaveItem = 1;
+constexpr size_t kOptionsItem = 4;
 constexpr size_t kResumeItem = 6;
 constexpr size_t kQuitItem = 7;
 
 bool works(size_t item) {
-    return item == kLoadItem || item == kSaveItem || item == kResumeItem || item == kQuitItem;
+    return item == kLoadItem || item == kSaveItem || item == kOptionsItem || item == kResumeItem || item == kQuitItem;
 }
 constexpr Color kMenuCyan{96, 200, 216};
 constexpr Color kMenuGrey{96, 120, 128};
@@ -846,7 +847,33 @@ constexpr std::array<const char *, Attractions::kKinds> kMarks{"2dmap/map_ride.t
                                                                "2dmap/map_shop.tga", "2dmap/map_facility.tga",
                                                                "2dmap/map_feature.tga"};
 constexpr Color kVisitorDot{255, 255, 255};
+constexpr Color kNaughtyDot{232, 32, 32};
+// The map's other pictures, for its layers.
+enum LayerMark : size_t { kWrench, kSkull, kNoEntry, kGuardGlow, kEntertainerGlow, kLitterGlow, kStaffDot, kDot };
+constexpr std::array<const char *, 8> kLayerMarks{"2dmap/ksprite.tga", "2dmap/msprite.tga", "2dmap/nsprite.tga",
+                                                  "2dmap/gsprite.tga", "2dmap/esprite.tga", "2dmap/lsprite.tga",
+                                                  "2dmap/ssprite.tga", "2dmap/vsprite.tga"};
+// The layers' buttons, below the map: each a square with its layer's mark.
+constexpr int kLayerButton = 26;
+constexpr int kLayerButtonsY = 400;
+constexpr Color kLayerOff{24, 40, 72};
+// How far an entertainer's glow reaches, in cells (guessed).
+constexpr int kEntertainerReach = 3;
 constexpr Color kCameraMark{232, 32, 32};
+
+// A picture laid over what's there by its own alpha, nearest pixel: the
+// glows.
+void drawBlended(Surface &screen, const image::Image &picture, const ScreenRect &r, const ScreenRect &clip) {
+    if (picture.w <= 0 || picture.h <= 0 || r.w <= 0 || r.h <= 0)
+        return;
+    for (int y = std::max(clip.y, r.y); y < std::min(clip.y + clip.h, r.y + r.h); ++y)
+        for (int x = std::max(clip.x, r.x); x < std::min(clip.x + clip.w, r.x + r.w); ++x) {
+            const uint8_t *p = picture.pixel((x - r.x) * picture.w / r.w, (y - r.y) * picture.h / r.h);
+            uint8_t *q = screen.row(y) + x * 4;
+            for (int i = 0; i < 3; ++i)
+                q[i] = uint8_t((q[i] * (255 - p[3]) + p[i] * p[3]) / 255);
+        }
+}
 
 // A picture drawn into a rectangle, nearest pixel, its clear pixels left.
 void drawScaled(Surface &screen, const image::Image &picture, const ScreenRect &r) {
@@ -870,6 +897,19 @@ void ParkMapWindow::load(const SearchSet &files, const std::string &folder) {
     for (size_t k = 0; k < kMarks.size(); ++k)
         if (loadPicture(files, kMarks[k], _marks[k]))
             _marks[k] = {};
+    for (size_t i = 0; i < _stars.size(); ++i)
+        if (loadPicture(files, "2dmap/map_stars" + std::to_string(i + 1) + ".tga", _stars[i]))
+            _stars[i] = {};
+    for (size_t i = 0; i < _upgrades.size(); ++i)
+        if (loadPicture(files, "2dmap/map_upgradel" + std::to_string(i + 1) + ".tga", _upgrades[i]))
+            _upgrades[i] = {};
+    for (size_t i = 0; i < kLayerMarks.size(); ++i)
+        if (loadPicture(files, kLayerMarks[i], _layerMarks[i]))
+            _layerMarks[i] = {};
+}
+
+ScreenRect ParkMapWindow::layerRect(Layer layer) {
+    return {kMapFrame.x + int(layer) * (kLayerButton + 4), kLayerButtonsY, kLayerButton, kLayerButton};
 }
 
 ScreenRect ParkMapWindow::mapRect() {
@@ -895,6 +935,11 @@ Park::Cell ParkMapWindow::cellAt(int x, int y) {
 WindowResult ParkMapWindow::handle(const Event &ev) {
     if (!_open || !WindowKit::isClick(ev))
         return WindowResult::kNone;
+    for (size_t l = 0; l < kLayers; ++l)
+        if (layerRect(Layer(l)).contains(ev.mouseX, ev.mouseY)) {
+            _layers[l] = !_layers[l];
+            return WindowResult::kNone;
+        }
     if (kMapOk.contains(ev.mouseX, ev.mouseY)) {
         _open = false;
         return WindowResult::kClosed;
@@ -924,28 +969,95 @@ void ParkMapWindow::draw(Surface &screen, const WindowKit &kit, const Park &park
                 q[i] = uint8_t(q[i] / 2);
         }
     const auto inside = [&](const Spot &p) { return m.contains(p.x, p.y); };
+    const auto cellOf = [](float x, float z) {
+        return Park::Cell{int(std::floor(x / Park::kCellUnits)), int(std::floor(z / Park::kCellUnits))};
+    };
+    // A mark of `size` pixels on a cell.
+    const auto mark = [&](const image::Image &picture, const Park::Cell &cell, int size, int dx = 0, int dy = 0) {
+        const Spot p = placeOf(cell);
+        if (inside(p))
+            drawScaled(screen, picture, {p.x - size / 2 + dx, p.y - size / 2 + dy, size, size});
+    };
+    // A glow over the cells from one corner to the other.
+    const auto glow = [&](const image::Image &picture, const Park::Cell &from, const Park::Cell &to) {
+        const Spot a = placeOf(from);
+        const Spot b = placeOf({to.x + 1, to.y + 1});
+        drawBlended(screen, picture, {a.x, a.y, b.x - a.x, b.y - a.y}, m);
+    };
+    if (shows(Layer::kCoverage))
+        for (const Park::StaffMember &s : park.staff()) {
+            if (s.kind == Park::StaffKind::kGuard && s.patrolling)
+                glow(_layerMarks[kGuardGlow],
+                     {std::min(s.patrolFrom.x, s.patrolTo.x) - 1, std::min(s.patrolFrom.y, s.patrolTo.y) - 1},
+                     {std::max(s.patrolFrom.x, s.patrolTo.x) + 1, std::max(s.patrolFrom.y, s.patrolTo.y) + 1});
+            if (s.kind == Park::StaffKind::kEntertainer) {
+                const Park::Cell c = cellOf(s.x, s.z);
+                glow(_layerMarks[kEntertainerGlow], {c.x - kEntertainerReach, c.y - kEntertainerReach},
+                     {c.x + kEntertainerReach, c.y + kEntertainerReach});
+            }
+        }
+    if (shows(Layer::kProblems)) {
+        for (const Park::Litter &l : park.litter()) {
+            const Park::Cell c = cellOf(l.x, l.z);
+            glow(_layerMarks[kLitterGlow], {c.x - 1, c.y - 1}, {c.x + 1, c.y + 1});
+        }
+        for (const Park::StinkBomb &b : park.stinkBombs())
+            if (park.millis() < b.until)
+                mark(_layerMarks[kSkull], cellOf(b.x, b.z), kMarkSize);
+    }
     for (const Park::PlacedObject &o : park.objects()) {
         const Attractions::Attraction *a = park.attractions().find(o.id);
-        const Spot p = placeOf(o.at);
-        if (a && !a->obstacle && inside(p))
-            drawScaled(screen, _marks[size_t(a->kind)],
-                       {p.x - kMarkSize / 2, p.y - kMarkSize / 2, kMarkSize, kMarkSize});
-    }
-    for (const Park::Visitor &v : park.visitorsAbout()) {
-        const Spot p = placeOf({int(std::floor(v.x / Park::kCellUnits)), int(std::floor(v.z / Park::kCellUnits))});
-        if (!v.inPark || !inside(p))
+        if (!a || a->obstacle)
             continue;
-        const Color dot = _mode == Mode::kPark           ? kVisitorDot
-                          : v.happiness >= kHappyFrom    ? kHappyBar
-                          : v.happiness >= kUnhappyBelow ? kUndecidedBar
-                                                         : kUnhappyBar;
-        WindowKit::fill(screen, {p.x, p.y, _mode == Mode::kPark ? 2 : 3, _mode == Mode::kPark ? 2 : 3}, dot);
+        if (shows(Layer::kAttractions))
+            mark(_marks[size_t(a->kind)], o.at, kMarkSize);
+        // Its stars over it, by its excitement, a fifth each; its upgrades by it.
+        if (shows(Layer::kDetails) && a->kind == Attractions::Kind::kRide && a->excitement >= 0)
+            mark(_stars[size_t(std::clamp(a->excitement / 20, 0, 4))], o.at, kMarkSize + 2, 0, -kMarkSize);
+        if (shows(Layer::kDetails) && o.level > 0)
+            mark(_upgrades[size_t(std::min(o.level, 2) - 1)], o.at, kMarkSize - 2, kMarkSize, 0);
+        if (shows(Layer::kProblems) && o.broken)
+            mark(_layerMarks[kWrench], o.at, kMarkSize, kMarkSize / 2, kMarkSize / 2);
+        else if (shows(Layer::kProblems) && !o.open)
+            mark(_layerMarks[kNoEntry], o.at, kMarkSize, kMarkSize / 2, kMarkSize / 2);
     }
+    // Visitor Opinion shows them always, by their moods.
+    if (shows(Layer::kVisitors) || _mode == Mode::kOpinion)
+        for (const Park::Visitor &v : park.visitorsAbout()) {
+            const Spot p = placeOf(cellOf(v.x, v.z));
+            if (!v.inPark || !inside(p))
+                continue;
+            const Color dot = _mode == Mode::kOpinion                ? (v.happiness >= kHappyFrom      ? kHappyBar
+                                                                        : v.happiness >= kUnhappyBelow ? kUndecidedBar
+                                                                                                       : kUnhappyBar)
+                              : v.thought == Park::Thought::kNaughty ? kNaughtyDot
+                                                                     : kVisitorDot;
+            WindowKit::fill(screen, {p.x, p.y, _mode == Mode::kPark ? 2 : 3, _mode == Mode::kPark ? 2 : 3}, dot);
+        }
+    if (shows(Layer::kStaff))
+        for (const Park::StaffMember &s : park.staff())
+            mark(_layerMarks[kStaffDot], cellOf(s.x, s.z), 5);
     // The camera's place, a cross.
     const Spot c = placeOf(camera);
     if (inside(c)) {
         WindowKit::fill(screen, {c.x - 4, c.y, 9, 1}, kCameraMark);
         WindowKit::fill(screen, {c.x, c.y - 4, 1, 9}, kCameraMark);
+    }
+    // The layers' buttons, lit while on, each with its layer's mark.
+    const std::array<const image::Image *, kLayers> icons{&_marks[0],
+                                                          &_stars[2],
+                                                          &_layerMarks[kDot],
+                                                          &_layerMarks[kStaffDot],
+                                                          &_layerMarks[kWrench],
+                                                          &_layerMarks[kGuardGlow]};
+    for (size_t l = 0; l < kLayers; ++l) {
+        const ScreenRect r = layerRect(Layer(l));
+        WindowKit::fill(screen, r, _layers[l] ? WindowKit::kChosenRow : kLayerOff);
+        const ScreenRect in{r.x + 4, r.y + 4, r.w - 8, r.h - 8};
+        if (l == size_t(Layer::kCoverage))
+            drawBlended(screen, *icons[l], in, in);
+        else
+            drawScaled(screen, *icons[l], in);
     }
     kit.button(screen, Button::kOk, kMapOk, WindowKit::kPlain);
 }
@@ -1129,7 +1241,8 @@ GameMenu::Choice GameMenu::handle(const Event &ev) {
     return _over == int(kResumeItem) ? Choice::kResume
            : _over == int(kQuitItem) ? Choice::kQuit
            : _over == int(kLoadItem) ? Choice::kLoad
-                                     : Choice::kSave;
+           : _over == int(kSaveItem) ? Choice::kSave
+                                     : Choice::kOptions;
 }
 
 // The park darkened beneath it, as the recording's is.
@@ -1163,6 +1276,8 @@ constexpr uint32_t kSaveNameText = 779;
 constexpr uint32_t kSaveDateText = 780;
 constexpr uint32_t kFileExistsText = 781;
 constexpr uint32_t kNewSaveText = 782;
+constexpr uint32_t kDeleteSaveTitle = 4;
+constexpr uint32_t kDeleteSaveText = 5;
 constexpr ScreenRect kSaveWindow{120, 70, 400, 330};
 constexpr std::array<ScreenRect, 2> kSaveHeaders{{{135, 106, 250, 22}, {387, 106, 118, 22}}};
 constexpr ScreenRect kSaveList{135, 130, 370, 180};
@@ -1170,6 +1285,7 @@ constexpr int kSaveRow = 16;
 constexpr ScreenRect kSaveField{135, 318, 300, 30};
 constexpr ScreenRect kSaveOk{448, 360, 28, 28};
 constexpr ScreenRect kSaveCancel{482, 362, 26, 26};
+constexpr ScreenRect kSaveDelete{135, 360, 28, 28};
 constexpr size_t kLongestSaveName = 30;
 constexpr size_t kSaveRowsShown = size_t(kSaveList.h / kSaveRow);
 
@@ -1183,6 +1299,8 @@ ScreenRect SaveLoadWindow::placeOf(Control control, size_t index) {
         return kSaveOk;
     case Control::kCancel:
         return kSaveCancel;
+    case Control::kDelete:
+        return kSaveDelete;
     case Control::kNone:
         break;
     }
@@ -1208,13 +1326,23 @@ WindowResult SaveLoadWindow::handle(const Event &ev) {
     const bool ok = (ev.type == EventType::kKeyDown && ev.key == key::kReturn) ||
                     (WindowKit::isClick(ev) && kSaveOk.contains(ev.mouseX, ev.mouseY));
     if (WindowKit::isClick(ev) && kSaveCancel.contains(ev.mouseX, ev.mouseY)) {
-        // Out of naming or confirming, else out of the window.
-        if (_naming || _confirming) {
-            _naming = _confirming = false;
+        // Out of naming or asking, else out of the window.
+        if (_naming || _confirming || _deleting) {
+            _naming = _confirming = _deleting = false;
             return WindowResult::kNone;
         }
         _open = false;
         return WindowResult::kClosed;
+    }
+    // A save chosen, the bin asks whether to delete it; the tick does.
+    if (WindowKit::isClick(ev) && kSaveDelete.contains(ev.mouseX, ev.mouseY) && !_naming && !_confirming) {
+        _deleting = _picked && _chosen >= 0;
+        return WindowResult::kNone;
+    }
+    if (ok && _deleting) {
+        _deleting = false;
+        _toDelete = _chosen;
+        return WindowResult::kNone;
     }
     if (ok) {
         const bool chose = _mode == Mode::kLoad ? _picked && _chosen >= 0 : _naming ? !_typed.empty() : _confirming;
@@ -1229,7 +1357,7 @@ WindowResult SaveLoadWindow::handle(const Event &ev) {
         }
         return WindowResult::kNone;
     }
-    if (!WindowKit::isClick(ev) || _naming || _confirming)
+    if (!WindowKit::isClick(ev) || _naming || _confirming || _deleting)
         return WindowResult::kNone;
     const size_t first = _mode == Mode::kSave ? 1 : 0;
     for (size_t i = 0; i < std::min(_rows.size() + first, kSaveRowsShown); ++i)
@@ -1266,9 +1394,177 @@ void SaveLoadWindow::draw(Surface &screen, const WindowKit &kit) const {
     } else if (_confirming && _chosen >= 0) {
         kit.paragraph(screen, kSaveField.x, kSaveField.y - 4, kSaveField.w,
                       kit.ui(kFileExistsText, {{31, _rows[size_t(_chosen)].name}}));
+    } else if (_deleting) {
+        kit.paragraph(screen, kSaveField.x, kSaveField.y - 4, kSaveField.w,
+                      kit.ui(kDeleteSaveTitle) + ": " + kit.ui(kDeleteSaveText));
     }
+    kit.piece(screen, "b_delete", WindowKit::kPlain, kSaveDelete);
     kit.button(screen, Button::kOk, kSaveOk, WindowKit::kPlain);
     kit.button(screen, Button::kCancel, kSaveCancel, WindowKit::kPlain);
+}
+
+// Options.
+
+namespace {
+
+constexpr uint32_t kOptionsText = 783;
+constexpr uint32_t kGraphicsTabText = 784; // then Sound, Game
+constexpr uint32_t kRenderingText = 787;
+constexpr uint32_t kSoftwareText = 789;
+constexpr uint32_t kResolutionText = 793;
+constexpr uint32_t k640Text = 795;
+constexpr uint32_t kQualityText = 800;
+constexpr uint32_t kHighText = 803;
+constexpr uint32_t kSoundEffectsText = 804; // then Speech, Music
+constexpr uint32_t kAudioQualityText = 807;
+constexpr uint32_t kVolumeText = 808;
+constexpr uint32_t kGeneralText = 812;
+constexpr uint32_t kAdvisorText = 813;
+constexpr uint32_t kGameSpeedText = 818;
+constexpr uint32_t kCameraRotationText = 820;
+constexpr uint32_t kSmoothText = 821;
+constexpr uint32_t kCameraScrollingText = 823;
+constexpr uint32_t kPushScrollText = 825;
+// Tooltips, Confirmations, Animate Menus, Auto-rotate and Right Mouse
+// Button Cancels: not followed.
+constexpr std::array<uint32_t, 5> kUnfollowed{814, 815, 816, 817, 819};
+constexpr ScreenRect kOptionsWindow{110, 60, 420, 360};
+constexpr ScreenRect kOptionsPage{125, 126, 390, 240};
+constexpr ScreenRect kOptionsOk{482, 378, 28, 28};
+constexpr int kOptionsTabX = 125;
+constexpr int kOptionsTabY = 98;
+constexpr int kOptionsTabW = 128;
+constexpr int kOptionsRow = 30;
+constexpr int kBarX = 290;
+constexpr int kBarW = 150;
+constexpr int kOptionStep = 10;
+constexpr Color kOptionGrey{150, 150, 150};
+// i_boxtick's meshes: an empty box, a ticked one (a starred one besides).
+constexpr size_t kEmptyBox = 0;
+constexpr size_t kTickedBox = 1;
+
+// A bar's row's top: the volumes' from the page's top, the speed's below the game's ticks.
+int barY(size_t row) {
+    return row == OptionsWindow::kSpeedRow ? kOptionsPage.y + 10 + 7 * 22
+                                           : kOptionsPage.y + 10 + int(row) * kOptionsRow;
+}
+
+} // namespace
+
+ScreenRect OptionsWindow::placeOf(Control control, size_t index) {
+    switch (control) {
+    case Control::kTab:
+        return {kOptionsTabX + int(index) * (kOptionsTabW + 2), kOptionsTabY, kOptionsTabW, 24};
+    case Control::kMinus:
+        return {kBarX + kBarW + 8, barY(index) - 4, 22, 22};
+    case Control::kPlus:
+        return {kBarX + kBarW + 34, barY(index) - 4, 22, 22};
+    case Control::kAdvisor:
+        return {kOptionsPage.x + 12, kOptionsPage.y + 32, 16, 16};
+    case Control::kOk:
+        return kOptionsOk;
+    case Control::kNone:
+        break;
+    }
+    return {};
+}
+
+WindowResult OptionsWindow::handle(const Event &ev) {
+    if (!_open || !WindowKit::isClick(ev))
+        return WindowResult::kNone;
+    const auto at = [&](Control c, size_t i = 0) { return placeOf(c, i).contains(ev.mouseX, ev.mouseY); };
+    if (at(Control::kOk)) {
+        _open = false;
+        return WindowResult::kClosed;
+    }
+    for (size_t t = 0; t < 3; ++t)
+        if (at(Control::kTab, t))
+            _tab = Tab(t);
+    auto step = [&](int &value, int least, int by) {
+        const int was = value;
+        value = std::clamp(value + by, least, 100);
+        return value != was ? WindowResult::kChose : WindowResult::kNone;
+    };
+    if (_tab == Tab::kSound)
+        for (size_t row = 0; row < _options.volume.size(); ++row) {
+            if (at(Control::kMinus, row))
+                return step(_options.volume[row], 0, -kOptionStep);
+            if (at(Control::kPlus, row))
+                return step(_options.volume[row], 0, kOptionStep);
+        }
+    if (_tab == Tab::kGame) {
+        if (at(Control::kMinus, kSpeedRow))
+            return step(_options.gameSpeed, kOptionStep, -kOptionStep);
+        if (at(Control::kPlus, kSpeedRow))
+            return step(_options.gameSpeed, kOptionStep, kOptionStep);
+        if (at(Control::kAdvisor)) {
+            _options.advisor = !_options.advisor;
+            return WindowResult::kChose;
+        }
+    }
+    return WindowResult::kNone;
+}
+
+void OptionsWindow::draw(Surface &screen, const WindowKit &kit) const {
+    if (!_open)
+        return;
+    kit.window(screen, kOptionsWindow, kit.ui(kOptionsText));
+    for (size_t t = 0; t < 3; ++t)
+        kit.header(screen, placeOf(Control::kTab, t), kit.ui(kGraphicsTabText + uint32_t(t)));
+    kit.frame(screen, kOptionsPage);
+    const int x = kOptionsPage.x + 12;
+    // A chosen setting ticked; one Reluva doesn't follow, grey.
+    const auto tick = [&](int tx, int ty, bool on, const std::string &label, bool followed) {
+        // The empty box is dark on the page's black: outlined, to be seen.
+        for (const ScreenRect &edge : {ScreenRect{tx, ty, 16, 1}, ScreenRect{tx, ty + 15, 16, 1},
+                                       ScreenRect{tx, ty, 1, 16}, ScreenRect{tx + 15, ty, 1, 16}})
+            WindowKit::fill(screen, edge, kOptionGrey);
+        kit.piece(screen, "i_boxtick", on ? kTickedBox : kEmptyBox, {tx, ty, 16, 16});
+        kit.text(screen, tx + 24, ty + 2, label, followed ? Color{255, 255, 255} : kOptionGrey);
+    };
+    const auto bar = [&](size_t row, uint32_t label, int value) {
+        const int y = barY(row);
+        kit.text(screen, x, y, kit.ui(label));
+        kit.text(screen, kBarX - 60, y, kit.ui(kVolumeText));
+        kit.bar(screen, kBarX, y + 1, kBarW, float(value) / 100);
+        kit.button(screen, Button::kMinus, placeOf(Control::kMinus, row), WindowKit::kPlain);
+        kit.button(screen, Button::kPlus, placeOf(Control::kPlus, row), WindowKit::kPlain);
+    };
+    int y = kOptionsPage.y + 10;
+    switch (_tab) {
+    case Tab::kGraphics:
+        for (const auto &[heading, choice] :
+             {std::pair{kRenderingText, kSoftwareText}, {kResolutionText, k640Text}, {kQualityText, kHighText}}) {
+            kit.text(screen, x, y, kit.ui(heading), kOptionGrey);
+            tick(x + 160, y - 2, true, kit.ui(choice), false);
+            y += kOptionsRow;
+        }
+        break;
+    case Tab::kSound:
+        for (size_t row = 0; row < _options.volume.size(); ++row)
+            bar(row, kSoundEffectsText + uint32_t(row), _options.volume[row]);
+        kit.text(screen, x, barY(3), kit.ui(kAudioQualityText), kOptionGrey);
+        break;
+    case Tab::kGame: {
+        kit.text(screen, x, y, kit.ui(kGeneralText));
+        y += 22;
+        tick(x, y, _options.advisor, kit.ui(kAdvisorText), true);
+        for (const uint32_t text : kUnfollowed) {
+            y += 22;
+            tick(x, y, false, kit.ui(text), false);
+        }
+        const int speedY = barY(kSpeedRow);
+        kit.text(screen, x, speedY, kit.ui(kGameSpeedText));
+        kit.bar(screen, kBarX, speedY + 1, kBarW, float(_options.gameSpeed) / 100);
+        kit.button(screen, Button::kMinus, placeOf(Control::kMinus, kSpeedRow), WindowKit::kPlain);
+        kit.button(screen, Button::kPlus, placeOf(Control::kPlus, kSpeedRow), WindowKit::kPlain);
+        kit.text(screen, x, speedY + 26, kit.ui(kCameraRotationText) + ": " + kit.ui(kSmoothText), kOptionGrey);
+        kit.text(screen, x + 190, speedY + 26, kit.ui(kCameraScrollingText) + ": " + kit.ui(kPushScrollText),
+                 kOptionGrey);
+        break;
+    }
+    }
+    kit.button(screen, Button::kOk, kOptionsOk, WindowKit::kPlain);
 }
 
 } // namespace reluva::tpw

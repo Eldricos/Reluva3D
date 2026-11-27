@@ -74,8 +74,19 @@ uint32_t Advisor::lineOf(Cue cue) {
     return 0;
 }
 
+void Advisor::setEnabled(bool enabled) {
+    _enabled = enabled;
+    if (enabled || !_line)
+        return;
+    if (_sound != audio::kNoSound && _mixer)
+        _mixer->stop(_sound);
+    _sound = audio::kNoSound;
+    _line = 0;
+    _waiting.clear();
+}
+
 void Advisor::cue(Cue cue) {
-    if (!_cued.insert(cue).second)
+    if (!_enabled || !_cued.insert(cue).second)
         return;
     if (_line)
         _waiting.push_back(lineOf(cue));

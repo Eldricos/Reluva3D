@@ -20,7 +20,10 @@ recording opens none of them.
   first, under "New Save". New Save, then the tick, asks for a name,
   typed; an old save, then the tick, asks whether to replace it, and the
   tick again does. The game's written, and goes on; the park's clock
-  stands while the window's up.
+    stands while the window's up.
+- **Deleting:** a save chosen, the bin (`b_delete`) asks "Delete
+  Savegame: Are you sure you want to delete this savegame?", and the
+  tick deletes it, in either window.
 - **Loading:** the Load Game window lists them likewise; one chosen, the
   tick leaves the park for the save's, in its own world, with what the
   player had then: their rank, golden tickets, shares and challenges, as
@@ -54,8 +57,7 @@ load one.
 
 ## Open questions
 
-- How the game's windows look, and what "Delete Savegame" is on: Reluva
-  has no deleting yet.
+- How the game's windows look, and where its delete button is.
 - Whether "Select A New Player" saves the game as it says, and where it
   comes back to.
 - What the game's own saves hold besides the grid ([tpws.md](../formats/tpws.md)).
