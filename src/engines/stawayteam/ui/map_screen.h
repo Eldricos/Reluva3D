@@ -140,6 +140,10 @@ public:
         float stunned = 0.0f;                   // seconds of their stun left
         float enhanced = 0.0f;                  // seconds their weapons are enhanced for
         std::string discharge = "Shoot1";       // the sequence they're using an item with
+        // What their tricorder last said, each officer's own (0x55d410),
+        // and how many characters of it are typed out.
+        std::string scanText;
+        float scanTyped = 0.0f;
         // What they carry: each item's definition and how many uses are
         // left (-1 as many as wanted), as the inventory shows them; the
         // one they've chosen to use.
@@ -382,7 +386,7 @@ public:
     /** Sends the enemy taken over to (x, y), or after the enemy there. */
     void orderMelded(float x, float y);
     /** What the chosen officer's tricorder last said, and how much of it's typed out. */
-    const std::string &scanText() const { return _scanText; }
+    const std::string &scanText() const;
     /**
      * A hit on enemy `enemy` by `attacker` (an officer, or -1) with
      * `weapon`: stunning it with `stun`, else hurting it.
@@ -1078,8 +1082,6 @@ private:
     bool _hasHere = false;
     float _hereX = 0.0f;
     float _hereY = 0.0f;
-    std::string _scanText;
-    float _scanTyped = 0.0f;
     std::vector<std::string> _itemTypes; // Inventory/Item Types, the bar's places last first
     // Seconds the chosen item's name's still shown over the bar, from when
     // it's chosen (0x423e52).

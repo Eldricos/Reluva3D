@@ -1590,7 +1590,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     if (_selected >= 0) {
         const Officer &chosen = _officers[size_t(_selected)];
         const bool stun = chosen.item >= 0 && chosen.items[size_t(chosen.item)].stun;
-        _hud->setItemPanel(stun, _scanText, size_t(std::max(0.0f, _scanTyped)));
+        _hud->setItemPanel(stun, chosen.scanText, size_t(std::max(0.0f, chosen.scanTyped)));
         _hud->setEnhancement(enhancement(_selected));
         _hud->setOverload(chosen.item >= 0 ? chosen.items[size_t(chosen.item)].overload : -1.0f);
         if (chosen.item >= 0)

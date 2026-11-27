@@ -210,14 +210,18 @@ bool MapScreen::doTask(size_t officer) {
         return true;
     if (o.task == Officer::Task::kScan) {
         // The tricorder's Default Use Sound, and the model's description
-        // typed out on its panel (CTricorderModelDescriptionAction).
+        // typed out on its panel; with none, the panel's left as it was
+        // (CTricorderModelDescriptionAction, 0x5f16ce).
         float px = 0.0f;
         float py = 0.0f;
         placeOf(size_t(o.taskPart), px, py);
         o.direction = directionOf(px - o.x, py - o.y);
         const ModelInfo &info = modelInfo(_map.parts[size_t(o.taskPart)].model);
-        _scanText = describe(info.descriptionScript, info.descriptionLine);
-        _scanTyped = 0.0f;
+        std::string text = describe(info.descriptionScript, info.descriptionLine);
+        if (!text.empty()) {
+            o.scanText = std::move(text);
+            o.scanTyped = 0.0f;
+        }
         if (_mixer)
             if (auto sound = gameSound(_data, def->useSound.empty() ? kScanSound : def->useSound))
                 _mixer->play(sound, audio::SoundType::kEffects);
@@ -470,7 +474,8 @@ void MapScreen::updateItems(float seconds) {
             o.path = route(o, x, y);
         }
     }
-    _scanTyped += seconds * kScanSpeed;
+    for (Officer &o : _officers)
+        o.scanTyped += seconds * kScanSpeed;
     updateMines(seconds);
     // In flight it falls by its Gravity; landing, it bounces up by its
     // model's Bounce Factor of its fall, with its Bounce Sound, losing its
@@ -674,6 +679,11 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
         ++o.taskStep;
     }
     return true;
+}
+
+const std::string &MapScreen::scanText() const {
+    static const std::string kNone;
+    return _selected >= 0 ? _officers[size_t(_selected)].scanText : kNone;
 }
 
 std::string MapScreen::describe(const std::string &script, const std::string &line) const {

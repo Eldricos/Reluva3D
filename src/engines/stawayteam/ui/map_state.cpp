@@ -199,6 +199,8 @@ void MapScreen::state(StateIo &s) {
         for (float *f : {&o.reload, &o.shooting, &o.dead, &o.stunned, &o.enhanced})
             s.io(*f);
         s.io(o.discharge);
+        s.io(o.scanText);
+        s.io(o.scanTyped);
         s.list(o.items, [&](Officer::Held &h) {
             s.io(h.name);
             s.io(h.count);
@@ -408,8 +410,6 @@ void MapScreen::state(StateIo &s) {
         for (float *f : {&n.x, &n.y, &n.radius, &n.age, &n.left})
             s.io(*f);
     });
-    s.io(_scanText);
-    s.io(_scanTyped);
     s.io(_itemTitle);
     s.io(_active);
     s.io(_listening);

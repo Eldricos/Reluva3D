@@ -469,10 +469,14 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
     } else if (kind == "CInfoDialogAction") {
         showDialog(readText(action, "Script"), readText(action, "Line"), readText(action, "Who is speaking"));
     } else if (kind == "CTricorderDialogAction") {
-        // On the tricorder's panel, typed out, as a scan's description
-        // (inferred: as CTricorderModelDescriptionAction's).
-        _scanText = describe(readText(action, "Script"), readText(action, "Line"));
-        _scanTyped = 0.0f;
+        // On the instigator's tricorder panel, typed out, or every
+        // officer's for another instigator (0x5f13e0).
+        const std::string text = describe(readText(action, "Script"), readText(action, "Line"));
+        for (size_t i = 0; i < _officers.size(); ++i)
+            if (instigator < 0 || size_t(instigator) >= _officers.size() || size_t(instigator) == i) {
+                _officers[i].scanText = text;
+                _officers[i].scanTyped = 0.0f;
+            }
     } else if (kind == "CTriggerRelayAction") {
         relay(readText(action, "Relay Name"), instigator);
     } else if (kind == "CActivateAction") {

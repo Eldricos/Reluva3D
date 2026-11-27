@@ -167,6 +167,20 @@ panel (`CTricorderInfoRenderer`, on `Interface/Tricorder`), typed at
 its `Text Speed` (30), in Rules.txt's `Tricorder Pos` and `Size` (192
 by 36).
 
+The action (`0x5f1650`) answers only for an officer (a
+`CEntityCharacter`) scanning an entity (a `CEntityBase`, as 24,602 of
+the maps' parts are, and every character; not a polygon) whose model
+has a description; with none, it does nothing and the panel keeps what
+it said. The line goes through the same expansion as the dialogs'
+(`0x5f0fa0`: `$Instigator`, `$EntityInstigator`, `$Trigger`,
+`$EntityTrigger`, `$Inventory`, `$Key`, and `{Inventory ...}` blocks),
+though no description in the game uses them. It's put on the officer's
+own panel (`0x5c9930`): each officer keeps the text their tricorder last
+showed, in the save data's `Tricorder String` (`0x55d410`, `0x5b3e15`).
+The two tricorders differ in nothing else but their cursors (`Tricorder
+Active`, `Tricorder`): what one finds that the other doesn't comes from
+the maps' own processes for each `Process Type`.
+
 ### An item's panel
 
 The chosen item's `Info Renderer` is drawn on the info bar at Rules.txt's
@@ -353,8 +367,9 @@ on the player's own `Remote Mine` broadcaster (`0x48bca0`, the player
 `0x5ca4a0`), setting off every one the player's officers have put down; its Destroyed Action makes a noise of 350
 and shocks the living within 150 (an `Electric Shock` effect). A tricorder chosen, a click on a part
 with a model (an enemy where it's got to) sends the officer within its
-Item Range and sight, then shows the model's description on its panel,
-typed out *(inferred)*. A part with its own process for the tricorder
+Item Range and sight, then shows the model's description on the officer's own panel,
+typed out, or keeps what it said for a model without one; the walk
+there *(inferred)*. A part with its own process for the tricorder
 (80 `Scan` processes in the maps, 48 `Medical Scan`) goes through that
 instead, from within the tricorder's range, its line typed on the panel
 ([maps.md](maps.md#the-maps-triggers)).
@@ -539,5 +554,3 @@ system ([particles.md](particles.md)).
   it's over the minimap, how the phaser's switch is used, and when its
   `Phaser Can't Fire Sequence` shows.
 - **Mines:** where one's put down, and the mines' sequences.
-- **Tricorders:** what can be scanned, and what the Medical Tricorder
-  shows that the Tricorder doesn't.

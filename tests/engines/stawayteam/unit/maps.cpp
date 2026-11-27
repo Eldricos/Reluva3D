@@ -1958,6 +1958,53 @@ void testGadgets() {
     CHECK(screen.scanText() == "A guard, armed.");
 }
 
+void testScansPerOfficer() {
+    // Ann and Bob, each with a tricorder, and a crate: each officer's
+    // tricorder keeps what it last said (0x55d410).
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=400.000000,300.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Crate\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tModel=Props/Crate\n\t\t\tPosition X=500\n\t\t\tPosition Y=300\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=300\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=360\n\t\t}\n\t}\n}\n";
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Props/Crate.mdl16"] = modelFile("Crate", 1, 1);
+    data.files["Levels/Model Descriptions.RDS"] = bytesOf(":A test model\r\nA crate.\r\n");
+    data.files["Inventory/Item Definitions/Tricorder.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tItem Range=450\n"
+                "\tProcess=CProcess\n\t{\n\t\tProcess Type=Scan\n\t}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Tricorder", -1}};
+    TeamMember bob = ann;
+    bob.firstName = "Bob";
+    MapScreen screen(data, rules, map, options, 0, {ann, bob});
+    uint64_t now = 0;
+    screen.choose(0);
+    screen.chooseItem(0, 0);
+    drawOnce(screen, now);
+    CHECK(screen.useItem(500.0f, 300.0f));
+    while (now < 3000)
+        screen.update(now += 50);
+    CHECK(screen.scanText() == "A crate.");
+    screen.choose(1);
+    CHECK(screen.scanText().empty());
+    screen.choose(0);
+    CHECK(screen.scanText() == "A crate.");
+}
+
 void testProcesses() {
     // A console whose process, used with nothing chosen, walks the officer
     // to it and puts a line on the tricorder's panel and the crate on the
@@ -3324,6 +3371,7 @@ static const reluva::test::Suite
                {"team bar", [](const std::filesystem::path &) { testTeamBar(); }},
                {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
+               {"scans per officer", [](const std::filesystem::path &) { testScansPerOfficer(); }},
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},

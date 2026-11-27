@@ -55,7 +55,7 @@ None now.
 - **Items:** the counts for -1, the keys matched to items by name,
   walking into range before using one, and where the bar
   shows counts; the items' panels' layout and the phaser's switch on
-  it, and tricorders' scans
+  it
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** what Cancel Orders drops, and how an
   enemy's sight is chosen and drawn

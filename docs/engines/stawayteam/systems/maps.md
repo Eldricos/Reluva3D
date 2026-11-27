@@ -1006,7 +1006,9 @@ each place, `#1-4#` the first, then running its actions, they the
 instigator and the part `$trigger` *(inferred)*; one for their item from
 within its Item Range, as items are ([items.md](items.md#using-one))
 *(inferred)*. A
-`CTricorderDialogAction`'s line is typed on the tricorder's panel.
+`CTricorderDialogAction`'s line is typed on the instigator's tricorder
+panel, or on every officer's for an instigator who isn't one
+(`0x5f13e0`).
 `CAddAIAction` gives its parts the AI, a trigger watched from then on;
 `CRemoveAIAction` takes away theirs of that class, stopping its triggers
 *(inferred)*. The actions run as the gadgets need them
