@@ -20,6 +20,11 @@ None yet.
 
 ## Not yet as the original
 
+- **The scope's sight in widescreen:** the stormtrooper rifle's scope
+  sees as much height as at 4:3 and more at the sides, but its green
+  sight is drawn a third wider at 16:9 than at 4:3, as tall: the game
+  sizes it by the screen's width
+  ([../jk/systems/hosting.md](../jk/systems/hosting.md), step 24).
 
 ## Additions outside the game
 

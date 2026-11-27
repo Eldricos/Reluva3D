@@ -457,10 +457,30 @@ Windows does when it fails, and dialog boxes are made but not drawn
     level played, drawn in software and on the graphics card, the
     pointer's clicks landing in the menus *(confirmed)*.
 
+    Every level, at 16:9 from a new player with `-skim`: Jedi Knight's
+    light side, its 21 levels to the ending's cut scene, and Mysteries of
+    the Sith's 14 to its finale, nothing stopped; in a frame each 10
+    seconds of play (59 and 21), the 3D across the whole width and the
+    gauges in its corners, but where the level was black at an edge and
+    in two frames of the Maw seen through the level's own camera, which
+    draws no gauges *(confirmed)*.
+
+    Only Mysteries of the Sith zooms: the stormtrooper rifle's scope
+    (`weap_stscope_m.cog`, its second mode, weapon 13), at 4, 11 and 23
+    times through the scripts' zoom. At 4 times, at 16:9 and at 4:3 with
+    the view the whole screen, the field of view the game kept was 28.07°
+    in both and the focal length 1278.5 and 1278.0: the same height seen,
+    the 16:9 wider *(confirmed)*. Its green sight is drawn a third wider
+    at 16:9, as tall: the game sizes it by the screen's width.
+
+    The view's size is changed in play by `-` (*Decrease viewsize*) and
+    `=` (*Increase viewsize*) in both games, as the controls the games
+    ship bind those actions: from 9, `-` twice and `=` once left 8
+    *(confirmed)*.
+
     Left open: the game's own software renderer, never offered a wide
-    mode (it draws in 8-bit modes, 1024 by 768 at most); the scopes and
-    zooms widened, through the same function but never looked at; and
-    the levels beyond the first.
+    mode (it draws in 8-bit modes, 1024 by 768 at most); the scope's
+    sight, drawn wider.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were

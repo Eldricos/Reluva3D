@@ -183,12 +183,16 @@ their handlers as the console starts (`0x422500` to `0x422a2f`):
 | `freebird` | `0x423480` | *Unknown* |
 | `boinga` | `0x4234b0` | Invulnerable, the game's *Invul* *(confirmed)* |
 | `youarehere` | `0x4234e0` | *Unknown* |
-| `makeitwork` | `0x423530` | *Unknown* |
+| `makeitwork` | `0x423530` | Stops the game, in widescreen and at 4:3 alike: a read of address 0 (`0x56c365`) in the program's own formatting of a string (`0x5610e0`, called at `0x421de9`) *(confirmed)*; whether it does on Windows isn't known |
 | `gospeedgo` | `0x423560` | The game's *Slowmo* |
-| `quickzap` | `0x423590` | *Unknown* |
+| `quickzap` | `0x423590` | Nothing shown in the first level; *unknown* |
 | `gameover` | `0x4235c0` | Ends the level (`0x403160`) *(confirmed)* |
-| `diediedie` | `0x4235e0` | *Unknown* |
-| `gimmestuff`, `iamagod`, `trainme`, `morelife`, `cartograph`, `trixie` | `0x423870`, `0x423ba0`, `0x423f00`, `0x4240f0`, `0x424140`, `0x424180` | Registered with their words (`0x423170`); *unknown* |
+| `diediedie` | `0x4235e0` | Every weapon, the game's *All Weapons* *(confirmed)* |
+| `gimmestuff` | `0x423870` | The game's *All items* *(confirmed)* |
+| `iamagod` | `0x423ba0` | The game's *Uber Jedi* *(confirmed)* |
+| `trainme` | `0x423f00` | The game's *Level Up* *(confirmed)* |
+| `trixie` | `0x424180` | The game's *Mana* *(confirmed)* |
+| `morelife`, `cartograph` | `0x4240f0`, `0x424140` | Registered with their words (`0x423170`); *unknown* |
 | `takemeto <n>` | `0x423400` | Goes to level *n* of the episode (`0x4035d0`): `takemeto 12` went to the Upper Sith *(confirmed)* |
 
 ## Using it

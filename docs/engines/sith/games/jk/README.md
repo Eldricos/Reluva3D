@@ -144,8 +144,8 @@ the game's own 3D acceleration whatever *Setup* says, drawn in
 software or on the graphics card as *3D drawing* says; *Setup*'s
 display as it was before is what's kept for the sessions without
 ([systems/hosting.md](systems/hosting.md), step 24). The view's size
-(*Setup*'s *View size*, or *Increase viewsize* and *Decrease
-viewsize* in play) is kept apart for widescreen: 9 at first, the 3D
+(*Setup*'s *View size*, or `=` and `-` in play, the controls
+*Increase viewsize* and *Decrease viewsize*) is kept apart for widescreen: 9 at first, the 3D
 filling the screen with the gauges in its corners, then whatever the
 player last chose in widescreen; the size for 4:3 stays as it was. Mysteries of the
 Sith's is the same.
