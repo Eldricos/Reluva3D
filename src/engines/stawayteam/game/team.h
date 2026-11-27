@@ -239,7 +239,7 @@ std::string heldAs(const std::map<std::string, ItemDefinition> &items, const std
 void resolveInventories(std::vector<TeamMember> &officers, const std::map<std::string, ItemDefinition> &items,
                         const std::vector<std::string> &discovered);
 
-/** The inventory's item types (`Inventory/Item Types`), in their files' order, `!None` left out. */
+/** The inventory's item types (`Inventory/Item Types`), by name ignoring case as the program sorts them, `!None` left out. */
 std::vector<std::string> loadItemTypes(const Archive &data);
 
 /** Reads mission `number` (1 to 18). */

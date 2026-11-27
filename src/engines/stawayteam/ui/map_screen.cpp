@@ -1625,7 +1625,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         const auto type =
             def == _items.end() ? _itemTypes.end() : std::find(_itemTypes.begin(), _itemTypes.end(), def->second.type);
         if (type != _itemTypes.end())
-            places[size_t(_itemTypes.end() - type) - 1] = {0, 1, {0}};
+            places[size_t(type - _itemTypes.begin())] = {0, 1, {0}};
         _hud->setItemPanel(false, {}, 0);
         _hud->setOverload(-1.0f);
         _hud->setInventory({{controller, -1}}, std::move(places), 0);

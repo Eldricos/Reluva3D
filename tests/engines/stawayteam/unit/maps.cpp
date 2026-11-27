@@ -2118,10 +2118,10 @@ void testProcesses() {
             screen.update(now += 50);
     };
     screen.choose(0);
-    // The bar: a place for each type, the last type's first, the
+    // The bar: a place for each type, in the types' order, the
     // Tricorder, Hypospray and Rifle sharing the gadgets'.
     const std::vector<std::vector<int>> places = screen.itemPlaces(a);
-    CHECK(places.size() == 2 && places[0] == std::vector<int>{1} && (places[1] == std::vector<int>{0, 2, 3}));
+    CHECK(places.size() == 2 && (places[0] == std::vector<int>{0, 2, 3}) && places[1] == std::vector<int>{1});
     // Inventory Next: along the gadgets, then on to the phaser; Prev back.
     screen.chooseItem(0, 0);
     screen.stepItem(0, 1);

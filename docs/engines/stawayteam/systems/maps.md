@@ -984,8 +984,10 @@ its open button or M, its minimap with the view outlined, a click on it
 moving the view there *(inferred)*, and on it the officers on the map
 and the parts shown of Player or Enemy, not Dead Bodies, as dots, and
 the points of interest pulsing; the chosen officer's items in the inventory's places, the
-places in the team selection's order, the last type's first
-*(inferred)*, Inventory Next and Prev, and the previous and next
+places one for each type but `!None`, shown whether the officer has
+any or not (`0x423621`, `0x4241a8`), left to right in the types' order,
+as the program sorts them (`0x424261`, `0x424dda`): Gadget, Offensive Gadget, Primary,
+Secondary, Skill, Special; Inventory Next and Prev, and the previous and next
 buttons *(inferred)*, going along them as above, each place drawn as
 above, no More Indicator, and the item's name centred on Inventory
 Title Pos *(inferred)*; and the pause button.
@@ -1410,7 +1412,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 ## Open questions
 
-- **The interface:** what the inventory's places are.
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
 - **Drawing order:** how the program breaks ties between equal keys,

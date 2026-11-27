@@ -386,8 +386,9 @@ there *(inferred)*. A part with its own process for the tricorder
 instead, from within the tricorder's range, its line typed on the panel
 ([maps.md](maps.md#the-maps-triggers)).
 
-The bar shows a place for each type, the last type's first as the team
-selection has them *(inferred)*, each the item of its own the officer
+The bar shows a place for each type, left to right in the types' order
+(their index, their names sorted ignoring case: `0x41fa91`,
+`0x5e6b80`), each the item of its own the officer
 last came to; Inventory Next and Prev, and the bar's buttons, go along
 them, the item's name shown a second and a half; its count at the
 place's bottom left, and no More Indicator, as the program draws them
@@ -560,7 +561,7 @@ system ([particles.md](particles.md)).
 - **Grenades:** what the EM Pulse Grenade does beyond holding the
   Electronic Equipment, and how a damage type's `Unavoidable damage`
   weighs against a character's own (`0x495297`).
-- **The bar:** the order of its places, and whether the full
-  inventory's items are in their Item Frames.
+- **The bar:** whether the full inventory's items are in their Item
+  Frames.
 - **The panels:** where each part of an item's panel is drawn, whether
   it's over the minimap, and how the phaser's switch is used.

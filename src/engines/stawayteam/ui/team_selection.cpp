@@ -414,7 +414,7 @@ std::vector<std::vector<const ItemDefinition *>> TeamSelectionScreen::inventoryC
     const int shown = shownMember();
     if (shown < 0)
         return columns;
-    // A column for each item type, the last type's first (0x5e6b80), the
+    // A column for each item type, in the types' order (0x5e6b80), the
     // officer's items each in its type's, those shown in the inventory only
     // (0x5ec2bd).
     for (const TeamMember::Item &held : _roster[size_t(shown)].inventory) {
@@ -423,7 +423,7 @@ std::vector<std::vector<const ItemDefinition *>> TeamSelectionScreen::inventoryC
             continue;
         const auto type = std::find(_itemTypes.begin(), _itemTypes.end(), def->second.type);
         if (type != _itemTypes.end())
-            columns[size_t(_itemTypes.end() - type) - 1].push_back(&def->second);
+            columns[size_t(type - _itemTypes.begin())].push_back(&def->second);
     }
     return columns;
 }

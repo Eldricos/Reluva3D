@@ -33,8 +33,9 @@ std::string named(const std::string &cursor) {
 } // namespace
 
 std::vector<std::vector<int>> MapScreen::itemPlaces(const Officer &o) const {
-    // A place for each type, the last type's first, as the team selection
-    // has its columns (0x5e6b80); those shown in the inventory only.
+    // A place for each type, left to right by the types' order (sorted by
+    // their index, 0x5e6b80, from the bar's offset, 0x424dda); those shown
+    // in the inventory only.
     std::vector<std::vector<int>> places(_itemTypes.size());
     for (size_t k = 0; k < o.items.size(); ++k) {
         const auto def = _items.find(o.items[k].name);
@@ -42,7 +43,7 @@ std::vector<std::vector<int>> MapScreen::itemPlaces(const Officer &o) const {
             continue;
         const auto type = std::find(_itemTypes.begin(), _itemTypes.end(), def->second.type);
         if (type != _itemTypes.end())
-            places[size_t(_itemTypes.end() - type) - 1].push_back(int(k));
+            places[size_t(type - _itemTypes.begin())].push_back(int(k));
     }
     return places;
 }

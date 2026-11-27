@@ -1087,7 +1087,7 @@ private:
     bool _hasHere = false;
     float _hereX = 0.0f;
     float _hereY = 0.0f;
-    std::vector<std::string> _itemTypes; // Inventory/Item Types, the bar's places last first
+    std::vector<std::string> _itemTypes; // Inventory/Item Types, the bar's places in order
     // Seconds the chosen item's name's still shown over the bar, from when
     // it's chosen (0x423e52).
     static constexpr float kItemTitleTime = 1.5f;

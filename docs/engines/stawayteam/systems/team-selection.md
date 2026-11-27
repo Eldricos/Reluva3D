@@ -106,8 +106,9 @@ said:
   Selection Title Pos`.
 - **The inventory** (`0x5ea5b7`, drawn at `0x5eb2c0`) in place of the
   officer's panel, on `Inventory Background` at `Inventory Pos`: the
-  officer shown's items, a column for each item type, the types' last
-  first (`0x5e6b80`), `Inventory Icon Size` and `Inventory Icon Spacing`
+  officer shown's items, a column for each item type, left to right in
+  the types' order (`0x5e6b80`, by their index: their files' names
+  sorted ignoring case, `0x41fa91`), `Inventory Icon Size` and `Inventory Icon Spacing`
   apart from `Inventory Strip Pos`; in a column its items from the strip
   upward, each in the middle of `Roster Window/Item Frame` (`Selected Icon
   Background` under the mouse *(inferred)*), an empty column a dark square

@@ -6,6 +6,7 @@
 #include "engines/stawayteam/formats/text_object.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 
@@ -298,6 +299,12 @@ std::vector<std::string> loadItemTypes(const Archive &data) {
     for (const std::string &path : filesIn(data, "Inventory/Item Types", ".txt"))
         if (stem(path) != "!None")
             out.push_back(stem(path));
+    // A type's index is its place in this order (0x41fa91, 0x5f2cf2).
+    std::sort(out.begin(), out.end(), [](const std::string &a, const std::string &b) {
+        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), [](char x, char y) {
+            return std::tolower(static_cast<unsigned char>(x)) < std::tolower(static_cast<unsigned char>(y));
+        });
+    });
     return out;
 }
 

@@ -60,8 +60,6 @@ None now.
 - **The interface's buttons:** what Cancel Orders drops, and how an
   enemy's sight is chosen and drawn
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **The interface's bar and minimap:** the inventory's places in the
-  team selection's order ([systems/maps.md](systems/maps.md#open-questions)).
 - **The gadgets:** an enemy shooting a hologram down by its hit points,
   and what's put down running its model's AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).
