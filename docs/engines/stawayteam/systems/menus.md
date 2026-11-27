@@ -438,7 +438,12 @@ by Windows (`GetKeyNameTextA`). Shown, a binding is the held key's name,
 "+" ("Wheel Down", "Mouse Button 1"), all apart by ", ". They're kept
 (`0x4845c0`) in a section "NO JOYSTICK Control Configuration" (the
 joystick's name, none here), a key "Category Name" each, the four numbers
-as "%d,%d,%d,%d".
+as "%d,%d,%d,%d". The game reads its joystick through Windows'
+`joyGetPosEx`. In Reluva a joystick's button sets off on the map what's
+bound to it as a key does, "Joystick Button" counted from 1, and pressed
+on the keyboard screen while an action waits, binds it, taking it from
+any other *(inferred)*; the sticks do nothing yet, what the game does
+with them not being traced, and the bindings stay under "NO JOYSTICK".
 
 **The screen:**
 

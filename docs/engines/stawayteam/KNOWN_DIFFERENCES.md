@@ -39,7 +39,9 @@ None yet.
   mission as it began, and loading one starts that mission again from
   its briefing; the save screens' picture isn't shown ([systems/menus.md](systems/menus.md#saved-games)).
 - **Keys' names** are Reluva's table of the US keyboard's, not what
-  Windows gives for the player's own keyboard; joysticks aren't there.
+  Windows gives for the player's own keyboard. A joystick's buttons work
+  as bound, but its sticks do nothing
+  ([systems/menus.md](systems/menus.md)).
 
 ## Additions outside the game
 

@@ -65,6 +65,12 @@ public:
      * @return The names of the actions that lost them.
      */
     std::vector<std::string> bindKey(size_t action, int key, int modifier);
+    /**
+     * Binds `action` to the joystick's button `button` (from 1); any other
+     * action bound to it loses it.
+     * @return The names of the actions that lost it.
+     */
+    std::vector<std::string> bindJoystick(size_t action, int button);
     /** Takes `action`'s key away, keeping its mouse's and joystick's. */
     void clearKey(size_t action);
     /** Every action's default binding back (RESET). */

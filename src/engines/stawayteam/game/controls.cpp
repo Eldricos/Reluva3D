@@ -202,6 +202,17 @@ std::vector<std::string> Controls::bindKey(size_t action, int key, int modifier)
     return lost;
 }
 
+std::vector<std::string> Controls::bindJoystick(size_t action, int button) {
+    std::vector<std::string> lost;
+    for (size_t i = 0; i < _bindings.size(); ++i)
+        if (i != action && _bindings[i].joystick == button) {
+            _bindings[i].joystick = 0;
+            lost.emplace_back(gameActions()[i].name);
+        }
+    _bindings[action].joystick = button;
+    return lost;
+}
+
 void Controls::clearKey(size_t action) {
     _bindings[action].key = 0;
     _bindings[action].modifier = 0;

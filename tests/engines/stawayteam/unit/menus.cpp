@@ -404,6 +404,10 @@ void testControls() {
     CHECK(controls.bindKey(1, 0x13, 0x2a).empty() && controls.text(1) == "Shift+R");
     controls.clearKey(21);
     CHECK(controls.text(21) == "Wheel Down");
+    // A joystick's button likewise.
+    CHECK(controls.bindJoystick(7, 3).empty() && controls.text(7) == "Enter, Joystick Button 3");
+    const auto gone = controls.bindJoystick(8, 3);
+    CHECK(gone.size() == 1 && gone[0] == "Pause" && controls.text(7) == "Enter");
 
     // Kept as the program keeps them, and read back; reset, the defaults.
     Config file;

@@ -1715,6 +1715,15 @@ void testInterface() {
     screen.draw(s, 3100);
     screen.handleEvent(esc, nullptr, 3200);
     CHECK(!screen.escapeShown());
+    // A joystick's button bound to Pause stops time, as its key does.
+    options.controls.bindJoystick(7, 2);
+    Event joy;
+    joy.type = EventType::kJoyButtonDown;
+    joy.joyButton = 1;
+    screen.handleEvent(joy, nullptr, 3250);
+    CHECK(screen.paused());
+    screen.handleEvent(joy, nullptr, 3260);
+    CHECK(!screen.paused());
     // O opens the objectives, and O again closes them.
     Event o;
     o.type = EventType::kKeyDown;

@@ -153,6 +153,17 @@ bool KeyConfigScreen::handleEvent(const Event &ev, audio::Mixer *mixer, uint64_t
         return false;
     }
     Panel &panel = _panels[_shown];
+    // A joystick's button pressed while waiting binds it as the action's
+    // Joystick Button (inferred: as a key's bound).
+    if (_waiting >= 0 && ev.type == EventType::kJoyButtonDown) {
+        Row &row = panel.rows[size_t(_waiting)];
+        for (const std::string &name : _options.controls.bindJoystick(row.action, ev.joyButton + 1))
+            _changes.push_back({name + kDeleted, now + kChangeMs});
+        row.name.setChecked(false);
+        _waiting = -1;
+        save();
+        return false;
+    }
     if (_waiting >= 0 && (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp)) {
         // Waiting for a key (0x484060): Esc gives up, the binding as it
         // was (0x48417e); Delete takes its key away (0x484149).

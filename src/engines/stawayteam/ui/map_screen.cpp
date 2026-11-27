@@ -1158,18 +1158,24 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         }
         _dragging = false;
     }
-    if (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp) {
-        const bool down = ev.type == EventType::kKeyDown;
+    const bool joystick = ev.type == EventType::kJoyButtonDown || ev.type == EventType::kJoyButtonUp;
+    if (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp || joystick) {
+        const bool down = ev.type == EventType::kKeyDown || ev.type == EventType::kJoyButtonDown;
         // Esc as the escape button (inferred).
-        if (down && ev.key == key::kEscape) {
+        if (down && !joystick && ev.key == key::kEscape) {
             _escape = std::make_unique<EscapeWindow>(_data, _rules, 640, 480);
             return Choice::kNone;
         }
-        // The keys bound to scrolling the map (the keyboard's settings).
-        const int code = scanCode(ev.key);
+        // The keys bound to each action (the keyboard's settings), or the
+        // joystick's button bound to it, "Joystick Button" counted from 1
+        // (0x484f00).
+        const int code = joystick ? 0 : scanCode(ev.key);
         const auto bound = [&](const char *action) {
             const int i = actionIndex(action);
-            return i >= 0 && code != 0 && _options.controls.binding(size_t(i)).key == code;
+            if (i < 0)
+                return false;
+            const Binding &b = _options.controls.binding(size_t(i));
+            return joystick ? b.joystick != 0 && b.joystick == ev.joyButton + 1 : code != 0 && b.key == code;
         };
         if (bound("Scroll Map Left"))
             _left = down;
