@@ -61,8 +61,8 @@ None now.
   shows counts; the items' panels' layout and the phaser's switch on
   it, and tricorders' scans
   ([systems/items.md](systems/items.md#open-questions)).
-- **The interface's buttons:** orders given with time stopped, what
-  Cancel Orders drops, and how an enemy's sight is chosen and drawn
+- **The interface's buttons:** what Cancel Orders drops, and how an
+  enemy's sight is chosen and drawn
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The interface's bar and minimap:** the inventory's places in the
   team selection's order ([systems/maps.md](systems/maps.md#open-questions)).

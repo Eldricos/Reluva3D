@@ -220,7 +220,9 @@ Around the view, each at its place in Rules.txt's Custom Rules (a
   Button/Pause Time Default`, `Hover` and `Press`. With time stopped, the
   `Pause Indicator` sequence is drawn at the view's top left and "Pause
   Time Activated" in `Trek Title Red` 20 under its top, its brightness
-  going up and down (`0x5be085`).
+  going up and down (`0x5be085`). Time stopped is the game's flag at
+  `+0x370` (`0x5ca750`); the map's mouse and keys look only at the input
+  lock (`+0x60c`, `0x5bf104`, `0x5c8820`), so orders are still taken.
 
 The keys press the box's buttons (`0x476b90`): Cancel Orders
 (Backspace) CANCEL ORDERS, Toggle Vision Cones (V) the vision button,
@@ -1388,8 +1390,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.
-- **The buttons:** whether orders can be given with time stopped, what
-  CANCEL ORDERS drops, and how an enemy's sight is chosen and drawn.
+- **The buttons:** what CANCEL ORDERS drops, and how an enemy's sight
+  is chosen and drawn.
 - **A mission's maps:** whether those the team's left go on, which place
   each officer arrives at, what Only on this map does, and the other
   relocations.
