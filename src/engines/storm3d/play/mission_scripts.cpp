@@ -226,6 +226,7 @@ Error MissionScripts::load(const std::string &mission, const std::vector<uint8_t
         if (trace)
             trace("output: " + s);
     };
+    _scratch = _process->memory().alloc(16);
     // Their own C runtime keeps its per-thread data in thread-local
     // storage; they run on one thread, so slots of a table here do.
     _process->provideStdcall("KERNEL32.dll", "TlsAlloc", 0, [this](x86::Cpu &) {
@@ -241,6 +242,8 @@ Error MissionScripts::load(const std::string &mission, const std::vector<uint8_t
         _tls[c.arg(0)] = c.arg(1);
         return 1u;
     });
+    for (const char *tls : {"TlsAlloc", "TlsFree", "TlsGetValue", "TlsSetValue"})
+        _cpu->setWritesTracked(std::string("KERNEL32.dll!") + tls);
     provideImports(script);
     provideImports(rules);
     const x86::Win32Process::Module *s = nullptr;
@@ -299,12 +302,15 @@ void MissionScripts::provideImports(const std::vector<uint8_t> &file) {
                     cpu.reg[x86::Cpu::EAX] = result;
                 return sig.member ? sig.argBytes : 0u;
             });
+            // They write the scripts' memory only through the processor's
+            // writes, so its compiled code needn't be checked after each.
+            _cpu->setWritesTracked(dll.name + "!" + fn.name);
         }
     }
 }
 
 uint32_t MissionScripts::callGame(const std::string &decorated, const Signature &sig, x86::Cpu &cpu) {
-    const Arguments args{cpu, sig.member ? cpu.reg[x86::Cpu::ECX] : 0};
+    const Arguments args{cpu, sig.member ? cpu.reg[x86::Cpu::ECX] : 0, sig.kinds, _scratch};
     if (std::optional<uint32_t> own = engine(decorated, sig, args))
         return *own;
     std::optional<uint32_t> result;

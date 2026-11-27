@@ -929,6 +929,8 @@ void MissionView::think(double seconds) {
     const std::vector<MapScene::Unit> &units = _scene.units();
     const Odf::Loader loader = loaderOf(_files.files());
     for (Computer &c : _computers) {
+        if (_computersOff)
+            break;
         // Its ships' goals, each ten seconds (guessed: its personality's
         // recompute_strategy_period, 200, says no unit).
         c.plan -= seconds;
@@ -1254,6 +1256,12 @@ void MissionView::fight(double seconds) {
 }
 
 void MissionView::destroy(size_t unit, int by) {
+    // One a mission's script keeps (CraftCannotDie, its byte 0x678) stays.
+    if (_cannotDie.count(unit)) {
+        _vitals[unit].destroyed = false;
+        _vitals[unit].carry = 0;
+        return;
+    }
     _dead[unit] = true;
     // Counted as the original's debriefing showed: lost by its player, and
     // destroyed in its player's row too, not its killer's, when another's
@@ -1601,17 +1609,50 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
         return err;
     if (Error err = parsed.parse(data))
         return Error::fail(map + ": " + err.message);
-    _renderer = renderer;
-    _scene.attach(renderer);
-    _scene.build(parsed, {}, "", team >= 0 ? _scene.sightsOf(parsed, {}, team) : std::vector<MapScene::Sight>{},
-                 MapScene::Cover{});
-    _overview = startOf(parsed, slot);
-    if (_hud.load(_files, hudRaceOf(text::toLower(parsed.race))))
-        _hud = Hud{};
-    _mapIcons = mapIconsOf(parsed, loaderOf(_files.files()));
-    _resources.reset();
-    _held.clear();
-    _last = millis;
+    // The map's objects on a team are its units, in play, where the map
+    // has them; the player's are team `slot`'s.
+    std::vector<MapScene::StartUnit> units;
+    for (size_t i = 0; i < parsed.objects.size(); ++i) {
+        const BznMap::Object &o = parsed.objects[i];
+        if (o.team < 1)
+            continue;
+        MapScene::StartUnit u;
+        u.odf = o.odf;
+        u.at = o.position;
+        u.slot = o.team;
+        u.heading = std::atan2(o.transform[6], o.transform[8]);
+        u.object = i;
+        units.push_back(u);
+    }
+    Player me;
+    me.slot = slot;
+    me.race = hudRaceOf(text::toLower(parsed.race));
+    me.human = true;
+    _players = {me};
+    MapScene::Cover cover;
+    if (Error err = play(renderer, parsed, units, cover, Hud::Resources{}, millis, parsed.techTree))
+        return err;
+    if (team >= 0)
+        _scene.build(parsed, units, "", _scene.sightsOf(parsed, {}, team), cover);
+    for (const BznMap::Path &p : parsed.paths)
+        _paths.emplace(p.name, p.points);
+    for (const BznMap::Object &o : parsed.objects)
+        _mapObjects.emplace_back(o.label, o.position);
+    // Its scripts, from the map's [AiMission]: the script's DLL, then the
+    // rules' (formats/bzn.md).
+    if (parsed.scripts.size() == 2 && text::hasSuffixIgnoreCase(parsed.scripts[0], "S.dsl")) {
+        std::vector<uint8_t> script;
+        std::vector<uint8_t> rules;
+        if (_files.read("missions/" + parsed.scripts[0], script) || _files.read("missions/" + parsed.scripts[1], rules))
+            return Error::fail(map + ": its scripts aren't in the install");
+        _missionScripts = std::make_unique<MissionScripts>();
+        _missionScripts->game = [this](const std::string &name, const MissionScripts::Arguments &args) {
+            return scriptCall(name, args);
+        };
+        const std::string name = parsed.scripts[0].substr(0, parsed.scripts[0].size() - 5);
+        if (Error err = _missionScripts->load(name, script, rules))
+            return Error::fail(map + ": " + err.message);
+    }
     return Error::success();
 }
 
@@ -1625,32 +1666,41 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
         return err;
     if (Error err = parsed.parse(data))
         return Error::fail(map + ": " + err.message);
-    _renderer = renderer;
-    _scene.attach(renderer);
     // The tech level's tree, not the map's techTreeFile: 0x43ea06 reads
     // techlvl.odf's techfile<level>, tech1.tt failing that, for every player.
-    _techTree = TechTree{};
     Odf levels;
     const std::string treeFile = levels.load("techlvl.odf", loaderOf(_files.files()))
                                      ? std::string("tech1.tt")
                                      : levels.string("techfile" + std::to_string(techLevel), "tech1.tt");
-    std::vector<uint8_t> tree;
-    if (!_files.read(treeFile, tree))
-        _techTree.parse(std::string_view(reinterpret_cast<const char *>(tree.data()), tree.size()));
     std::vector<MapScene::StartUnit> units;
-    std::vector<MapScene::StartUnit> mine;
-    int slot = 1;
-    for (const Player &p : players) {
+    for (const Player &p : players)
         for (MapScene::StartUnit &u : MapScene::startUnitsOf(parsed, MapScene::standardUnitsOf(p.race, _files.files())))
             if (u.slot == p.slot) {
                 u.colour = p.colour;
                 units.push_back(u);
-                if (p.human)
-                    mine.push_back(u);
             }
-        if (p.human)
+    return play(renderer, parsed, units, cover, start, millis, treeFile);
+}
+
+Error MissionView::play(gfx::Renderer3D *renderer, const BznMap &parsed, const std::vector<MapScene::StartUnit> &units,
+                        MapScene::Cover cover, const Hud::Resources &start, uint64_t millis,
+                        const std::string &treeFile) {
+    const std::vector<Player> &players = _players;
+    _renderer = renderer;
+    _scene.attach(renderer);
+    _techTree = TechTree{};
+    std::vector<uint8_t> tree;
+    if (!_files.read(treeFile, tree))
+        _techTree.parse(std::string_view(reinterpret_cast<const char *>(tree.data()), tree.size()));
+    std::vector<MapScene::StartUnit> mine;
+    int slot = 1;
+    for (const Player &p : players)
+        if (p.human) {
             slot = p.slot;
-    }
+            for (const MapScene::StartUnit &u : units)
+                if (u.slot == p.slot)
+                    mine.push_back(u);
+        }
     cover.slot = slot;
     _scene.build(parsed, units, "",
                  (cover.shroud || cover.fog) && !mine.empty() ? _scene.sightsOf(parsed, mine, -1)
@@ -2146,6 +2196,15 @@ void MissionView::stop() {
     _repairingAt.clear();
     _decommissioning.clear();
     _terrain = {};
+    _missionScripts.reset();
+    _scriptFault.clear();
+    _paths.clear();
+    _mapObjects.clear();
+    _scripted.clear();
+    _cannotDie.clear();
+    _missionEnd.reset();
+    _computersOff = false;
+    _audioMessages = 0;
     _recrewing.clear();
     _poolCarry.clear();
     _revealedUntil.clear();
@@ -2608,6 +2667,13 @@ bool MissionView::settled(const std::vector<Player> &players, const std::set<int
 MissionView::Ending MissionView::ending() const {
     if (_players.empty())
         return Ending::kNone;
+    // A campaign mission ends when its script says, at the game time it
+    // gives (0x401c00).
+    if (_missionScripts) {
+        if (_missionEnd && _missionScripts->clock() >= _missionEnd->first)
+            return _missionEnd->second ? Ending::kLost : Ending::kWon;
+        return Ending::kNone;
+    }
     if (_surrendered)
         return Ending::kLost;
     // The session ends 3 seconds after (0x5bdbf4); the original's debriefing
@@ -2646,6 +2712,7 @@ void MissionView::draw(uint64_t millis) {
         _resources->crew = grownCrew(_resources->crew, _crewCarry, starbasesOf(_slot), seconds);
     for (Computer &c : _computers)
         c.bank.crew = grownCrew(c.bank.crew, c.crewCarry, starbasesOf(c.slot), seconds);
+    runScripts(seconds);
     think(seconds);
     build(seconds);
     engage();

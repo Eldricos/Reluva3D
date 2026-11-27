@@ -535,16 +535,15 @@ public:
             }
             if (loadingOn) {
                 // The files read, the screen drawn in 3D; then the mission,
-                // seen from Camera_1, the campaign's player's ("Premonitions"'
-                // first frame of play). Its script moves the player's ships
-                // before play, which can't run yet (phase 8), so there's no
-                // shroud: it would be cast from where the map leaves them.
+                // seen from Camera_1, the campaign's player's ("Premonitions'"
+                // first frame of play), its scripts running. No shroud yet.
                 const bool more = loading.step();
                 loading.draw(now);
                 if (!more) {
                     loading.stop();
                     loadingOn = false;
-                    mission.setAlliedVictory(setup.teams());
+                    if (!skirmish.empty())
+                        mission.setAlliedVictory(setup.teams());
                     Error err = skirmish.empty() ? mission.start(renderer3D, single.mission(), 1, -1, now)
                                                  : mission.startSkirmish(renderer3D, setup.map(), skirmish,
                                                                          {shroud, fog}, start, now, setup.techLevel());

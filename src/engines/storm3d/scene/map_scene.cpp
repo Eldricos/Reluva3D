@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <set>
 
 namespace reluva::storm3d {
 
@@ -474,7 +475,14 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         _seen = seenOf(_map, int(std::lround((_map.area[1] - _map.area[0]) / kShroudCell)), sights);
         _now = _seen;
     }
-    for (const BznMap::Object &o : _map.objects) {
+    std::set<size_t> asUnits;
+    for (const StartUnit &unit : units)
+        if (unit.object)
+            asUnits.insert(*unit.object);
+    for (size_t index = 0; index < _map.objects.size(); ++index) {
+        if (asUnits.count(index))
+            continue;
+        const BznMap::Object &o = _map.objects[index];
         const Look &look = lookFor(o.odf);
         // Each drawn with whether the cover hides it, where it is.
         auto place = [&](const SodMeshes::Built *built, const gfx::Mat4 &at) {
@@ -507,7 +515,7 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
     }
     _starting = 0;
     for (const StartUnit &unit : units)
-        if (addUnit(unit, 0))
+        if (addUnit(unit, unit.heading))
             ++_starting;
     // The team parts in the chosen race's colour, or the map's race's: the
     // game's frames show the Federation's grey on the player's ships.
@@ -568,6 +576,7 @@ bool MapScene::addUnit(const StartUnit &unit, float heading) {
     u.odf = unit.odf;
     u.slot = unit.slot;
     u.colour = unit.colour;
+    u.object = unit.object;
     _units.push_back(u);
     UnitModel m;
     m.placed = _placed.size() - 1;

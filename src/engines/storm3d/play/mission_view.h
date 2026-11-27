@@ -11,6 +11,7 @@
 #include "engines/storm3d/formats/tech_tree.h"
 #include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
+#include "engines/storm3d/play/mission_scripts.h"
 #include "engines/storm3d/play/movement.h"
 #include "engines/storm3d/play/strategy.h"
 #include "engines/storm3d/scene/map_scene.h"
@@ -20,6 +21,7 @@
 #include <cstdint>
 #include <array>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -504,6 +506,20 @@ private:
     std::map<int, Tally> _tallies; // by slot
     bool _surrendered = false;
     bool _alliedVictory = true;
+    // A campaign mission's scripts, and what they ask of the game.
+    std::unique_ptr<MissionScripts> _missionScripts;
+    std::string _scriptFault;                                   // why they stopped, if they faulted
+    std::map<std::string, std::vector<gfx::Vec3>> _paths;       // the map's, by name
+    std::vector<std::pair<std::string, gfx::Vec3>> _mapObjects; // the map's objects: name, place
+    std::set<size_t> _scripted;                                 // units the scripts order (SetSpecialForcesFlag)
+    std::set<size_t> _cannotDie;                                // CraftCannotDie
+    std::optional<std::pair<double, bool>> _missionEnd;         // when, in game seconds; whether failed
+    bool _computersOff = false;                                 // DisableAllAITeams
+    int _audioMessages = 0;
+    void runScripts(double seconds);
+    std::optional<uint32_t> scriptCall(const std::string &name, const MissionScripts::Arguments &args);
+    std::optional<size_t> unitOfHandle(int32_t handle) const; // a living unit's
+    std::optional<gfx::Vec3> placeOfHandle(int32_t handle) const;
     std::optional<double> _settledAt; // the game's seconds when it was settled
     bool _menuWanted = false;
     bool _targeting = false;   // the attack button pressed: the next click picks the target
@@ -577,6 +593,10 @@ private:
     std::optional<Footprint> footprintOf(const std::string &odf, const gfx::Vec3 &at, float fallback);
     bool placeable(const gfx::Vec3 &site, const Footprint &station) const;
     Hud::Resources *bankOf(int slot); // a player's counters: the player's, or a computer's
+    // A mission in play, past what its kind decides: the units it starts
+    // with, the players (_players) and their tree.
+    Error play(gfx::Renderer3D *renderer, const BznMap &parsed, const std::vector<MapScene::StartUnit> &units,
+               MapScene::Cover cover, const Hud::Resources &start, uint64_t millis, const std::string &treeFile);
     void startSite(size_t builder, const gfx::Vec3 &at, const std::string &item, const Footprint &station);
     void think(double seconds);             // the computer players'
     Combat::Pace paceOf(size_t unit) const; // how it moves, for a shot's chance

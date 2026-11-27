@@ -92,6 +92,44 @@ for what they take from Armada.exe.
   `setCineractive` sets the flags for the next. A script started during
   a pass waits for the next to run its first step, a choice of Reluva's:
   the program's walk by index would shift.
+- **In play** (`MissionView`, the game functions in
+  `play/script_calls.cpp`): a campaign mission's objects on a team are
+  its units, the player's team 1, and its scripts run a pass a frame,
+  before the computer players think. A unit's handle is its place in
+  play, from 1; the map's other objects (its planets) have handles past
+  0x100000, for their names. Done as the notes on the program's code
+  say *(from the code)* unless marked:
+  - **names and paths:** `GetHandle` finds the first unit, then map
+    object, of the map's name, exactly; paths are the map's, by name;
+  - **orders,** only to a unit the script has taken
+    (`SetSpecialForcesFlag`): `Goto` a path, along its points *(inferred)*,
+    or a unit; `Stop`; `Attack` and `AI_Attack`, the same here
+    *(guessed)*, how the second differs not known. `SetPosition` puts
+    a unit at a path's first point, `PointAt` turns it, `BuildObject`
+    makes one at a path's point for a player, `RemoveObject` takes one
+    away without an explosion *(inferred)*;
+  - **the unit's state:** `CraftCannotDie` keeps it from being
+    destroyed; `DisableWeapons`, `DisableEngines` and
+    `DisableShieldGenerator` put the system out until turned on again;
+    `DestroyWeapons` and `DestroyLifeSupport` take its hit points;
+    `DestroyCritical` destroys it *(inferred)*; `SetShieldPercent` takes a
+    share from 0 to 1, whatever its name; `SetDilithium` sets the
+    player's; `DisableAllAITeams` stops the computer players;
+  - **questions:** `IsValid` is whether the handle isn't 0, not whether
+    the unit lives; `CountUnits` and `CountUnitsNearObject` count living
+    units that aren't derelict, by player and definition, within the
+    radius across the plane; `GetDistance` to a path's point and
+    `GetNearestEnemy` (in a square of the range) are across the plane
+    too; `InAttackMode` is having a target; `InQueue` having somewhere to
+    go *(inferred)*; `IsCompromised` gone, derelict or another's;
+  - **the end:** `SucceedMission` and `FailMission` end the mission when
+    the game time reaches the time they give.
+
+  Not done yet: the cineractive camera (each shot is taken as done at
+  once, so the opening runs 22 seconds, not the original's 44), voices
+  and music (`AudioMessage` is done at once), titles, subtitles, the
+  objectives box, the bridge, fades, `SetWarpSpeed`, the minimap's
+  messages and the AI files other missions load.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make
@@ -107,8 +145,15 @@ for what they take from Armada.exe.
   cineractive's calls (`CineractiveStart`, `FadeIn`, the shot
   `ENTFLYBY`, `AudioMessage("Mfed25.wav")`) follow, and with no units
   (every `GetHandle` 0) the rule for a lost construction ship fires.
+  `engine-shot` starting "Premonitions" from the single-player screen:
+  the opening's calls in order, the ships flown to and then put at
+  their `...START` paths as in the original's first frame of play, the
+  title "'PREMONITIONS'" and the Dominion patrols sent off, at 22 seconds;
+  the dilithium 6,000, as the script sets it.
 
 ## Open questions
 
-- The game functions, one by one, in play.
+- What `AI_Attack`'s order 7 does that `Attack`'s 5 doesn't, and how
+  `Goto` flies a path.
+- The team colours of a campaign mission's other sides.
 - What sets a script's hold flag (its 0x18), which stops its steps.

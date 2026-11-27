@@ -10,6 +10,7 @@ reluva_add_engine(storm3d
         game_files.cpp
         play/hud.cpp
         play/mission_scripts.cpp
+        play/script_calls.cpp
         play/mission_view.cpp
         play/movement.cpp
         play/combat.cpp

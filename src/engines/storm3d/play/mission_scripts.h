@@ -42,7 +42,9 @@ public:
     /** A game function's arguments, as the script passed them. */
     struct Arguments {
         x86::Cpu &cpu;
-        uint32_t self = 0; // ECX, for a member
+        uint32_t self = 0;    // ECX, for a member
+        std::string kinds;    // each one's, as Signature::kinds: tells overloads apart
+        uint32_t scratch = 0; // 16 bytes of the scripts' memory for a result they're given the address of
         uint32_t word(int n) const { return cpu.arg(n); }
         int32_t integer(int n) const { return int32_t(word(n)); }
         float real(int n) const;
@@ -143,6 +145,7 @@ private:
     std::vector<Script> _scripts;                     // oldest first
     std::map<uint32_t, std::vector<uint32_t>> _lists; // the save and load functions, by list
     uint32_t _world = 0;
+    uint32_t _scratch = 0;
     float _clock = 0;
 };
 

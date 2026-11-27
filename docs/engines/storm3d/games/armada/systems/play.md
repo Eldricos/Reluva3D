@@ -27,7 +27,7 @@ By then the mission's script has moved the player's ships: they're at
 their `...START` paths, not where the map leaves them (the Enterprise's
 `ENTSTART`, (5,749, 28, 1,039), not (5,571, 38, 237)). The scripts
 (`missions\Federation1S.dsl` and `R.drl`) are Windows DLLs, run by the
-program; see the plan's phase 8.
+program; see [mission-scripts.md](mission-scripts.md).
 
 ### How a skirmish starts
 
@@ -406,9 +406,10 @@ before and after each ([camera.md](camera.md#the-overview)):
   the game.
 - **The mission** (`MissionView`, `play/mission_view.h`) follows the
   loading screen: the map from the overview over `Camera_1`, moved by
-  the keys as above. A campaign mission's objects are where the map
-  leaves them, as its script can't run yet, and without the shroud,
-  which they'd cast from the wrong places. Esc goes back to the
+  the keys as above. A campaign mission's objects on a team are its
+  units, in play, where the map has them, and its scripts run
+  ([mission-scripts.md](mission-scripts.md)), moving them on; there's
+  no shroud yet. Esc goes back to the
   single-player screen. The interface and the objectives aren't drawn
   yet.
 - **The interface** (`Hud`, `play/hud.h`) is drawn over the map in

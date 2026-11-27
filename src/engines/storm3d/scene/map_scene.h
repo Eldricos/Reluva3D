@@ -83,6 +83,8 @@ public:
         gfx::Vec3 at{};
         int slot = 0;                    // the player's: its path Camera_<slot>
         std::optional<gfx::Vec3> colour; // its player's team colour; none: build's
+        float heading = 0;               // radians from +z towards +x
+        std::optional<size_t> object;    // the map's object it is, not drawn as the map's too
     };
     /**
      * Where a skirmish makes each player's starting units, as the game
@@ -179,6 +181,7 @@ public:
         std::optional<gfx::Vec3> colour; // its player's, 0 to 1; none: the map's race's
         gfx::Vec3 lo{};                  // the model's box, scaled, turned and placed
         gfx::Vec3 hi{};
+        std::optional<size_t> object; // the map's object it is, if it was one
         /** How far its box's corners reach from its middle. */
         float radius() const;
         gfx::Vec3 middle() const { return {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2}; }
