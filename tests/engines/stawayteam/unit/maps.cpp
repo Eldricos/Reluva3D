@@ -1655,6 +1655,28 @@ void testTeamBar() {
     CHECK(click(10) == 0 && click(70) == 2 && click(140) == -1);
 }
 
+void testHealthBar() {
+    // Ann's health bar at (20, 20) of her slot, 10 high, her health 0.55:
+    // the foreground's bottom 5 rows over the background, 5.5 of 10 with
+    // the half dropped (0x5e2f50).
+    MemoryArchive data;
+    data.files["Cache/Interface/Screens/Team Bar/Health Bar Background.frm16"] = solidFrame(4, 10, 0xf800);
+    data.files["Cache/Interface/Screens/Team Bar/Health Bar Foreground.frm16"] = solidFrame(4, 10, 0x07e0);
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=640,480\n"
+                          "Team Pos=0,0\nTeam Icon Spacing=66\nTeam Health Offset=20,20\n}\n}\n",
+                          rules));
+    TeamMember ann;
+    ann.firstName = "Ann";
+    GameHud hud(data, rules, {ann}, "", 1000, 1000);
+    hud.setHealth({0.55f});
+    Surface s;
+    s.create(640, 480, PixelFormat::kRGBA32);
+    hud.draw(s, 0, 0, 500.0f, 500.0f, 400, 400);
+    const auto green = [&](int y) { return s.row(y)[21 * 4 + 1] > 200 && s.row(y)[21 * 4] < 50; };
+    CHECK(!green(24) && green(25) && green(29) && !green(30));
+}
+
 void testFullInventory() {
     // The bar with two places: a phaser, and two grenades. Right-clicked,
     // the second place's both show over it; a click on one chooses it, and
@@ -3723,6 +3745,7 @@ static const reluva::test::Suite
                {"stop animation", [](const std::filesystem::path &) { testStopAnimation(); }},
                {"tries to collide", [](const std::filesystem::path &) { testTriesToCollide(); }},
                {"team bar", [](const std::filesystem::path &) { testTeamBar(); }},
+               {"health bar", [](const std::filesystem::path &) { testHealthBar(); }},
                {"full inventory", [](const std::filesystem::path &) { testFullInventory(); }},
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                {"scans per officer", [](const std::filesystem::path &) { testScansPerOfficer(); }},

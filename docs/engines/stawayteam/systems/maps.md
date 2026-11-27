@@ -198,8 +198,9 @@ Around the view, each at its place in Rules.txt's Custom Rules (a
   colour (Command and Security Trek Small Red, Engineering Trek Small
   Gold, Medical and Science Trek Small) at `Team Field Offset`; their head
   icon centred on `Team Icon Offset`; and `Health Bar Foreground` over
-  its background at `Team Health Offset`, filled from the bottom as far
-  as their health (`0x5e2f50`).
+  its background at `Team Health Offset`, cut to its bottom rows: as
+  many as the background's height times the part of their health they
+  have, the fraction dropped (`0x5e2f50`, `0x5e2ff6`).
 - **The button box** at `Button Box Pos`: the move, vision, sound,
   select-all, objectives and options buttons, and CANCEL ORDERS.
 - **The info bar** (`0x4de730`) at `Info Pos`, under the screen's bottom,

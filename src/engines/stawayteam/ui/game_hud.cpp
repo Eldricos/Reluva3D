@@ -390,28 +390,20 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
         const auto font = _fieldFonts.find(_team[i].field);
         if (font != _fieldFonts.end() && font->second.loaded())
             font->second.draw(screen, x + fieldX, y + fieldY, _team[i].name());
-        // Health: the bar's foreground shown as far along as they're whole,
-        // from its bottom if it stands, else from its left (inferred).
-        image::blit(screen, picture("Team Bar/Health Bar Background"), x + healthX, y + healthY);
+        // Health: the background, then the foreground over it cut to its
+        // bottom rows, as many as the background's height times how whole
+        // they are, the fraction dropped (0x5e2f50, 0x5e2ff6).
+        const image::Image &back = picture("Team Bar/Health Bar Background");
+        image::blit(screen, back, x + healthX, y + healthY);
         const image::Image &bar = picture("Team Bar/Health Bar Foreground");
         const float whole = i < _health.size() ? std::clamp(_health[i], 0.0f, 1.0f) : 1.0f;
-        if (bar.h > bar.w) {
-            const int shown = int(std::lround(float(bar.h) * whole));
+        const int shown = std::min(bar.h, int(float(back.h) * whole));
+        if (shown > 0) {
             image::Image part;
             part.w = bar.w;
             part.h = shown;
             part.rgba.assign(bar.rgba.end() - ptrdiff_t(size_t(shown) * size_t(bar.w) * 4), bar.rgba.end());
             image::blit(screen, part, x + healthX, y + healthY + bar.h - shown);
-        } else {
-            const int shown = int(std::lround(float(bar.w) * whole));
-            image::Image part;
-            part.w = shown;
-            part.h = bar.h;
-            for (int row = 0; row < bar.h; ++row) {
-                const auto from = bar.rgba.begin() + ptrdiff_t(size_t(row) * size_t(bar.w) * 4);
-                part.rgba.insert(part.rgba.end(), from, from + ptrdiff_t(size_t(shown) * 4));
-            }
-            image::blit(screen, part, x + healthX, y + healthY);
         }
     }
 
