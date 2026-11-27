@@ -55,7 +55,14 @@ the least of:
   `headingCloseEnoughForWarp` (30°) off its heading *(inferred)*.
 
 It's there within 8 units of the point *(inferred)*, and then slows to
-a stop. In the way of a unit that doesn't move, whose ring's half side
+a stop. Warp is its top speed, `warpSpeed`: the physics files (the
+destroyer's `destphys.odf` 100, the construction ship's 50) keep it
+for a ship headed within `headingCloseEnoughForWarp` of its way and
+further than `tooCloseForWarp` (10) from its end, flown at
+`impulseSpeed` nearer *(inferred)*. A point behind it and nearer than
+`tooCloseToTurn` (40) it backs to without turning, at
+`maxReverseSpeed` (0.667) of its impulse *(inferred)*: the keys'
+names say so; the original wasn't seen doing either. In the way of a unit that doesn't move, whose ring's half side
 and the ship's together reach the straight line, it first flies to a
 point square to the line from that unit's middle, on the side away from
 it, 1.4 times those half sides out *(inferred)*; within 35 of that
@@ -126,5 +133,5 @@ from the group's middle *(guessed)*.
   obstacle, or round other ships.
 - How ships climb, and to what height.
 - How a group moves: formation, or each to the point.
-- Warp, whose speed `warpSpeed` may be only at a distance, and the
-  other physics files' ships.
+- Whether the original backs up so, and how its other physics files'
+  ships fly (only the construction ship's flights were measured).

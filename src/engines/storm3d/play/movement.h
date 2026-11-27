@@ -22,10 +22,13 @@ class Movement {
 public:
     /** A ship's way of flying, from its physics file (`physicsFile`, "cnstphys.odf"). */
     struct Physics {
-        float topSpeed = 50;    // warpSpeed, units a second
-        float cornerSpeed = 20; // impulseSpeed: its most while turning sharply
-        float turnRate = 0.72f; // yawRotationRate, radians a second
-        float wideTurn = 0.52f; // headingCloseEnoughForWarp, radians: past it, a sharp turn
+        float topSpeed = 50;     // warpSpeed, units a second
+        float cornerSpeed = 20;  // impulseSpeed: its most while turning sharply
+        float turnRate = 0.72f;  // yawRotationRate, radians a second
+        float wideTurn = 0.52f;  // headingCloseEnoughForWarp, radians: past it, a sharp turn
+        float warpFrom = 10;     // tooCloseForWarp: nearer its goal than this, no faster than impulse
+        float turnFrom = 40;     // tooCloseToTurn: a point behind it and nearer than this, it backs to
+        float reverse = 0.6667f; // maxReverseSpeed: backing, of its impulse speed
     };
     /** A ship's physics from its definition, through its `physicsFile`; the defaults if it has none. */
     static Physics physicsOf(const Odf &unit, const Odf::Loader &loader);

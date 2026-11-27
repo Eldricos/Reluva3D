@@ -43,6 +43,9 @@ Movement::Physics Movement::physicsOf(const Odf &unit, const Odf::Loader &loader
     p.cornerSpeed = float(physics.number("impulseSpeed", p.cornerSpeed));
     p.turnRate = float(physics.number("yawRotationRate", p.turnRate));
     p.wideTurn = float(physics.number("headingCloseEnoughForWarp", 30) * std::numbers::pi / 180);
+    p.warpFrom = float(physics.number("tooCloseForWarp", p.warpFrom));
+    p.turnFrom = float(physics.number("tooCloseToTurn", p.turnFrom));
+    p.reverse = float(physics.number("maxReverseSpeed", p.reverse));
     return p;
 }
 
@@ -155,14 +158,22 @@ void Movement::step(Ship &ship, const Physics &physics, double seconds) {
         float left = std::hypot(dx, dz);
         if (!ship.route.empty())
             left = std::max(left, physics.topSpeed * physics.topSpeed / float(2 * kBraking));
+        // Its goal just behind it, nearer than tooCloseToTurn, it backs to
+        // it without turning, at maxReverseSpeed of its impulse *(inferred:
+        // the keys' names)*.
+        const float behind = std::abs(wrapAngle(std::atan2(dx, dz) - ship.heading));
         if (left < kArrived) {
             ship.goal.reset();
+        } else if (ship.route.empty() && left < physics.turnFrom && behind > float(std::numbers::pi) * 0.75f) {
+            want = -std::min(double(physics.cornerSpeed * physics.reverse), std::sqrt(2 * kBraking * left));
         } else {
             const float off = wrapAngle(std::atan2(dx, dz) - ship.heading);
             const float most = float(physics.turnRate * seconds);
             ship.heading = wrapAngle(ship.heading + std::clamp(off, -most, most));
             want = std::min(double(physics.topSpeed), std::sqrt(2 * kBraking * left));
-            if (std::abs(off) > physics.wideTurn)
+            // Warp, its top speed, only past tooCloseForWarp of its goal and
+            // headed within headingCloseEnoughForWarp of it.
+            if (std::abs(off) > physics.wideTurn || (ship.route.empty() && left < physics.warpFrom))
                 want = std::min(want, double(physics.cornerSpeed));
         }
     }
