@@ -450,6 +450,11 @@ before and after each ([camera.md](camera.md#the-overview)):
 - Where Fixed Placement puts each player.
 - How the original ends a skirmish that's won or lost, rather than
   surrendered: what it shows first, and when a player counts as out.
+  In a run of it with the computer's starbase killing both the
+  player's construction ships (by 124 seconds), the player kept their
+  starbase: Shift+D, `Input.map`'s `decomm`, pressed with it selected at
+  118 seconds, hadn't taken it by 200, nor had the computer's ships come,
+  so no end was reached.
 - Whether the fog, over what's been seen, hides the asteroid fields and
   nebulae (the shroud hides both: the original's view over a field and
   a nebula never seen was its grey alone, as Reluva's), and what of an
