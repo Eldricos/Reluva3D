@@ -71,6 +71,7 @@ public:
         uint32_t destBlend = 0;
         bool depthTest = false;
         bool depthWrite = false;
+        bool specular = false; // the vertices' specular colour added after texturing
     };
     // Called for each draw (DrawPrimitive and the like), before it's drawn.
     std::function<void(const Draw &)> drawn;

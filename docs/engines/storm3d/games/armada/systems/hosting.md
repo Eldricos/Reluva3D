@@ -68,10 +68,12 @@ so they're added in the order the program needs them.
 - **A frame's draws**, with `-draws <frame> <file>`: each Direct3D draw
   that makes it, with its texture (where its pixels are, and its size),
   where its vertices are in memory
-  its blending (the D3DBLEND factors, 0 when off) and depth test and
-  write, and its vertices as Storm3D gives them, already on the screen:
-  x, y, depth, 1/w, colour, and texture coordinates. Storm3D lights its
-  vertices itself, so their colours are its lighting.
+  its blending (the D3DBLEND factors, 0 when off), depth test and
+  write, and whether Direct3D's specular is on, and its vertices as
+  Storm3D gives them, already on the screen: x, y, depth, 1/w, colour,
+  and texture coordinates (a draw with a specular colour too, format
+  1c4, in hex). Storm3D lights its vertices itself, so their colours
+  are its lighting.
 - **What writes a place in memory**, with `-watch <address> <bytes>`:
   each store into it, by an instruction or by a native function (as
   `memcpy`), with where it was made, the registers then, and the stack's
