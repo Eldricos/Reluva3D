@@ -73,8 +73,17 @@ original's, on average, at each tenth of a second. The file's own
 `turnRadius`, `pathLeadDistance` and inertias may say the same in the
 game's own way; how the program uses them isn't known.
 
-A group keeps its shape: each ship goes to the point plus its place
-from the group's middle *(guessed)*.
+A group, as the original sent its two construction ships, 53 apart
+side by side, to a point 300 away (both selected with a box, then the
+right button): the one on the right came to the point (to 4 units,
+placed by its model in the draws), the other to 100 left of it, its
+side kept, its gap now `RTS_CFG.h`'s `FORMATION_SPACING`. So the first
+goes to the point, and each other keeps its way from it, at least 100
+off *(inferred)*: one flight; which ship is first, and whether a group
+further apart keeps its shape, weren't seen. The files' formation moves
+(`FORMATION_LEADER_SLOWDOWN` 0.9, `FORMATIONS_RELATIVE_TO_SHIP`) are off
+by default (`DEFAULT_TO_FORMATION_MOVE` 0) and no key in `Input.map`
+asks for one.
 
 ## In Reluva
 
@@ -132,6 +141,7 @@ from the group's middle *(guessed)*.
   inertias and coefficients, and its path finding round more than one
   obstacle, or round other ships.
 - How ships climb, and to what height.
-- How a group moves: formation, or each to the point.
+- Which ship of a group goes to the point, and how a group further than
+  100 apart, or of ships of different speeds, moves.
 - Whether the original backs up so, and how its other physics files'
   ships fly (only the construction ship's flights were measured).

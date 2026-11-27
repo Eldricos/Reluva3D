@@ -93,8 +93,7 @@ these phases start from, is in [formats/install.md](formats/install.md).
    7), saved games and the Load Game screen's list (phase 8), the ways
    to play over the network (phase 9).
 7. **Rules** (in progress): units from their object definitions:
-   collision avoidance, warp and formations, the ships' specular
-   highlights as they turn in the light; then
+   the ships' specular highlights as they turn in the light; then
    skirmish against the computer player (its scheduler, the `.aip`
    personalities, its DLLs). The largest phase, checked against the
    original and recordings, with the manual for the rules. Done: a
@@ -121,7 +120,9 @@ these phases start from, is in [formats/install.md](formats/install.md).
    click, and ships chasing their target; research and the special
    weapons; crew and systems hit, misses, debris and shockwaves;
    boarding, capture, repair and recrew
-   ([systems/combat.md](systems/combat.md)).
+   ([systems/combat.md](systems/combat.md)); ships keeping clear of each
+   other and of fields, warp, and groups sent as the original's
+   ([systems/movement.md](systems/movement.md)).
 8. **The campaign:** the functions `Armada.exe` exports for the missions,
    the missions themselves ([Decisions](#decisions)), the cut scenes and
    the bridge scenes, and saved games.

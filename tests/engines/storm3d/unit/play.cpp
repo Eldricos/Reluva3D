@@ -284,16 +284,21 @@ void testPointOn() {
     }
 }
 
-// A group sent somewhere keeps its shape.
+// A group sent somewhere, as the original's two construction ships went:
+// the first to the point, each other on its side of it, at least 100 off;
+// one already further keeps its place from the first.
 void testSendGroup() {
     using reluva::storm3d::Movement;
-    std::vector<Movement::Ship> ships(3);
+    std::vector<Movement::Ship> ships(4);
     ships[0].at = {0, 38.5f, 0};
-    ships[1].at = {20, 38.5f, 0};
+    ships[1].at = {-53, 38.5f, 0};
     ships[2].at = {500, 38.5f, 0};
-    MissionView::sendTo(ships, {}, {0, 1, 2}, {true, true, false}, {110, 38.5f, 100});
-    CHECK(ships[0].goal && ships[1].goal && !ships[2].goal);
-    CHECK((*ships[0].goal)[0] == 100 && (*ships[1].goal)[0] == 120 && (*ships[1].goal)[2] == 100);
+    ships[3].at = {0, 38.5f, 300};
+    MissionView::sendTo(ships, {}, {0, 1, 2, 3}, {true, true, false, true}, {110, 38.5f, 100});
+    CHECK(ships[0].goal && ships[1].goal && !ships[2].goal && ships[3].goal);
+    CHECK((*ships[0].goal)[0] == 110 && (*ships[0].goal)[2] == 100);
+    CHECK(std::fabs((*ships[1].goal)[0] - 10) < 1e-3f && std::fabs((*ships[1].goal)[2] - 100) < 1e-3f);
+    CHECK(std::fabs((*ships[3].goal)[2] - 400) < 1e-3f);
     CHECK(ships[0].waiting == Movement::kSetOff);
 }
 

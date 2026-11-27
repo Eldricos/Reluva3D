@@ -179,20 +179,31 @@ void MissionView::sendTo(std::vector<Movement::Ship> &ships, const std::vector<M
     // And the map's asteroid fields and black holes.
     standing.insert(standing.end(), fields.begin(), fields.end());
     std::vector<size_t> going;
-    gfx::Vec3 middle{};
     for (int i : selection)
-        if (size_t(i) < ships.size() && size_t(i) < moves.size() && moves[size_t(i)]) {
+        if (size_t(i) < ships.size() && size_t(i) < moves.size() && moves[size_t(i)])
             going.push_back(size_t(i));
-            for (size_t k = 0; k < 3; ++k)
-                middle[k] += ships[size_t(i)].at[k];
-        }
     if (going.empty())
         return;
-    for (float &m : middle)
-        m /= float(going.size());
-    for (size_t i : going) {
-        ships[i].goal =
-            gfx::Vec3{point[0] + ships[i].at[0] - middle[0], ships[i].at[1], point[2] + ships[i].at[2] - middle[2]};
+    // The first goes to the point; each other keeps its way from it, at
+    // least FORMATION_SPACING (100) off: the original's two construction
+    // ships, 53 apart, came to the point and 100 beside it, on the same
+    // side *(inferred: one flight)*.
+    constexpr float kSpacing = 100;
+    const gfx::Vec3 lead = ships[going.front()].at;
+    for (size_t n = 0; n < going.size(); ++n) {
+        const size_t i = going[n];
+        float ox = ships[i].at[0] - lead[0];
+        float oz = ships[i].at[2] - lead[2];
+        const float apart = std::hypot(ox, oz);
+        if (n > 0 && apart < kSpacing) {
+            // Right on top of the first, set to its side.
+            if (apart < 1e-3f)
+                ox = 1, oz = 0;
+            const float scale = kSpacing / std::max(1e-3f, std::hypot(ox, oz));
+            ox *= scale;
+            oz *= scale;
+        }
+        ships[i].goal = gfx::Vec3{point[0] + ox, ships[i].at[1], point[2] + oz};
         ships[i].waiting = Movement::kSetOff;
         ships[i].route = i < units.size()
                              ? Movement::routeAround(ships[i].at, *ships[i].goal, standing, ringHalfOf(units[i]))
