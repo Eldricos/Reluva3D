@@ -212,7 +212,9 @@ clock for NFS II SE: the load then takes about 1.5 s, the counter 14
 when checked, and 14 to 16 at each round's in the knockouts after.
 Those the driver lost early; with the computer cars' top speeds held to
 70 m/s (their table at 0x4c32e0 poked, for the test only), it won
-through to the fifth round, and its load passed, the counter 16. A
+through to the fifth round (1st, 1st, 3rd, 4th), and its load passed,
+the counter 16; there, on Pacific Spirit, it came last of five and was
+out. A
 round won puts up *congratulations!* before the standings, one more
 Enter to take.
 
