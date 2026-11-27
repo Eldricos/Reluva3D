@@ -177,7 +177,10 @@ Pos` 0, -8; `Indicator Position` -55, 0), its pictures' and words' are
 on the info bar with nothing added (`0x534d61`), which puts them on it
 (the phaser's `Stun Pos` 155, 39; the band's `Button Pos` 116, 13). A `CGenericInfoRenderer` its
 `Text` in `Text Size` at `Text Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
-Sequence` at `Phaser Indicator Pos`, its damage and range at `Phaser
+Sequence` at `Phaser Indicator Pos`, cut to its energy's share of its
+width from the left (`0x534a1d`), with red ticks 4 pixels high along its
+top at either end and a shot's Energy Use apart (`0x534890`); its
+damage and range at `Phaser
 Damage Pos` and `Phaser Range Pos` in `Phaser Font` ("Damage: %3.0f",
 or "Damage: ---" for an item without a Discharge Action; "Range:
 %3.0f"; both as the item has them now, enhanced or not), overloaded the
@@ -346,8 +349,8 @@ delay, then goes when an enemy's in its oval: its Activate Sound and
 noise, and its explosion its fuse later, as a grenade's, hurting from
 twice its model's Explosion Radial Damage (150 for each of the mines)
 as above. A remote mine waits for DETONATE on its panel, which sends a message
-on the player's `Remote Mine` broadcaster (`0x48bca0`), setting off
-every one they've put down; its Destroyed Action makes a noise of 350
+on the player's own `Remote Mine` broadcaster (`0x48bca0`, the player
+`0x5ca4a0`), setting off every one the player's officers have put down; its Destroyed Action makes a noise of 350
 and shocks the living within 150 (an `Electric Shock` effect). A tricorder chosen, a click on a part
 with a model (an enemy where it's got to) sends the officer within its
 Item Range and sight, then shows the model's description on its panel,
@@ -427,8 +430,11 @@ enemies' are theirs alike.
 An enhancement, kept for each officer rather than each item (it's given
 to all their weapons at once), multiplies their weapons' damage and
 range by 1.25, shown in the phaser's panel. An overloaded phaser can't be fired; thrown, it goes off as its
-overload runs out *(inferred)*; going off, its projectile explodes as a
-grenade does, its holder too ([grenades](#grenades)).
+projectile's own Shot Duration runs out, as any thrown thing's, the
+countdown left with the item, which is gone (`0x5f90c0`); going off in
+its holder's hands, its projectile's made with a thirtieth of a second
+to go (`0x5cf31a`); going off, it explodes as a grenade does, its holder
+too ([grenades](#grenades)).
 
 While the enemy taken over is chosen, its bar holds the Psychic Rack's
 `Controller Item`, the Psyche Displacement Controller (given it as it's
@@ -523,20 +529,15 @@ system ([particles.md](particles.md)).
   its model's Max Velocity.
 - **Gadgets:** how an enemy shoots a hologram, and how the player orders an enemy taken over, and how its own mind comes
   back.
-- **Overload:** whether a thrown one keeps its countdown (the item's
-  `+0x18`, `0x5cf3e0`) or takes its projectile's own Shot Duration.
 - **Grenades:** what the EM Pulse Grenade does beyond holding the
   Electronic Equipment, and how a damage type's `Unavoidable damage`
   weighs against a character's own (`0x495297`).
 - **The bar:** where a count is shown, where the More Indicator is
   drawn, the order of its places, and whether the full inventory's
   items are in their Item Frames.
-- **Cursors:** when the program shows each of an item's cursors.
 - **The panels:** where each part of an item's panel is drawn, whether
-  it's over the minimap, how the phaser's switch is used, and how its
-  Power Indicator shows its energy, in a shot's worth of it a step
-  (`0x534890`); Reluva draws it full.
-- **Mines:** where one's put down, who a remote mine's DETONATE sets off,
-  and the mines' sequences.
+  it's over the minimap, how the phaser's switch is used, and when its
+  `Phaser Can't Fire Sequence` shows.
+- **Mines:** where one's put down, and the mines' sequences.
 - **Tricorders:** what can be scanned, and what the Medical Tricorder
   shows that the Tricorder doesn't.

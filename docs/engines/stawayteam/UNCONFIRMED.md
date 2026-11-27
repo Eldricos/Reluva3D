@@ -28,8 +28,6 @@ None now.
 - **Mines' sequences:** a mine's Deploy Sequence once as it's put down,
   and its Activate held at its last frame once set off
   ([systems/items.md](systems/items.md#in-reluva)).
-- **Overload:** a thrown overloaded phaser keeping its countdown
-  ([systems/items.md](systems/items.md#in-reluva)).
 - **Network games:** only the host starting, the chat's lines' form,
   the chosen game's and mission's font, the host starting on the first
   mission, the countdown stopped by another mission or a player leaving

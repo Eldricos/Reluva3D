@@ -15,6 +15,9 @@ namespace reluva::stawayteam {
 
 namespace {
 
+// The power indicator's ticks' height above it (0x53495b).
+constexpr int kTickHigh = 4;
+
 // The button box's buttons: Rules.txt's key and the picture shown
 // (Button Box/<name>), as they are before anything's chosen (inferred).
 struct BoxButton {
@@ -679,14 +682,37 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         if (window.loaded())
             window.drawWrapped(screen, px, py, w, readText(panel, "Text"), Font::Align::kLeft);
     } else if (kind == "CPhaserInfoRenderer") {
-        // Its power, full; its damage and range, as the item has them now
-        // (enhanced, or "---" for damage without a Discharge Action), and,
-        // overloaded, the seconds left at Overload Offset (0x534c80); and
-        // its STUN or KILL as it's set, in their fonts, on the toolkit's
-        // toggle, and OVERLOAD likewise, for an item that can overload
-        // (0x534ed1).
+        // Its power: the indicator cut to its energy's share of its width,
+        // from the left, red ticks 4 high along its top a shot's Energy Use
+        // apart and at either end (0x534890); its damage and range, as the
+        // item has them now (enhanced, or "---" for damage without a
+        // Discharge Action), and, overloaded, the seconds left at Overload
+        // Offset (0x534c80); and its STUN or KILL as it's set, in their
+        // fonts, on the toolkit's toggle, and OVERLOAD likewise, for an
+        // item that can overload (0x534ed1).
         fromMiddle("Phaser Indicator Pos", px, py);
-        blitBy(screen, sequence(readText(panel, "Phaser Power Indicator Sequence")).frame(0, 0), px, py);
+        if (const Animation::Picture *power =
+                sequence(readText(panel, "Phaser Power Indicator Sequence")).frame(0, 0)) {
+            const int left = px - power->originX;
+            const int top = py - power->originY;
+            const int w = power->image.w;
+            const float energy = std::clamp(_energy, 0.0f, 100.0f);
+            blitBy(screen, power, px, py, 1.0f, 255, INT_MIN, left + int(float(w) * energy / 100.0f));
+            const float shots = 100.0f / (item->energyUse > 0.0f ? item->energyUse : 1.0f);
+            const auto tick = [&](int x) {
+                for (int y = std::max(0, top - kTickHigh); y < std::min(top, screen.h); ++y)
+                    if (x >= 0 && x < screen.w) {
+                        uint8_t *p = screen.row(y) + x * 4;
+                        p[0] = 255;
+                        p[1] = 0;
+                        p[2] = 0;
+                    }
+            };
+            tick(left);
+            for (int k = 1; float(k) < shots; ++k)
+                tick(left + int(float(w) / shots * float(k)));
+            tick(left + w);
+        }
         const Font &font = panelFont(readText(panel, "Phaser Font"));
         char text[48];
         if (item->dischargeAction.empty())

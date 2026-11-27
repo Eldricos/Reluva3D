@@ -245,14 +245,15 @@ bool MapScreen::doTask(size_t officer) {
         // Velocity (inferred). It goes off its Shot Duration after it's
         // thrown.
         o.direction = directionOf(o.taskX - o.x, o.taskY - o.y);
-        // Overloaded, it's its Overload Projectile, going off as its
-        // overload runs out (inferred), and it's gone from them.
+        // Overloaded, it's its Overload Projectile, going off after that
+        // model's own Shot Duration as any thrown thing, the countdown left
+        // with the item, which is gone from them (0x5f90c0).
         const float overload = o.items[size_t(o.item)].overload;
         const std::string &projectile = overload >= 0.0f ? def->overloadProjectile : def->projectile;
         if (overload >= 0.0f && !def->overloadSequence.empty())
             o.discharge = def->overloadSequence;
         const ModelInfo &info = modelInfo(projectile);
-        const float fuse = overload >= 0.0f ? overload : info.fuse > 0.0f ? info.fuse : kDefaultFuse;
+        const float fuse = info.fuse > 0.0f ? info.fuse : kDefaultFuse;
         Thrown t{def, projectile, o.x, o.y, o.taskX, o.taskY, fuse, int(officer)};
         ItemDefinition thrownAs = *def;
         if (overload >= 0.0f) {

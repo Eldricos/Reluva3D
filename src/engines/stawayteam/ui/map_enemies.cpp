@@ -383,22 +383,28 @@ void MapScreen::attackOfficer(Enemy &e, int officer) {
 }
 
 void MapScreen::maybeRetreat(Enemy &e) {
-    // Hurt to its Retreat At Percent of its health, one whose Retreat AI
-    // goes somewhere (a CGoToAI's Destination: 48 in all the maps, to an
-    // alarm or a security panel) runs there, once (inferred).
+    // Hit, its health's whole percent at most its Retreat At Percent, and
+    // not retreating already, it retreats (0x434477): one whose Retreat AI
+    // goes somewhere (a CGoToAI's Destination: 50 in all the maps, to an
+    // alarm or a security panel) runs there; one with none (the rest)
+    // stands, doing nothing (0x43014f).
     const int percent = int(e.ai->integer("Retreat At Percent").value_or(0));
+    if (percent <= 0 || e.state == "Retreat" || e.maxHealth <= 0.0f || int(e.health / e.maxHealth * 100.0f) > percent)
+        return;
     const TextObject *retreat = e.ai->object("Retreat");
     const TextObject *goTo = retreat ? retreat->object("Retreat AI") : nullptr;
-    if (percent <= 0 || e.retreated || e.state == "Retreat" || !goTo || goTo->className != "CGoToAI" ||
-        e.health > e.maxHealth * float(percent) / 100.0f)
-        return;
-    const std::vector<size_t> places = partsNamed(readText(goTo, "Destination"), int(e.part));
-    if (places.empty())
-        return;
-    float x = 0.0f;
-    float y = 0.0f;
-    placeOf(places.front(), x, y);
-    e.route = route(e, x, y);
+    e.route.clear();
+    e.walking = false;
+    e.retreated = false;
+    if (goTo && goTo->className == "CGoToAI") {
+        const std::vector<size_t> places = partsNamed(readText(goTo, "Destination"), int(e.part));
+        if (!places.empty()) {
+            float x = 0.0f;
+            float y = 0.0f;
+            placeOf(places.front(), x, y);
+            e.route = route(e, x, y);
+        }
+    }
     setState(e, "Retreat");
 }
 
@@ -833,8 +839,9 @@ void MapScreen::updateEnemies(float seconds) {
             // waits; healed past it, it goes to look where its target was
             // (0x4300e0).
             const float percent = float(e.ai->integer("Retreat At Percent").value_or(0));
-            if (e.health > e.maxHealth * percent / 100.0f) {
+            if (int(e.health / std::max(e.maxHealth, 1.0f) * 100.0f) > int(percent)) {
                 e.target = -1;
+                e.retreated = false;
                 investigate(e, e.seenX, e.seenY);
                 continue;
             }

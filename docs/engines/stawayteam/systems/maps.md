@@ -720,6 +720,9 @@ In all the maps' 776 enemies:
 - **Pursuing** (`0x42b9a0`): the same test (`0x435120`), or else Lost a
   Target; within its Max Distance again, Attack (`0x42ba78`); else its
   Pursue AI, chasing them.
+- **Going to retreat** (`0x434477`): hit, not retreating already, its
+  health's whole percent at most its Retreat At Percent (0 for 639).
+  Most have no Retreat AI: they stand, doing nothing (`0x43014f`).
 - **Retreating** (`0x4300e0`): its Retreat AI, and nothing else, while
   its health's at most its `Retreat At Percent`; healed past it,
   Investigate. There, a `CGoToAI`'s Done action is run once, and it
@@ -1413,8 +1416,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **The triggers:** the order the program finds those in a touching
   trigger in (the last found is the one it holds), and the anything-,
   team- and every-touching triggers' own code, read from the maps' fields.
-- **The enemies:** likewise, the AIs' rules: when an enemy first goes to Retreat, and
-  whether a stunned officer, still a target, is shot at.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
 - **Noise:** how the rings are drawn, and the investigating AI's rules.
