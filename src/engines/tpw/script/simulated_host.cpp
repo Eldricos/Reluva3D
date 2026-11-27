@@ -217,7 +217,7 @@ HostResult SimulatedHost::perform(ScriptMachine &machine, const Script::Instruct
         r.value = value(0) == kTourCarInStation;
         break;
     case kBump:
-        r.value = value(0) == kBumpTrackValid;
+        r.value = value(0) == kBumpTrackValid && _trackValid;
         break;
     case kLimbo:
         // LIMBO guest time: the guest is inside for that long, in seconds.

@@ -13,6 +13,7 @@ reluva_add_engine(tpw
         park/path_tiles.cpp
         park/attractions.cpp
         park/queues.cpp
+        park/tracks.cpp
         park/visitors.cpp
         park/staff.cpp
         park/finance.cpp

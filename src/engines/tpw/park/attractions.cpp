@@ -29,6 +29,8 @@ const std::array<std::pair<const char *, Attractions::Kind>, 6> kKindFolders{{
 constexpr const char *kOnline = "online_"; // the online game's settings, beside the kinds'
 // ABILITIES.str's abilities, 0 "None" to 14 "Logging".
 constexpr int kAbilities = 15;
+// SupplementalMeshes[n]: the go-karts have four, one a colour.
+constexpr int kMostVehicles = 8;
 
 std::string lower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return char(std::tolower(c)); });
@@ -121,6 +123,13 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
                 a.shape = shape->grid;
             if (const SamFile::Entry *hoarding = own.find("Info.Hoarding"))
                 a.hoarding = hoarding->grid;
+            a.trackType = int(own.number("Bumper.WhichTrackType", 0));
+            a.trackJoinX = int(own.number("Bumper.NorthXAdjust", 0));
+            a.trackJoinY = int(own.number("Bumper.NorthYAdjust", 0));
+            for (int n = 0; n < kMostVehicles; ++n)
+                if (const std::string file = own.text("SupplementalMeshes[" + std::to_string(n) + "].FileName", "");
+                    !file.empty())
+                    a.vehicles.push_back(file);
             a.replaceWith = int(number("Obstacle.ReplaceWithID", 0));
             a.openedAutomatically = number("Obstacle.OpenedAutomaticly", 0) != 0;
             a.excitement = int(number("UsageInfo.ExcitementLevel", -1));

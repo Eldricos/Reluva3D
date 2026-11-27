@@ -133,6 +133,12 @@ constexpr uint32_t kSharePortfolioItem = 844;
 constexpr uint32_t kCallEngineerItem = 524;
 constexpr uint32_t kCancelEngineerItem = 525;
 constexpr uint32_t kEditLineItem = 526;
+constexpr uint32_t kEditTrackItem = 527;
+constexpr uint32_t kDeleteTrackItem = 528;
+// "Incomplete Track", "Invalid Track": what laying track comes to, left
+// unfinished or stopped (the Coaster Design Kit's titles; guessed).
+constexpr uint32_t kIncompleteTrackText = 58;
+constexpr uint32_t kInvalidTrackText = 60;
 constexpr uint32_t kOpenItem = 530;
 constexpr uint32_t kCloseItem = 531;
 constexpr uint32_t kCallGardenerItem = 583;
@@ -246,6 +252,19 @@ const std::array<std::tuple<Park::FenceModel, const char *, int>, 3> kFenceModel
     {Park::FenceModel::kEnd, "ho_end", 1},
 }};
 
+// Bumper.WhichTrackType's: a go-kart track, a water track.
+constexpr int kKartTrack = 1;
+constexpr int kWaterTrack = 2;
+// How fast the cars go round, in units a second (guessed).
+constexpr float kKartUnitsPerSecond = 30;
+constexpr float kBoatUnitsPerSecond = 12;
+// How high the cars ride, over the pieces' ground: on the go-kart
+// track's floor (gk_trckS's wood02, at 5), a kart's wheels at its own 0;
+// in the water track's water (wr_trcks's water01, at 3.5), a ring's
+// bottom a little under it.
+constexpr float kKartLift = 5;
+constexpr float kBoatLift = 2.8f;
+
 int fenceKey(Park::FenceModel model, int look) {
     return int(model) * 8 + look;
 }
@@ -329,16 +348,16 @@ gfx::Mat4 placeOf(const Park::Cell &at, int angle) {
             1};
 }
 
-// A piece of fence: its model two cells square, its middle on the point
-// where the cells' corners meet, turned about it.
-void drawFencePiece(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
-                    const Park::FencePiece &piece, const soft3d::Vec &light) {
-    const float turn = float(piece.angle) * kRadiansPerDegree;
+// A piece of fence or track: its model two cells square, its middle on
+// the point where the cells' corners meet, turned about it.
+void drawPiece(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
+               const Park::Cell &point, int angle, const soft3d::Vec &light) {
+    const float turn = float(angle) * kRadiansPerDegree;
     const float c = std::cos(turn);
     const float s = std::sin(turn);
     const float half = Park::kCellUnits;
-    const float px = float(piece.at.x) * Park::kCellUnits;
-    const float pz = float(piece.at.y) * Park::kCellUnits;
+    const float px = float(point.x) * Park::kCellUnits;
+    const float pz = float(point.y) * Park::kCellUnits;
     const gfx::Mat4 place{
         c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, px - (c * half - s * half), kObjectLift, pz - (s * half + c * half), 1};
     std::vector<gfx::Mat4> transforms = meshTransforms(model, -1, 0);
@@ -550,6 +569,120 @@ const LoadedModel *ParkScreen::objectModel(int id) const {
     return model == _objectModels.end() ? nullptr : &model->second;
 }
 
+// The pieces of a go-kart track (gk_trck*) or a water track (wr_trck*),
+// beside the ride's own model.
+const LoadedModel *ParkScreen::trackModel(int id, Park::TrackModel model) const {
+    const auto key = std::make_pair(id, int(model));
+    auto found = _trackModels.find(key);
+    if (found == _trackModels.end()) {
+        const Attractions::Attraction *a = _attractions.find(id);
+        std::unique_ptr<LoadedModel> loaded;
+        if (a && _files && (a->trackType == kKartTrack || a->trackType == kWaterTrack)) {
+            const bool karts = a->trackType == kKartTrack;
+            const char *piece = "S";
+            switch (model) {
+            case Park::TrackModel::kStart:
+                piece = karts ? "M" : "S";
+                break;
+            case Park::TrackModel::kStraight:
+                piece = "S";
+                break;
+            case Park::TrackModel::kBend:
+                piece = "B";
+                break;
+            case Park::TrackModel::kCrossing:
+                piece = "X";
+                break;
+            case Park::TrackModel::kEnd:
+                piece = "Q";
+                break;
+            }
+            loaded = std::make_unique<LoadedModel>();
+            const std::string folder = a->model.substr(0, a->model.rfind('/') + 1);
+            if (loaded->load(*_files, folder + (karts ? "gk_trck" : "wr_trck") + piece + ".MD2"))
+                loaded.reset();
+        }
+        found = _trackModels.emplace(key, std::move(loaded)).first;
+    }
+    return found->second.get();
+}
+
+const LoadedModel *ParkScreen::vehicleModel(int id, size_t vehicle) const {
+    const auto key = std::make_pair(id, int(vehicle));
+    auto found = _vehicleModels.find(key);
+    if (found == _vehicleModels.end()) {
+        const Attractions::Attraction *a = _attractions.find(id);
+        std::unique_ptr<LoadedModel> loaded;
+        if (a && _files && vehicle < a->vehicles.size()) {
+            loaded = std::make_unique<LoadedModel>();
+            if (loaded->load(*_files, a->model.substr(0, a->model.rfind('/') + 1) + a->vehicles[vehicle]))
+                loaded.reset();
+        }
+        found = _vehicleModels.emplace(key, std::move(loaded)).first;
+    }
+    return found->second.get();
+}
+
+// Each track's pieces; and its cars, one a rider, spaced round a whole
+// track's circuit, going at a guessed pace, each facing the way it goes
+// (the go-karts' fronts are their models' −z).
+void ParkScreen::drawTracks(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park,
+                            const soft3d::Vec &light) const {
+    for (size_t i = 0; i < park.objects().size(); ++i) {
+        if (!park.hasTrack(i))
+            continue;
+        const int id = park.objects()[i].id;
+        for (const Park::TrackPiece &piece : park.trackPieces(i))
+            if (const LoadedModel *model = trackModel(id, piece.model))
+                drawPiece(rasterizer, eye, *model, {piece.at.x + 1, piece.at.y + 1}, piece.angle, light);
+        const std::vector<gfx::Vec3> circuit = park.trackCircuit(i);
+        const int queue = park.queueOf(i);
+        if (circuit.size() < 2 || queue < 0)
+            continue;
+        const auto riders =
+            size_t(std::count_if(park.visitorsAbout().begin(), park.visitorsAbout().end(), [&](const Park::Visitor &v) {
+                return v.queue == queue && v.doing == Park::Doing::kRiding;
+            }));
+        std::vector<float> lengths;
+        float whole = 0;
+        for (size_t k = 0; k < circuit.size(); ++k) {
+            const gfx::Vec3 &a = circuit[k];
+            const gfx::Vec3 &b = circuit[(k + 1) % circuit.size()];
+            lengths.push_back(std::hypot(b[0] - a[0], b[2] - a[2]));
+            whole += lengths.back();
+        }
+        const Attractions::Attraction *a = park.attractions().find(id);
+        const bool karts = a && a->trackType == kKartTrack;
+        const float pace = karts ? kKartUnitsPerSecond : kBoatUnitsPerSecond;
+        for (size_t car = 0; car < riders && whole > 0; ++car) {
+            float along = std::fmod(float(park.millis()) / 1000 * pace + float(car) * whole / float(riders), whole);
+            size_t k = 0;
+            while (k + 1 < lengths.size() && along > lengths[k]) {
+                along -= lengths[k];
+                ++k;
+            }
+            const gfx::Vec3 &from = circuit[k];
+            const gfx::Vec3 &to = circuit[(k + 1) % circuit.size()];
+            const float t = lengths[k] > 0 ? along / lengths[k] : 0;
+            const float dx = to[0] - from[0];
+            const float dz = to[2] - from[2];
+            const LoadedModel *model = vehicleModel(id, car % std::max<size_t>(1, a ? a->vehicles.size() : 1));
+            if (!model)
+                continue;
+            const float turn = std::atan2(dx, -dz);
+            const float c = std::cos(turn);
+            const float s = std::sin(turn);
+            const gfx::Mat4 place{
+                c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, from[0] + dx * t, karts ? kKartLift : kBoatLift, from[2] + dz * t,
+                1};
+            std::vector<gfx::Mat4> transforms = meshTransforms(*model, -1, 0);
+            for (gfx::Mat4 &m : transforms)
+                m = gfx::multiply(place, m);
+            drawMeshes(rasterizer, eye, *model, true, light, &transforms);
+        }
+    }
+}
+
 // Each object's script, beside its model, run on the stand-in for the park
 // without its guests, the park's visitors not riding yet: it builds itself
 // (its animation 0), then plays what it plays while it waits. Those there
@@ -638,6 +771,8 @@ void ParkScreen::advance(Park &park) {
             continue;
         }
         SimulatedHost *host = run->host();
+        if (host)
+            host->setTrackValid(!park.hasTrack(i) || park.trackComplete(i));
         if (queue >= 0 && host && !host->hasOffered()) {
             if (const int waiting = park.waitingAt(queue))
                 host->offerGuest(waiting);
@@ -727,8 +862,9 @@ void ParkScreen::drawObjects(soft3d::Rasterizer &rasterizer, const soft3d::Orbit
     for (const Park::FencePiece &piece : fence) {
         const auto model = _fenceModels.find(fenceKey(piece.model, piece.look));
         if (model != _fenceModels.end())
-            drawFencePiece(rasterizer, eye, model->second, piece, light);
+            drawPiece(rasterizer, eye, model->second, piece.at, piece.angle, light);
     }
+    drawTracks(rasterizer, eye, park, light);
     // The queue being laid drawn as it would be, in its own's place.
     for (const Park::Queue &queue : park.queues()) {
         if (queue.kiosk)
@@ -1589,6 +1725,15 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     // the mouse; or the queue it's laying ("Edit line"), on from its end.
     std::optional<Park::Cell> pathStart;
     int queueLaying = -1;
+    // A track ride whose track is being laid, and one just built, whose
+    // track comes once its line's laid.
+    int trackLaying = -1;
+    int trackNext = -1;
+    auto endTrack = [&]() {
+        if (trackLaying >= 0 && !park.trackComplete(size_t(trackLaying)))
+            screen.notify(park, kIncompleteTrackText);
+        trackLaying = -1;
+    };
     auto queueEnd = [&](int index) {
         const Park::Queue &q = park.queues()[size_t(index)];
         return q.cells.empty() ? q.entrance : q.cells.back();
@@ -1631,6 +1776,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
         if (ride) {
             items.push_back(o.engineer ? kCancelEngineerItem : kCallEngineerItem);
             items.push_back(kEditLineItem);
+            if (park.hasTrack(object)) {
+                items.push_back(kEditTrackItem);
+                if (!park.objects()[object].track.empty())
+                    items.push_back(kDeleteTrackItem);
+            }
             if (park.levelOf(object, o.level + 1))
                 items.push_back(o.upgrading > 0 ? kCancelUpgradeItem : kBuyUpgradeItem);
             items.push_back(o.open ? kCloseItem : kOpenItem);
@@ -1786,6 +1936,10 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                                 park.callGardener(object);
                             else if (item == kEditLineItem)
                                 queueLaying = park.queueOf(object);
+                            else if (item == kEditTrackItem)
+                                trackLaying = int(object);
+                            else if (item == kDeleteTrackItem)
+                                park.undoTrack(object);
                             else if (item == kOpenItem || item == kCloseItem || item == kKioskOpenItem ||
                                      item == kKioskCloseItem)
                                 park.setOpen(object, item == kOpenItem || item == kKioskOpenItem);
@@ -1830,6 +1984,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             } else if (item == kDeleteItem) {
                                 const int queue = park.queueOf(object);
                                 park.remove(object);
+                                for (int *track : {&trackLaying, &trackNext})
+                                    if (*track == int(object))
+                                        *track = -1;
+                                    else if (*track > int(object))
+                                        --*track;
                                 if (queueLaying == queue)
                                     queueLaying = -1;
                                 else if (queueLaying > queue && queue >= 0)
@@ -1940,8 +2099,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                         park.place(placing->id, placing->price, placing->shape, placing->hasQueue, under, placingAngle);
                     if (queue != Park::kNotPlaced) {
                         placing = nullptr;
-                        // A ride's queue is laid at once, from its entrance ("Edit line").
+                        // A ride's queue is laid at once, from its entrance
+                        // ("Edit line"), then its track, if it has one.
                         queueLaying = queue;
+                        if (park.hasTrack(park.objects().size() - 1))
+                            trackNext = int(park.objects().size()) - 1;
                     }
                     continue;
                 }
@@ -1970,6 +2132,35 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 if ((ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight) ||
                     (ev.type == EventType::kKeyDown && ev.key == key::kEscape)) {
                     patrolling = 0;
+                    continue;
+                }
+            }
+            if (queueLaying < 0 && trackNext >= 0) {
+                trackLaying = trackNext;
+                trackNext = -1;
+            }
+            // Track: "Click to build the track ... Click onto a track end to
+            // connect" (UIHELPTEXT 152), a straight run to the block
+            // clicked; Backspace takes up the last block.
+            if (trackLaying >= 0) {
+                if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight) {
+                    endTrack();
+                    continue;
+                }
+                if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && onGround) {
+                    const Park::TrackLaying laid = park.layTrack(size_t(trackLaying), under);
+                    if (laid == Park::TrackLaying::kClosed)
+                        trackLaying = -1;
+                    else if (laid == Park::TrackLaying::kBlocked || laid == Park::TrackLaying::kNotInLine)
+                        screen.notify(park, kInvalidTrackText);
+                    continue;
+                }
+                if (ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
+                    park.undoTrack(size_t(trackLaying));
+                    continue;
+                }
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                    endTrack();
                     continue;
                 }
             }

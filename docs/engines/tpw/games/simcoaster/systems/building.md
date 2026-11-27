@@ -10,7 +10,8 @@ Attractions menu's "Build Attraction" (2:36), the "Buy Ride" window
 (2:43), its sideshows' tab, "Grab-a-Prize" at § 500 chosen, and its
 footprint, see-through blue, following the pointer until a click
 places it (2:55), its price in yellow under the money. A ride's queue
-is laid next, from its entrance ([paths.md](paths.md#queues)).
+is laid next, from its entrance ([paths.md](paths.md#queues)); a
+go-kart's or water ride's track after it ([tracks.md](tracks.md)).
 
 ## How it works
 

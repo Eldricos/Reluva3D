@@ -166,6 +166,12 @@ None yet.
   ([challenges.md](systems/challenges.md)). The game's challenges played
   through would settle them.
 
+- **Go-kart and water tracks**: how the game lays them, from where by
+  the station, on what grid, at what cost, and how their cars run; how
+  the go-kart and water-ride awards are measured
+  ([tracks.md](systems/tracks.md)). A recording of a track being laid
+  would settle most of it.
+
 - **Fences and hoardings**: how the game lays a fence's pieces, which
   look where and which way they face, and that the world's own fence
   goes once a mission's comes; that the billboard outside the gates is

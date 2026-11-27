@@ -66,8 +66,9 @@ None yet.
   rule ([staff.md](systems/staff.md)); the missions' fences laid in
   pieces by guessed rules, the world's own hidden once one stands
   ([hoardings.md](formats/hoardings.md)); the billboard outside the gates
-  opening the Overview Map, a guess; no building but attractions and
-  path yet; the fly-in under the world's sky, where the
+    opening the Overview Map, a guess; go-kart and water tracks laid by
+  guessed rules, without bridges, their cars going round at a guessed
+  pace ([tracks.md](systems/tracks.md)); no coasters yet; the fly-in under the world's sky, where the
   recording's is black, and ended by a click or a key, a guess
   ([fly-in.md](systems/fly-in.md)); the advisor bare, with no lip-sync,
   saying seven of his lines, each once a park

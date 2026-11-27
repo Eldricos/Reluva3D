@@ -561,6 +561,78 @@ int cmdBuyShot(int argc, char **argv) {
     return 0;
 }
 
+// A world's go-kart ride (or water ride, with -water) bought and placed
+// on open land with a loop of track round beside it, the park run on so
+// many seconds, drawn close over it; its pieces listed.
+int cmdTrackShot(int argc, char **argv) {
+    if (argc < 5) {
+        std::fprintf(stderr,
+                     "usage: reluva-tool tpw track-shot <game folder> <world folder> <out.png> [seconds] [-water]\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    reluva::tpw::Park park;
+    reluva::tpw::ParkScreen screen;
+    if (!newPark(argv[2], argv[3], 0, files, park, screen))
+        return 1;
+    bool water = false;
+    for (int i = 5; i < argc; ++i)
+        water = water || std::string(argv[i]) == "-water";
+    const reluva::tpw::Attractions::Attraction *ride = nullptr;
+    for (const reluva::tpw::Attractions::Attraction &a : park.attractions().all())
+        if (a.trackType == (water ? 2 : 1))
+            ride = &a;
+    if (!ride) {
+        std::fprintf(stderr, "no %s ride in %s\n", water ? "water" : "go-kart", argv[3]);
+        return 1;
+    }
+    using Cell = reluva::tpw::Park::Cell;
+    // From beside the ride: north a block, west two, south two, east two,
+    // and north back in.
+    const std::vector<Cell> legs{{0, -2}, {-4, -2}, {-4, 2}, {0, 2}, {0, 0}};
+    bool placed = false;
+    for (int y = 4; y < park.groundHeight() - 6 && !placed; ++y)
+        for (int x = 6; x < park.groundWidth() - 4 && !placed; ++x) {
+            bool open = true;
+            for (int dy = -3; dy <= 4 && open; ++dy)
+                for (int dx = -6; dx <= 3 && open; ++dx)
+                    open = park.ground({x + dx, y + dy}) == reluva::tpw::Park::Ground::kOpen;
+            if (!open ||
+                park.place(ride->id, 0, ride->shape, ride->hasQueue, {x, y}, 0) == reluva::tpw::Park::kNotPlaced)
+                continue;
+            placed = true;
+        }
+    if (!placed) {
+        std::fprintf(stderr, "no room for %s\n", ride->name.c_str());
+        return 1;
+    }
+    const size_t object = park.objects().size() - 1;
+    const Cell start = park.trackStart(object);
+    for (const Cell &leg : legs)
+        park.layTrack(object, {start.x + leg.x, start.y + leg.y});
+    const uint32_t runMs = argc > 5 && argv[5][0] != '-' ? uint32_t(std::strtof(argv[5], nullptr) * 1000) : 1000;
+    screen.advance(park);
+    for (uint32_t t = 0; t < runMs; t += 50) {
+        park.advance(50);
+        screen.advance(park);
+    }
+    reluva::tpw::ParkScreen::Camera camera = screen.startCamera(park);
+    camera.target = reluva::tpw::Park::cellCentre({start.x - 1, start.y});
+    camera.distance = 160;
+    camera.pitch = 0.75f;
+    reluva::Surface surface;
+    surface.create(640, 480, reluva::PixelFormat::kRGBA32);
+    reluva::soft3d::Rasterizer rasterizer;
+    screen.draw(surface, rasterizer, park, camera);
+    writePng(surface, argv[4]);
+    std::printf("%s at %d,%d: track from %d,%d of %zu blocks, %s\n", ride->name.c_str(), park.objects()[object].at.x,
+                park.objects()[object].at.y, start.x, start.y, park.objects()[object].track.size(),
+                park.trackComplete(object) ? "whole" : "not whole");
+    for (const reluva::tpw::Park::TrackPiece &p : park.trackPieces(object))
+        std::printf("  %d,%d: piece %d, %d degrees\n", p.at.x, p.at.y, int(p.model), p.angle);
+    return 0;
+}
+
 // Every attraction of a world: its id, folder, settings' name, the name
 // shown and its description.
 int cmdNames(int argc, char **argv) {
@@ -981,6 +1053,9 @@ const Commands kCommands(
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
          "letter every attraction's sign of a world, to a PNG, half size, and list their fonts and lines", cmdSignShot},
+        {"track-shot", "<game folder> <world folder> <out.png> [seconds] [-water]",
+         "place a world's go-kart ride (or water ride) with a loop of track, run the park on and draw it, to a PNG",
+         cmdTrackShot},
         {"names", "<game folder> <world folder>",
          "list every attraction of a world: its settings' name, the name the game shows and its description", cmdNames},
         {"tpws-check", "<game folder> [save in Data] [-objects]",

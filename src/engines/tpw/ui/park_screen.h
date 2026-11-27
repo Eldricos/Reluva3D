@@ -269,6 +269,14 @@ private:
     void drawPlacement(Surface &screen, const soft3d::OrbitCamera &eye) const;
     void loadObjects(const SearchSet &files, const Park &park);
     const LoadedModel *objectModel(int id) const;
+    /**
+     * A track ride's piece's model, or its cars' (`model` the vehicle's
+     * number), read from beside its own the first time; null where there's none.
+     */
+    const LoadedModel *trackModel(int id, Park::TrackModel model) const;
+    const LoadedModel *vehicleModel(int id, size_t vehicle) const;
+    void drawTracks(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const Park &park,
+                    const soft3d::Vec &light) const;
     // Its name on its sign, if it has one.
     void letterSign(int id, const std::string &path, LoadedModel &model) const;
 
@@ -284,7 +292,12 @@ private:
     std::vector<Park::Cell> _preview;
     mutable std::map<int, LoadedModel> _objectModels; // by the objects' numbers, those read
     mutable std::set<int> _missingModels;             // those that couldn't be, not tried again
-    mutable std::map<int, std::string> _objectPaths;  // their models' names
+    // Track rides' pieces' and cars' models, by their rides' numbers and
+    // then Park::TrackModel, or the car's number in the ride's settings;
+    // those that couldn't be read, by such keys, are kept as null.
+    mutable std::map<std::pair<int, int>, std::unique_ptr<LoadedModel>> _trackModels;
+    mutable std::map<std::pair<int, int>, std::unique_ptr<LoadedModel>> _vehicleModels;
+    mutable std::map<int, std::string> _objectPaths; // their models' names
     mutable SignPainter _signs;
     std::vector<std::unique_ptr<RideRun>> _runs;      // by the park's objects: their scripts, those that have one
     std::vector<int> _runIds;                         // the objects they're of

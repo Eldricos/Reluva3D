@@ -67,6 +67,8 @@ Error Park::load(const SearchSet &files, const std::string &folder, int mission)
     _nextArrivalMs = _arrivals.everyMs;
     _pathCost = int(general.number("Costs.PathCell"));
     _queueCost = int(general.number("Costs.QueueCell"));
+    _kartTrackCost = int(general.number("Costs.KartTrackCell"));
+    _waterTrackCost = int(general.number("Costs.WaterTrackCell"));
     for (int i = 0; i < kVisitorTypes; ++i) {
         const std::string base = "PeepTypes[" + std::to_string(i) + "].";
         VisitorType type;

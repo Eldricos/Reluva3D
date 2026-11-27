@@ -1501,6 +1501,85 @@ void testLand(const std::filesystem::path &tmp) {
     CHECK(later.owns({7, 0}) && later.owns({0, 0}));
 }
 
+// A go-kart track laid from beside its station: the first run only along
+// its side; north, east, then west straight across its own track, south
+// and east, and back north into its first block, which closes it. Its
+// pieces, its way round, its cost and its longest straight.
+void testTracks(const std::filesystem::path &tmp) {
+    const std::filesystem::path data = tmp / "game" / "Data";
+    writeText(data / "levels" / "Standard.sam",
+              "BankAccountInfo.InitialCash 10000\r\nArrival.MinPeople 0\r\nCosts.KartTrackCell 40\r\n");
+    writeText(data / "missions" / "miss00.sam", "Info.Number 0\r\nCompletion.EndingTheme 1\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    writeText(world / "rides" / "Rides.sam", "Info.HasQueue 1\r\nInfo.IsChoosable 1\r\nResearch.Group 0\r\n");
+    writeText(world / "rides" / "gokarts" / "gokarts.sam",
+              "Info.Id 1150\r\nInfo.Shape\r\n---\r\n****\r\n****\r\n****\r\n*2N*\r\n---\r\n"
+              "Bumper.WhichTrackType 1\r\nBumper.NorthXAdjust -2\r\nBumper.NorthYAdjust 1\r\n"
+              "SupplementalMeshes[0].FileName \"gk_blue.md2\"\r\n");
+    constexpr int kSide = 16;
+    tpw::testing::Bytes tiles(size_t(kSide) * kSide, 0);
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kSide, kSide, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!mountGame(files, tmp / "game", warnings));
+
+    Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    const Attractions::Attraction *karts = park.attractions().find(1150);
+    CHECK(karts && karts->trackType == 1 && karts->vehicles == std::vector<std::string>{"gk_blue.md2"});
+    CHECK(park.place(1150, 0, karts->shape, true, {8, 8}, 0) >= 0);
+    CHECK(park.hasTrack(0) && !park.trackComplete(0));
+    const Park::Cell start = park.trackStart(0);
+    CHECK(start.x == 6 && start.y == 9);
+    const int cash = park.cash();
+    CHECK(park.layTrack(0, {2, 9}) == Park::TrackLaying::kNotInLine);
+    CHECK(park.layTrack(0, {6, 3}) == Park::TrackLaying::kLaid && park.objects()[0].track.size() == 4);
+    CHECK(park.ground({6, 9}) == Park::Ground::kTrack && park.ground({7, 4}) == Park::Ground::kTrack);
+    CHECK(park.layTrack(0, {6, 9}) == Park::TrackLaying::kNotInLine);
+    CHECK(park.layTrack(0, {11, 4}) == Park::TrackLaying::kLaid);
+    CHECK(park.layTrack(0, {10, 5}) == Park::TrackLaying::kLaid);
+    // Across its own straight at (6, 5), but not to stop on it.
+    CHECK(park.layTrack(0, {6, 5}) == Park::TrackLaying::kBlocked && park.objects()[0].track.size() == 8);
+    CHECK(park.undoTrack(0) && park.objects()[0].track.size() == 7 && park.ground({8, 5}) == Park::Ground::kOpen);
+    CHECK(park.layTrack(0, {4, 5}) == Park::TrackLaying::kLaid && park.objects()[0].track.size() == 10);
+    CHECK(park.layTrack(0, {4, 11}) == Park::TrackLaying::kLaid);
+    CHECK(park.layTrack(0, {6, 11}) == Park::TrackLaying::kLaid);
+    CHECK(park.layTrack(0, {6, 9}) == Park::TrackLaying::kClosed && park.trackComplete(0));
+    const std::vector<Park::Cell> &track = park.objects()[0].track;
+    CHECK(track.size() == 14);
+    // 13 blocks laid, the crossing not paid for again; the one taken up not paid back.
+    CHECK(park.cash() == cash - 14 * 40);
+
+    int starts = 0;
+    int crossings = 0;
+    int bends = 0;
+    for (const Park::TrackPiece &p : park.trackPieces(0)) {
+        starts += p.model == Park::TrackModel::kStart;
+        crossings += p.model == Park::TrackModel::kCrossing;
+        bends += p.model == Park::TrackModel::kBend;
+        if (p.at.x == 6 && p.at.y == 3)
+            CHECK(p.model == Park::TrackModel::kBend && p.angle == 0);
+    }
+    CHECK(starts == 1 && crossings == 1 && bends == 6);
+    CHECK(park.trackCircuit(0).size() == 14);
+    CHECK(park.awards()[size_t(Park::Award::kFastestGokart)].value == 4);
+
+    // Another without its track has a letter saying so the next day, once.
+    CHECK(park.place(1150, 0, karts->shape, true, {12, 12}, 0) >= 0);
+    park.takeMessages();
+    int letters = 0;
+    for (int d = 0; d < 3; ++d) {
+        park.advance(Park::kDayMillis);
+        for (const Park::Message &m : park.takeMessages())
+            letters += m.title == 256 && m.text == 257;
+    }
+    CHECK(letters == 1);
+
+    // Taken down, its track goes with it.
+    park.remove(0, false);
+    CHECK(park.ground({6, 9}) == Park::Ground::kOpen && park.ground({6, 5}) == Park::Ground::kOpen);
+}
+
 void testSaving(const std::filesystem::path &tmp) {
     const std::filesystem::path data = tmp / "game" / "Data";
     std::string types;
@@ -1619,5 +1698,6 @@ static const reluva::test::Suite
                                 {"awards", [](const std::filesystem::path &tmp) { testAwards(tmp); }},
                                 {"land", [](const std::filesystem::path &tmp) { testLand(tmp); }},
                                 {"fence-pieces", [](const std::filesystem::path &) { testFencePieces(); }},
+                                {"tracks", [](const std::filesystem::path &tmp) { testTracks(tmp); }},
                                 {"saving", [](const std::filesystem::path &tmp) { testSaving(tmp); }},
                             });

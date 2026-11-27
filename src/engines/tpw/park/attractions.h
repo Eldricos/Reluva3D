@@ -44,6 +44,15 @@ public:
          * `_` `[` `]` its top, bottom, left and right edges, `.` none.
          */
         std::vector<std::string> hoarding;
+        // A ride on a track the player lays: Bumper.WhichTrackType 1 a
+        // go-kart track, 2 a water track (3, a coaster's, isn't laid here);
+        // its first block of track beside it, from its first cell
+        // (Bumper.NorthXAdjust, NorthYAdjust); and its cars' models
+        // (SupplementalMeshes[n].FileName).
+        int trackType = 0;
+        int trackJoinX = 0;
+        int trackJoinY = 0;
+        std::vector<std::string> vehicles;
         int excitement = -1;     // UsageInfo.ExcitementLevel, 0 to 100; −1 without
         int capacity = -1;       // Upgrades[0].InitCapacity
         int workingLife = -1;    // Info.WorkingLife, 0 to 100

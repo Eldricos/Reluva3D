@@ -88,7 +88,8 @@ format or system worked out.
    ([paths.md](systems/paths.md)), attractions bought and placed
    ([building.md](systems/building.md)), visitors arriving, drawn by their sprites
    ([sprites.md](formats/sprites.md)), the mission's briefing,
-   [park.md](systems/park.md), [briefing.md](systems/briefing.md)): building, paths,
+      [park.md](systems/park.md), [briefing.md](systems/briefing.md)): building, paths,
+   the go-kart and water tracks ([tracks.md](systems/tracks.md)),
    guests, staff, money, research,
    the advisor, missions and challenges (`missions/*.sam`,
    `Challenges.sam`). By far the largest part: from the settings files,

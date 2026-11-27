@@ -129,7 +129,9 @@ these say on a stand-in for the park: guests in limbo, bouncing, on the
 ride and walking off (clear after a second); each script's timer and
 animation channels; the animations' lengths by their number and
 variant, from the model's files; the ride's capacity and duration from
-its settings. `TOUR`, `BUMP` and `COAST` answer only the checks above;
+its settings. `TOUR`, `BUMP` and `COAST` answer only the checks above,
+`BUMP 5` false for a track ride whose track isn't whole
+([tracks.md](tracks.md));
 the effects, screams and music are only traced. `reluva-tool tpw rse-run
 <game folder> <script> [seconds] -guests` runs a ride so: Arabian
 Nights' `arabride.RSE` loads two riders, runs its three laps, lets them

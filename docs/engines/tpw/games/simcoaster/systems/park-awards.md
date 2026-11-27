@@ -50,9 +50,15 @@ announces one won or lost. Reluva measures them so:
   a camera against pranks ([visitors.md](visitors.md)).
 - **Best Staff Training:** the staff trained in an ability, a percentage
   of all the staff, with at least `TrainingMinStaff` of them.
-- **The coasters', the go-kart track's, the water ride's:** Reluva builds
-  no tracks yet, so they're never held, and Operation Boss! asks for six
-  of eight: it can't be done.
+- **Fastest Go-kart Track:** a whole go-kart track's longest straight, in
+  blocks of two cells, round its end, as `GokartSpeed`'s comment says
+  ("just the longest straight section of track") *(guessed)*
+  ([tracks.md](tracks.md)).
+- **Longest Water Ride:** a whole water track's length, in cells
+  *(guessed)*.
+- **The coasters':** Reluva builds no coasters yet, so they're never
+  held, and Operation Boss! asks for six of eight: it can be done only
+  with the rest.
 
 The Park Awards window shows a held award's measure as a percent, and
 "None" for the others, laid out by guess.

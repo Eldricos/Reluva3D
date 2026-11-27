@@ -259,6 +259,9 @@ void io(A &a, Park::PlacedObject &o) {
     io(a, o.name);
     io(a, o.prebuilt);
     io(a, o.active);
+    io(a, o.track);
+    io(a, o.trackClosed);
+    io(a, o.toldNoTrack);
 }
 
 template<class A>

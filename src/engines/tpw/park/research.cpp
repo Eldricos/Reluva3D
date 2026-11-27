@@ -90,6 +90,8 @@ void Park::remove(size_t object, bool sell) {
         for (const Cell &c : footprint(a->shape, gone.at, gone.angle).cells)
             if (ground(c) == Ground::kTaken)
                 _ground[size_t(c.y) * size_t(_mapWidth) + size_t(c.x)] = Ground::kOpen;
+    for (const Cell &block : gone.track)
+        freeTrackBlock(block);
     const int queue = queueOf(object);
     if (queue >= 0) {
         const Queue &q = _queues[size_t(queue)];

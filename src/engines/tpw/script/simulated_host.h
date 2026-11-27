@@ -94,6 +94,8 @@ public:
     void offerGuest(int id);
     /** Whether a guest offered hasn't yet been taken. */
     bool hasOffered() const { return _pending != 0 || _offered != 0; }
+    /** Whether the ride's track is whole, as BUMP 5 asks: true but for a track ride the park says isn't. */
+    void setTrackValid(bool valid) { _trackValid = valid; }
     /** The guests offered that the script has taken since last asked, in order. */
     std::vector<int> takeBoarded() { return std::exchange(_boarded, {}); }
     /** The guests offered that it has let off since last asked, in order. */
@@ -132,6 +134,7 @@ private:
     uint32_t _now = 0;
     uint32_t _seed = 1;
     bool _guests = false;
+    bool _trackValid = true;
     int _nextGuest = 1;
     bool _offering = false; // guests come only as offered
     int _pending = 0;       // offered, not yet in VAR_LETMEON

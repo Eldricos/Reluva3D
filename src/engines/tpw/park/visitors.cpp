@@ -840,6 +840,7 @@ void Park::newDay() {
     financeDay();
     missionDay();
     clearingDay();
+    trackDay();
     challengeDay();
     const bool weatherDay = _lastDay % uint32_t(_rules.weatherDays) == 0;
     const bool wet = _weather == Weather::kRain || _weather == Weather::kStorm || _weather == Weather::kSnow;

@@ -28,8 +28,10 @@ void Park::loadAwards(const SamFile &general) {
 // cells in the park", "percentage of park covered by guard patrol areas
 // + percentage covered by security cameras", "percentage of cells
 // covered by objects, which are features", "percentage of staff that
-// have been trained in a special ability"); the coasters', go-kart
-// tracks' and water rides' can't be measured, there being none.
+// have been trained in a special ability"); the go-karts' by their
+// longest straight ("just the longest straight section of track"), in
+// blocks, and the water rides' by their length, in cells (guessed); the
+// coasters' can't be measured, there being none.
 std::array<Park::AwardStanding, Park::kAwardCount> Park::awards() const {
     std::array<AwardStanding, kAwardCount> out{};
     const AwardRules &r = _awardRules;
@@ -107,6 +109,12 @@ std::array<Park::AwardStanding, Park::kAwardCount> Park::awards() const {
     AwardStanding &training = out[size_t(Award::kBestStaffTraining)];
     training = {true, percent(trained, int(_staff.size())), r.training};
     training.held = int(_staff.size()) >= r.trainingMinStaff && training.value >= r.training;
+    AwardStanding &karts = out[size_t(Award::kFastestGokart)];
+    karts = {true, longestKartStraight(), r.gokartSpeed};
+    karts.held = karts.value >= r.gokartSpeed;
+    AwardStanding &water = out[size_t(Award::kLongestWaterRide)];
+    water = {true, longestWaterTrack(), r.waterLength};
+    water.held = water.value >= r.waterLength;
     for (AwardStanding &a : out)
         a.held = a.measured && a.held;
     return out;

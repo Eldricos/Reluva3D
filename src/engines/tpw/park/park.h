@@ -631,6 +631,7 @@ public:
         kPath,
         kQueue, // a ride's queue
         kTaken, // an object's: a ride, a feature, an obstacle
+        kTrack, // a go-kart's or a water ride's track
     };
     /** The ground's size in cells, x across and y down; 0 for a world without its attribute map. */
     int groundWidth() const { return _mapWidth; }
@@ -717,6 +718,11 @@ public:
         std::string name;      // the player's name for it; empty for its own
         bool prebuilt = false; // the prebuilt park's, there as it opened
         bool active = true;    // a special ride: activated, and so open
+        // A track ride's track: its blocks' first cells, from the one
+        // beside it round; and whether they close the circuit.
+        std::vector<Cell> track;
+        bool trackClosed = false;
+        bool toldNoTrack = false; // its "haven't built any track" letter sent
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
     /**
@@ -749,6 +755,59 @@ public:
         std::vector<int> line; // the visitors in it, the first at its entrance first
     };
     const std::vector<Queue> &queues() const { return _queues; }
+
+    /** A track's blocks' side, in cells: its pieces' models are two cells square. */
+    static constexpr int kTrackBlock = 2;
+    /** Whether an object is a ride on a track the player lays: a go-kart's or a water ride's. */
+    bool hasTrack(size_t object) const;
+    /**
+     * A track ride's first block, beside it: its settings'
+     * Bumper.NorthXAdjust and NorthYAdjust from its first cell, turned as
+     * it is. The track leaves it and comes back to it along its side.
+     */
+    Cell trackStart(size_t object) const;
+    /** Whether a track ride's track is a whole circuit, and the ride can run (its script's BUMP 5). */
+    bool trackComplete(size_t object) const;
+    /** What laying track came to. */
+    enum class TrackLaying {
+        kLaid,      // the blocks laid, the track not yet whole
+        kClosed,    // the last block laid closes the circuit
+        kNotInLine, // the block clicked isn't straight on from the track's end, or turns back
+        kBlocked,   // a block on the way isn't bare land, or crosses the track but straight across
+        kNoMoney,
+    };
+    /**
+     * Lays track from a track ride's track's end (its first block, to
+     * begin with) in a straight line to the block holding `to`, a block at
+     * a time, each Costs.KartTrackCell or WaterTrackCell (guessed): so far
+     * as each block's cells are bare land, or the track itself crossed
+     * straight across. Coming back into its first block along its side
+     * closes it. See docs/engines/tpw/games/simcoaster/systems/tracks.md.
+     */
+    TrackLaying layTrack(size_t object, const Cell &to);
+    /** Takes up a track's last block, as Backspace does (TOTD 4); nothing paid back (guessed). */
+    bool undoTrack(size_t object);
+    /** The models a track is drawn with, each a block. */
+    enum class TrackModel {
+        kStart,    // beside the ride: the go-karts' trckM, a straight open on one side (guessed); the boats' trckS
+        kStraight, // trckS: north to south, unturned
+        kBend,     // trckB: from its east side to its south
+        kCrossing, // trckX
+        kEnd,      // trckQ: where an unfinished track stops, open to the south
+    };
+    /** A block of track: its first cell, its model, turned so many degrees (east towards south). */
+    struct TrackPiece {
+        Cell at;
+        TrackModel model = TrackModel::kStraight;
+        int angle = 0;
+    };
+    std::vector<TrackPiece> trackPieces(size_t object) const;
+    /**
+     * The way a whole track's cars go: the middles of the sides its blocks
+     * meet at, in order, in the world's units (x, 0, z); empty while it's
+     * not whole.
+     */
+    std::vector<gfx::Vec3> trackCircuit(size_t object) const;
 
     /** The models a queue is drawn with, a cell each (`queue/` of the world's). */
     enum class QueueModel {
@@ -1034,8 +1093,8 @@ public:
     static constexpr size_t kAwardCount = 8;
     /** How the park stands for an award: whether it's measured yet, its measure, what's needed, and if it's held. */
     struct AwardStanding {
-        bool measured = false; // the coasters', go-kart tracks' and water rides' aren't: there are none yet
-        int value = 0;         // percent
+        bool measured = false; // the coasters' aren't: there are none yet
+        int value = 0;         // percent; the tracks' in blocks or cells
         int needed = 0;
         bool held = false;
     };
@@ -1139,6 +1198,14 @@ private:
     void financeMonth();
     void annualReport();
     void post(uint32_t title, uint32_t text, std::map<int, std::string> values = {});
+    /** Lays a block of track, its cells' ground and its cost. */
+    bool layTrackBlock(PlacedObject &o, const Cell &block, int cost);
+    void freeTrackBlock(const Cell &block);
+    bool trackAlongY(size_t object) const;
+    void trackDay();
+    /** The longest straight of any whole go-kart track, in blocks; a whole water track's length, in cells. */
+    int longestKartStraight() const;
+    int longestWaterTrack() const;
     void chase(Visitor &v);
     bool wantsToStrike(StaffKind kind) const;
     bool guarded(float x, float z) const;
@@ -1238,6 +1305,8 @@ private:
     std::vector<PlacedObject> _objects;
     std::vector<Queue> _queues;
     int _queueCost = 0;
+    int _kartTrackCost = 0;  // Costs.KartTrackCell
+    int _waterTrackCost = 0; // Costs.WaterTrackCell
     std::vector<VisitorType> _visitorTypes;
     VisitorRules _rules;
     std::array<std::array<int, 4>, 4> _seasons{}; // each season's chance of heatwave, rain, storm and snow, percent

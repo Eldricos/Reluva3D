@@ -13,7 +13,7 @@ namespace reluva::tpw {
 namespace {
 
 // The state's own version: a save of another is refused.
-constexpr uint32_t kStateVersion = 3;
+constexpr uint32_t kStateVersion = 4;
 
 } // namespace
 
