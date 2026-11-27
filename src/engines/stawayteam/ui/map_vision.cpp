@@ -8,6 +8,7 @@
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace reluva::stawayteam {
@@ -15,11 +16,6 @@ namespace reluva::stawayteam {
 namespace {
 
 constexpr float kPi = 3.14159265f;
-// An enemy's sight is tested and tinted in squares this wide (inferred).
-constexpr int kVisionStep = 6;
-// Its tint, and how much of it shows (inferred).
-constexpr uint8_t kVisionTint[3] = {255, 64, 32};
-constexpr int kVisionAmount = 80; // of 255
 // Time stopped: its words (0x5be1b2), this far under the view's top
 // (0x5be1dc).
 const char *const kPauseText = "Pause Time Activated";
@@ -78,43 +74,55 @@ void MapScreen::cycleVision() {
 }
 
 void MapScreen::drawVision(Surface &view, int left, int top) const {
-    // Where the enemy shown can see: in its Max Distance, half its Vision
-    // Cone either side of its facing, and in sight past what stands in
-    // the way, as it sees the team; tinted over the ground (inferred for
-    // how it's drawn).
+    // The program's CEntityAnimatedViewArea (0x5b6b00): on the enemy
+    // watched, facing as it does (0x49d880), its Max Distance and Vision
+    // Cone from its AI (0x435360), none in Inactive, Stun or Dead, whose
+    // states answer no (0x401030). The cone's cut into segments, Angle
+    // Per Segment (40) of them to a turn, one more than fit (0x49d088), and
+    // drawn in white lines (0x49e3b6), each point's height on the view
+    // scaled by the map's Y to X ratio (0x616fbc). Each ray stops where
+    // sight's blocked (inferred: the program sweeps the walls' edges into
+    // its segments, 0x49cef0).
     if (_vision != 2 || _visionEnemy < 0)
         return;
     const Enemy &e = _enemies[size_t(_visionEnemy)];
-    if (!e.alive() || !shown(e.part))
+    if (!e.alive() || !shown(e.part) || e.state == "Inactive" || e.state == "Stun")
         return;
+    constexpr float kSegmentsPerTurn = 40.0f;
+    constexpr float kYToX = 0.712766f;
+    constexpr std::array<uint8_t, 3> kWhite = {255, 255, 255};
     const float reach = e.ai ? float(e.ai->number("Max Distance").value_or(kSightDefault)) : kSightDefault;
-    const float half = (e.ai ? float(e.ai->number("Vision Cone").value_or(125.0)) : 125.0f) / 2.0f * kPi / 180.0f;
-    const int x0 = std::max(0, int(e.x - reach) - left);
-    const int x1 = std::min(view.w, int(e.x + reach) - left + 1);
-    const int y0 = std::max(0, int(e.y - reach) - top);
-    const int y1 = std::min(view.h, int(e.y + reach) - top + 1);
-    for (int by = y0; by < y1; by += kVisionStep)
-        for (int bx = x0; bx < x1; bx += kVisionStep) {
-            const float wx = float(left + bx) + float(kVisionStep) / 2.0f;
-            const float wy = float(top + by) + float(kVisionStep) / 2.0f;
-            const float dx = wx - e.x;
-            const float dy = wy - e.y;
-            if (std::hypot(dx, dy) > reach)
-                continue;
-            float off = std::atan2(dy, -dx) - e.angle;
-            while (off > kPi)
-                off -= 2 * kPi;
-            while (off < -kPi)
-                off += 2 * kPi;
-            if (std::abs(off) > half || !clearSight(e.x, e.y, wx, wy))
-                continue;
-            for (int y = by; y < std::min(by + kVisionStep, view.h); ++y) {
-                uint8_t *p = view.row(y) + bx * 4;
-                for (int x = bx; x < std::min(bx + kVisionStep, view.w); ++x, p += 4)
-                    for (int c = 0; c < 3; ++c)
-                        p[c] = uint8_t((p[c] * (255 - kVisionAmount) + kVisionTint[c] * kVisionAmount) / 255);
+    const float cone = (e.ai ? float(e.ai->number("Vision Cone").value_or(125.0)) : 125.0f) * kPi / 180.0f;
+    if (reach <= 0.0f || cone <= 0.0f)
+        return;
+    const int segments = int(cone * kSegmentsPerTurn / (2.0f * kPi)) + 1;
+    // A ray from the enemy at `angle` (as Facing Angle: 0 left), as far as
+    // it sees, on the view.
+    const auto end = [&](float angle) {
+        const float dx = -std::cos(angle) * reach;
+        const float dy = std::sin(angle) * reach;
+        float seen = 0.0f;
+        float blind = 1.0f;
+        if (clearSight(e.x, e.y, e.x + dx, e.y + dy)) {
+            seen = 1.0f;
+        } else {
+            for (int k = 0; k < 12; ++k) {
+                const float t = (seen + blind) / 2.0f;
+                (clearSight(e.x, e.y, e.x + dx * t, e.y + dy * t) ? seen : blind) = t;
             }
         }
+        return std::pair<float, float>{e.x + dx * seen - float(left), e.y + dy * seen * kYToX - float(top)};
+    };
+    const float cx = e.x - float(left);
+    const float cy = e.y - float(top);
+    auto previous = end(e.angle - cone / 2.0f);
+    drawLine(view, cx, cy, previous.first, previous.second, kWhite, 1.0f);
+    for (int i = 1; i <= segments; ++i) {
+        const auto next = end(e.angle - cone / 2.0f + cone * float(i) / float(segments));
+        drawLine(view, previous.first, previous.second, next.first, next.second, kWhite, 1.0f);
+        previous = next;
+    }
+    drawLine(view, cx, cy, previous.first, previous.second, kWhite, 1.0f);
 }
 
 void MapScreen::drawPause(Surface &screen, uint64_t now) {

@@ -16,6 +16,7 @@
 #include "tests/support/test.h"
 
 #include <cmath>
+#include <cstring>
 #include <string>
 
 using namespace reluva;
@@ -1859,7 +1860,7 @@ void testInterface() {
     CHECK(screen.visionState() == 1 && screen.visionEnemy() == -1);
     screen.pressVision();
     CHECK(screen.visionState() == 2 && screen.visionEnemy() == 0);
-    // In its sight, 50 to its left, the ground's tinted; behind it it isn't.
+    // Its sight's outlined in white (0x49e3b6); behind it nothing's drawn.
     Surface shown;
     shown.create(640, 480, PixelFormat::kRGBA32);
     screen.moveCamera(300.0f, 300.0f);
@@ -1870,7 +1871,15 @@ void testInterface() {
     hidden.create(640, 480, PixelFormat::kRGBA32);
     screen.draw(hidden, 3000);
     const auto px = [](const Surface &s, int x, int y) { return s.row(y)[x * 4]; };
-    CHECK(px(shown, 150, 200) != px(hidden, 150, 200));
+    int outlined = 0;
+    bool white = true;
+    for (int y = 0; y < 480; ++y)
+        for (int x = 0; x < 640; ++x)
+            if (std::memcmp(shown.row(y) + x * 4, hidden.row(y) + x * 4, 3) != 0) {
+                ++outlined;
+                white = white && shown.row(y)[x * 4] == 255 && shown.row(y)[x * 4 + 1] == 255;
+            }
+    CHECK(outlined > 100 && white);
     CHECK(px(shown, 260, 200) == px(hidden, 260, 200));
     // Esc opens the escape menu, saving and loading not there yet; Esc
     // again goes back.

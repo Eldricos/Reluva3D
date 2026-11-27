@@ -237,6 +237,22 @@ the one under way and those queued (`0x539fe0`); the process they're
 going through is let go in the game's list of those held, the text they
 show for it cleared, and they're sent a `CProcessDoneMessage`
 (`0x5b8150`). Choosing, the cursor is the `Vision Cursor` (`0x5c5e4e`).
+The button's state goes as a command (`0x5c8510`, `0x481e50`) to the
+player's `Vision State` (`0x5b6bc0`); on, the player's `Vision Cone`, a
+`CEntityAnimatedViewArea` made the first time (`0x5b6b00`), is shown,
+off hidden (its flag `0x800000`). It stands on the enemy it's
+`Watching` and faces as it does, and each update asks the enemy's
+`CSkeletonBaseAI` (`CBorgAI`'s `0x435360`) for how far and wide it
+sees: its Targeting's `Max Distance` and `Vision Cone` (in degrees,
+`0x615ec8`), or nothing while its state says it sees nothing: Inactive,
+Stun and Dead (`0x401030`; every other state, Patrol among them, sees,
+`0x47c1a0`). The cone's cut into segments, `Angle Per Segment` (40, by
+default) to a whole turn, one more than fit (`0x49d088`); each
+segment's edges are swept with what's in the way into a list
+(`0x49cef0`), and drawn as white lines (`0x49e380`, the colour at
+`0x49e3b6`), each point's height from the enemy scaled by the map's Y to
+X ratio, 0.712766 (`0x616fbc`), so the cone's drawn flattened though
+the enemy's sight is measured on the map round (`0x4fe857`).
 
 The mouse's pointers are Rules.txt's `Mouse Cursors`, the sequences of
 `Interface/Game Cursors` (`0x5c5d2f`), each's origin its hotspot; the
@@ -1055,9 +1071,11 @@ Backspace drops the chosen officers' walking, attacking, items' tasks
 and processes. The vision button goes off, choosing, showing: a
 click on an enemy while choosing shows its sight, or pressed on to
 showing, the enemy nearest the view's middle *(inferred)*; Cycle Vision
-Cones (Tab) the next enemy in the view *(inferred)*. Its sight, in its
-Max Distance and Vision Cone and in sight past what stands in the way,
-is tinted over the ground in squares *(inferred)*.
+Cones (Tab) the next enemy in the view *(inferred)*. Its sight is drawn
+as the program's: white lines round the cone, 40 segments to a turn,
+flattened, nothing while it's Inactive or stunned; each ray stops where
+sight's blocked rather than the program's sweep of the walls' edges
+*(inferred)*.
 The options button, or Esc, opens the escape menu, holding the game
 still, as the program counts it on its holds (`0x5ba9f9`): CONFIGURE the
 settings over the map, RESTART MISSION and END GAME as asked, RESUME or
@@ -1459,7 +1477,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.
-- **The buttons:** how an enemy's sight is chosen and drawn.
+- **The buttons:** how the enemy whose sight is shown is chosen (the
+  command `0x482940` the view's mouse sends), and the sweep of the
+  walls' edges into the cone's segments (`0x49cef0`, `0x49d280`).
 - **Processes:** a process that doesn't `Allow Multiple Members` is
   held by its officer in the game's list (`0x5b8150`); what another
   officer sent to it then does isn't traced, and Reluva doesn't hold it.
