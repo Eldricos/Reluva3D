@@ -74,7 +74,9 @@ public:
      * that one), its view seeing as much height as at 4:3 and more at the
      * sides, where the program is a US release's
      * (docs/engines/sith/games/jk/systems/hosting.md, step 24). The menus
-     * and cut scenes stay 640 by 480. Before load().
+     * and cut scenes stay 640 by 480. The view's size is widescreen's own:
+     * 9, the whole screen, until the player changes it; the registry file
+     * keeps the player's display and view size for 4:3. Before load().
      * @return False, changing nothing, if `width` isn't wider than 640.
      */
     bool useWidescreen(int width);

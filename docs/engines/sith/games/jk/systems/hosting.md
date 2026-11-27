@@ -435,7 +435,24 @@ Windows does when it fails, and dialog boxes are made but not drawn
     *Setup*'s display values set for it as `useDirect3D` sets them,
     `displayMode` the new mode's index; the values as they were before
     are what's saved to the registry file, since without the setting
-    that index is another mode, or none. Both games, at 854 by 480: the
+    that index is another mode, or none.
+
+    The view's size (`viewSize`, 1 to 10) is the share of the screen the
+    3D takes: at the game's default, 5, a box of 72% of the width and
+    the height above the gauges, at 4:3 as at 16:9 (460 by 345 of 640 by
+    480; 614 by 345 of 854 by 480); at 8, 94% of the width; at 9 the
+    whole screen, the gauges over its bottom corners; at 10 the same
+    without them *(confirmed)*. At the game's default the black about the
+    box is what most shows on a wide screen, so in widescreen the view's
+    size is a value of its own, kept in the registry file under a name
+    the game never reads (`Reluva widescreen viewSize`): 9 until the
+    player changes it, then what they last had, while the `viewSize`
+    saved is the one for 4:3. Run in turn: a first widescreen session
+    started at 9, the game's *Decrease viewsize* took it to 8, and the
+    next one started at 8; a session without, at the player's 5
+    *(confirmed)*.
+
+    Both games, at 854 by 480: the
     menus, the opening and the first level's cut scenes, the first
     level played, drawn in software and on the graphics card, the
     pointer's clicks landing in the menus *(confirmed)*.

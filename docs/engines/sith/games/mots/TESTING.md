@@ -68,7 +68,7 @@ after four seconds.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| November 2026 | US retail | Linux | Widescreen: `reluva-tool sith host -wide 854` into the first level: the view widened, the corridor at the start as tall as at 4:3 and wider; the registry file as before the run. 768 and 1120 not run |
+| November 2026 | US retail | Linux | Widescreen: `reluva-tool sith host -wide 854` into the first level: the view widened, the corridor at the start as tall as at 4:3 and wider; the registry file as before the run, but for widescreen's own view size. From the player's 5, the view at 9: the whole screen, the gauges in its corners. 768 and 1120 not run |
 | November 2026 | US retail | Linux, the emulator by hand (`reluva-tool sith host`, changed for `JKM.EXE`) | The CD checks, the opening, the menus and the first level's start ([README.md](README.md#where-it-stands)) |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool import` with Jedi Knight's CD 2, then `reluva-tool sith host` on the import, its save folder new | Files the same as the install's; 13 music tracks found; on its first start both CD checks passed without a request, the opening, a new game's cut scene, and play in the first level with its music asked for |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith host` | A game saved from the in-game menu, listed and loaded; *Setup*'s settings saved when stopped; `-everyframe -fps 100`, the world moved about twice as often; `-d3d -gpu`, 154 scenes matching; two copies with `-net`, one hosting *Kill The Fool With The Ysalamiri*, the other joining with its own character, each seeing the other in the level |

@@ -23,6 +23,13 @@ namespace {
 constexpr uint32_t kBinary = 3;
 // The values of Setup's display and 3D (setDirect3D).
 constexpr const char *kDisplayValues[] = {"b3DAccel", "displayDeviceGUID", "displayMode", "3DDeviceGUID"};
+// The view's size the player last had in widescreen, kept beside the game's
+// own (viewSize, 1 to 10) in the registry file; the game never reads it.
+constexpr const char *kWideViewSize = "Reluva widescreen viewSize";
+// The view's size in widescreen until the player picks another: the whole
+// screen, the gauges in its corners. The game's own default, 5, leaves the
+// 3D a box with black about it.
+constexpr uint8_t kWideViewSizeFirst = 9;
 
 // What a machine of the time without the device answers: no waveOut
 // device. The program learns it has none, as it would there. (DirectPlay's
@@ -160,6 +167,8 @@ void GameProcess::saveRegistry() {
         for (const auto &[kept, keptValue] : _keptValues)
             if (name == kept)
                 value = keptValue, type = kBinary;
+        if (_widescreen && name == kWideViewSize)
+            value = _process->registryValue(_registryKey, "viewSize"), type = kBinary;
         if (!value)
             continue;
         f << name << '\t' << type << '\t';
@@ -312,6 +321,14 @@ bool GameProcess::useWidescreen(int width) {
     for (const char *name : kDisplayValues)
         _keptValues.emplace_back(name, _process->registryValue(_registryKey, name));
     setDirect3D(uint32_t(before));
+    // The view's size: its own in widescreen, the player's for 4:3 kept.
+    _keptValues.emplace_back("viewSize", _process->registryValue(_registryKey, "viewSize"));
+    auto wideSize = _process->registryValue(_registryKey, kWideViewSize);
+    if (!wideSize || wideSize->size() != 4)
+        wideSize = std::vector<uint8_t>{kWideViewSizeFirst, 0, 0, 0};
+    _process->setRegistryValue(_registryKey, "viewSize", kBinary, *wideSize);
+    if (std::find(_registryNames.begin(), _registryNames.end(), kWideViewSize) == _registryNames.end())
+        _registryNames.emplace_back(kWideViewSize);
     _widescreen = true;
     return true;
 }
