@@ -7,7 +7,8 @@
 Each world's terrain is in `Data/levels/<world>/terrain/`:
 
 - `base.MD2`, a model ([md2.md](md2.md)) of everything around the park:
-  hills, the border wall, the entrance plaza, the road, the rivers. It
+  hills, the border wall, the entrance plaza, the road, the river's
+  channel. It
   has a hole where the park's own ground goes, x from 0 to 960 and z
   from 0 to about 860, its edge at y = 0.
 - `base.lnd`, that ground: masks over it, cell by cell, and the
@@ -50,14 +51,19 @@ In all five files the cells and the 39 pictures run to the end exactly.
 ### The cells
 
 A cell for every 2.5 × 2.5 units of the hole in `base.MD2`, 384 across x
-and 344 along z, the first row at the far side, z ≈ 860: drawn so, the
-ground's entrance notch and rivers meet the model's *(inferred)*. A
-cell's four bytes:
+and 344 along z, the first row at the far side, z ≈ 860 *(confirmed)*:
+laid so, Land of Invention's holes fall on the prebuilt park's
+([tpws.md](tpws.md#the-grid)) plaza outside the gates, every one of its
+132 cells, and on its lake's tiles, and run down the middle of its
+river's tiles, the channel's water in `base.MD2`; none on its bare
+land. Turned the other way, 679 of its bare land's cells would be holes,
+and 3 of the plaza's. A cell's four bytes:
 
-- **Byte 0**: 255 where the park has ground, 0 where it has none: its
-  rivers and lake, which `base.MD2` holds, and the entrance. In the
-  Land of Invention's and the Intro World's, 215 cells are between; in
-  the Polar Zone's, 43.
+- **Byte 0**: 255 where the park has ground, 0 where it has none and
+  `base.MD2` shows through: the plaza and forecourt before the gates,
+  the lake, and the river's water, its banks ground. In the Land of
+  Invention's and the Intro World's, 215 cells are between; in the
+  Polar Zone's, 43.
 - **Bytes 1 to 3**: the red, green and blue of the Polar Zone's
   `proc_tex/control.fsh`, a 384 × 344 picture (correlations 0.87, 0.99
   and 0.92 against its pixels): how much of each of the ground's three
@@ -111,7 +117,9 @@ draws the same to a PNG. `reluva-tool tpw terrain-check` reads every
   control picture against the cells by correlation.
 - **How it was checked:** all five read with `reluva-tool tpw
   terrain-check`; the four worlds drawn with `world-shot`, the ground
-  meeting the surroundings. The unit tests (`tpw.unit.formats`) read a
+  meeting the surroundings; Land of Invention's holes set against the
+  prebuilt park's cells, and the fly-in's forecourt grey before the
+  gates, as the recording's at 1:48. The unit tests (`tpw.unit.formats`) read a
   ground built in the test, and fail cut and disordered ones.
 
 ## Open questions

@@ -64,10 +64,6 @@ None yet.
   worlds to move between, the other the Park Map's visitors coloured by
   happiness, both by guess ([park-windows.md](systems/park-windows.md)).
 
-- **Where the park's ground lies**: flat at y = 0, its cells 2.5 units
-  square, the file's first row at the far side, filling `base.MD2`'s
-  hole ([lnd.md](formats/lnd.md#the-cells)): drawn so, its entrance notch
-  and rivers meet the model's.
 - **`scape.omp`'s objects are sound and particle emitters**: kind 1
   runs along the rivers, kind 3 sits at the entrance, and the file names
   a particle library's and the sound events' definitions

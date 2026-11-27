@@ -79,7 +79,8 @@ image::Image paintGround(const Land &land) {
 }
 
 // The ground lies flat at y = 0 over x from 0 and z from 0, the file's
-// first row of cells at the far side, z largest (inferred).
+// first row of cells at the far side, z largest (inferred). Its picture's
+// first row is that row, and v runs up a picture, so v is 1 there.
 void drawGround(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camera, const LoadedWorld &world,
                 const soft3d::Vec &light) {
     const Land &land = world.land;
@@ -90,8 +91,8 @@ void drawGround(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &camer
             const int z1 = std::min(land.depth(), z + kQuadCells);
             const float u0 = float(x) / float(land.width());
             const float u1 = float(x1) / float(land.width());
-            const float v0 = float(z) / float(land.depth());
-            const float v1 = float(z1) / float(land.depth());
+            const float v0 = 1 - float(z) / float(land.depth());
+            const float v1 = 1 - float(z1) / float(land.depth());
             auto at = [&](int cx, int cz) {
                 return toViewerWorld({float(cx) * size, 0, float(land.depth() - cz) * size});
             };
