@@ -65,8 +65,7 @@ Detection signatures (MD5 of each file's start, and its size, as
 - **Tutorials:** all six passed
   ([systems/hosting.md](systems/hosting.md#its-missions)).
 - **Not yet:** a multiplayer game between two physical machines (tried between
-  copies on one, each with a network and address of its own); a ship
-  bought at a shipyard; the fields of the objects in `sprites.q3` past
+  copies on one, each with a network and address of its own); the fields of the objects in `sprites.q3` past
   their kinds and names; data viewer pages for the settings and maps.
 
 The plan is in [PLAN.md](PLAN.md).

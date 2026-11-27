@@ -417,6 +417,19 @@ shuttles, missiles, fighters) and SHIPYARD (each class, its BPV and
 price) opened for a new ship at its base, but not out in the sector
 after a win: they need a base *(inferred)*.
 
+A ship bought: from the first win's save (the USS Berlin, 350 prestige),
+the ship moved one hex to the Federation planet beside it (a click on
+the hex, the movement bar filling), and SUPPLY and SHIPYARD came on.
+SHIPYARD lists the empire's ships for sale by class, BPV and price
+(F-CC+ 147 and 1,587, F-FFD 73 and 354, F-POL+ 47 and 228...); a class
+clicked is shown in yellow, and only one the prestige pays for gets a
+BUY button under the list. The F-POL+ bought, the fleet is two
+frigates, the USS Berlin and the new USS C.Lewis, and prestige 350
+less 228, 122. SUPPLY then shows both ships side by side, each with its
+repair cost, trade-in value (172 and 114) and TRADE IN, and the supplies
+to buy (ADMIN shuttles and the like). The list goes on past its ten
+rows; clicking its lowest rows scrolled it *(seen, not traced)*.
+
 Another empire's campaign, Klingon vs the ISC (the fifth on New
 Campaign's list): the Klingon map and interface in red, the IKV Fury, a
 frigate, and Monster and Patrol offered. Monster, played as Convoy
