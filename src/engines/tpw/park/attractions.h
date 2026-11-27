@@ -49,12 +49,14 @@ public:
         int hungerEffect = 0;
         int toiletEffect = 0;
         int happinessEffect = 0;
-        bool relief = false;           // UsageInfo.ProvidesRelief: a toilet
-        bool handlesSprite = false;    // UsageInfo.RideHandlesSprite: its user stays seen, as its script has them
-        int litterEffect = 0;          // UsageInfo.LitterEffect: the litter its users carry away
-        int vomitEffect = 0;           // UsageInfo.VomitEffect: what it adds to their sickness
-        int appearance = 0;            // UsageInfo.AppearanceEffect: 1 a balloon, 2 a costume, 3 an umbrella
-        int gender = 0;                // Info.GenderSpecific: 1 boys only, 2 girls only
+        bool relief = false;        // UsageInfo.ProvidesRelief: a toilet
+        bool handlesSprite = false; // UsageInfo.RideHandlesSprite: its user stays seen, as its script has them
+        int litterEffect = 0;       // UsageInfo.LitterEffect: the litter its users carry away
+        int vomitEffect = 0;        // UsageInfo.VomitEffect: what it adds to their sickness
+        int appearance = 0;         // UsageInfo.AppearanceEffect: 1 a balloon, 2 a costume, 3 an umbrella
+        int gender = 0;             // Info.GenderSpecific: 1 boys only, 2 girls only
+        int rideType = -1;          // Info.RideTypeStringIndex: a sideshow's game, 19 to 23
+
         bool holdsLitter = false;      // UsageInfo.HoldsLitter: a bin
         bool indoors = false;          // UsageInfo.ISIndoors: shelter from the rain
         bool security = false;         // UsageInfo.ProvidesSecurity: a camera

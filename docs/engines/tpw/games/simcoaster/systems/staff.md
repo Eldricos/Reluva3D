@@ -147,11 +147,17 @@ and at 80 and 80 *(guessed)*:
   for 30 days *(guessed)*, they come out `TrainingExtraExperience` (5,000)
   more experienced, by their agency's `TrainingExperienceGainModifier`
   (tenths). They need `MinExperienceForTraining` (30,000) first (232), and
-  the park a training room (233). They learn an ability: what the
-  mission's obstacle still wants of their kind ([missions.md](missions.md#obstacles)),
-  else what a special ride waiting to be activated needs
-  ([special-rides.md](special-rides.md#abilities)), else, for an engineer,
-  Ride Upgrading *(guessed)*.
+    the park a training room (233). They learn the ability the player
+  picks as they're sent, in "Select Ability To Learn" (`UITEXT` 705,
+  "Ability" 706): the abilities of their kind that are discovered
+  ([special-rides.md](special-rides.md#abilities)) *(inferred)*. One
+  already holding an ability is asked first whether to lose it (715);
+  one with nothing to learn is told so by kind (707 to 712), scientists
+  and entertainers never having any. With none picked, they learn what
+  the mission's obstacle still wants of their kind
+  ([missions.md](missions.md#obstacles)), else what a special ride
+  waiting to be activated needs, else, for an engineer, Ride Upgrading
+  *(guessed)*.
 - **Patrol areas**: kept to a rectangle of cells, two corners clicked,
   they wander and look for work only within it.
 - **Firing**: gone at once.
@@ -176,7 +182,9 @@ pieces (`b_minus`, `b_plus`, `b_train`, `b_fire`, `b_arleft`,
   happiness and motivation as bars (193 to 196), their agency (197); train
   and fire.
 - **Their menu**, right-clicking them: set or clear their patrol area
-  (603, 605), send for training (606), fire (608).
+  (603, 605), send for training (606), fire (608). Training, from here
+  or their window, opens **Select Ability To Learn** (705): a list of
+  abilities, a row picked, OK and cancel.
 - **List All Staff** (829): a tab a kind; name, monthly wage, skill,
   happiness (234 to 237), the average happiness (238); a row chosen and
   the tick open their window.
@@ -198,14 +206,17 @@ pieces (`b_minus`, `b_plus`, `b_train`, `b_fire`, `b_arleft`,
 `playPark` opens from the Staff menu, and the others are in
 `src/engines/tpw/ui/park_windows.cpp`; `ParkScreen` draws the staff.
 `reluva-tool tpw window-shot <game folder> <world folder> <out.png>
-<attraction|gates|staff|list|training|finance|demand|menu> [seconds]`
-draws a window over a new park with one of each kind of staff.
+<attraction|gates|staff|list|training|finance|demand|menu|ability|employee>
+[seconds]` draws a window over a new park with one of each kind of
+staff (`ability` a guard's abilities to learn, `employee` the obstacles'
+"Select An Employee" with them all).
 `reluva-tool tpw hire-shot <game folder> <world folder> <out.png> [tab
 [row]]` draws the window and lists every kind's candidates; `park-shot
 ... -hire janitor 2` hires before running the park. The unit tests
 (`tpw.unit.park`) set the pools from settings built in the test, hire,
 pay, and have a janitor sweep up a kiosk's litter; break a ride for an
-engineer to mend, dry a plant for a gardener to water, train, set
+engineer to mend, dry a plant for a gardener to water, train in a
+chosen ability, set
 patrols and wages, answer a wage demand, and strike; and see a
 scientist's experience grow by the month.
 

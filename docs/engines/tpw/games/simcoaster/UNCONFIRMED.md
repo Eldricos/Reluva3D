@@ -15,10 +15,13 @@ None yet.
 
 ## Inferred
 
-- **An attraction's shown name is the pair of `OBJECT_NAMES` whose
-  old name is its settings'**, whole or by its first word
+- **An attraction's shown name is the one of `OBJECT_NAMES` whose old
+  name is its settings'**, a pair whole, by its first string or by its
+  second, looked for in its world's run first; its description is
+  `OBJECT_DESC`'s by its game, what it sells or its settings, and the
+  rides' by a guessed table
   ([building.md](systems/building.md#their-names)). Where the game finds
-  the pair would settle it.
+  them would settle it.
 
 - **A new park of Land of Invention starts as the prebuilt park**: its
   path, queue and objects, the shape of the recording's at 2:34
@@ -139,7 +142,7 @@ None yet.
   ([park-windows.md](systems/park-windows.md)).
 
 - **Special rides**: which staff kind learns each ability, how abilities
-  are discovered, the player's choice of what to learn, what the special
+  are discovered, which are offered to learn, what the special
   rides' challenges measure ([special-rides.md](systems/special-rides.md)).
 
 - **Options and the Park Map's layers**: the game's speed of 70 as
@@ -163,8 +166,8 @@ None yet.
   ([challenges.md](systems/challenges.md)). The game's challenges played
   through would settle them.
 
-- **Missions**: how an obstacle's staff are chosen and work, what
-  clearing costs, which ability training teaches, and the staff numbering
+- **Missions**: how long an obstacle's staff work at it, what clearing
+  costs, what training teaches with no ability picked, and the staff numbering
   of `ObstacleStaff[n].StaffType` past 0, 1 and 5
   ([missions.md](systems/missions.md)). The game's Plughole played through
   would settle most of it.

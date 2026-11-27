@@ -1070,8 +1070,20 @@ void testMissions(const std::filesystem::path &tmp) {
     for (int t = 0; t < 200 && park.staffMember(gardener)->ability != 10; ++t)
         advance(1000);
     CHECK(park.obstacleStaffReady() && park.obstacleStaff()[0] == std::vector<int>{gardener});
+    CHECK(park.obstacleCandidates() == std::vector<int>{gardener});
+    // The scientist won't do; the gardener chosen goes to the lake, and
+    // after their days at it, it's drained.
+    const int scientist = park.staff().front().id;
+    CHECK(park.proceedWithSolution({scientist}) == Park::Solution::kNeedsStaff);
     const int cash = park.cash();
-    CHECK(park.proceedWithSolution() == Park::Solution::kCleared && park.cash() == cash - 150);
+    CHECK(park.proceedWithSolution({gardener}) == Park::Solution::kStarted && park.cash() == cash - 150);
+    CHECK(park.clearing() && park.proceedWithSolution({gardener}) == Park::Solution::kUnderWay);
+    const Park::StaffDoing going = park.staffMember(gardener)->doing;
+    CHECK(going == Park::StaffDoing::kGoingToClear || going == Park::StaffDoing::kClearing);
+    CHECK(park.objects()[0].id == 1703 && park.mission().number == 1);
+    for (int t = 0; t < 40 && park.clearing(); ++t)
+        advance(1000);
+    CHECK(!park.clearing() && park.staffMember(gardener)->doing == Park::StaffDoing::kWorking);
     advance(0);
     CHECK(park.objects()[0].id == 1704 && letter(1) && park.mission().number == 2);
 
@@ -1293,7 +1305,14 @@ void testSpecialRides(const std::filesystem::path &tmp) {
     CHECK(park.hire(Park::StaffKind::kGardener, 0) == Park::Hiring::kHired);
     const int gardener = park.staff().back().id;
     CHECK(park.abilityToLearn(Park::StaffKind::kGuard) == 9 && park.abilityToLearn(Park::StaffKind::kGardener) == 11);
-    CHECK(park.sendForTraining(guard) == Park::Training::kSent);
+    // The guard's is chosen for them; the gardener's left to the park.
+    const std::vector<int> guards = park.learnable(Park::StaffKind::kGuard);
+    CHECK(std::find(guards.begin(), guards.end(), 9) != guards.end());
+    const std::vector<int> gardeners = park.learnable(Park::StaffKind::kGardener);
+    CHECK(std::find(gardeners.begin(), gardeners.end(), 11) != gardeners.end());
+    CHECK(park.learnable(Park::StaffKind::kScientist).empty());
+    CHECK(park.trainingCheck(guard) == Park::Training::kSent);
+    CHECK(park.sendForTraining(guard, 9) == Park::Training::kSent && park.staffMember(guard)->learning == 9);
     CHECK(park.sendForTraining(gardener) == Park::Training::kSent);
     for (int t = 0; t < 200 && (park.staffMember(guard)->ability != 9 || park.staffMember(gardener)->ability != 11);
          ++t)

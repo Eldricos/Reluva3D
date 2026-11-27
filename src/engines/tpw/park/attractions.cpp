@@ -137,6 +137,8 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
             a.vomitEffect = int(number("UsageInfo.VomitEffect", 0));
             a.appearance = int(number("UsageInfo.AppearanceEffect", 0));
             a.gender = int(number("Info.GenderSpecific", 0));
+            a.rideType = int(number("Info.RideTypeStringIndex", -1));
+
             a.holdsLitter = number("UsageInfo.HoldsLitter", 0) != 0;
             a.indoors = number("UsageInfo.ISIndoors", 0) != 0;
             a.security = number("UsageInfo.ProvidesSecurity", 0) != 0;

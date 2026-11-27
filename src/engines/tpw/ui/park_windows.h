@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace reluva::tpw {
@@ -217,7 +218,8 @@ private:
 
 /**
  * A member of staff's window: their ratings and wage, which − and +
- * change; train sends them for training, fire lets them go.
+ * change; train asks what they're to learn (takeTraining), if they may
+ * go; fire lets them go.
  */
 class StaffWindow {
 public:
@@ -231,6 +233,8 @@ public:
     bool isOpen() const { return _open; }
     int staff() const { return _staff; }
     WindowResult handle(const Event &ev, Park &park);
+    /** The member of staff train was clicked for, once, if they may go for training; 0 for none. */
+    int takeTraining() { return std::exchange(_training, 0); }
     void advance(uint32_t ms) { _clock += ms; }
     void draw(Surface &screen, const WindowKit &kit, const Park &park, const HireWindow &names) const;
     static ScreenRect placeOf(Control control);
@@ -239,8 +243,80 @@ private:
     bool _open = false;
     int _staff = 0;
     uint32_t _message = 0; // a training refusal's, UITEXT's
+    int _training = 0;
     Control _over = Control::kNone;
     uint32_t _clock = 0;
+};
+
+/**
+ * "Select Ability To Learn" (UITEXT 705), as a member of staff goes for
+ * training: the abilities their kind can learn, one chosen ("Ability",
+ * 706); none for scientists and entertainers (711, 712), none yet for the
+ * others (707 to 710); "EMPLOYEE ALREADY TRAINED" if it's theirs already
+ * (714), or asked first if they'd lose another (715); with none to
+ * learn, the tick sends them for the experience alone. Laid out by guess.
+ * See docs/engines/tpw/games/simcoaster/systems/staff.md#training.
+ */
+class AbilityWindow {
+public:
+    enum class Control { kNone, kRow, kOk, kCancel };
+    void open(int staff, Park::StaffKind kind, int held, std::vector<int> abilities) {
+        _open = true;
+        _staff = staff;
+        _kind = kind;
+        _held = held;
+        _abilities = std::move(abilities);
+        _chosen = -1;
+        _note = 0;
+        _asking = false;
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    int staff() const { return _staff; }
+    /** kChose once an ability's to be learnt: chosen(); kClosed on the cross. */
+    WindowResult handle(const Event &ev);
+    int chosen() const { return _chosen >= 0 ? _abilities[size_t(_chosen)] : 0; }
+    void draw(Surface &screen, const WindowKit &kit) const;
+    static ScreenRect placeOf(Control control, size_t index = 0);
+
+private:
+    bool _open = false;
+    int _staff = 0;
+    Park::StaffKind _kind = Park::StaffKind::kJanitor;
+    int _held = 0;
+    std::vector<int> _abilities;
+    int _chosen = -1;
+    uint32_t _note = 0;   // a line of UITEXT's shown: 714, or none
+    bool _asking = false; // whether they're to lose the ability they have
+};
+
+/**
+ * "Select An Employee" (UITEXT 695), as the mission's obstacle's solution
+ * is begun: the staff who could clear it, by name, ability, experience,
+ * happiness and what they're doing (696 to 700); each clicked is chosen,
+ * or not. Laid out by guess. See
+ * docs/engines/tpw/games/simcoaster/systems/missions.md#obstacles.
+ */
+class EmployeeWindow {
+public:
+    enum class Control { kNone, kRow, kOk, kCancel };
+    void open(std::vector<int> staff) {
+        _open = true;
+        _staff = std::move(staff);
+        _chosen.clear();
+    }
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+    /** kChose on the tick, with chosen(); kClosed on the cross. */
+    WindowResult handle(const Event &ev);
+    const std::vector<int> &chosen() const { return _chosen; }
+    void draw(Surface &screen, const WindowKit &kit, const Park &park, const HireWindow &names) const;
+    static ScreenRect placeOf(Control control, size_t index = 0);
+
+private:
+    bool _open = false;
+    std::vector<int> _staff;
+    std::vector<int> _chosen;
 };
 
 /**

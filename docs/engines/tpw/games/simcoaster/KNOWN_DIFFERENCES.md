@@ -51,8 +51,8 @@ None yet.
   triggers partly ([challenges.md](systems/challenges.md)); special rides
   activated in a window laid out by guess, abilities discovered and
   learnt by guessed rules, their hoardings not drawn
-  ([special-rides.md](systems/special-rides.md)); an obstacle cleared at once by the first staff
-  trained, and each park set up anew as the missions done leave it
+  ([special-rides.md](systems/special-rides.md)); an obstacle cleared by the staff chosen in
+  3 days, a guess, and each park set up anew as the missions done leave it
   ([missions.md](systems/missions.md)); the Assign staff, financial summary and naming windows laid out
   by guess, and a ride's view only the camera brought close
   ([research.md](systems/research.md), [building.md](systems/building.md#its-window-and-menu)); the
@@ -61,7 +61,9 @@ None yet.
   signs are lettered by guessed rules ([sgn.md](formats/sgn.md)); some show their settings' names, or
   another world's, the game's own not being found for them
   ([building.md](systems/building.md#their-names)), and the Buy window
-  has no descriptions; no building but attractions and path yet, its
+  describes only those a rule or the guessed rides' table finds; staff
+  learn the ability the player picks of those discovered, by a guessed
+  rule ([staff.md](systems/staff.md)); no building but attractions and path yet, its
   fixed items' cells marked; the fly-in under the world's sky, where the
   recording's is black, and ended by a click or a key, a guess
   ([fly-in.md](systems/fly-in.md)); the advisor bare, with no lip-sync,

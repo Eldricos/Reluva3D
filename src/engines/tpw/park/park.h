@@ -154,14 +154,26 @@ public:
     bool obstacleResearched() const { return _obstacleResearched; }
     /**
      * The staff trained for each of the obstacle's needs, as many as it
-     * needs of them, each once, the first trained first (the game has the
-     * player pick them: guessed).
+     * needs of them, each once, the first trained first.
      */
     std::vector<std::vector<int>> obstacleStaff() const;
     bool obstacleStaffReady() const;
+    /** Those who could clear the obstacle: staff of a kind it needs, trained in what it needs of them. */
+    std::vector<int> obstacleCandidates() const;
     /** What "Proceed with solution" (UITEXT 592) on the obstacle came to. */
-    enum class Solution { kCleared, kNoObstacle, kNotResearched, kNeedsStaff, kNeedsTickets, kNoMoney };
-    Solution proceedWithSolution();
+    enum class Solution { kStarted, kNoObstacle, kNotResearched, kNeedsStaff, kNeedsTickets, kNoMoney, kUnderWay };
+    /**
+     * Sets the obstacle's clearing going, with the staff chosen ("Select
+     * An Employee", UITEXT 695), or the first trained without: its cost
+     * and golden tickets paid, the staff sent to it. Once they're all
+     * there and have worked kClearingDays, it's cleared and the mission
+     * done. See docs/engines/tpw/games/simcoaster/systems/missions.md#obstacles.
+     */
+    Solution proceedWithSolution(const std::vector<int> &staff = {});
+    /** Whether the obstacle's being cleared. */
+    bool clearing() const { return _clearing.has_value(); }
+    /** Days the chosen staff work at an obstacle to clear it (guessed). */
+    static constexpr float kClearingDays = 3;
     /** The objects removed since last asked, and their queues (−1 for none), in order. */
     std::vector<std::pair<size_t, int>> takeRemovals() { return std::exchange(_removals, {}); }
     /**
@@ -172,6 +184,8 @@ public:
     int abilityToLearn(StaffKind kind) const;
     /** The kind of staff who learn an ability (ABILITIES.str's); nullopt for none. */
     static std::optional<StaffKind> abilityKind(int ability);
+    /** The abilities (ABILITIES.str), numbered from 1. */
+    static constexpr int kAbilities = 15;
     /**
      * Whether an ability's been discovered: Ride Upgrading, Firefighting
      * and First Aid from the start; the others with the research of an
@@ -289,6 +303,8 @@ public:
         kStriking, // at the strike area, holding a sign
         kGoingToResearch,
         kResearching, // a scientist in the research lab, unseen
+        kGoingToClear,
+        kClearing, // at the mission's obstacle, clearing it
     };
     /** How content a member of staff starts (guessed). */
     static constexpr float kStaffStartingMood = 80;
@@ -319,8 +335,9 @@ public:
         bool patrolling = false; // kept to their patrol area, its corners' cells
         Cell patrolFrom;
         Cell patrolTo;
-        int ability = 0; // trained in: ABILITIES.str's, 1 Ride Upgrading; 0 none
-        int chasing = 0; // a guard's: the visitor chased; 0 none
+        int ability = 0;  // trained in: ABILITIES.str's, 1 Ride Upgrading; 0 none
+        int learning = 0; // the ability chosen for them to learn in training; 0 for the park's choice
+        int chasing = 0;  // a guard's: the visitor chased; 0 none
         uint64_t chaseUntil = 0;
     };
     const std::vector<StaffMember> &staff() const { return _staff; }
@@ -350,7 +367,14 @@ public:
      * AllStaffConstants.TrainingExtraExperience more experience; they
      * need MinExperienceForTraining first.
      */
-    Training sendForTraining(int id);
+    Training sendForTraining(int id, int ability = 0);
+    /** What sending for training would come to, nothing done. */
+    Training trainingCheck(int id) const;
+    /**
+     * The abilities a kind can learn now: those of its kind (abilityKind)
+     * discovered. See docs/engines/tpw/games/simcoaster/systems/special-rides.md#abilities.
+     */
+    std::vector<int> learnable(StaffKind kind) const;
     /** How far through their training, 0 to 1. */
     float trainingProgress(const StaffMember &m) const;
     /** Keeps a member of staff to the cells between two corners, or lets them go anywhere. */
@@ -1156,6 +1180,13 @@ private:
     std::vector<uint8_t> _owned; // by cell, as _ground; 1 where it's the park's
     bool _prebuilt = false;
     std::vector<int> _fixedObjects;
+    // The obstacle being cleared: the staff at it, and the days they've worked.
+    struct Clearing {
+        std::vector<int> staff;
+        float days = 0;
+    };
+    std::optional<Clearing> _clearing;
+    void clearingDay();
     std::vector<PlacedObject> _objects;
     std::vector<Queue> _queues;
     int _queueCost = 0;

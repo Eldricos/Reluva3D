@@ -13,7 +13,7 @@ namespace reluva::tpw {
 namespace {
 
 // The state's own version: a save of another is refused.
-constexpr uint32_t kStateVersion = 1;
+constexpr uint32_t kStateVersion = 2;
 
 } // namespace
 
@@ -82,6 +82,14 @@ void Park::ioState(A &a) {
     io(a, _people);
     io(a, _nextArrivalMs);
     io(a, _nextId);
+    bool clearing = _clearing.has_value();
+    io(a, clearing);
+    if constexpr (A::kReading)
+        _clearing = clearing ? std::optional<Clearing>(Clearing{}) : std::nullopt;
+    if (clearing) {
+        io(a, _clearing->staff);
+        io(a, _clearing->days);
+    }
 }
 
 std::vector<uint8_t> Park::saveState() const {

@@ -561,6 +561,32 @@ int cmdBuyShot(int argc, char **argv) {
     return 0;
 }
 
+// Every attraction of a world: its id, folder, settings' name, the name
+// shown and its description.
+int cmdNames(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool tpw names <game folder> <world folder>\n");
+        return 2;
+    }
+    reluva::SearchSet files;
+    std::vector<std::string> warnings;
+    reluva::tpw::Attractions attractions;
+    reluva::tpw::BuyWindow window;
+    reluva::Error err = reluva::tpw::mountGame(files, argv[2], warnings);
+    if (!err)
+        err = attractions.load(files, argv[3]);
+    if (!err)
+        err = window.load(files);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    for (const reluva::tpw::Attractions::Attraction &a : attractions.all())
+        std::printf("%d %s \"%s\": \"%s\"; %s\n", a.id, a.folder.c_str(), a.name.c_str(),
+                    window.names().shown(a).c_str(), window.names().description(a).c_str());
+    return 0;
+}
+
 // Every attraction's sign of a world as Reluva letters it, half size, on
 // grey, to a PNG; each one's font and lines printed.
 int cmdSignShot(int argc, char **argv) {
@@ -675,7 +701,7 @@ int cmdWindowShot(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool tpw window-shot <game folder> <world folder> <out.png> "
-            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate> [seconds] [-mission <n>]\n");
+            "<attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate|ability|employee> [seconds] [-mission <n>]\n");
         return 2;
     }
     reluva::SearchSet files;
@@ -818,7 +844,17 @@ int cmdWindowShot(int argc, char **argv) {
         std::printf("advisor says %u\n", screen.advisor().said().empty() ? 0 : screen.advisor().said().back());
     } else if (which == "opinion")
         screen.parkMap().open(reluva::tpw::ParkMapWindow::Mode::kOpinion);
-    else if (which == "activate") {
+    else if (which == "ability") {
+        // The guard's abilities to learn, as if its training had begun.
+        for (const reluva::tpw::Park::StaffMember &m : park.staff())
+            if (m.kind == Kind::kGuard)
+                screen.abilityWindow().open(m.id, m.kind, m.ability, park.learnable(m.kind));
+    } else if (which == "employee") {
+        std::vector<int> ids;
+        for (const reluva::tpw::Park::StaffMember &m : park.staff())
+            ids.push_back(m.id);
+        screen.employeeWindow().open(ids);
+    } else if (which == "activate") {
         // The first special ride waiting to be activated.
         for (size_t i = park.objects().size(); i-- > 0;)
             if (park.awaitsActivation(i))
@@ -940,11 +976,13 @@ const Commands kCommands(
          "draw the Hire Staff window over a new park, on a tab, a row chosen, to a PNG, and list the candidates",
          cmdHireShot},
         {"window-shot",
-         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate> [seconds] [-mission <n>]",
+         "<game folder> <world folder> <out.png> <attraction|gates|staff|list|training|finance|demand|menu|lab|projects|assign|summary|rename|stats|loans|owing|portfolio|prices|report|visitors|visitor|visitorlist|attractions|parkstats|awards|messages|gamemenu|map|map-layers|opinion|overview|advisor|save|load|options|options-sound|options-game|activate|ability|employee> [seconds] [-mission <n>]",
          "draw one of the park's smaller windows over a new park, its staff one of each kind, run on, to a PNG",
          cmdWindowShot},
         {"sign-shot", "<game folder> <world folder> <out.png>",
          "letter every attraction's sign of a world, to a PNG, half size, and list their fonts and lines", cmdSignShot},
+        {"names", "<game folder> <world folder>",
+         "list every attraction of a world: its settings' name, the name the game shows and its description", cmdNames},
         {"tpws-check", "<game folder> [save in Data] [-objects]",
          "read a saved park (.TPWS), the prebuilt one unless named: its cells, its path, its objects (listed with "
          "-objects) and its world",

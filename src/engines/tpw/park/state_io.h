@@ -144,6 +144,7 @@ void io(A &a, Park::StaffMember &m) {
     io(a, m.patrolFrom);
     io(a, m.patrolTo);
     io(a, m.ability);
+    io(a, m.learning);
     io(a, m.chasing);
     io(a, m.chaseUntil);
 }

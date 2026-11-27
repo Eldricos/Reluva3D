@@ -253,16 +253,47 @@ int Park::abilityToLearn(StaffKind kind) const {
     return 0;
 }
 
-// Researched, its staff there, its tickets and its cost (the obstacle's
-// Upgrades[0].CostOfUpgrade, guessed) paid: it's cleared, and the
-// mission done. The staff's work at it, which the game shows, isn't.
-Park::Solution Park::proceedWithSolution() {
+std::vector<int> Park::obstacleCandidates() const {
+    std::vector<int> out;
+    for (const StaffMember &m : _staff)
+        for (const Mission::StaffNeed &need : _mission.staffNeeded)
+            if (missionStaffKind(need.staffType) == m.kind && m.ability == need.ability &&
+                std::find(out.begin(), out.end(), m.id) == out.end())
+                out.push_back(m.id);
+    return out;
+}
+
+// Researched, its staff chosen, its tickets and its cost (the obstacle's
+// Upgrades[0].CostOfUpgrade, guessed) paid: the staff go to it, and once
+// they've worked there kClearingDays it's cleared and the mission done.
+Park::Solution Park::proceedWithSolution(const std::vector<int> &staff) {
     if (!_mission.needsSolution())
         return Solution::kNoObstacle;
+    if (_clearing)
+        return Solution::kUnderWay;
     if (_mission.obstacleEffort > 0 && !_obstacleResearched)
         return Solution::kNotResearched;
-    if (!obstacleStaffReady())
-        return Solution::kNeedsStaff;
+    // The chosen must meet each need, each counted once.
+    std::vector<int> team;
+    if (staff.empty()) {
+        if (!obstacleStaffReady())
+            return Solution::kNeedsStaff;
+        for (const std::vector<int> &ids : obstacleStaff())
+            team.insert(team.end(), ids.begin(), ids.end());
+    } else {
+        std::vector<int> left = staff;
+        for (const Mission::StaffNeed &need : _mission.staffNeeded)
+            for (int n = 0; n < need.number; ++n) {
+                const auto fits = std::find_if(left.begin(), left.end(), [&](int id) {
+                    const StaffMember *m = staffMember(id);
+                    return m && missionStaffKind(need.staffType) == m->kind && m->ability == need.ability;
+                });
+                if (fits == left.end())
+                    return Solution::kNeedsStaff;
+                team.push_back(*fits);
+                left.erase(fits);
+            }
+    }
     if (_goldenTickets < _mission.goldenTickets)
         return Solution::kNeedsTickets;
     const Attractions::Attraction *a = _attractions.find(_mission.obstacle);
@@ -271,9 +302,45 @@ Park::Solution Park::proceedWithSolution() {
         return Solution::kNoMoney;
     book(Ledger::kBuilding, cost);
     _goldenTickets -= _mission.goldenTickets;
+    int obstacle = -1;
+    for (size_t i = 0; i < _objects.size(); ++i)
+        if (_objects[i].id == _mission.obstacle)
+            obstacle = int(i);
+    for (StaffMember &m : _staff)
+        if (std::find(team.begin(), team.end(), m.id) != team.end()) {
+            m.working = false;
+            m.chasing = 0;
+            if (obstacle >= 0)
+                sendTo(m, obstacle, StaffDoing::kGoingToClear);
+            else
+                m.doing = StaffDoing::kClearing;
+        }
+    _clearing = Clearing{team, 0};
+    return Solution::kStarted;
+}
+
+// Each day: the days worked count once all the clearing's staff are at
+// it; done, the obstacle goes, the mission's done, they go back to work.
+void Park::clearingDay() {
+    if (!_clearing)
+        return;
+    std::vector<int> &team = _clearing->staff;
+    team.erase(std::remove_if(team.begin(), team.end(), [&](int id) { return !staffMember(id); }), team.end());
+    const bool there =
+        std::all_of(team.begin(), team.end(), [&](int id) { return staffMember(id)->doing == StaffDoing::kClearing; });
+    if (there)
+        _clearing->days += 1;
+    if (!team.empty() && _clearing->days < kClearingDays)
+        return;
+    for (StaffMember &m : _staff)
+        if (std::find(team.begin(), team.end(), m.id) != team.end()) {
+            m.doing = StaffDoing::kWorking;
+            m.target = -1;
+            m.route.clear();
+        }
+    _clearing.reset();
     clearObstacle(_mission.obstacle);
     completeMission();
-    return Solution::kCleared;
 }
 
 // An obstacle's cleared: what it leaves in its place, or nothing.

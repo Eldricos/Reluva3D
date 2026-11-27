@@ -46,17 +46,56 @@ Fries Shop § 500) *(confirmed)*.
 
 ### Their names
 
-The names shown aren't the settings': they're pairs of
-`OBJECT_NAMES.str`, a first word and the rest (strings 22 and 23,
-"Dizzy", "Droid"). Which pair is an object's isn't in its settings.
-`OLD_OBJECT_NAMES.str` holds, at the same places, older names, most of
-them the settings' own ("Giant Robot Swing" at pair 11, "Mechanical
-Crane" at 3, Grab-a-Prize's), so an object's name is the pair whose old
-name is its own, whole or by its first word ("bellows", Bellows
-Bouncer) *(inferred)*. Not all match: Land of Invention's "TV sim",
-shown as "InvenTiVe World", matches the Polar Zone's old "TV Sim"
-("Arctic Adventure"); its log flume ("Splashomatic") and its shops
-match none, and keep their settings' names.
+The names shown aren't the settings': they're `OBJECT_NAMES.str`'s
+("Dizzy", "Droid", strings 22 and 23). Which strings are an object's
+isn't in its settings. `OLD_OBJECT_NAMES.str` holds, at the same
+places, older names, most of them the settings' own ("Giant Robot"
+"Swing" at 22 and 23), so an object's name is the one at its old
+name's place *(inferred)*:
+
+- The strings come in runs, world by world: Land of Invention's 0 to
+  157, Polar Zone's 158 to 306, the rides the worlds share (ids 4xxx)
+  307 to 318, Arabian Nights' 319 to 533, then prefabricated coasters'
+  old names alone. An object's world's run is looked in first, as the
+  same old name comes in more than one; then the shared run, then all.
+- Rides', sideshows' and shops' names are pairs, a theme and a kind,
+  but the pairs don't keep step with even places, as some names are one
+  string ("Info Kiosk", "Drinks Shop"). The settings' name can be the
+  old pair whole ("Lobster" "Laps", Super Sailcarts), its first string
+  when the second is a kind of ride or game or empty ("Log Mill"
+  "Special Ride", The Thrill Mill; "TV Sim" "", Arctic Adventure), or
+  its second when that names a kind of shop or game ("Rocket Man"
+  "Costume Shop", Costume Shop; "North Pole" "Strength Test", Test Of
+  Strength).
+- Features' and facilities' names are one string each ("Small Bush",
+  "Bush (small)"; "Medium rock", "Boulder").
+
+Not all come out right. Land of Invention's "TV sim", shown in the
+recording as "InvenTiVe World" (whose old name is "Mad Worlds Of
+Invention"), matches only the Polar Zone's "TV Sim", Arctic Adventure;
+its log flume ("Splashomatic") and a few others match none and keep
+their settings' names. The recording's Fries Shop is Land of
+Invention's "Chips Shop" *(confirmed)*, a name that matches nothing:
+Reluva takes it for the old "Fries" "Shop", in every world. The four
+loudspeakers of a world all have the settings' name "Loudspeaker",
+and the tunes' names ("Loudspeaker:" "Desert Nights") can't be told
+apart by it: they keep it *(guessed)*.
+
+### Their descriptions
+
+`OBJECT_DESC.str`'s 104 strings describe the attractions and the
+staff, not by any number the settings have *(inferred)*:
+
+| Strings | What | How Reluva picks one |
+|---|---|---|
+| 1 to 63 | Rides, world by world: Land of Invention's to about 22, Polar Zone's to 42, Arabian Nights' to 63 | By hand, where a string's words fit one ride ("This techno kart-track", Miniature Dreadnaughts'; "The bob-sled", Iceblast's): 17 rides; the rest have none *(guessed)* |
+| 64 to 69 | Sideshows | By their game, `Info.RideTypeStringIndex`: 21 an arcade gambler (64), 22 a grab-a-prize (66), 23 a race (67), 19 a shooting gallery (68), 20 a strength test (69), others 65 |
+| 70 to 81 | Shops | By what the settings' name sells: costumes, drinks, hot dogs, balloons, a restaurant, an info kiosk, photos, gifts, umbrellas, candy floss, chips, ice cream |
+| 82 to 92 | Facilities and features | By their settings: watered plants (82), other features (83), security cameras (84), bins (85), loudspeakers (86), toilets, boys' (87) and girls' (88), the research lab (89), the staff room (90), the training room (91), signs (92) |
+| 93 to 103 | Staff and research | The staff's kinds and abilities, and research's kinds, not used here |
+
+The Buy window shows it under the ratings, as many lines as the frame
+holds.
 
 ### The Buy window
 
@@ -193,6 +232,8 @@ building *(guessed)*.
 
 `reluva-tool tpw buy-shot <game folder> <world folder> <out.png> [tab
 [row]]` draws the window over a new park and lists what's on sale;
+`names <game folder> <world folder>` lists every attraction of a world,
+its settings' name, the name shown and its description;
 `park-run` buys the Bellows Bouncer, places it and lays its queue to
 the path. `window-shot ... summary` and `rename` draw the financial summary and
 naming windows. The unit tests (`tpw.unit.park`, `tpw.unit.ui`) read a
@@ -209,8 +250,9 @@ and click the windows.
 
 ## Open questions
 
-- Each object's name: where the game finds its pair of `OBJECT_NAMES`;
-  its description (`OBJECT_DESC.str`), which Reluva doesn't show.
+- Each object's name and description: where the game finds its strings
+  of `OBJECT_NAMES` and `OBJECT_DESC` (Land of Invention's TV sim's
+  shows a name no rule here finds); which rides' descriptions are whose.
 - What "Reliability" is made from; the weather icons under the ratings
   (`clim_*`, the settings' `WeatherModifier`); the two small header
   buttons; the tick's green (Reluva's comes out yellow).

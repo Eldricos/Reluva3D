@@ -283,23 +283,39 @@ void Park::adjustWages(StaffKind kind, Adjustment how, int amount) {
     }
 }
 
-Park::Training Park::sendForTraining(int id) {
-    for (StaffMember &m : _staff) {
-        if (m.id != id)
-            continue;
-        if (m.experience < _constants.minExperienceForTraining)
-            return Training::kTooInexperienced;
-        const int room = findObject([](const Attractions::Attraction &a) { return a.trainingRoom; });
-        if (room < 0)
-            return Training::kNoRoom;
-        if (m.doing != StaffDoing::kWorking)
-            return Training::kNotNow;
-        m.trained = 0;
-        m.working = false;
-        sendTo(m, room, StaffDoing::kGoingToTrain);
-        return Training::kSent;
-    }
-    return Training::kNotNow;
+std::vector<int> Park::learnable(StaffKind kind) const {
+    std::vector<int> out;
+    for (int ability = 1; ability < kAbilities; ++ability)
+        if (abilityKind(ability) == kind && abilityDiscovered(ability))
+            out.push_back(ability);
+    return out;
+}
+
+Park::Training Park::trainingCheck(int id) const {
+    const StaffMember *m = staffMember(id);
+    if (!m)
+        return Training::kNotNow;
+    if (m->experience < _constants.minExperienceForTraining)
+        return Training::kTooInexperienced;
+    if (findObject([](const Attractions::Attraction &a) { return a.trainingRoom; }) < 0)
+        return Training::kNoRoom;
+    if (m->doing != StaffDoing::kWorking)
+        return Training::kNotNow;
+    return Training::kSent;
+}
+
+Park::Training Park::sendForTraining(int id, int ability) {
+    if (const Training t = trainingCheck(id); t != Training::kSent)
+        return t;
+    const int room = findObject([](const Attractions::Attraction &a) { return a.trainingRoom; });
+    for (StaffMember &m : _staff)
+        if (m.id == id) {
+            m.trained = 0;
+            m.learning = ability;
+            m.working = false;
+            sendTo(m, room, StaffDoing::kGoingToTrain);
+        }
+    return Training::kSent;
 }
 
 float Park::trainingProgress(const StaffMember &m) const {
@@ -542,6 +558,12 @@ void Park::staffWay(StaffMember &m) {
     case StaffDoing::kGoingToResearch:
         m.doing = StaffDoing::kResearching;
         return;
+    case StaffDoing::kGoingToClear:
+        m.doing = StaffDoing::kClearing;
+        m.headingX = m.headingZ = 0;
+        return;
+    case StaffDoing::kClearing:
+        return;
     case StaffDoing::kResting:
     case StaffDoing::kTraining:
     case StaffDoing::kResearching:
@@ -650,7 +672,8 @@ void Park::finishWork(StaffMember &m) {
 
 // Faster with experience, up to MaxSpeedDifference percent of a child's pace.
 void Park::moveStaff(StaffMember &m, float left) {
-    if (m.doing == StaffDoing::kResting || m.doing == StaffDoing::kTraining || m.doing == StaffDoing::kResearching)
+    if (m.doing == StaffDoing::kResting || m.doing == StaffDoing::kTraining || m.doing == StaffDoing::kResearching ||
+        m.doing == StaffDoing::kClearing)
         return;
     // A guard after a prankster, straight at them, a third faster, till
     // caught or their WorkDuration's up: caught, they're seen out.
@@ -758,13 +781,16 @@ void Park::staffDay() {
             if (m.trained >= kTrainingDays) {
                 m.experience =
                     std::min(kMostExperience, m.experience + _constants.trainingExperience * agency.training / 10);
-                // They learn what the mission's obstacle wants of their kind;
-                // an engineer, else, to upgrade rides (guessed: the
-                // Training Room's "Ability To Learn").
-                if (const int ability = abilityToLearn(m.kind))
+                // They learn the ability chosen for them ("Select Ability To
+                // Learn"); without a choice, what the mission's obstacle wants
+                // of their kind, else an engineer to upgrade rides (guessed).
+                if (m.learning)
+                    m.ability = m.learning;
+                else if (const int ability = abilityToLearn(m.kind))
                     m.ability = ability;
                 else if (m.kind == StaffKind::kEngineer)
                     m.ability = kRideUpgrading;
+                m.learning = 0;
                 m.doing = StaffDoing::kWorking;
                 m.target = -1;
             }

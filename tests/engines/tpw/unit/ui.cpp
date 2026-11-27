@@ -17,6 +17,7 @@
 #include "engines/tpw/ui/buy_window.h"
 #include "engines/tpw/ui/hire_window.h"
 #include "engines/tpw/ui/info_windows.h"
+#include "engines/tpw/ui/object_names.h"
 #include "engines/tpw/ui/park_windows.h"
 #include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
@@ -478,6 +479,71 @@ void testBuyWindow() {
     CHECK(second.x == first.x + first.w && second.y == first.y);
 }
 
+// The names shown for attractions, from tables laid out as the game's:
+// a pair named by its whole old name, its first string (the second a kind
+// of ride) and its second (a kind of shop); a single string; a feature's
+// one string; the loudspeakers kept; another world's name found when its
+// own has none. And descriptions, by game, shop, flag and the rides' table.
+void testObjectNames() {
+    using tpw::Attractions;
+    tpw::ObjectNames names;
+    std::vector<std::string> shown(160);
+    std::vector<std::string> old(160);
+    auto put = [](std::vector<std::string> &t, size_t at, std::initializer_list<const char *> strings) {
+        for (const char *s : strings)
+            t[at++] = s;
+    };
+    put(old, 0,
+        {"Lobster", "Laps", "Log Mill", "Special Ride", "Rocket Man", "Costume Shop", "Info Kiosk", "Small Bush",
+         "Medium Bush", "Gramophone", "Loudspeaker", "Gem Grabber", "Obelisk Eye"});
+    put(shown, 0,
+        {"Super", "Sailcarts", "The", "Thrill Mill", "Costume", "Shop", "Info Kiosk", "Bush (small)", "Bush (medium)",
+         "Loudspeaker:", "Desert Nights", "Grab-a-Prize", "Test Of Strength"});
+    shown.resize(200);
+    old.resize(200);
+    put(old, 186, {"TV Sim", ""});
+    put(shown, 186, {"Arctic", "Adventure"});
+    std::vector<std::string> descriptions(104);
+    descriptions[67] = "race";
+    descriptions[70] = "costumes";
+    descriptions[85] = "bin";
+    descriptions[83] = "feature";
+    descriptions[5] = "karts";
+    names.set(shown, old, descriptions);
+
+    auto of = [](Attractions::Kind kind, const char *name, const char *folder = "levels/science/rides/x") {
+        Attractions::Attraction a;
+        a.kind = kind;
+        a.name = name;
+        a.folder = folder;
+        return a;
+    };
+    const auto ride = Attractions::Kind::kRide;
+    using Lines = std::array<std::string, 2>;
+    CHECK(names.lines(of(ride, "Lobster Laps")) == (Lines{"Super", "Sailcarts"}));
+    CHECK(names.lines(of(ride, "Log Mill")) == (Lines{"The", "Thrill Mill"}));
+    CHECK(names.shown(of(Attractions::Kind::kShop, "Costume Shop")) == "Costume Shop");
+    CHECK(names.lines(of(Attractions::Kind::kFacility, "Info Kiosk")) == (Lines{"Info", "Kiosk"}));
+    CHECK(names.shown(of(Attractions::Kind::kFeature, "Small Bush")) == "Bush (small)");
+    CHECK(names.shown(of(Attractions::Kind::kFeature, "Loudspeaker")) == "Loudspeaker");
+    CHECK(names.shown(of(Attractions::Kind::kSideshow, "Gem Grabber")) == "Grab-a-Prize");
+    CHECK(names.shown(of(ride, "Unknown Ride")) == "Unknown Ride");
+    CHECK(names.shown(of(ride, "TV sim", "levels/science/rides/tvsim")) == "Arctic Adventure");
+
+    Attractions::Attraction game = of(Attractions::Kind::kSideshow, "Camel Racers");
+    game.rideType = 23;
+    CHECK(names.description(game) == "race");
+    CHECK(names.description(of(Attractions::Kind::kShop, "Costume Shop")) == "costumes");
+    Attractions::Attraction bin = of(Attractions::Kind::kFacility, "Urn");
+    bin.holdsLitter = true;
+    CHECK(names.description(bin) == "bin");
+    CHECK(names.description(of(Attractions::Kind::kFeature, "Bus")) == "feature");
+    Attractions::Attraction karts = of(ride, "Miniature Dreadnoughts");
+    karts.id = 1150;
+    CHECK(names.description(karts) == "karts");
+    CHECK(names.description(of(ride, "Log Mill")).empty());
+}
+
 // The Hire Staff window's clicks: an empty pool hires nobody; scientists
 // want a research room; its tabs change the kind; cancel closes it.
 void testHireWindow() {
@@ -695,6 +761,34 @@ void testParkWindows() {
     CHECK(loading.takeDelete() == -1 && click(loading, SaveLoad::Control::kOk) == tpw::WindowResult::kNone);
     CHECK(loading.takeDelete() == 1 && loading.isOpen());
 
+    // Choosing an ability: one already theirs is said so; another they'd
+    // lose is asked about first; none to learn, the tick sends them anyway.
+    using Ability = tpw::AbilityWindow;
+    Ability ability;
+    const auto pick = [&](Ability::Control c, size_t i = 0) {
+        return ability.handle(at(EventType::kMouseDown, Ability::placeOf(c, i)));
+    };
+    ability.open(7, tpw::Park::StaffKind::kGardener, 10, {10, 11});
+    CHECK(pick(Ability::Control::kOk) == tpw::WindowResult::kNone);
+    pick(Ability::Control::kRow, 0);
+    CHECK(pick(Ability::Control::kOk) == tpw::WindowResult::kNone && ability.isOpen());
+    pick(Ability::Control::kRow, 1);
+    CHECK(pick(Ability::Control::kOk) == tpw::WindowResult::kNone && ability.isOpen());
+    CHECK(pick(Ability::Control::kOk) == tpw::WindowResult::kChose && ability.chosen() == 11 && ability.staff() == 7);
+    ability.open(8, tpw::Park::StaffKind::kScientist, 0, {});
+    CHECK(pick(Ability::Control::kOk) == tpw::WindowResult::kChose && ability.chosen() == 0);
+
+    // Choosing who clears an obstacle: each click chooses, or unchooses.
+    using Employee = tpw::EmployeeWindow;
+    Employee employees;
+    employees.open({4, 5, 6});
+    employees.handle(at(EventType::kMouseDown, Employee::placeOf(Employee::Control::kRow, 0)));
+    employees.handle(at(EventType::kMouseDown, Employee::placeOf(Employee::Control::kRow, 2)));
+    employees.handle(at(EventType::kMouseDown, Employee::placeOf(Employee::Control::kRow, 0)));
+    CHECK(employees.handle(at(EventType::kMouseDown, Employee::placeOf(Employee::Control::kOk))) ==
+              tpw::WindowResult::kChose &&
+          employees.chosen() == std::vector<int>{6});
+
     // Options: the volumes, the speed and the advisor change, the rest don't.
     using Options = tpw::OptionsWindow;
     Options options;
@@ -765,6 +859,7 @@ static const reluva::test::Suite
                               {"briefing", [](const std::filesystem::path &) { testBriefingControls(); }},
                               {"park-hud", [](const std::filesystem::path &) { testParkHud(); }},
                               {"buy-window", [](const std::filesystem::path &) { testBuyWindow(); }},
+                              {"object-names", [](const std::filesystem::path &) { testObjectNames(); }},
                               {"hire-window", [](const std::filesystem::path &) { testHireWindow(); }},
                               {"park-windows", [](const std::filesystem::path &) { testParkWindows(); }},
                           });

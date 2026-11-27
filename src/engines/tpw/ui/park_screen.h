@@ -123,6 +123,13 @@ public:
     AttractionWindow &attractionWindow() { return _attractionWindow; }
     GateWindow &gateWindow() { return _gateWindow; }
     StaffWindow &staffWindow() { return _staffWindow; }
+    AbilityWindow &abilityWindow() { return _abilityWindow; }
+    EmployeeWindow &employeeWindow() { return _employeeWindow; }
+    /**
+     * Asks what a member of staff's to learn, if they may go for
+     * training; else says why not over the park.
+     */
+    void chooseAbility(Park &park, int staff);
     StaffListWindow &staffList() { return _staffList; }
     TrainingWindow &trainingWindow() { return _trainingWindow; }
     StaffFinanceWindow &staffFinance() { return _staffFinance; }
@@ -297,6 +304,8 @@ private:
     AttractionWindow _attractionWindow;
     GateWindow _gateWindow;
     StaffWindow _staffWindow;
+    AbilityWindow _abilityWindow;
+    EmployeeWindow _employeeWindow;
     StaffListWindow _staffList;
     TrainingWindow _trainingWindow;
     StaffFinanceWindow _staffFinance;

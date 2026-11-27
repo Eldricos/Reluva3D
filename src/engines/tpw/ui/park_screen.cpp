@@ -166,6 +166,9 @@ constexpr uint32_t kProceedItem = 592;
 constexpr uint32_t kNeedSolutionText = 103;
 constexpr uint32_t kNeedStaffText = 92;
 constexpr uint32_t kNeedTicketsText = 85;
+// Training refused: "not experienced enough", "no training room".
+constexpr uint32_t kNotExperiencedText = 232;
+constexpr uint32_t kNoTrainingRoomText = 233;
 // What an upgrade refused says, by Park::Upgrading: "fully upgraded" (125),
 // "hired some engineers and trained them" (11), "You need to research a
 // solution" (103, guessed for an upgrade not researched); none for want of
@@ -1194,6 +1197,8 @@ void ParkScreen::draw(Surface &screen, soft3d::Rasterizer &rasterizer, const Par
         _trainingWindow.draw(screen, _kit, park, _hire);
         _staffFinance.draw(screen, _kit, park);
         _staffWindow.draw(screen, _kit, park, _hire);
+        _abilityWindow.draw(screen, _kit);
+        _employeeWindow.draw(screen, _kit, park, _hire);
         _researchLab.draw(screen, _kit, park, _hire, _buy.names());
         _projectWindow.draw(screen, _kit, park, _buy.names());
         _assignWindow.draw(screen, _kit, park, _hire, _buy.names());
@@ -1312,6 +1317,28 @@ void ParkScreen::changeOptions(const GameOptions &options) {
     (void)writeOptions(_optionsFolder, _options);
 }
 
+void ParkScreen::chooseAbility(Park &park, int staff) {
+    const Park::StaffMember *m = park.staffMember(staff);
+    if (!m)
+        return;
+    switch (park.trainingCheck(staff)) {
+    case Park::Training::kSent: {
+        // Scientists and entertainers learn none.
+        const bool learns = m->kind != Park::StaffKind::kScientist && m->kind != Park::StaffKind::kEntertainer;
+        _abilityWindow.open(staff, m->kind, m->ability, learns ? park.learnable(m->kind) : std::vector<int>{});
+        break;
+    }
+    case Park::Training::kTooInexperienced:
+        notify(park, kNotExperiencedText);
+        break;
+    case Park::Training::kNoRoom:
+        notify(park, kNoTrainingRoomText);
+        break;
+    case Park::Training::kNotNow:
+        break;
+    }
+}
+
 void ParkScreen::deleteChosen() {
     const int row = _saveLoad.takeDelete();
     if (row < 0 || size_t(row) >= _slotFiles.size())
@@ -1368,13 +1395,14 @@ Error ParkScreen::restoreState(const std::vector<uint8_t> &data) {
 
 bool ParkScreen::windowOpen() const {
     return _popup.isOpen() || _attractionWindow.isOpen() || _gateWindow.isOpen() || _staffWindow.isOpen() ||
-           _staffList.isOpen() || _trainingWindow.isOpen() || _staffFinance.isOpen() || _wageDemand.isOpen() ||
-           _researchLab.isOpen() || _projectWindow.isOpen() || _assignWindow.isOpen() || _financeSummary.isOpen() ||
-           _renameWindow.isOpen() || _financeStats.isOpen() || _loansWindow.isOpen() || _portfolio.isOpen() ||
-           _attractionFinance.isOpen() || _messageWindow.isOpen() || _visitorStats.isOpen() ||
-           _visitorWindow.isOpen() || _visitorList.isOpen() || _attractionList.isOpen() || _parkStats.isOpen() ||
-           _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() || _parkMap.isOpen() ||
-           _overviewMap.isOpen() || _activateRide.isOpen() || _saveLoad.isOpen() || _optionsWindow.isOpen();
+           _abilityWindow.isOpen() || _employeeWindow.isOpen() || _staffList.isOpen() || _trainingWindow.isOpen() ||
+           _staffFinance.isOpen() || _wageDemand.isOpen() || _researchLab.isOpen() || _projectWindow.isOpen() ||
+           _assignWindow.isOpen() || _financeSummary.isOpen() || _renameWindow.isOpen() || _financeStats.isOpen() ||
+           _loansWindow.isOpen() || _portfolio.isOpen() || _attractionFinance.isOpen() || _messageWindow.isOpen() ||
+           _visitorStats.isOpen() || _visitorWindow.isOpen() || _visitorList.isOpen() || _attractionList.isOpen() ||
+           _parkStats.isOpen() || _awards.isOpen() || _messageCenter.isOpen() || _gameMenu.isOpen() ||
+           _parkMap.isOpen() || _overviewMap.isOpen() || _activateRide.isOpen() || _saveLoad.isOpen() ||
+           _optionsWindow.isOpen();
 }
 
 // Every message goes to the Message Center, unread; the president's
@@ -1609,6 +1637,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     screen.attractionWindow().close();
                     screen.gateWindow().close();
                     screen.staffWindow().close();
+                    screen.abilityWindow().close();
+                    screen.employeeWindow().close();
                     screen.staffList().close();
                     screen.trainingWindow().close();
                     screen.staffFinance().close();
@@ -1714,21 +1744,17 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                                 park.cancelUpgrade(object);
                             else if (item == kViewObjectivesItem)
                                 wantObjectives = true;
-                            else if (item == kProceedItem)
-                                switch (park.proceedWithSolution()) {
-                                case Park::Solution::kNotResearched:
+                            else if (item == kProceedItem) {
+                                // Researched, the player picks who clears it.
+                                if (park.clearing())
+                                    ;
+                                else if (park.mission().obstacleEffort > 0 && !park.obstacleResearched())
                                     screen.notify(park, kNeedSolutionText);
-                                    break;
-                                case Park::Solution::kNeedsStaff:
+                                else if (park.obstacleCandidates().empty())
                                     screen.notify(park, kNeedStaffText);
-                                    break;
-                                case Park::Solution::kNeedsTickets:
-                                    screen.notify(park, kNeedTicketsText);
-                                    break;
-                                default:
-                                    break;
-                                }
-                            else if (item == kRideItem)
+                                else
+                                    screen.employeeWindow().open(park.obstacleCandidates());
+                            } else if (item == kRideItem)
                                 camera = screen.rideCamera(park, object, camera);
                             else if (item == kFinanceSummaryItem || item == kKioskFinanceItem)
                                 screen.financeSummary().open(object, screen.nameOf(park, object));
@@ -1753,7 +1779,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             } else if (item == kClearPatrolItem) {
                                 park.clearPatrol(menuStaff);
                             } else if (item == kTrainItem) {
-                                park.sendForTraining(menuStaff);
+                                screen.chooseAbility(park, menuStaff);
                             } else if (item == kFireItem) {
                                 park.fire(menuStaff);
                             }
@@ -1782,8 +1808,25 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     }
                 } else if (screen.financeSummary().isOpen()) {
                     screen.financeSummary().handle(ev);
+                } else if (screen.abilityWindow().isOpen()) {
+                    if (screen.abilityWindow().handle(ev) == WindowResult::kChose)
+                        park.sendForTraining(screen.abilityWindow().staff(), screen.abilityWindow().chosen());
+                } else if (screen.employeeWindow().isOpen()) {
+                    if (screen.employeeWindow().handle(ev) == WindowResult::kChose)
+                        switch (park.proceedWithSolution(screen.employeeWindow().chosen())) {
+                        case Park::Solution::kNeedsStaff:
+                            screen.notify(park, kNeedStaffText);
+                            break;
+                        case Park::Solution::kNeedsTickets:
+                            screen.notify(park, kNeedTicketsText);
+                            break;
+                        default:
+                            break;
+                        }
                 } else if (screen.staffWindow().isOpen()) {
                     screen.staffWindow().handle(ev, park);
+                    if (const int staff = screen.staffWindow().takeTraining())
+                        screen.chooseAbility(park, staff);
                 } else if (screen.staffList().isOpen()) {
                     if (screen.staffList().handle(ev, park) == WindowResult::kChose)
                         screen.staffWindow().open(screen.staffList().chosen());

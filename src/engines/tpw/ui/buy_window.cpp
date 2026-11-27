@@ -58,6 +58,8 @@ constexpr ScreenRect kStats{403, 232, 205, 123};
 constexpr int kStatX = 409;
 constexpr int kStatY = 240;
 constexpr int kStatHeight = 17;
+constexpr int kStatInset = 6;
+constexpr int kDescriptionHeight = 13;
 constexpr int kValueX = 528;
 constexpr int kBarWidth = 75;
 constexpr int kBarHeight = 8;
@@ -318,6 +320,16 @@ void BuyWindow::draw(Surface &screen) const {
         if (a->workingLife >= 0) {
             drawGameText(screen, _font, _characters, kStatX, y, _ui.text(kWorkingLifeText), kWhite);
             drawBar(screen, kValueX, y + 1, float(a->workingLife) / 100);
+            y += kStatHeight;
+        }
+        // Its description under the ratings, as the recording has it; as
+        // many lines as the frame holds.
+        for (const std::string &line :
+             wrapGameText(_font, _characters, _names.description(*a), kStats.x + kStats.w - kStatX - kStatInset)) {
+            if (y + kDescriptionHeight > kStats.y + kStats.h - kStatInset)
+                break;
+            drawGameText(screen, _font, _characters, kStatX, y, line, kWhite);
+            y += kDescriptionHeight;
         }
     }
     drawUiMesh(screen, _ok, chosen() ? (_over == Control::kBuy ? kLit : kPlain) : 1, kBuy);

@@ -74,9 +74,17 @@ Operation Plughole!'s:
    lake, 1704), or it's gone; the obstacle's `Upgrades[0].CostOfUpgrade`
    (§ 150) paid and its golden tickets given up *(guessed)*.
 
-The game has the player pick the staff (`UITEXT` 695, "Select An
-Employee") and shows them at work; Reluva takes the first trained, and
-clears it at once.
+The player picks the staff in "Select An Employee" (`UITEXT` 695): a
+list of the staff who could do it, by "Name", "Ability", "Experience",
+"Happiness" and "Current Status" (696 to 700), a click choosing or
+unchoosing one, OK going ahead *(inferred)*. Those chosen must cover
+what the obstacle needs, so many of each kind with its ability; chosen
+staff past that, or none chosen, are made up from the first trained.
+The money and tickets are paid as they set off. They walk to the
+obstacle and work there, out of their usual rounds, and once all of
+them are at it, it's cleared after 3 days *(guessed)*; then they go back
+to work. A second "Proceed with solution" while they're at it does
+nothing. The game shows them at work; how long it takes isn't known.
 
 An obstacle that's `Obstacle.OpenedAutomaticly`, like the gates, opens
 when its mission's objectives are reached.
@@ -124,8 +132,8 @@ solution!" (`UITEXT` 81).
 `Park` reads every mission and keeps the campaign
 (`src/engines/tpw/park/missions.cpp`): `Park::load` takes the player's
 objective, the first mission not done; `mission()` is the one played
-here, `progress()` the objective, `proceedWithSolution()` clears the
-obstacle. As the park closes, the objective, golden tickets and worlds
+here, `progress()` the objective, `proceedWithSolution()` sends the
+chosen staff to clear the obstacle and `clearing()` says they're at it. As the park closes, the objective, golden tickets and worlds
 opened go to the player's file ([players.md](players.md)). The obstacles are read with the attractions
 ([building.md](building.md#what-a-world-has)), and drawn by their models.
 `reluva-tool tpw park-shot`, `briefing-shot` and `window-shot` take
@@ -154,9 +162,9 @@ Plughole and Manager on a small world built in the test.
   [special-rides.md](special-rides.md)).
 - What an obstacle's shape and `AfterShape` mark. The park's land is in
   [land.md](land.md).
-- How the player picks the staff, how long they work, and what the
-  clearing shows (`Info.DestroyParticleEffect`, the obstacles' scripts);
-  what clearing costs.
+- How long the staff work at an obstacle, and what the clearing shows
+  (`Info.DestroyParticleEffect`, the obstacles' scripts); what clearing
+  costs.
 - Which ability training teaches, and whether research reveals it (the
   scientists' "new Excavation ability", `TAG_SYSTEM` 157 to 160).
 - What `TechLevel.Theme` does when it's not the mission's own world.

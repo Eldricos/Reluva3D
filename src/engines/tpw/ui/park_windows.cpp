@@ -380,6 +380,11 @@ std::string WindowKit::staffState(const Park::StaffMember &m) const {
     case Park::StaffDoing::kWorking:
         state = m.working || m.target >= 0 || m.chasing ? 2 : 1;
         break;
+    // At the obstacle, working; STAFFSTATES has no line of its own for it.
+    case Park::StaffDoing::kGoingToClear:
+    case Park::StaffDoing::kClearing:
+        state = 2;
+        break;
     case Park::StaffDoing::kGoingToRest:
     case Park::StaffDoing::kResting:
         state = 3;
@@ -752,14 +757,18 @@ WindowResult StaffWindow::handle(const Event &ev, Park &park) {
         park.setWage(_staff, m->wage + (_over == Control::kPlus ? 1 : -1));
         return WindowResult::kNone;
     case Control::kTrain:
-        switch (park.sendForTraining(_staff)) {
+        switch (park.trainingCheck(_staff)) {
         case Park::Training::kTooInexperienced:
             _message = kNotExperiencedText;
             break;
         case Park::Training::kNoRoom:
             _message = kNoTrainingRoomText;
             break;
-        default:
+        case Park::Training::kSent:
+            _message = 0;
+            _training = _staff;
+            break;
+        case Park::Training::kNotNow:
             _message = 0;
             break;
         }
@@ -2233,6 +2242,164 @@ void MessageWindow::draw(Surface &screen, const WindowKit &kit) const {
     for (const std::string &text : messageLines(kit, _message))
         y = kit.paragraph(screen, kMessageX + 18, y, kMessageWidth - 36, text) + 4;
     kit.button(screen, WindowKit::Button::kOk, messageOk(height), WindowKit::kPlain);
+}
+
+// Choosing an ability to learn, and staff to clear the obstacle: laid
+// out by guess, in the staff list's style.
+
+namespace {
+
+constexpr uint32_t kSelectAbilityText = 705;
+constexpr uint32_t kAbilityColumnText = 706;
+// "There are currently no special abilities available for janitors", for
+// engineers, gardeners, guards; entertainers and scientists can't learn.
+constexpr std::array<uint32_t, Park::kStaffKinds> kNoAbilitiesText{708, 707, 709, 710, 711, 712};
+constexpr uint32_t kAlreadyTrainedText = 714;
+constexpr uint32_t kLoseAbilityText = 715;
+constexpr uint32_t kSelectEmployeeText = 695;
+constexpr std::array<uint32_t, 5> kEmployeeColumns{696, 697, 698, 699, 700};
+constexpr ScreenRect kChooseWindow{80, 70, 480, 340};
+constexpr ScreenRect kChooseList{95, 132, 450, 200};
+constexpr int kChooseRow = 16;
+constexpr ScreenRect kChooseNote{95, 338, 340, 54};
+constexpr ScreenRect kChooseOk{482, 362, 28, 28};
+constexpr ScreenRect kChooseCancel{516, 364, 26, 26};
+constexpr std::array<ScreenRect, 5> kEmployeeHeaders{
+    {{95, 106, 110, 22}, {207, 106, 110, 22}, {319, 106, 74, 22}, {395, 106, 74, 22}, {471, 106, 74, 22}}};
+constexpr size_t kChooseRows = size_t(kChooseList.h / kChooseRow);
+
+ScreenRect chooseRow(size_t index) {
+    return {kChooseList.x + 4, kChooseList.y + 4 + int(index) * kChooseRow, kChooseList.w - 8, kChooseRow};
+}
+
+} // namespace
+
+ScreenRect AbilityWindow::placeOf(Control control, size_t index) {
+    switch (control) {
+    case Control::kRow:
+        return chooseRow(index);
+    case Control::kOk:
+        return kChooseOk;
+    case Control::kCancel:
+        return kChooseCancel;
+    case Control::kNone:
+        break;
+    }
+    return {};
+}
+
+WindowResult AbilityWindow::handle(const Event &ev) {
+    if (!_open || !isClick(ev))
+        return WindowResult::kNone;
+    if (kChooseCancel.contains(ev.mouseX, ev.mouseY)) {
+        _open = false;
+        return WindowResult::kClosed;
+    }
+    if (kChooseOk.contains(ev.mouseX, ev.mouseY)) {
+        // With none to learn, the tick sends them for the experience alone.
+        if (_chosen < 0 && !_abilities.empty())
+            return WindowResult::kNone;
+        if (_chosen >= 0 && chosen() == _held) {
+            _note = kAlreadyTrainedText;
+            return WindowResult::kNone;
+        }
+        // Another ability held: asked once, then gone.
+        if (_chosen >= 0 && _held && !_asking) {
+            _asking = true;
+            return WindowResult::kNone;
+        }
+        _open = false;
+        return WindowResult::kChose;
+    }
+    for (size_t i = 0; i < std::min(_abilities.size(), kChooseRows); ++i)
+        if (chooseRow(i).contains(ev.mouseX, ev.mouseY)) {
+            _chosen = int(i);
+            _note = 0;
+            _asking = false;
+        }
+    return WindowResult::kNone;
+}
+
+void AbilityWindow::draw(Surface &screen, const WindowKit &kit) const {
+    if (!_open)
+        return;
+    kit.window(screen, kChooseWindow, kit.ui(kSelectAbilityText));
+    kit.header(screen, {kChooseList.x, 106, kChooseList.w, 22}, kit.ui(kAbilityColumnText));
+    kit.frame(screen, kChooseList);
+    if (_abilities.empty())
+        kit.paragraph(screen, kChooseList.x + 8, kChooseList.y + 8, kChooseList.w - 16,
+                      kit.ui(kNoAbilitiesText[size_t(_kind)]));
+    for (size_t i = 0; i < std::min(_abilities.size(), kChooseRows); ++i) {
+        const ScreenRect r = chooseRow(i);
+        if (int(i) == _chosen)
+            fill(screen, r, kChosenRow);
+        kit.text(screen, r.x + 4, r.y + 2, kit.ability(_abilities[i]));
+    }
+    if (_note || _asking)
+        kit.paragraph(screen, kChooseNote.x, kChooseNote.y, kChooseNote.w, kit.ui(_asking ? kLoseAbilityText : _note));
+    kit.button(screen, WindowKit::Button::kOk, kChooseOk, WindowKit::kPlain);
+    kit.button(screen, WindowKit::Button::kCancel, kChooseCancel, WindowKit::kPlain);
+}
+
+ScreenRect EmployeeWindow::placeOf(Control control, size_t index) {
+    switch (control) {
+    case Control::kRow:
+        return chooseRow(index);
+    case Control::kOk:
+        return kChooseOk;
+    case Control::kCancel:
+        return kChooseCancel;
+    case Control::kNone:
+        break;
+    }
+    return {};
+}
+
+WindowResult EmployeeWindow::handle(const Event &ev) {
+    if (!_open || !isClick(ev))
+        return WindowResult::kNone;
+    if (kChooseCancel.contains(ev.mouseX, ev.mouseY)) {
+        _open = false;
+        return WindowResult::kClosed;
+    }
+    if (kChooseOk.contains(ev.mouseX, ev.mouseY)) {
+        _open = false;
+        return WindowResult::kChose;
+    }
+    for (size_t i = 0; i < std::min(_staff.size(), kChooseRows); ++i)
+        if (chooseRow(i).contains(ev.mouseX, ev.mouseY)) {
+            const auto at = std::find(_chosen.begin(), _chosen.end(), _staff[i]);
+            if (at == _chosen.end())
+                _chosen.push_back(_staff[i]);
+            else
+                _chosen.erase(at);
+        }
+    return WindowResult::kNone;
+}
+
+void EmployeeWindow::draw(Surface &screen, const WindowKit &kit, const Park &park, const HireWindow &names) const {
+    if (!_open)
+        return;
+    kit.window(screen, kChooseWindow, kit.ui(kSelectEmployeeText));
+    for (size_t c = 0; c < kEmployeeHeaders.size(); ++c)
+        kit.header(screen, kEmployeeHeaders[c], kit.ui(kEmployeeColumns[c]));
+    kit.frame(screen, kChooseList);
+    for (size_t i = 0; i < std::min(_staff.size(), kChooseRows); ++i) {
+        const Park::StaffMember *m = park.staffMember(_staff[i]);
+        if (!m)
+            continue;
+        const ScreenRect r = chooseRow(i);
+        if (std::find(_chosen.begin(), _chosen.end(), m->id) != _chosen.end())
+            fill(screen, r, kChosenRow);
+        kit.text(screen, kEmployeeHeaders[0].x + 2, r.y + 2, names.nameOf(m->kind, m->name));
+        kit.text(screen, kEmployeeHeaders[1].x + 2, r.y + 2, kit.ability(m->ability));
+        kit.bar(screen, kEmployeeHeaders[2].x + 2, r.y + 4, kEmployeeHeaders[2].w - 8,
+                float(m->experience) / float(Park::kMostExperience));
+        kit.bar(screen, kEmployeeHeaders[3].x + 2, r.y + 4, kEmployeeHeaders[3].w - 8, m->happiness / 100);
+        kit.text(screen, kEmployeeHeaders[4].x + 2, r.y + 2, kit.staffState(*m));
+    }
+    kit.button(screen, WindowKit::Button::kOk, kChooseOk, WindowKit::kPlain);
+    kit.button(screen, WindowKit::Button::kCancel, kChooseCancel, WindowKit::kPlain);
 }
 
 } // namespace reluva::tpw
