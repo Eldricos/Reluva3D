@@ -810,7 +810,13 @@ the fields.
 
 The team's footsteps and shots make noises, which the game keeps in a
 list (`CNoiseManager`, at the game's `0x334`; added at `0x5194e0`, each a
-`CNoise`: where, its radius, and its time left of its age).
+`CNoise`: where, its radius, and its time left of its age). Only the
+team's: a footstep's noise is made only by one of the team's category
+(the game's `+0x324`, tested at `0x518729`), and a weapon's discharge
+makes its noise only if its shooter is on the team bar (`0x5c68c0`, at
+`0x5f6584` and its like). The enemies' footsteps (their models have
+them) and shots are silent to the others; an action's noise
+(`CAddNoiseAction`, `0x5173d0`) is made by whoever runs it.
 
 - **Footsteps** are in the officers' body models' walking sequences
   (`Walk`, `Run`, `Crouch`): their `Trigger`, an action for each of a
@@ -1225,7 +1231,10 @@ player takes `Start Animation` and `Stop Animation` in any case
 (`0x4a5570`): start plays it, and stop lets it run on to the end of the
 time through it's in and stop there, on its last frame (`0x4a5534`).
 
-Not there yet: the enemies' own noises, and thrown and laid weapons.
+Enemies don't throw or lay weapons: the four `Enemy Weapons` shoot
+(the Borg Gun and the Vulcan Phaser energy, the Klingon Sniper Rifle a
+projectile, both flown as bolts here) or strike (the Jungle Creature's
+jaws), and no part in the maps carries a grenade or a mine.
 
 ## Sources and checks
 
