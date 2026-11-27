@@ -18,7 +18,9 @@ namespace reluva::x86 {
 /**
  * WSOCK32, Windows Sockets 1.1, as games of the time import it (by
  * ordinal), on the host's network (docs/common/x86/winsock.md): TCP and UDP
- * over IPv4, and IPX datagrams carried over UDP. Without sockets,
+ * over IPv4, and IPX datagrams carried over UDP. WS2_32, Windows Sockets 2,
+ * the same functions at its own ordinals and its extensions on them:
+ * scatter and gather, events, addresses as text. Without sockets,
  * WSAStartup fails and a game offers no network play.
  */
 class Winsock {
@@ -65,8 +67,21 @@ private:
         bool nonBlocking = false;
         bool bound = false;
         bool ipx = false; // an IPX datagram socket, carried over UDP
+        bool listening = false;
+        bool connecting = false; // a non-blocking connect under way, for FD_CONNECT
+        // WSAEventSelect: the event and the network events (FD_...) asked for.
+        uint32_t event = 0;
+        uint32_t events = 0;
+        bool writeArmed = false; // FD_WRITE is due (after a connect, or a send that would block)
+        bool closeSeen = false;  // FD_CLOSE given once
     };
     void provide(const char *dll, const char *name, int args, std::function<uint32_t(Cpu &)> fn);
+    void addWinsock2();
+    // Runs one of WSOCK32's functions (by its ordinal, "#19") as if the
+    // program had called it with `args`, for WS2_32's built on them.
+    uint32_t call(Cpu &c, const std::string &ordinal, const std::vector<uint32_t> &args);
+    // The network events (FD_...) of those asked for that are due now.
+    uint32_t networkEvents(Socket &s);
     void traffic(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size,
                  bool dropped = false) const;
 
@@ -76,7 +91,10 @@ private:
     uint32_t _nextHandle = 0x100;
     std::map<uint32_t, uint32_t> _lastError; // by thread
     bool _started = false;
-    uint32_t _buffer = 0; // inet_ntoa's and gethostbyname's results
+    uint32_t _buffer = 0;                                             // inet_ntoa's and gethostbyname's results
+    std::map<std::string, std::function<uint32_t(Cpu &)>> _functions; // WSOCK32's, by ordinal
+    uint32_t _scratch = 0;                                            // program memory for a scattered receive
+    uint32_t _scratchSize = 0;
 };
 
 } // namespace reluva::x86

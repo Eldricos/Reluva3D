@@ -101,7 +101,13 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **`msvcrt.h`, `msvcrt.cpp`: MSVCRT.dll**, for programs that link
   Visual C++'s C runtime dynamically, written from Microsoft's
   documentation of each function:
-  - memory, strings and characters (the "C" locale);
+  - memory, strings and characters (the "C" locale), the multi-byte ones
+    as the single-byte ones (code page 1252), and the wide ones a program
+    of the time asks for (`wcslen`, `wcsncpy`);
+  - low-level I/O on descriptors (`_sopen`, `_open_osfhandle`, `_read`,
+    `_write`, `_lseek`, `_chsize`, `_close`), not translating text
+    mode's line ends; `_fullpath`; `bsearch` with the program's
+    comparison;
   - numbers, and Visual C++'s `rand` (so random choices come out as they
     did);
   - maths, including the `_CI` functions that take their operands on the
@@ -144,7 +150,23 @@ C++ library have pages of their own ([directx.md](directx.md),
   nowhere. The INI files (`GetPrivateProfileStringA`, `...IntA`, in
   `win32_files.cpp`) are read as Windows reads them: names without
   case, the value trimmed and unquoted, a comment after it kept, a file
-  named without a path in the Windows folder.
+  named without a path in the Windows folder; and written
+  (`WritePrivateProfileStringA`): a key changed keeping its name as the
+  file has it, added at its section's end, the section at the file's, a
+  key or a whole section deleted.
+  Also: `lstrcpyA`, `lstrcatA`, `LocalFree`, `IsDBCSLeadByte` (code page
+  1252 has no lead bytes), `Beep` (no speaker), `ExpandEnvironmentStringsA`
+  (the environment is empty, so the text as it is), the temporary folder
+  (`tempFolder`, which an engine maps where it can write) and its files
+  (`GetTempFileNameA`), `GetShortPathNameA` (the long path, as Windows
+  gives it where it keeps no short names), `GetFileInformationByHandle`,
+  this process's memory read (`ReadProcessMemory`), the desktop's work
+  area (`SystemParametersInfoA`), `GetMessageA` (`PeekMessageA`'s, waiting),
+  and DIB sections (`CreateDIBSection`: their pixels' memory, not drawn).
+  Refused as Windows refuses what it doesn't have: named events and
+  mappings to open (none is named here), a view at a chosen address
+  (`MapViewOfFileEx`), a thread's registers (`GetThreadContext`), a DIB's
+  colours.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
   as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
@@ -169,7 +191,9 @@ C++ library have pages of their own ([directx.md](directx.md),
   - `MessageBoxA` is reported and answered so the program goes on.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
-  values and hear of the program's writes. `CoCreateInstance` asks the
+  values and hear of the program's writes, and of its deletes
+  (`RegDeleteValueA`; `RegDeleteKeyA`, which, as Windows NT's, doesn't
+  delete a key with keys under it). `CoCreateInstance` asks the
   engine's `createComObject`; with none, no class is registered.
 - **`com.h`, `com.cpp`: COM objects.** An interface is a table of method
   names and argument counts. `ComHost` builds its vtable of native
@@ -302,6 +326,12 @@ executable's entry point on the main thread until it ends the process.
   - the UTF-16 twins (a file opened through a `.` in its path, a search,
     the current folder) and volumes by their roots alone;
   - `MulDiv`'s rounding, date and time text, the performance counter.
+- `testMoreStandIns` checks those added for imports no game had called
+  yet: strings, memory read, INI files written and deleted from, temporary
+  files, a file's information, the registry's deletes, the C runtime's
+  descriptors and `bsearch`, `GetMessageA`, DirectDraw's own clipper and
+  DirectSound's absence. `testWinsock2` connects two sockets on the
+  machine's loopback through WS2_32 ([winsock.md](winsock.md)).
 - It makes a window with a native window procedure and checks the
   messages it gets, the queue, frame sizes, closing, and subclassing. It also checks
   the registry's keys, values, sizes and enumeration, and

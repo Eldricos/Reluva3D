@@ -9,9 +9,11 @@
 
 #include "emulation/x86/win32.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 namespace reluva::x86 {
 
@@ -19,6 +21,7 @@ namespace {
 
 constexpr uint32_t kErrorFileNotFound = 2;
 constexpr uint32_t kErrorInvalidHandle = 6;
+constexpr uint32_t kErrorInvalidParameter = 87;
 constexpr uint32_t kErrorMoreData = 234;
 constexpr uint32_t kErrorNoMoreItems = 259;
 constexpr uint32_t kRegSz = 1;
@@ -190,6 +193,43 @@ void Win32Process::addRegistryStandIns() {
         setRegistryValue(path, name, c.arg(3), std::vector<uint8_t>(p, p + c.arg(5)));
         if (registryWritten)
             registryWritten(path, name);
+        return 0u;
+    });
+    // RegDeleteValueA(key, name) and RegDeleteKeyA(key, sub): a key with
+    // keys under it isn't deleted (as Windows NT's doesn't); the engine is
+    // told of each value gone, as of one written.
+    stdcall(a, "RegDeleteValueA", 2, [this, keyOf](Cpu &c) {
+        RegistryKey *k = keyOf(c.arg(0));
+        if (!k)
+            return kErrorInvalidHandle;
+        const std::string name = c.arg(1) ? c.string(c.arg(1)) : std::string();
+        auto it = std::find_if(k->values.begin(), k->values.end(),
+                               [&](const auto &v) { return lower(v.first) == lower(name); });
+        if (it == k->values.end())
+            return kErrorFileNotFound;
+        k->values.erase(it);
+        if (registryWritten)
+            registryWritten(k->path, name);
+        return 0u;
+    });
+    stdcall(a, "RegDeleteKeyA", 2, [this, pathOf](Cpu &c) {
+        const std::string path = pathOf(c, c.arg(0), c.arg(1));
+        if (path.empty())
+            return kErrorInvalidHandle;
+        auto it = _registry.find(lower(path));
+        if (it == _registry.end() || !c.arg(1) || c.string(c.arg(1)).empty())
+            return it == _registry.end() ? kErrorFileNotFound : kErrorInvalidParameter;
+        const std::string below = lower(path) + "\\";
+        for (const auto &entry : _registry)
+            if (entry.first.rfind(below, 0) == 0)
+                return 5u; // ERROR_ACCESS_DENIED
+        const RegistryKey gone = it->second;
+        _registry.erase(it);
+        for (auto open = _openKeys.begin(); open != _openKeys.end();)
+            open = open->second == lower(path) ? _openKeys.erase(open) : std::next(open);
+        if (registryWritten)
+            for (const auto &v : gone.values)
+                registryWritten(gone.path, v.first);
         return 0u;
     });
     // RegQueryValueExA(key, name, reserved, type, data, size): with no

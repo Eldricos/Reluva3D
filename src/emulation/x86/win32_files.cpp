@@ -1206,6 +1206,176 @@ void Win32Process::addFileStandIns() {
         return value ? uint32_t(std::strtol(value->c_str(), nullptr, 10)) : c.arg(2);
     });
 
+    // WritePrivateProfileStringA(section, key, value, file): the key set
+    // (its name as the file has it; added at its section's end, the
+    // section at the file's), or with no
+    // value deleted, or with no key its whole section; written back
+    // through mapPath, CR-LF ended.
+    stdcall(k, "WritePrivateProfileStringA", 4, [this](Cpu &c) {
+        if (!c.arg(0) || !c.arg(3) || !mapPath) {
+            _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        std::string name = c.string(c.arg(3));
+        if (name.find_first_of("\\/:") == std::string::npos)
+            name = "C:\\WINDOWS\\" + name;
+        const std::string full = fullPath(name);
+        std::vector<uint8_t> data;
+        if (const auto from = mapPath(full, false))
+            readFile(*from, data);
+        std::vector<std::string> lines;
+        for (size_t start = 0; start < data.size();) {
+            size_t end = std::find(data.begin() + long(start), data.end(), uint8_t('\n')) - data.begin();
+            std::string line(data.begin() + long(start), data.begin() + long(end));
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            lines.push_back(line);
+            start = end + 1;
+        }
+        const auto trim = [](const std::string &t) {
+            const size_t first = t.find_first_not_of(" \t");
+            return first == std::string::npos ? std::string() : t.substr(first, t.find_last_not_of(" \t") - first + 1);
+        };
+        const std::string section = fs::toLower(c.string(c.arg(0)));
+        const bool hasKey = c.arg(1) != 0;
+        const std::string key = hasKey ? c.string(c.arg(1)) : std::string();
+        // The section's header line, and where it ends (the next header).
+        size_t header = lines.size();
+        for (size_t i = 0; i < lines.size() && header == lines.size(); ++i) {
+            const std::string t = trim(lines[i]);
+            if (t.size() > 1 && t[0] == '[' && t.find(']') != std::string::npos &&
+                fs::toLower(trim(t.substr(1, t.find(']') - 1))) == section)
+                header = i;
+        }
+        size_t end = header;
+        if (header < lines.size())
+            for (end = header + 1; end < lines.size(); ++end)
+                if (!trim(lines[end]).empty() && trim(lines[end])[0] == '[')
+                    break;
+        if (!hasKey) {
+            if (header < lines.size())
+                lines.erase(lines.begin() + long(header), lines.begin() + long(end));
+        } else {
+            size_t found = lines.size();
+            for (size_t i = header + 1; i < end && header < lines.size(); ++i) {
+                const size_t eq = lines[i].find('=');
+                if (eq != std::string::npos && fs::toLower(trim(lines[i].substr(0, eq))) == fs::toLower(key))
+                    found = i;
+            }
+            if (!c.arg(2)) {
+                if (found < lines.size())
+                    lines.erase(lines.begin() + long(found));
+            } else {
+                const std::string line = key + "=" + c.string(c.arg(2));
+                if (found < lines.size()) { // its name kept as the file has it
+                    lines[found] = trim(lines[found].substr(0, lines[found].find('='))) + "=" + c.string(c.arg(2));
+                } else if (header < lines.size()) {
+                    // After the section's last line that isn't blank.
+                    size_t at = end;
+                    while (at > header + 1 && trim(lines[at - 1]).empty())
+                        --at;
+                    lines.insert(lines.begin() + long(at), line);
+                } else {
+                    lines.push_back("[" + c.string(c.arg(0)) + "]");
+                    lines.push_back(line);
+                }
+            }
+        }
+        std::string text;
+        for (const std::string &line : lines)
+            text += line + "\r\n";
+        const auto to = mapPath(full, true);
+        if (!to || !writeFile(*to, std::vector<uint8_t>(text.begin(), text.end()))) {
+            _lastError = 5; // ERROR_ACCESS_DENIED
+            return 0u;
+        }
+        return 1u;
+    });
+    // GetTempPathA(size, buffer): tempFolder, which an engine maps to a
+    // folder of its own.
+    stdcall(k, "GetTempPathA", 2, [this](Cpu &c) {
+        if (c.arg(0) <= tempFolder.size())
+            return uint32_t(tempFolder.size() + 1);
+        c.writeString(c.arg(1), tempFolder, c.arg(0));
+        return uint32_t(tempFolder.size());
+    });
+    // GetTempFileNameA(folder, prefix, unique, name): the folder, three
+    // letters of the prefix, a hexadecimal number and ".TMP". Without a
+    // number, the first not in use is taken and the file made, empty.
+    stdcall(k, "GetTempFileNameA", 4, [this](Cpu &c) {
+        std::string folder = c.string(c.arg(0));
+        if (!folder.empty() && folder.back() != '\\')
+            folder += '\\';
+        const std::string prefix = c.arg(1) ? c.string(c.arg(1)).substr(0, 3) : std::string();
+        const auto nameFor = [&](uint32_t n) {
+            char hex[8];
+            std::snprintf(hex, sizeof hex, "%X", n & 0xffff);
+            return folder + prefix + hex + ".TMP";
+        };
+        uint32_t n = c.arg(2) & 0xffff;
+        if (!n) {
+            for (n = 1; n < 0x10000; ++n) {
+                const auto there = mapPath ? mapPath(fullPath(nameFor(n)), false) : std::nullopt;
+                std::error_code ec;
+                if (!there || !std::filesystem::exists(*there, ec))
+                    break;
+            }
+            const uint32_t h = openFile(nameFor(n), "wb");
+            if (!h)
+                return 0u;
+            closeFile(h);
+        }
+        c.writeString(c.arg(3), nameFor(n), 260);
+        return n;
+    });
+    // GetShortPathNameA(long, short, size): the path as it is, as Windows
+    // gives it where it keeps no short names, if the file is there.
+    stdcall(k, "GetShortPathNameA", 3, [this](Cpu &c) {
+        const std::string path = c.string(c.arg(0));
+        const auto there = mapPath ? mapPath(fullPath(path), false) : std::nullopt;
+        std::error_code ec;
+        if (!there || !std::filesystem::exists(*there, ec)) {
+            _lastError = kErrorFileNotFound;
+            return 0u;
+        }
+        if (c.arg(2) <= path.size())
+            return uint32_t(path.size() + 1);
+        c.writeString(c.arg(1), path, c.arg(2));
+        return uint32_t(path.size());
+    });
+    // GetFileInformationByHandle(handle, BY_HANDLE_FILE_INFORMATION*): an
+    // archive file, its times, its size; one link, the handle as its index.
+    stdcall(k, "GetFileInformationByHandle", 2, [this](Cpu &c) {
+        OpenFile *f = file(c.arg(0));
+        const uint32_t out = c.arg(1);
+        if (!f || !c.valid(out, 52)) {
+            _lastError = kErrorInvalidHandle;
+            return 0u;
+        }
+        const auto host = mapPath ? mapPath(f->windowsPath, false) : std::nullopt;
+        const uint64_t t = host ? fileTimeOf(*host) : kUnixEpoch;
+        const long at = std::ftell(f->file);
+        std::fseek(f->file, 0, SEEK_END);
+        const uint32_t size = uint32_t(std::ftell(f->file));
+        std::fseek(f->file, at, SEEK_SET);
+        const uint32_t fields[13] = {0x20,
+                                     uint32_t(t),
+                                     uint32_t(t >> 32),
+                                     uint32_t(t),
+                                     uint32_t(t >> 32),
+                                     uint32_t(t),
+                                     uint32_t(t >> 32),
+                                     0x52454c55,
+                                     0,
+                                     size,
+                                     1,
+                                     0,
+                                     c.arg(0)};
+        for (uint32_t i = 0; i < 13; ++i)
+            c.write32(out + 4 * i, fields[i]);
+        return 1u;
+    });
+
     // CreateFileA(name, access, share, security, disposition, flags, template)
     stdcall(k, "CreateFileA", 7, [this](Cpu &c) {
         const std::string name = c.string(c.arg(0));

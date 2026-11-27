@@ -585,6 +585,25 @@ void Win32Process::addUserStandIns() {
             _messages.erase(it);
         return 1u;
     });
+    // GetMessageA(msg, window, first, last): PeekMessageA's, removing it,
+    // waiting until there's one; 0 for WM_QUIT.
+    stdcall(u, "GetMessageA", 4, [this](Cpu &c) {
+        const uint32_t peek = provided("USER32.dll", "PeekMessageA");
+        for (;;) {
+            uint32_t got = 0;
+            if (Error err = c.call(peek, {c.arg(0), c.arg(1), c.arg(2), c.arg(3), 1}, got)) {
+                c.abort(err.message);
+                return 0u;
+            }
+            if (got)
+                return c.read32(c.arg(0) + 4) == kWmQuit ? 0u : 1u;
+            wait([this] { return !_messages.empty(); }, 10);
+            if (ending()) {
+                c.abort("the process is ending");
+                return 0u;
+            }
+        }
+    });
     stdcall(u, "DispatchMessageA", 1, [this](Cpu &c) {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16))

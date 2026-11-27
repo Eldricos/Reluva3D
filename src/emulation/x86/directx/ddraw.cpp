@@ -397,6 +397,25 @@ DirectX::DirectX(Win32Process &process) : _s(std::make_unique<State>(*this, proc
         c.write32(c.arg(1), s->com.pointer(create(c.arg(0)), s->interfaces.directDraw7));
         return dx::kDDOk;
     });
+    // DirectDrawCreateClipper(flags, out, outer): a clipper of no DirectDraw
+    // object's, as IDirectDraw::CreateClipper makes.
+    process.provideStdcall(dll, "DirectDrawCreateClipper", 3, [s](Cpu &c) {
+        if (!c.valid(c.arg(1), 4))
+            return dx::kDDErrInvalidParams;
+        auto clipper = std::make_shared<dx::Clipper>();
+        clipper->s = s;
+        c.write32(c.arg(1), s->com.pointer(clipper, s->interfaces.clipper));
+        return dx::kDDOk;
+    });
+    // DirectSound: no device (DSERR_NODRIVER), as on a machine without a
+    // sound card; programs then play through another way, or silently.
+    // Starfleet Command II imports it by ordinal 1 and plays through Miles.
+    for (const char *name : {"#1", "DirectSoundCreate"})
+        process.provideStdcall("DSOUND.dll", name, 3, [](Cpu &c) {
+            if (c.valid(c.arg(1), 4))
+                c.write32(c.arg(1), 0);
+            return 0x88780078u;
+        });
     // The one adapter, as the primary display (no GUID).
     process.provideStdcall(dll, "DirectDrawEnumerateA", 2, [description, name](Cpu &c) {
         uint32_t r = 0;

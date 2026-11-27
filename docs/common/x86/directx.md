@@ -21,9 +21,14 @@ headers' (`directx/interfaces.cpp`).
     none, fails with `DDERR_INVALIDPARAMS`, as Windows' DirectDraw
     refuses it before any driver sees it (Starfleet Command II then draws
     its pointer itself);
-  - palettes and clippers;
+  - palettes and clippers (also one made on its own,
+    `DirectDrawCreateClipper`);
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
-    surface).
+    surface);
+  - DirectSound as a machine without a sound card has it:
+    `DirectSoundCreate` (also as `DSOUND.dll`'s ordinal 1) fails with
+    `DSERR_NODRIVER`, so a game plays through its other way (Starfleet
+    Command II through Miles) or silently.
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's

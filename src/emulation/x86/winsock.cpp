@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 namespace reluva::x86 {
 
@@ -269,6 +270,7 @@ Winsock::Winsock(Win32Process &process, Options options) : _process(&process), _
         if (!s)
             return fail(kENOTSOCK);
         const Result r = net()->listen(s->socket, int(c.arg(1)));
+        s->listening = r == Result::kOk;
         return r == Result::kOk ? 0u : fail(wsError(r));
     });
     provide(w, "#1", 3, [this, net, find, fail, blocking, log](Cpu &c) { // accept(s, addr, addrlen)
@@ -311,6 +313,8 @@ Winsock::Winsock(Win32Process &process, Options options) : _process(&process), _
                 return ready.failed ? Result::kRefused : ready.write ? Result::kOk : Result::kWouldBlock;
             });
         }
+        s->connecting = r == Result::kInProgress;
+        s->writeArmed = s->writeArmed || r == Result::kOk;
         log("connect " + std::to_string(c.arg(0)) + " to " + to.toString() +
             (r == Result::kOk           ? ""
              : r == Result::kInProgress ? ": under way"
@@ -369,6 +373,9 @@ Winsock::Winsock(Win32Process &process, Options options) : _process(&process), _
             return fail(wsError(Result::kWouldBlock));
         }
         const Result r = blocking(*s, true, [&] { return net()->send(sock, data.data(), data.size(), done); });
+        if (r == Result::kWouldBlock)
+            if (Socket *again = find(c.arg(0)))
+                again->writeArmed = true;
         if (r == Result::kOk && _options.traffic) {
             net::Address peer;
             net()->peerAddress(sock, peer);
@@ -704,9 +711,19 @@ Winsock::Winsock(Win32Process &process, Options options) : _process(&process), _
         log("gethostbyname " + name + ": " + net::Address{ip, 0}.toString());
         return h;
     });
+    addWinsock2();
 }
 
 void Winsock::provide(const char *dll, const char *name, int args, std::function<uint32_t(Cpu &)> fn) {
+    // WS2_32 has WSOCK32's functions at the same ordinals, but for
+    // inet_addr, inet_ntoa and ioctlsocket (11, 12 and 10 there).
+    if (std::string(dll) == "WSOCK32.dll" && name[0] == '#') {
+        _functions[name] = fn;
+        const int ordinal = std::atoi(name + 1);
+        const int ws2 = ordinal == 10 ? 11 : ordinal == 11 ? 12 : ordinal == 12 ? 10 : ordinal;
+        const std::string alias = "#" + std::to_string(ws2);
+        provide("WS2_32.dll", alias.c_str(), args, fn);
+    }
     if (_options.provide) {
         _options.provide(dll, name, args, std::move(fn));
         return;
@@ -716,6 +733,276 @@ void Winsock::provide(const char *dll, const char *name, int args, std::function
         c.reg[Cpu::EAX] = fn(c);
         return pop;
     });
+}
+
+uint32_t Winsock::call(Cpu &c, const std::string &ordinal, const std::vector<uint32_t> &args) {
+    const auto it = _functions.find(ordinal);
+    if (it == _functions.end())
+        return kSocketError;
+    // Its arguments and a return address below the caller's, where it
+    // reads them; the stack as it was after.
+    const uint32_t esp = c.reg[Cpu::ESP];
+    for (auto a = args.rbegin(); a != args.rend(); ++a) {
+        c.reg[Cpu::ESP] -= 4;
+        c.write32(c.reg[Cpu::ESP], *a);
+    }
+    c.reg[Cpu::ESP] -= 4;
+    c.write32(c.reg[Cpu::ESP], 0);
+    const uint32_t result = it->second(c);
+    c.reg[Cpu::ESP] = esp;
+    return result;
+}
+
+// The network events (FD_READ 1, FD_WRITE 2, FD_ACCEPT 8, FD_CONNECT 16,
+// FD_CLOSE 32) asked for that are due: read and accept while there's
+// something to take, write once after a connect or a send that would
+// block, connect once it's done, close once the peer has.
+uint32_t Winsock::networkEvents(Socket &s) {
+    net::Sockets *net = _options.sockets.get();
+    if (!net || !s.events)
+        return 0;
+    const net::Sockets::Ready ready = net->ready(s.socket);
+    uint32_t due = 0;
+    if (s.listening) {
+        if (ready.read)
+            due |= 8;
+    } else if (ready.read) {
+        uint32_t bytes = 0;
+        net->pending(s.socket, bytes);
+        if (bytes || !s.stream)
+            due |= 1;
+        else if (!s.closeSeen)
+            due |= 32;
+    }
+    if (s.connecting && (ready.write || ready.failed))
+        due |= 16;
+    if (s.writeArmed && ready.write && !s.connecting)
+        due |= 2;
+    if (ready.failed && s.stream && !s.connecting && !s.listening && !s.closeSeen)
+        due |= 32;
+    return due & s.events;
+}
+
+// Windows Sockets 2's own functions, by name in WS2_32: built on WSOCK32's
+// (call), and its events on KERNEL32's. Overlapped calls are done before
+// they return, as Windows may do them; completion routines aren't.
+void Winsock::addWinsock2() {
+    const char *w = "WS2_32.dll";
+    auto self = [this] { return _process->currentThread() ? _process->currentThread()->id : 0u; };
+    auto fail = [this, self](uint32_t error) {
+        _lastError[self()] = error;
+        return kSocketError;
+    };
+    auto find = [this](uint32_t handle) -> Socket * {
+        auto it = _handles.find(handle);
+        return it == _handles.end() ? nullptr : &it->second;
+    };
+    constexpr uint32_t kEOPNOTSUPP = 10045;
+    // A KERNEL32 function, called from here.
+    auto kernel = [this](Cpu &c, const char *name, const std::vector<uint32_t> &args) {
+        uint32_t result = 0;
+        if (c.call(_process->provided("KERNEL32.dll", name), args, result))
+            return 0u;
+        return result;
+    };
+    // A function the same as KERNEL32's, its arguments the same: the
+    // program goes on into it, as if it had called it.
+    auto forward = [this](const char *name, const char *to) {
+        provide("WS2_32.dll", name, 0, [this, to](Cpu &c) {
+            c.reg[Cpu::ESP] -= 4;
+            c.write32(c.reg[Cpu::ESP], _process->provided("KERNEL32.dll", to));
+            return c.reg[Cpu::EAX];
+        });
+    };
+    forward("WSACloseEvent", "CloseHandle");
+    forward("WSASetEvent", "SetEvent");
+    forward("WSAResetEvent", "ResetEvent");
+    forward("WSAWaitForMultipleEvents", "WaitForMultipleObjectsEx");
+    // WSACreateEvent(): a manual-reset event, not set.
+    provide(w, "WSACreateEvent", 0, [kernel](Cpu &c) { return kernel(c, "CreateEventA", {0, 1, 0, 0}); });
+
+    // WSASocketA(af, type, protocol, protocol info, group, flags): socket's.
+    provide(w, "WSASocketA", 6, [this, fail](Cpu &c) {
+        if (c.arg(3))
+            return fail(kEOPNOTSUPP); // a protocol chosen by its WSAPROTOCOL_INFO
+        return call(c, "#23", {c.arg(0), c.arg(1), c.arg(2)});
+    });
+    // WSAConnect(s, name, namelen, caller data, callee data, QOS, group QOS): connect's.
+    provide(w, "WSAConnect", 7, [this](Cpu &c) { return call(c, "#4", {c.arg(0), c.arg(1), c.arg(2)}); });
+
+    // A call's overlapped part: done already, its event set and its
+    // result in it (Internal 0, InternalHigh the bytes).
+    auto overlapped = [kernel](Cpu &c, uint32_t at, uint32_t bytes) {
+        if (!at)
+            return;
+        c.write32(at, 0);
+        c.write32(at + 4, bytes);
+        if (const uint32_t event = c.read32(at + 16))
+            kernel(c, "SetEvent", {event});
+    };
+    // WSASend(s, buffers, count, sent*, flags, overlapped, routine) and
+    // WSASendTo(s, buffers, count, sent*, flags, to, tolen, overlapped,
+    // routine): each WSABUF (a length, then where) sent in turn.
+    for (const bool to : {false, true})
+        provide(w, to ? "WSASendTo" : "WSASend", to ? 9 : 7, [this, fail, to, overlapped](Cpu &c) {
+            const uint32_t routine = c.arg(to ? 8 : 6);
+            if (routine)
+                return fail(kEOPNOTSUPP);
+            uint32_t total = 0;
+            for (uint32_t i = 0; i < c.arg(2); ++i) {
+                const uint32_t buffer = c.arg(1) + 8 * i;
+                const uint32_t n =
+                    to ? call(c, "#20",
+                              {c.arg(0), c.read32(buffer + 4), c.read32(buffer), c.arg(4), c.arg(5), c.arg(6)})
+                       : call(c, "#19", {c.arg(0), c.read32(buffer + 4), c.read32(buffer), c.arg(4)});
+                if (n == kSocketError) {
+                    if (!total)
+                        return kSocketError; // its error, as send left it
+                    break;
+                }
+                total += n;
+            }
+            if (c.arg(3))
+                c.write32(c.arg(3), total);
+            overlapped(c, c.arg(to ? 7 : 5), total);
+            return 0u;
+        });
+    // WSARecv(s, buffers, count, received*, flags*, overlapped, routine)
+    // and WSARecvFrom(s, buffers, count, received*, flags*, from, fromlen*,
+    // overlapped, routine): one receive, spread over the buffers in turn.
+    for (const bool from : {false, true})
+        provide(w, from ? "WSARecvFrom" : "WSARecv", from ? 9 : 7, [this, fail, from, overlapped](Cpu &c) {
+            if (c.arg(from ? 8 : 6))
+                return fail(kEOPNOTSUPP);
+            uint32_t total = 0;
+            for (uint32_t i = 0; i < c.arg(2); ++i)
+                total += c.read32(c.arg(1) + 8 * i);
+            if (total > _scratchSize) {
+                _scratch = _process->memory().alloc(total);
+                _scratchSize = _scratch ? total : 0;
+            }
+            if (total && !_scratch)
+                return fail(10055); // WSAENOBUFS
+            const uint32_t flags = c.arg(4) ? c.read32(c.arg(4)) : 0;
+            const uint32_t n = from ? call(c, "#17", {c.arg(0), _scratch, total, flags, c.arg(5), c.arg(6)})
+                                    : call(c, "#16", {c.arg(0), _scratch, total, flags});
+            if (n == kSocketError)
+                return kSocketError;
+            uint32_t at = 0;
+            for (uint32_t i = 0; i < c.arg(2) && at < n; ++i) {
+                const uint32_t buffer = c.arg(1) + 8 * i;
+                const uint32_t take = std::min(c.read32(buffer), n - at);
+                for (uint32_t k = 0; k < take; ++k)
+                    c.write8(c.read32(buffer + 4) + k, c.read8(_scratch + at + k));
+                at += take;
+            }
+            if (c.arg(3))
+                c.write32(c.arg(3), n);
+            if (c.arg(4))
+                c.write32(c.arg(4), 0);
+            overlapped(c, c.arg(from ? 7 : 5), n);
+            return 0u;
+        });
+
+    // WSAEventSelect(s, event, network events): the event set whenever one
+    // of them is due, the socket made non-blocking; none asked, neither.
+    provide(w, "WSAEventSelect", 3, [this, find, fail](Cpu &c) {
+        Socket *s = find(c.arg(0));
+        if (!s)
+            return fail(kENOTSOCK);
+        s->event = c.arg(1);
+        s->events = c.arg(2);
+        if (!s->events)
+            return 0u;
+        s->nonBlocking = true;
+        s->writeArmed = true;
+        const uint32_t handle = c.arg(0);
+        _process->signalEventWhen(s->event, [this, handle] {
+            auto it = _handles.find(handle);
+            return it != _handles.end() && networkEvents(it->second) != 0;
+        });
+        return 0u;
+    });
+    // WSAEnumNetworkEvents(s, event, WSANETWORKEVENTS*): those due (a mask,
+    // then ten error codes, all 0 but a failed connect's), each taken; the
+    // event reset, to be set again when more are.
+    provide(w, "WSAEnumNetworkEvents", 3, [this, find, fail](Cpu &c) {
+        Socket *s = find(c.arg(0));
+        if (!s)
+            return fail(kENOTSOCK);
+        const uint32_t due = networkEvents(*s);
+        const uint32_t out = c.arg(2);
+        if (!c.valid(out, 44))
+            return fail(kEFAULT);
+        for (uint32_t i = 0; i < 44; i += 4)
+            c.write32(out + i, 0);
+        c.write32(out, due);
+        if (due & 16) { // FD_CONNECT_BIT 4
+            s->connecting = false;
+            s->writeArmed = true;
+            if (_options.sockets && _options.sockets->ready(s->socket).failed)
+                c.write32(out + 4 + 4 * 4, kECONNREFUSED);
+        }
+        if (due & 2)
+            s->writeArmed = false;
+        if (due & 32)
+            s->closeSeen = true;
+        const uint32_t handle = c.arg(0);
+        const uint32_t event = c.arg(1) ? c.arg(1) : s->event;
+        if (event && s->events)
+            _process->signalEventWhen(event, [this, handle] {
+                auto it = _handles.find(handle);
+                return it != _handles.end() && networkEvents(it->second) != 0;
+            });
+        return 0u;
+    });
+
+    // WSAStringToAddressA(text, family, protocol info, address, length*):
+    // "a.b.c.d" or "a.b.c.d:port", IPv4 only.
+    provide(w, "WSAStringToAddressA", 5, [fail](Cpu &c) {
+        if (c.arg(1) != 2)
+            return fail(kEINVAL);
+        unsigned a = 0;
+        unsigned b = 0;
+        unsigned d = 0;
+        unsigned e = 0;
+        unsigned port = 0;
+        const std::string text = c.string(c.arg(0), 64);
+        const int got = std::sscanf(text.c_str(), "%u.%u.%u.%u:%u", &a, &b, &d, &e, &port);
+        if (got < 4 || a > 255 || b > 255 || d > 255 || e > 255 || port > 65535)
+            return fail(kEINVAL);
+        if (!c.arg(4) || c.read32(c.arg(4)) < 16) {
+            if (c.arg(4))
+                c.write32(c.arg(4), 16);
+            return fail(kEFAULT);
+        }
+        writeAddress(c, c.arg(3), c.arg(4), {a << 24 | b << 16 | d << 8 | e, uint16_t(port)});
+        return 0u;
+    });
+    // WSAAddressToStringA(address, length, protocol info, text, length*):
+    // "a.b.c.d", with ":port" if it has one; the length counts the 0.
+    provide(w, "WSAAddressToStringA", 5, [fail](Cpu &c) {
+        net::Address a;
+        if (!readAddress(c, c.arg(0), c.arg(1), a))
+            return fail(kEINVAL);
+        std::string text = net::Address{a.ip, 0}.toString();
+        if (const size_t colon = text.rfind(':'); colon != std::string::npos)
+            text.resize(colon);
+        if (a.port)
+            text += ":" + std::to_string(a.port);
+        const uint32_t need = uint32_t(text.size() + 1);
+        if (!c.arg(4) || c.read32(c.arg(4)) < need) {
+            if (c.arg(4))
+                c.write32(c.arg(4), need);
+            return fail(kEFAULT);
+        }
+        c.writeString(c.arg(3), text, need);
+        c.write32(c.arg(4), need);
+        return 0u;
+    });
+    // WSAIoctl and WSAJoinLeaf (multipoint sockets): not stood for, said so.
+    provide(w, "WSAIoctl", 9, [fail](Cpu &) { return fail(kEOPNOTSUPP); });
+    provide(w, "WSAJoinLeaf", 8, [fail](Cpu &) { return fail(kEOPNOTSUPP); });
 }
 
 void Winsock::traffic(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size,

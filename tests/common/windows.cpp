@@ -21,6 +21,8 @@
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
 #include "emulation/x86/win32.h"
+#include "emulation/x86/winsock.h"
+#include "backends/networking/sockets/socket_net.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
@@ -1503,6 +1505,243 @@ static void testDesktop(const std::filesystem::path &tmp) {
     CHECK(!cpu.call(fn("USER32.dll", "OpenClipboard"), {0}, r) && r == 0);
 }
 
+// The stand-ins added for imports nothing else called: strings, memory,
+// INI files written, temporary files, the registry's deletes, the C
+// runtime's low-level files and searches, messages, DirectDraw's clipper
+// and DirectSound's absence.
+static void testMoreStandIns(const std::filesystem::path &tmp) {
+    namespace stdfs = std::filesystem;
+    stdfs::remove_all(tmp);
+    stdfs::create_directories(tmp);
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    process.setProgram("Prog.exe", "C:\\Game\\");
+    process.tempFolder = "C:\\Game\\TEMP\\";
+    process.mapPath = [&](const std::string &path, bool forWriting) -> std::optional<stdfs::path> {
+        if (path.rfind("C:\\Game\\", 0) != 0)
+            return std::nullopt;
+        std::string rest = path.substr(8);
+        std::replace(rest.begin(), rest.end(), '\\', '/');
+        const stdfs::path to = tmp / rest;
+        if (forWriting)
+            stdfs::create_directories(to.parent_path());
+        return to;
+    };
+    x86::addMsvcrt(process);
+    x86::DirectX directX(process);
+    uint32_t r = 0;
+    auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+    const auto text = [&](const std::string &s) {
+        const uint32_t at = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(at, s, uint32_t(s.size() + 1));
+        return at;
+    };
+    const uint32_t buffer = process.memory().alloc(300);
+
+    // Strings, environment, memory.
+    cpu.writeString(buffer, "abc", 4);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "lstrcatA"), {buffer, text("def")}, r) && r == buffer &&
+          cpu.string(buffer) == "abcdef");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "lstrcpyA"), {buffer, text("x")}, r) && cpu.string(buffer) == "x");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "ExpandEnvironmentStringsA"), {text("%WINDIR%\\a"), buffer, 300}, r) &&
+          r == 11 && cpu.string(buffer) == "%WINDIR%\\a");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "IsDBCSLeadByte"), {0x81}, r) && r == 0);
+    const uint32_t source = text("memory");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "ReadProcessMemory"), {0xffffffffu, source, buffer, 7, buffer + 100}, r) &&
+          r == 1 && cpu.string(buffer) == "memory" && cpu.read32(buffer + 100) == 7);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "ReadProcessMemory"), {0x1234, source, buffer, 7, 0}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetThreadContext"), {0xfffffffeu, buffer}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "OpenEventA"), {0x1f0003, 0, text("Named")}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "MapViewOfFileEx"), {4, 4, 0, 0, 0, 0x400000}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "SystemParametersInfoA"), {0x30, 0, buffer, 0}, r) && r == 1 &&
+          cpu.read32(buffer + 8) == 800 && cpu.read32(buffer + 12) == 600);
+    // A 3x2 DIB of 24 bits: rows of 12 bytes (9 rounded to four).
+    const uint32_t info = process.memory().alloc(40);
+    cpu.write32(info, 40);
+    cpu.write32(info + 4, 3);
+    cpu.write32(info + 8, uint32_t(-2));
+    cpu.write16(info + 12, 1);
+    cpu.write16(info + 14, 24);
+    CHECK(!cpu.call(fn("GDI32.dll", "CreateDIBSection"), {0, info, 0, buffer, 0, 0}, r) && r != 0 &&
+          cpu.read32(buffer) == r && process.memory().size(r) >= 24);
+
+    // INI files written: a key changed, one added to a section, a section
+    // added; then a key and a section deleted.
+    std::ofstream(tmp / "game.ini", std::ios::binary) << "[Video]\r\nWidth=640\r\n\r\n[Sound]\r\nOn=1\r\n";
+    const uint32_t ini = text("C:\\Game\\game.ini");
+    const auto write = [&](const char *section, const char *key, const char *value) {
+        return !cpu.call(fn("KERNEL32.dll", "WritePrivateProfileStringA"),
+                         {section ? text(section) : 0, key ? text(key) : 0, value ? text(value) : 0, ini}, r) &&
+               r == 1;
+    };
+    const auto file = [&] {
+        std::ifstream in(tmp / "game.ini", std::ios::binary);
+        return std::string(std::istreambuf_iterator<char>(in), {});
+    };
+    CHECK(write("video", "WIDTH", "800") && write("Video", "Depth", "16") && write("Net", "Port", "28541"));
+    CHECK(file() == "[Video]\r\nWidth=800\r\nDepth=16\r\n\r\n[Sound]\r\nOn=1\r\n[Net]\r\nPort=28541\r\n");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetPrivateProfileIntA"), {text("Net"), text("Port"), 0, ini}, r) && r == 28541);
+    CHECK(write("Video", "Width", nullptr) && write("Sound", nullptr, nullptr));
+    CHECK(file() == "[Video]\r\nDepth=16\r\n\r\n[Net]\r\nPort=28541\r\n");
+
+    // Temporary files: in tempFolder, the first free number made.
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetTempPathA"), {300, buffer}, r) && cpu.string(buffer) == "C:\\Game\\TEMP\\");
+    const uint32_t name = process.memory().alloc(260);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetTempFileNameA"), {buffer, text("abcd"), 0, name}, r) && r == 1 &&
+          cpu.string(name) == "C:\\Game\\TEMP\\abc1.TMP" && stdfs::exists(tmp / "TEMP" / "abc1.TMP"));
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetTempFileNameA"), {buffer, text("abc"), 0, name}, r) && r == 2);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetTempFileNameA"), {buffer, text("abc"), 0x1a, name}, r) && r == 0x1a &&
+          cpu.string(name) == "C:\\Game\\TEMP\\abc1A.TMP");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetShortPathNameA"), {ini, buffer, 300}, r) && r == 16 &&
+          cpu.string(buffer) == "C:\\Game\\game.ini");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetShortPathNameA"), {text("C:\\Game\\none.ini"), buffer, 300}, r) && r == 0);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CreateFileA"), {ini, 0x80000000u, 1, 0, 3, 0, 0}, r) && r != 0xffffffffu);
+    const uint32_t handle = r;
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetFileInformationByHandle"), {handle, buffer}, r) && r == 1 &&
+          cpu.read32(buffer + 36) == uint32_t(file().size()) && cpu.read32(buffer + 40) == 1);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "CloseHandle"), {handle}, r));
+
+    // The registry: a value and a key deleted; a key with one under it isn't.
+    const uint32_t key = process.memory().alloc(4);
+    const uint32_t hklm = 0x80000002u;
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegCreateKeyExA"), {hklm, text("Software\\Test\\Sub"), 0, 0, 0, 0, 0, key, 0},
+                    r) &&
+          r == 0);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegSetValueExA"), {cpu.read32(key), text("V"), 0, 4, info, 4}, r) && r == 0);
+    std::vector<std::string> told;
+    process.registryWritten = [&](const std::string &k, const std::string &n) { told.push_back(k + "|" + n); };
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegDeleteValueA"), {cpu.read32(key), text("v")}, r) && r == 0 &&
+          !process.registryValue("HKEY_LOCAL_MACHINE\\Software\\Test\\Sub", "V") && told.size() == 1);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegDeleteValueA"), {cpu.read32(key), text("v")}, r) && r == 2);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegDeleteKeyA"), {hklm, text("Software\\Test")}, r) && r == 5);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegDeleteKeyA"), {hklm, text("Software\\Test\\Sub")}, r) && r == 0);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {hklm, text("Software\\Test\\Sub"), 0, 0, key}, r) && r == 2);
+
+    // The C runtime's descriptors: written, sought, read back, cut.
+    const uint32_t path = text("C:\\Game\\low.bin");
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_sopen"), {path, 0x8302, 0x40, 0x180}, r) && int32_t(r) >= 3);
+    const uint32_t fd = r;
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_write"), {fd, text("0123456789"), 10}, r) && r == 10);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_lseek"), {fd, 4, 0}, r) && r == 4);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_read"), {fd, buffer, 3}, r) && r == 3 && cpu.read8(buffer) == '4');
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_chsize"), {fd, 6}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_close"), {fd}, r) && r == 0 && stdfs::file_size(tmp / "low.bin") == 6);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_close"), {fd}, r) && r == 0xffffffffu);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_sopen"), {path, 0x8500, 0x40, 0x180}, r) && r == 0xffffffffu); // _O_EXCL
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_mbsicmp"), {text("Abc"), text("aBC")}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_mbsrchr"), {text("a\\b\\c"), '\\'}, r) && cpu.string(r) == "\\c");
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_memicmp"), {text("ABx"), text("aby"), 2}, r) && r == 0);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "_fullpath"), {0, text("sub\\f.txt"), 0}, r) && r &&
+          cpu.string(r) == "C:\\Game\\sub\\f.txt");
+    const uint32_t wide = process.memory().alloc(16);
+    for (uint32_t i = 0; i < 3; ++i)
+        cpu.write16(wide + 2 * i, uint16_t("ab"[i % 3]));
+    CHECK(!cpu.call(fn("MSVCRT.dll", "wcslen"), {wide}, r) && r == 2);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "wcsncpy"), {buffer, wide, 4}, r) && cpu.read16(buffer + 2) == 'b' &&
+          cpu.read16(buffer + 6) == 0);
+    // bsearch with a comparison of the program's: *a - *b.
+    const uint8_t compare[] = {0x8b, 0x44, 0x24, 0x04, 0x8b, 0x00, 0x8b, 0x4c, 0x24, 0x08, 0x2b, 0x01, 0xc3};
+    const uint32_t code = process.memory().alloc(sizeof compare);
+    std::copy(std::begin(compare), std::end(compare), cpu.memory().begin() + code);
+    const uint32_t sorted = process.memory().alloc(20);
+    for (uint32_t i = 0; i < 5; ++i)
+        cpu.write32(sorted + 4 * i, 10 * (i + 1));
+    const uint32_t want = process.memory().alloc(4);
+    cpu.write32(want, 40);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "bsearch"), {want, sorted, 5, 4, code}, r) && r == sorted + 12);
+    cpu.write32(want, 35);
+    CHECK(!cpu.call(fn("MSVCRT.dll", "bsearch"), {want, sorted, 5, 4, code}, r) && r == 0);
+
+    // GetMessageA: the message posted, then 0 for WM_QUIT.
+    CHECK(!cpu.call(fn("USER32.dll", "PostMessageA"), {0, 0x400, 7, 0}, r));
+    CHECK(!cpu.call(fn("USER32.dll", "GetMessageA"), {buffer, 0, 0, 0}, r) && r == 1 &&
+          cpu.read32(buffer + 4) == 0x400 && cpu.read32(buffer + 8) == 7);
+    CHECK(!cpu.call(fn("USER32.dll", "PostQuitMessage"), {3}, r));
+    CHECK(!cpu.call(fn("USER32.dll", "GetMessageA"), {buffer, 0, 0, 0}, r) && r == 0);
+
+    // DirectDraw's clipper on its own; DirectSound, no device.
+    CHECK(!cpu.call(fn("DDRAW.dll", "DirectDrawCreateClipper"), {0, buffer, 0}, r) && r == 0 && cpu.read32(buffer));
+    CHECK(!cpu.call(fn("DSOUND.dll", "#1"), {0, buffer, 0}, r) && r == 0x88780078u && cpu.read32(buffer) == 0);
+}
+
+// Windows Sockets 2 (WS2_32) on the machine's loopback: WSOCK32's functions
+// at its ordinals, then a connection gathered, signalled, scattered.
+static void testWinsock2() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    process.useHostThreads();
+    x86::Winsock::Options options;
+    options.sockets = net::systemSockets();
+    x86::Winsock winsock(process, options);
+    uint32_t r = 0;
+    auto ws = [&](const char *name, const std::vector<uint32_t> &args) {
+        r = 0xdeadbeef;
+        return !cpu.call(process.provided("WS2_32.dll", name), args, r);
+    };
+    const auto text = [&](const std::string &s) {
+        const uint32_t at = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(at, s, uint32_t(s.size() + 1));
+        return at;
+    };
+    const uint32_t data = process.memory().alloc(400);
+    CHECK(ws("#115", {0x202, data}) && r == 0);                // WSAStartup
+    CHECK(ws("#11", {text("127.0.0.1")}) && r == 0x0100007fu); // inet_addr
+    CHECK(ws("#9", {0x1234}) && r == 0x3412);                  // htons
+    cpu.write32(data + 300, 16);
+    CHECK(ws("WSAStringToAddressA", {text("127.0.0.1:0"), 2, 0, data, data + 300}) && r == 0);
+    CHECK(ws("#23", {2, 1, 6}) && r != 0xffffffffu); // socket
+    const uint32_t server = r;
+    CHECK(ws("#2", {server, data, 16}) && r == 0); // bind
+    CHECK(ws("#13", {server, 4}) && r == 0);       // listen
+    cpu.write32(data + 300, 16);
+    CHECK(ws("#6", {server, data, data + 300}) && r == 0); // getsockname
+    cpu.write32(data + 300, 64);
+    CHECK(ws("WSAAddressToStringA", {data, 16, 0, data + 100, data + 300}) && r == 0);
+    const std::string where = cpu.string(data + 100);
+    CHECK(where.rfind("127.0.0.1:", 0) == 0 && where.size() > 10);
+    CHECK(ws("WSASocketA", {2, 1, 6, 0, 0, 1}) && r != 0xffffffffu);
+    const uint32_t client = r;
+    CHECK(ws("WSAConnect", {client, data, 16, 0, 0, 0, 0}) && r == 0);
+    CHECK(ws("#1", {server, 0, 0}) && r != 0xffffffffu); // accept
+    const uint32_t accepted = r;
+    // Gathered from two buffers: "hel", "lo".
+    const uint32_t bufs = process.memory().alloc(16);
+    cpu.write32(bufs, 3);
+    cpu.write32(bufs + 4, text("hel"));
+    cpu.write32(bufs + 8, 2);
+    cpu.write32(bufs + 12, text("lo"));
+    CHECK(ws("WSASend", {client, bufs, 2, data + 200, 0, 0, 0}) && r == 0 && cpu.read32(data + 200) == 5);
+    // The event set when it's readable, and FD_READ (1) told.
+    CHECK(ws("WSACreateEvent", {}) && r != 0);
+    const uint32_t event = r;
+    CHECK(ws("WSAEventSelect", {accepted, event, 1 | 32}) && r == 0);
+    cpu.write32(data + 210, event);
+    CHECK(ws("WSAWaitForMultipleEvents", {1, data + 210, 0, 2000, 0}) && r == 0);
+    CHECK(ws("WSAEnumNetworkEvents", {accepted, event, data}) && r == 0 && cpu.read32(data) == 1);
+    // Scattered into two: "he", "llo".
+    const uint32_t into = process.memory().alloc(16);
+    cpu.write32(into, 2);
+    cpu.write32(into + 4, data + 220);
+    cpu.write32(into + 8, 10);
+    cpu.write32(into + 12, data + 230);
+    for (uint32_t i = 0; i < 20; ++i)
+        cpu.write8(data + 220 + i, 0);
+    cpu.write32(data + 250, 0);
+    CHECK(ws("WSARecv", {accepted, into, 2, data + 204, data + 250, 0, 0}) && r == 0 && cpu.read32(data + 204) == 5 &&
+          cpu.string(data + 220, 2) == "he" && cpu.string(data + 230) == "llo");
+    // Nothing more: the event isn't set again, the wait times out.
+    CHECK(ws("WSAWaitForMultipleEvents", {1, data + 210, 0, 50, 0}) && r == 0x102);
+    // Closed by its peer: FD_CLOSE (32).
+    CHECK(ws("#3", {client}) && r == 0);
+    CHECK(ws("WSAWaitForMultipleEvents", {1, data + 210, 0, 2000, 0}) && r == 0);
+    CHECK(ws("WSAEnumNetworkEvents", {accepted, event, data}) && r == 0 && cpu.read32(data) == 32);
+    CHECK(ws("WSAIoctl", {accepted, 0, 0, 0, 0, 0, 0, 0, 0}) && r == 0xffffffffu);
+    CHECK(ws("#111", {}) && r == 10045); // WSAGetLastError: WSAEOPNOTSUPP
+    CHECK(ws("WSACloseEvent", {event}) && r == 1);
+    CHECK(ws("#3", {accepted}) && r == 0);
+    CHECK(ws("#3", {server}) && r == 0);
+}
+
 static void testDirectPlayLobby() {
     x86::Cpu cpu(32u << 20);
     x86::Win32Process process(cpu);
@@ -1910,6 +2149,8 @@ static const test::Suite
                {"dll unload", [](const std::filesystem::path &tmp) { testDllUnload(tmp); }},
                {"patcher calls", [](const std::filesystem::path &tmp) { testPatcherCalls(tmp); }},
                {"desktop", [](const std::filesystem::path &tmp) { testDesktop(tmp / "desktop"); }},
+               {"more stand-ins", [](const std::filesystem::path &tmp) { testMoreStandIns(tmp / "more"); }},
+               {"winsock 2", [](const std::filesystem::path &) { testWinsock2(); }},
                {"directplay session", [](const std::filesystem::path &) { testDirectPlaySession(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

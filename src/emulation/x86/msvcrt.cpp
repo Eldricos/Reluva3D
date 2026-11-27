@@ -10,8 +10,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 
 namespace reluva::x86 {
@@ -31,6 +33,8 @@ struct State {
     std::map<uint32_t, uint32_t> handles; // FILE address -> the process's file handle
     std::map<uint32_t, int> ungot;        // FILE address -> a character ungetc put back
     std::set<uint32_t> text;              // FILEs opened in text mode
+    std::map<int, uint32_t> fds;          // low-level I/O's descriptors -> the process's file handles
+    int nextFd = 3;                       // 0 to 2 are the standard ones
     uint32_t holdrand = 1;                // rand's seed, as Visual C++ keeps it
     uint32_t strtokNext = 0;
     uint32_t tm = 0;
@@ -1247,6 +1251,201 @@ void addMsvcrt(Win32Process &process) {
     // _beginthread(start, stack size, arg): run in turns with the main
     // thread (Win32Process::startThread).
     provideCdecl("_beginthread", [s](Cpu &c) { return s->p.startThread(c.arg(0), c.arg(2)); });
+    // Low-level I/O: descriptors for the process's files (_sopen,
+    // _open_osfhandle), read and written as they are (text mode's CR-LF
+    // isn't translated).
+    auto fdFile = [s](uint32_t fd) -> std::FILE * {
+        auto it = s->fds.find(int(fd));
+        if (it == s->fds.end())
+            return nullptr;
+        Win32Process::OpenFile *f = s->p.file(it->second);
+        return f ? f->file : nullptr;
+    };
+    constexpr uint32_t kErrnoBadF = 9;
+    // _sopen(path, flags, share, mode): _O_WRONLY 1, _O_RDWR 2, _O_APPEND 8,
+    // _O_CREAT 0x100, _O_TRUNC 0x200, _O_EXCL 0x400.
+    provideCdecl("_sopen", [s](Cpu &c) {
+        const uint32_t flags = c.arg(1);
+        const bool write = flags & 3;
+        const std::string path = s->str(c.arg(0));
+        uint32_t handle = 0;
+        if (flags & 0x400) { // _O_EXCL: only a file that isn't there
+            if ((handle = s->p.openFile(path, "rb"))) {
+                s->p.closeFile(handle);
+                s->setErrno(17); // EEXIST
+                return 0xffffffffu;
+            }
+        }
+        if (!(flags & 0x200))
+            handle = s->p.openFile(path, write ? "r+b" : "rb");
+        if (!handle && ((flags & 0x200) || (flags & 0x100)))
+            handle = s->p.openFile(path, write ? "w+b" : "wb");
+        if (!handle) {
+            s->setErrno(kErrnoNoEntry);
+            return 0xffffffffu;
+        }
+        if (flags & 8)
+            if (std::FILE *f = s->p.file(handle)->file)
+                std::fseek(f, 0, SEEK_END);
+        s->fds[s->nextFd] = handle;
+        return uint32_t(s->nextFd++);
+    });
+    provideCdecl("_open_osfhandle", [s](Cpu &c) {
+        if (!s->p.file(c.arg(0))) {
+            s->setErrno(kErrnoBadF);
+            return 0xffffffffu;
+        }
+        s->fds[s->nextFd] = c.arg(0);
+        return uint32_t(s->nextFd++);
+    });
+    provideCdecl("_close", [s](Cpu &c) {
+        auto it = s->fds.find(int(c.arg(0)));
+        if (it == s->fds.end()) {
+            s->setErrno(kErrnoBadF);
+            return 0xffffffffu;
+        }
+        s->p.closeFile(it->second);
+        s->fds.erase(it);
+        return 0u;
+    });
+    provideCdecl("_read", [s, fdFile](Cpu &c) {
+        std::FILE *f = fdFile(c.arg(0));
+        if (!f || !c.valid(c.arg(1), c.arg(2))) {
+            s->setErrno(kErrnoBadF);
+            return 0xffffffffu;
+        }
+        return uint32_t(std::fread(s->ptr(c.arg(1)), 1, c.arg(2), f));
+    });
+    provideCdecl("_write", [s, fdFile](Cpu &c) {
+        if (c.arg(0) == 1 || c.arg(0) == 2) {
+            if (s->p.output && c.valid(c.arg(1), c.arg(2)))
+                s->p.output(std::string(s->ptr(c.arg(1)), c.arg(2)));
+            return c.arg(2);
+        }
+        std::FILE *f = fdFile(c.arg(0));
+        if (!f || !c.valid(c.arg(1), c.arg(2))) {
+            s->setErrno(kErrnoBadF);
+            return 0xffffffffu;
+        }
+        return uint32_t(std::fwrite(s->ptr(c.arg(1)), 1, c.arg(2), f));
+    });
+    provideCdecl("_lseek", [s, fdFile](Cpu &c) {
+        std::FILE *f = fdFile(c.arg(0));
+        if (!f || c.arg(2) > 2 || std::fseek(f, long(int32_t(c.arg(1))), int(c.arg(2))) != 0) {
+            s->setErrno(f ? 22u : kErrnoBadF); // EINVAL
+            return 0xffffffffu;
+        }
+        return uint32_t(std::ftell(f));
+    });
+    // _chsize(fd, size): the file cut or zero-extended to the size.
+    provideCdecl("_chsize", [s, fdFile](Cpu &c) {
+        std::FILE *f = fdFile(c.arg(0));
+        if (!f) {
+            s->setErrno(kErrnoBadF);
+            return 0xffffffffu;
+        }
+        const long at = std::ftell(f);
+        std::fseek(f, 0, SEEK_END);
+        const long end = std::ftell(f);
+        const long want = long(c.arg(1));
+        if (want > end) {
+            for (long i = end; i < want; ++i)
+                std::fputc(0, f);
+        } else if (want < end) {
+            std::fflush(f);
+            std::error_code ec;
+            const auto path =
+                s->p.mapPath ? s->p.mapPath(s->p.file(s->fds[int(c.arg(0))])->windowsPath, true) : std::nullopt;
+            if (!path)
+                return 0xffffffffu;
+            std::filesystem::resize_file(*path, uintmax_t(want), ec);
+            if (ec)
+                return 0xffffffffu;
+        }
+        std::fseek(f, std::min(at, want), SEEK_SET);
+        return 0u;
+    });
+    // _fullpath(buffer, path, size): GetFullPathNameA's; a buffer made for
+    // it when none is given.
+    provideCdecl("_fullpath", [s](Cpu &c) -> uint32_t {
+        const std::string full = s->p.fullPath(s->str(c.arg(1)));
+        uint32_t out = c.arg(0);
+        if (!out)
+            out = s->alloc(uint32_t(full.size() + 1));
+        else if (c.arg(2) <= full.size())
+            return 0u;
+        c.writeString(out, full, uint32_t(full.size() + 1));
+        return out;
+    });
+    // The multi-byte ones: code page 1252 has no double-byte characters, so
+    // they're the single-byte ones.
+    provideCdecl("_mbscmp", [compare](Cpu &c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, false); });
+    provideCdecl("_mbsicmp", [compare](Cpu &c) { return compare(c.arg(0), c.arg(1), SIZE_MAX, true); });
+    provideCdecl("_mbsrchr", [s](Cpu &c) -> uint32_t {
+        const size_t n = s->length(c.arg(0));
+        for (size_t i = n + 1; i-- > 0;)
+            if (uint8_t(s->ptr(c.arg(0))[i]) == uint8_t(c.arg(1)))
+                return c.arg(0) + uint32_t(i);
+        return 0u;
+    });
+    // _mbsnbcpy(to, from, n): strncpy's, by bytes.
+    provideCdecl("_mbsnbcpy", [s](Cpu &c) {
+        const uint32_t n = c.arg(2);
+        if (!c.valid(c.arg(0), n))
+            return c.arg(0);
+        const size_t len = std::min<size_t>(s->length(c.arg(1)), n);
+        std::memmove(s->ptr(c.arg(0)), s->ptr(c.arg(1)), len);
+        std::memset(s->ptr(c.arg(0)) + len, 0, n - len);
+        return c.arg(0);
+    });
+    provideCdecl("_memicmp", [](Cpu &c) {
+        for (uint32_t i = 0; i < c.arg(2); ++i) {
+            const int x = lowerAscii(c.read8(c.arg(0) + i));
+            const int y = lowerAscii(c.read8(c.arg(1) + i));
+            if (x != y)
+                return uint32_t(x < y ? -1 : 1);
+        }
+        return 0u;
+    });
+    provideCdecl("wcslen", [](Cpu &c) {
+        uint32_t n = 0;
+        while (c.valid(c.arg(0) + 2 * n, 2) && c.read16(c.arg(0) + 2 * n))
+            ++n;
+        return n;
+    });
+    // wcsncpy(to, from, n): pads with zeros, doesn't terminate a full copy.
+    provideCdecl("wcsncpy", [](Cpu &c) {
+        bool ended = false;
+        for (uint32_t i = 0; i < c.arg(2); ++i) {
+            const uint16_t ch = ended ? 0 : c.read16(c.arg(1) + 2 * i);
+            ended = ended || !ch;
+            c.write16(c.arg(0) + 2 * i, ch);
+        }
+        return c.arg(0);
+    });
+    // bsearch(key, base, count, size, compare): the program's comparison,
+    // halving the range.
+    provideCdecl("bsearch", [](Cpu &c) -> uint32_t {
+        uint32_t lo = 0;
+        uint32_t hi = c.arg(2);
+        while (lo < hi) {
+            const uint32_t mid = lo + (hi - lo) / 2;
+            const uint32_t at = c.arg(1) + mid * c.arg(3);
+            uint32_t r = 0;
+            if (Error e = c.call(c.arg(4), {c.arg(0), at}, r)) {
+                c.abort(e.message);
+                return 0u;
+            }
+            if (int32_t(r) == 0)
+                return at;
+            if (int32_t(r) < 0)
+                hi = mid;
+            else
+                lo = mid + 1;
+        }
+        return 0u;
+    });
+
     provideCdecl("_endthread", [s](Cpu &c) {
         if (s->p.inThread())
             s->p.threadEnd();

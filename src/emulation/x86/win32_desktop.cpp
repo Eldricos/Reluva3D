@@ -305,6 +305,125 @@ void Win32Process::addDesktopStandIns() {
         c.write32(c.arg(3) + 4, 16);
         return 1u;
     });
+    // CreateDIBSection(dc, BITMAPINFO*, usage, bits*, section, offset): its
+    // pixels' memory, rows rounded to four bytes, given back as the bitmap
+    // (selected and drawn into, it isn't shown, as GDI's drawing isn't).
+    // No DIB's colours are kept: Get/SetDIBColorTable set none.
+    stdcall(g, "CreateDIBSection", 6, [this](Cpu &c) {
+        const uint32_t info = c.arg(1);
+        if (!c.valid(info, 40) || !c.arg(3)) {
+            setLastError(kErrorInvalidParameter);
+            return 0u;
+        }
+        const uint32_t width = c.read32(info + 4);
+        const int32_t height = int32_t(c.read32(info + 8));
+        const uint32_t bits = c.read16(info + 14);
+        const uint64_t row = (uint64_t(width) * bits + 31) / 32 * 4;
+        const uint64_t size = row * uint64_t(height < 0 ? -int64_t(height) : height);
+        const uint32_t pixels = size && size < (64u << 20) ? memory().alloc(uint32_t(size)) : 0;
+        c.write32(c.arg(3), pixels);
+        if (!pixels)
+            setLastError(8); // ERROR_NOT_ENOUGH_MEMORY
+        return pixels;
+    });
+    for (const char *name : {"GetDIBColorTable", "SetDIBColorTable"})
+        stdcall(g, name, 4, [](Cpu &) { return 0u; });
+
+    // Strings, as lstrlenA is: copied and joined, the destination given back.
+    stdcall(k, "lstrcpyA", 2, [](Cpu &c) {
+        const std::string from = c.string(c.arg(1));
+        c.writeString(c.arg(0), from, uint32_t(from.size() + 1));
+        return c.arg(0);
+    });
+    stdcall(k, "lstrcatA", 2, [](Cpu &c) {
+        const std::string joined = c.string(c.arg(0)) + c.string(c.arg(1));
+        c.writeString(c.arg(0), joined, uint32_t(joined.size() + 1));
+        return c.arg(0);
+    });
+    // Code page 1252 has no double-byte characters.
+    stdcall(k, "IsDBCSLeadByte", 1, [](Cpu &) { return 0u; });
+    // LocalFree: local memory is global memory, as on Win32.
+    stdcall(k, "LocalFree", 1, [this](Cpu &c) {
+        if (c.arg(0))
+            memory().free(c.arg(0));
+        return 0u;
+    });
+    // Beep(frequency, duration): no speaker; done.
+    stdcall(k, "Beep", 2, [](Cpu &) { return 1u; });
+    // ExpandEnvironmentStringsA(from, to, size): the process's environment
+    // is empty (GetEnvironmentVariableA finds nothing), and Windows leaves a
+    // %NAME% it doesn't know as it is, so the text is copied. The length
+    // counts the 0; with too small a buffer, nothing's written.
+    stdcall(k, "ExpandEnvironmentStringsA", 3, [](Cpu &c) {
+        const std::string out = c.string(c.arg(0));
+        const uint32_t need = uint32_t(out.size() + 1);
+        if (c.arg(1) && c.arg(2) >= need)
+            c.writeString(c.arg(1), out, need);
+        return need;
+    });
+    // Named objects aren't kept: none is found to open.
+    for (const char *name : {"OpenEventA", "OpenFileMappingA"})
+        stdcall(k, name, 3, [this](Cpu &) {
+            setLastError(kErrorFileNotFound);
+            return 0u;
+        });
+    // MapViewOfFileEx(mapping, access, offset high, low, bytes, address):
+    // MapViewOfFile's where no address is asked; at one, it can't.
+    stdcall(k, "MapViewOfFileEx", 6, [this](Cpu &c) {
+        if (c.arg(5)) {
+            setLastError(487); // ERROR_INVALID_ADDRESS
+            return 0u;
+        }
+        uint32_t view = 0;
+        if (c.call(provided("KERNEL32.dll", "MapViewOfFile"), {c.arg(0), c.arg(1), c.arg(2), c.arg(3), c.arg(4)}, view))
+            return 0u;
+        return view;
+    });
+    // A debugger's (a crash handler's): this process's own memory read, no
+    // thread's registers.
+    stdcall(k, "ReadProcessMemory", 5, [this](Cpu &c) {
+        const bool own = c.arg(0) == 0xffffffffu;
+        const uint32_t from = c.arg(1);
+        const uint32_t n = c.arg(3);
+        if (!own || !c.valid(from, n) || !c.valid(c.arg(2), n)) {
+            setLastError(299); // ERROR_PARTIAL_COPY
+            if (c.arg(4))
+                c.write32(c.arg(4), 0);
+            return 0u;
+        }
+        std::copy_n(c.memory().data() + from, n, c.memory().data() + c.arg(2));
+        if (c.arg(4))
+            c.write32(c.arg(4), n);
+        return 1u;
+    });
+    stdcall(k, "GetThreadContext", 2, [this](Cpu &) {
+        setLastError(kErrorNotSupported);
+        return 0u;
+    });
+
+    // SystemParametersInfoA(action, value, data, ini): the desktop's work
+    // area, the whole screen; no screen saver; others refused.
+    stdcall(u, "SystemParametersInfoA", 4, [this](Cpu &c) {
+        switch (c.arg(0)) {
+        case 0x30: // SPI_GETWORKAREA
+            if (!c.valid(c.arg(2), 16))
+                return 0u;
+            c.write32(c.arg(2), 0);
+            c.write32(c.arg(2) + 4, 0);
+            c.write32(c.arg(2) + 8, uint32_t(screenWidth));
+            c.write32(c.arg(2) + 12, uint32_t(screenHeight));
+            return 1u;
+        case 0x10: // SPI_GETSCREENSAVEACTIVE
+            if (c.valid(c.arg(2), 4))
+                c.write32(c.arg(2), 0);
+            return 1u;
+        case 0x11: // SPI_SETSCREENSAVEACTIVE
+            return 1u;
+        default:
+            setLastError(kErrorInvalidParameter);
+            return 0u;
+        }
+    });
 }
 
 } // namespace reluva::x86
