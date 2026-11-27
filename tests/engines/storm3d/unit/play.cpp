@@ -815,19 +815,17 @@ void testCrewAndSystems() {
     CHECK(critical.alive() && std::fabs(critical.carry - 0.6f) < 1e-6f);
     Combat::hit(critical, 0.6f, {}, 0.9f);
     CHECK(!critical.alive());
-    // The roll's order: life support's share first, then the shield
-    // generator's.
+    // The roll's order: the engines' share first, then life support's.
     Combat::Vitals order;
     order.maxCrew = order.crew = 100;
-    for (Combat::System s : {Combat::kLifeSupport, Combat::kShieldGenerator}) {
+    for (Combat::System s : {Combat::kEngines, Combat::kLifeSupport}) {
         order.systems[s].maxHitPoints = order.systems[s].hitPoints = 10;
         order.systems[s].hitPercent = 50;
     }
     Combat::hit(order, 5, {}, 0.49f);
-    CHECK(order.systems[Combat::kLifeSupport].hitPoints == 5 &&
-          order.systems[Combat::kShieldGenerator].hitPoints == 10);
+    CHECK(order.systems[Combat::kEngines].hitPoints == 5 && order.systems[Combat::kLifeSupport].hitPoints == 10);
     Combat::hit(order, 5, {}, 0.5f);
-    CHECK(order.systems[Combat::kShieldGenerator].hitPoints == 5);
+    CHECK(order.systems[Combat::kLifeSupport].hitPoints == 5);
     // Under one crew left: none, derelict.
     order.crew = 1.5f;
     order.hullHitPercent = 100;

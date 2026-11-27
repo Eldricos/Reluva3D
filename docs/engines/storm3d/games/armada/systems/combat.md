@@ -80,14 +80,16 @@ From the code *(from the code)*:
   +0x4dc): its systems off. It isn't destroyed, and it doesn't keep its
   player in the game ([play.md](play.md#a-skirmish-lost)).
 - **The roll** (0x461930): a whole number from 0 to 99, less each
-  system's `HitPercent` in turn, life support, the shield generator,
-  weapons, engines, sensors, then the hull's; it lands where it first
+  system's `HitPercent` in turn, engines, life support, weapons, the
+  shield generator, sensors, then the hull's; it lands where it first
   goes below nothing, and past them all it's critical. The definitions'
   `criticalHitPercent` isn't read for it: the critical's share is what's
   left of the hundred, 15.5 for the Defiant (its others 84.5), none for
-  the construction ship (99.5, the roll whole). That the program's
-  fourth system, the one at +0x588, is the shield generator, and its
-  fifth the sensors, both 7.5, is *(inferred)*.
+  the construction ship (99.5, the roll whole). Which system is which
+  in a unit, by their shares and crew losses in the original's memory
+  (2 and 5 the engines', 2.5 and 3 life support's): engines at +0x518,
+  life support +0x588, weapons +0x550, the shield generator +0x4e0 (its
+  loss drops the shields), sensors +0x5c0.
 - **A shot landing** (0x449d60) does its ordnance's `damageValue` and
   `damageVariance` times a random number from -1 to 1 (0x4fa4c0: the
   game's own generator, its seed times 2,273 and 31 added, modulo

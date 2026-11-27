@@ -207,7 +207,7 @@ void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll,
     // Where it lands: a whole roll from 0 to 99 run down the systems' hit
     // percents in the program's order, then the hull's; past them all,
     // critical (0x461930).
-    static constexpr System kRollOrder[kSystems] = {kLifeSupport, kShieldGenerator, kWeapons, kEngines, kSensors};
+    static constexpr System kRollOrder[kSystems] = {kEngines, kLifeSupport, kWeapons, kShieldGenerator, kSensors};
     float at = std::floor(std::clamp(roll, 0.0f, 0.999f) * 100);
     int landed = -1;
     for (int k = 0; k < kSystems && landed < 0; ++k) {
