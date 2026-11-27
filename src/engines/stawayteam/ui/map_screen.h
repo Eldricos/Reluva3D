@@ -978,6 +978,30 @@ private:
         std::vector<int> inside;   // an every-touching trigger's, as instigators
         float timer = 0.0f;        // a repeat timer's seconds till it next acts
     };
+    // How far a shadow's cast left for each pixel of height; down, half
+    // (0x491451).
+    static constexpr float kShadowSlantX = 0.7014925f;
+    // Each character's cells in the program's grid of the map's parts,
+    // 64 pixels square, and the count when it last came into them: the
+    // grid's searches find them by those (0x569f00, 0x569a20).
+    struct GridPlace {
+        std::array<int, 4> cells{}; // left, top, right, bottom
+        uint64_t since = 0;
+    };
+    std::map<int, GridPlace> _gridPlaces; // by instigator
+    uint64_t _gridCount = 0;
+    // A model's sequences' bounds about where it stands, joined: those
+    // lifted by its Rendering Height, those on the ground, the shadows;
+    // empty, the left past the right.
+    std::map<std::string, std::array<std::array<int, 4>, 3>> _modelBoxes;
+    // Moves each officer and enemy about in the grid.
+    void placeInGrid();
+    std::array<int, 4> gridCells(const std::string &model, float x, float y, int lift);
+    std::array<int, 4> triggerCells(const Trigger &t) const;
+    // Where the grid's search of `area` finds `who`: the row and column of
+    // the first cell of both, then when they came into it; the least
+    // first.
+    std::array<uint64_t, 3> foundAt(int who, const std::array<int, 4> &area) const;
     std::vector<PartState> _partStates;
     std::vector<Enemy> _enemies;
     std::map<size_t, size_t> _enemyOfPart;

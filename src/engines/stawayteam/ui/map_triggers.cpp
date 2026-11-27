@@ -3,15 +3,17 @@
 
 // The map's triggers: its parts' AIs that act when the team comes near,
 // on a timer or when another action relays to them, and the actions they
-// run (docs/engines/stawayteam/systems/maps.md). The rules are read from
-// the maps' own fields; the program's trigger code isn't traced yet.
+// run (docs/engines/stawayteam/systems/maps.md). The rules are the
+// program's where an address is given, else read from the maps' fields.
 
+#include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/ui/button.h"
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include <cmath>
 
 namespace reluva::stawayteam {
@@ -129,7 +131,113 @@ void MapScreen::relay(const std::string &names, int instigator) {
     }
 }
 
+std::array<int, 4> MapScreen::gridCells(const std::string &model, float x, float y, int lift) {
+    auto known = _modelBoxes.find(model);
+    if (known == _modelBoxes.end()) {
+        std::array<std::array<int, 4>, 3> boxes;
+        boxes.fill({INT_MAX, INT_MAX, INT_MIN, INT_MIN});
+        std::vector<uint8_t> bytes;
+        BinaryObject object;
+        if (!_data.read("Cache/Models/" + model + ".mdl16", bytes) &&
+            !readBinaryObject(bytes.data(), bytes.size(), "", object))
+            for (const NamedSequence &s : object.sequences) {
+                if (!s.sequence || !s.sequence->sequence)
+                    continue;
+                const TextObject &o = s.sequence->object;
+                const size_t kind = o.integer("Is Shadow").value_or(0) != 0          ? 2
+                                    : o.integer("Render On Ground").value_or(0) != 0 ? 1
+                                                                                     : 0;
+                const std::array<int32_t, 4> &b = s.sequence->sequence->box;
+                std::array<int, 4> &into = boxes[kind];
+                into = {std::min(into[0], b[0]), std::min(into[1], b[1]), std::max(into[2], b[2]),
+                        std::max(into[3], b[3])};
+            }
+        known = _modelBoxes.emplace(model, boxes).first;
+    }
+    // Every sequence's bounds joined, where it's drawn: lifted by its
+    // Rendering Height but for those on the ground, a shadow's cast down
+    // and left (0x4928bc); about where it stands, its cells, the map's
+    // edges holding them (0x569c00).
+    const int px = int(std::lround(x));
+    const int py = int(std::lround(y));
+    const std::array<std::array<int, 2>, 3> offsets = {
+        std::array<int, 2>{0, -lift},
+        {0, 0},
+        {-int(std::lround(float(lift) * kShadowSlantX)), -int(std::lround(float(lift) * 0.5f))}};
+    std::array<int, 4> box = {INT_MAX, INT_MAX, INT_MIN, INT_MIN};
+    for (size_t k = 0; k < 3; ++k) {
+        const std::array<int, 4> &b = known->second[k];
+        if (b[0] > b[2])
+            continue;
+        box = {std::min(box[0], b[0] + px + offsets[k][0]), std::min(box[1], b[1] + py + offsets[k][1]),
+               std::max(box[2], b[2] + px + offsets[k][0]), std::max(box[3], b[3] + py + offsets[k][1])};
+    }
+    if (box[0] > box[2])
+        box = {px, py, px, py};
+    const auto cell = [](int v, int edge) { return std::clamp(v, 0, std::max(0, edge)) >> 6; };
+    return {cell(box[0], _map.width), cell(box[1], _map.height), cell(box[2], _map.width), cell(box[3], _map.height)};
+}
+
+void MapScreen::placeInGrid() {
+    // Into its cells as it comes onto the map, the map's parts first, the
+    // team after them; taken out and put at the end of each cell's list
+    // whenever its cells change (0x569a20, 0x5698b0).
+    const auto place = [&](int who, const std::array<int, 4> &cells) {
+        auto it = _gridPlaces.find(who);
+        if (it == _gridPlaces.end() || it->second.cells != cells)
+            _gridPlaces[who] = {cells, ++_gridCount};
+    };
+    for (size_t i = 0; i < _enemies.size(); ++i) {
+        const Enemy &e = _enemies[i];
+        const MapPart &p = _map.parts[e.part];
+        place(kEnemyInstigator - int(i), gridCells(p.model, e.x, e.y, p.renderingHeight));
+    }
+    for (size_t o = 0; o < _officers.size(); ++o)
+        place(int(o), gridCells(_team[_officers[o].member].bodyModel, _officers[o].x, _officers[o].y, 0));
+}
+
+std::array<int, 4> MapScreen::triggerCells(const Trigger &t) const {
+    float x0 = 0.0f;
+    float y0 = 0.0f;
+    float x1 = 0.0f;
+    float y1 = 0.0f;
+    const MapPart &p = _map.parts[t.part];
+    if (t.ai->className.find("Oval") != std::string::npos) {
+        const float rx = number(t.ai, "X Radius");
+        const float ry = rx * number(t.ai, "YX Ratio", 1.0f);
+        float px = 0.0f;
+        float py = 0.0f;
+        placeOf(t.part, px, py);
+        x0 = px - rx;
+        x1 = px + rx;
+        y0 = py - ry;
+        y1 = py + ry;
+    } else if (!p.polygon.empty()) {
+        x0 = x1 = p.polygon[0].first;
+        y0 = y1 = p.polygon[0].second;
+        for (const auto &[x, y] : p.polygon) {
+            x0 = std::min(x0, x);
+            x1 = std::max(x1, x);
+            y0 = std::min(y0, y);
+            y1 = std::max(y1, y);
+        }
+    }
+    const auto cell = [](float v, int edge) { return std::clamp(int(v), 0, std::max(0, edge)) >> 6; };
+    return {cell(x0, _map.width), cell(y0, _map.height), cell(x1, _map.width), cell(y1, _map.height)};
+}
+
+std::array<uint64_t, 3> MapScreen::foundAt(int who, const std::array<int, 4> &area) const {
+    // The search goes down the area's rows, along each, and through each
+    // cell's list in order, each part found once (0x569f00).
+    const auto it = _gridPlaces.find(who);
+    if (it == _gridPlaces.end())
+        return {uint64_t(area[1]), uint64_t(area[0]), UINT64_MAX};
+    const std::array<int, 4> &c = it->second.cells;
+    return {uint64_t(std::max(area[1], c[1])), uint64_t(std::max(area[0], c[0])), it->second.since};
+}
+
 void MapScreen::updateTriggers(float seconds) {
+    placeInGrid();
     // Each update an active character's had where it is (0x4965a4).
     for (Officer &o : _officers)
         if (o.present)
@@ -160,9 +268,9 @@ void MapScreen::updateTriggers(float seconds) {
         if (updateOtherTrigger(t, seconds))
             continue;
         // A touching trigger (0x417670) has one in it at a time: of those it
-        // answers to in its oval or polygon, the last found (0x4162f0,
-        // 0x417840; the order it finds them in, officers, enemies, then
-        // thrown things, is inferred). Its Enter Action as it goes from
+        // answers to in its oval or polygon, the last the grid's search
+        // finds (0x4162f0, 0x417840, 0x41770b); a thrown thing after the
+        // characters (inferred). Its Enter Action as it goes from
         // empty to someone, them its instigator, unless they were put
         // there fewer than 4 updates ago (a character's Updates Since
         // Relocate, 0x417753): then it holds them without one, as at a
@@ -184,14 +292,22 @@ void MapScreen::updateTriggers(float seconds) {
         bool found = false;
         int who = -1;
         bool settled = true;
+        const std::array<int, 4> area = triggerCells(t);
+        std::array<uint64_t, 3> last{};
+        const auto take = [&](int each, bool isSettled) {
+            const std::array<uint64_t, 3> at = foundAt(each, area);
+            if (found && at < last)
+                return;
+            found = true;
+            who = each;
+            settled = isSettled;
+            last = at;
+        };
         for (size_t o = 0; o < _officers.size(); ++o) {
             const Officer &each = _officers[o];
             const bool named = !byName.empty() && lower(_team[each.member].name()) == byName;
-            if (each.present && (named || ((!mustLive || each.alive()) && byPlayers)) && touches(t, each.x, each.y)) {
-                found = true;
-                who = int(o);
-                settled = each.settled >= kSettled;
-            }
+            if (each.present && (named || ((!mustLive || each.alive()) && byPlayers)) && touches(t, each.x, each.y))
+                take(int(o), each.settled >= kSettled);
         }
         for (size_t i = 0; i < _enemies.size(); ++i) {
             const Enemy &e = _enemies[i];
@@ -199,11 +315,8 @@ void MapScreen::updateTriggers(float seconds) {
             const bool named = !byName.empty() && lower(part.name) == byName;
             const bool kind = flag(ai, "Triggered By Anything") ||
                               (byEnemies && inCategory(part.category.empty() ? "Enemy" : part.category, "Enemy"));
-            if (shown(e.part) && (named || ((!mustLive || e.alive()) && kind)) && touches(t, e.x, e.y)) {
-                found = true;
-                who = kEnemyInstigator - int(i);
-                settled = e.settled >= kSettled;
-            }
+            if (shown(e.part) && (named || ((!mustLive || e.alive()) && kind)) && touches(t, e.x, e.y))
+                take(kEnemyInstigator - int(i), e.settled >= kSettled);
         }
         // A thrown thing too, flying or lying, for one Triggered By
         // Anything: the trigger asks for every Active entity in its shape.
@@ -293,17 +406,22 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
     if (kind == "CAnyTouchingOvalTriggerAI" || kind == "CAnyTouchingPolygonTriggerAI") {
         // Anything of its Triggered by list in it (0x443140): its Enter
         // Action as one comes in, after its Enter Action Delay, the first
-        // found its instigator (0x443b60); its Exit Action as the last
-        // leaves, after its Exit Action Delay, with none; either replacing
-        // the one still waiting (0x443226, 0x44324c). The doors': open,
-        // close.
+        // the grid's search finds its instigator (0x443b60, 0x4431fb); its
+        // Exit Action as the last leaves, after its Exit Action Delay, with
+        // none; either replacing the one still waiting (0x443226,
+        // 0x44324c). The doors': open, close.
         const std::string by = readText(ai, "Triggered by");
+        const std::array<int, 4> area = triggerCells(t);
         int first = kNobody;
+        std::array<uint64_t, 3> firstAt{};
         bool any = false;
         for (const Who &w : about)
             if (inCategory(by, w.enemy ? "Enemy" : "Player,Team Member") && touches(t, w.x, w.y)) {
-                if (!any)
+                const std::array<uint64_t, 3> at = foundAt(w.instigator, area);
+                if (!any || at < firstAt) {
                     first = w.instigator;
+                    firstAt = at;
+                }
                 any = true;
             }
         if (any && !t.anything) {
@@ -340,6 +458,9 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
         for (const Who &w : about)
             if (inCategory(by, w.enemy ? "Enemy" : "Player,Team Member") && touches(t, w.x, w.y))
                 now.push_back(w.instigator);
+        // In the order the grid's search finds them (0x4445f7).
+        const std::array<int, 4> area = triggerCells(t);
+        std::stable_sort(now.begin(), now.end(), [&](int a, int b) { return foundAt(a, area) < foundAt(b, area); });
         const std::vector<int> before = t.inside;
         t.inside = now;
         for (const int who : before)

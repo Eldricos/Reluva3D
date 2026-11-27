@@ -23,9 +23,6 @@ namespace {
 
 // The ground's cells, square (0x4ef471).
 constexpr int kCell = kGroundCell;
-// How far a shadow's cast left for each pixel of height; down, half
-// (0x491451).
-constexpr float kShadowSlantX = 0.7014925f;
 // The scrolling's frames a second: the program takes a step each frame
 // it draws (0x4f73e2), as fast as the machine draws; Reluva takes 30, the
 // program's longest step (0x4f4b6f).

@@ -411,6 +411,13 @@ void MapScreen::state(StateIo &s) {
         s.io(part);
         s.io(frame);
     });
+    s.map(_gridPlaces, [&](int &who, GridPlace &g) {
+        s.io(who);
+        for (int &c : g.cells)
+            s.io(c);
+        s.io(g.since);
+    });
+    s.io(_gridCount);
     s.list(_warping, [&](Warp &w) {
         s.io(w.part);
         s.io(w.left);

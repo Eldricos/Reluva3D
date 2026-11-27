@@ -3434,6 +3434,57 @@ void testOccupant() {
     CHECK(screen.partState(2).active && !screen.partState(1).active);
 }
 
+void testSearchOrder() {
+    // Ann at (530, 560) and Bo at (470, 450), both in an oval trigger as
+    // the map starts. The grid's search (0x569f00) goes down its 64-pixel
+    // rows: Bo's row first, though Ann's the first officer. An
+    // anything-touching trigger's instigator is the first found, Bo; a
+    // touching one holds the last, Ann, each Repeat Action hers.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto spawn = [](int n, int x, int y) {
+        return "Level Part=CEntityBase\n{\nName=Away Team Spawn Point " + std::to_string(n) +
+               "\nPosition X=" + std::to_string(x) + "\nPosition Y=" + std::to_string(y) + "\n}\n";
+    };
+    const std::string say = "CTricorderDialogAction\n{\nScript=Test\nLine=Hi\n}\n";
+    for (const bool any : {true, false}) {
+        const std::string trigger =
+            any ? "Activity=CAnyTouchingOvalTriggerAI\n{\nTriggered by=Player\nX Radius=150\nYX Ratio=1\n"
+                  "Enter Action=" +
+                      say + "}\n"
+                : "Activity=CTouchingOvalTriggerAI\n{\nTriggered By Players=1\nX Radius=150\nYX Ratio=1\n"
+                  "Repeat Every=1\nRepeat Action=" +
+                      say + "}\n";
+        const std::string zax = "CLayerSaveData\n{\nWidth=1000\nHeight=1000\nView Position=500.000000,500.000000\n"
+                                "Tree List=CSortList2D\n{\n"
+                                "Level Part=CEntityBase\n{\nName=Pad\nActive=1\nActivity=Array\n{\nItem Count=1\n" +
+                                trigger + "}\nPosition X=500\nPosition Y=500\n}\n" + spawn(1, 530, 560) +
+                                spawn(2, 470, 450) + "}\n}\n";
+        MemoryArchive data;
+        data.files["Levels/Test.zax"] = bytesOf(zax);
+        data.files["Levels/Test.RDS"] = bytesOf(":Hi\r\nHello.\r\n");
+        GameMap map;
+        CHECK(!loadMap(data, "Levels/Test.zax", map));
+        TextObject rules;
+        CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                              "\t\tScreen Size=200,200\n\t}\n}\n",
+                              rules));
+        GameOptions options;
+        TeamMember ann;
+        ann.firstName = "Ann";
+        TeamMember bo;
+        bo.firstName = "Bo";
+        MapScreen screen(data, rules, map, options, 0, {ann, bo});
+        uint64_t now = 0;
+        while (now < 1500)
+            screen.update(now += 50);
+        screen.choose(0);
+        const bool annTold = !screen.scanText().empty();
+        screen.choose(1);
+        const bool boTold = !screen.scanText().empty();
+        CHECK(annTold == !any && boTold == any);
+    }
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -3563,6 +3614,7 @@ static const reluva::test::Suite
                {"standing polygons", [](const std::filesystem::path &) { testStandingPolygons(); }},
                {"choosing", [](const std::filesystem::path &) { testChoosing(); }},
                {"occupant", [](const std::filesystem::path &) { testOccupant(); }},
+               {"search order", [](const std::filesystem::path &) { testSearchOrder(); }},
                {"combat", [](const std::filesystem::path &) { testCombat(); }},
                {"noise", [](const std::filesystem::path &) { testNoise(); }},
                {"objectives", [](const std::filesystem::path &) { testObjectives(); }},

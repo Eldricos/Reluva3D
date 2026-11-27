@@ -68,9 +68,9 @@ None now.
   an officer goes to look, one running away giving up with no way to
   its spot, and End Recharge's AI before its patrol
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **The triggers:** which of several in a touching trigger at once it
-  holds, and a collide trigger going as one comes into the part's shape
-  rather than as their movement meets it
+- **The triggers:** a thrown thing found after the characters in a
+  touching trigger, and a collide trigger going as one comes into the
+  part's shape rather than as their movement meets it
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **Walking round and joining:** a character joining the team made a
   new officer in its place rather than kept as the same one, and rescues

@@ -660,6 +660,24 @@ held all the same, so the trigger doesn't go till it's empty again. In
 the maps nearly every character starts at 0 (1,904 of them), so one
 standing in a touching trigger as the map starts doesn't set it off.
 
+**Which is found first.** The layer keeps its parts in a grid of
+64-pixel cells (`0x569f00`), each cell a list of the parts whose bounds
+reach into it. A character's bounds are every one of its model's
+sequences' bounds (a `CSequence`'s own four numbers) joined, about
+where it stands, lifted by its `Rendering Height` but for sequences on
+the ground, a shadow's cast down and left (`0x4928bc`); the map's edges
+hold the cells. A part's put into its cells as it comes onto the map,
+the map's own parts first and the team after them; whenever its cells
+change, it's taken out of each (the lists closing up, `0x5698b0`) and
+put at the end of each new one (`0x569a20`). The search of an area
+(`0x56a450`), the trigger's bounds for a trigger, goes down its rows of
+cells, along each, and through each cell's list in order, finding each
+part once. So of two in a trigger, the one whose cells start in a
+higher row is found first, then the one further left, then the one that
+came into its cells sooner. A touching trigger holds the last found; an
+anything-touching one's instigator is the first; an every-touching
+one's actions go in the order found (`0x4445f7`).
+
 Whom a trigger answers to (`0x417f10` for the touching ones, `0x562ee0`
 for colliding and passing through): its `Triggered By Name`, the whole
 name in any case; then, with `Trigge Must Have HP` (46 triggers), not
@@ -1547,10 +1565,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   officer must be in range.
 - **Drawing order:** where the `Trans` and `Warped` polygons not on
   the ground are drawn.
-- **The triggers:** the order the layer's search (`0x4f1d30`,
-  `0x56a450`) lists parts in, which decides who a touching trigger holds
-  (the last found) and an anything-touching one's instigator (the
-  first); whether the team's count takes in those down.
+- **The triggers:** whether the team's count takes in those down; where
+  a thrown thing comes in the grid's search.
 - **Fighting:** the beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
   shooter's slot `0xa4` gives); a strike's flashes; stunning, death,
   and the mouse for attacking.
