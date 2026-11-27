@@ -585,6 +585,42 @@ void testCombat() {
 
 // The computer player's build list: read as the game's, and its next
 // entry the first not yet met, counting each type's entries together.
+void testPlan() {
+    using reluva::storm3d::Movement;
+    using Terrain = Movement::Terrain;
+    const reluva::gfx::Vec3 from{200, 0, 1000};
+    const reluva::gfx::Vec3 to{1800, 0, 1000};
+    // Open space: straight there.
+    Terrain open = Terrain::over(0, 0, 2000, 2000);
+    CHECK(Movement::plan(open, from, to).size() == 1);
+    // An impassable square between: round it, every leg clear of it.
+    Terrain hole = open;
+    hole.mark({1000, 0, 1000}, 300, Terrain::kImpassable);
+    const auto way = Movement::plan(hole, from, to);
+    CHECK(way.size() >= 2 && way.back()[0] == to[0] && way.back()[2] == to[2]);
+    reluva::gfx::Vec3 at = from;
+    for (const reluva::gfx::Vec3 &p : way) {
+        for (int k = 1; k < 100; ++k) {
+            const float t = float(k) / 100;
+            CHECK(hole.at(at[0] + (p[0] - at[0]) * t, at[2] + (p[2] - at[2]) * t) != Terrain::kImpassable);
+        }
+        at = p;
+    }
+    // A nebula costing 2 is flown through; one dearer than 200 isn't.
+    Terrain cheap = open;
+    cheap.mark({1000, 0, 1000}, 300, 2);
+    CHECK(Movement::plan(cheap, from, to).size() == 1);
+    Terrain dear = open;
+    dear.mark({1000, 0, 1000}, 100, 400);
+    CHECK(Movement::plan(dear, from, to).size() >= 2);
+    // A goal inside what can't be entered: as near as can be.
+    const auto near = Movement::plan(hole, from, {1000, 0, 1000});
+    CHECK(!near.empty() && hole.at(near.back()[0], near.back()[2]) != Terrain::kImpassable);
+    CHECK(std::hypot(near.back()[0] - 1000, near.back()[2] - 1000) < 400);
+    // Off the map costs OFF_MAP_PATHING_COST.
+    CHECK(open.at(-200, 1000) == Terrain::kOffMap && open.at(10, 10) == Terrain::kDefault);
+}
+
 void testSettled() {
     using reluva::storm3d::MissionView;
     std::vector<MissionView::Player> players(3);
@@ -921,6 +957,7 @@ static const reluva::test::Suite
                                     {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                     {"combat", [](const std::filesystem::path &) { testCombat(); }},
                                     {"settled", [](const std::filesystem::path &) { testSettled(); }},
+                                    {"plan", [](const std::filesystem::path &) { testPlan(); }},
                                     {"build list", [](const std::filesystem::path &) { testBuildList(); }},
                                     {"stances", [](const std::filesystem::path &) { testStances(); }},
                                     {"strategy", [](const std::filesystem::path &) { testStrategy(); }},

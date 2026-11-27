@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <queue>
 #include <numbers>
 
 namespace reluva::storm3d {
@@ -189,6 +191,168 @@ void Movement::step(Ship &ship, const Physics &physics, double seconds) {
     ship.speed += float((want - ship.speed) * std::min(1.0, kResponse * seconds));
     ship.at[0] += float(std::sin(ship.heading) * ship.speed * seconds);
     ship.at[2] += float(std::cos(ship.heading) * ship.speed * seconds);
+}
+
+Movement::Terrain Movement::Terrain::over(float x0, float z0, float x1, float z1) {
+    // The planner's quadtree covers the map and 500 past each edge (0x408d38).
+    constexpr float kMargin = 500;
+    Terrain t;
+    t.x0 = x0 - kMargin;
+    t.z0 = z0 - kMargin;
+    t.across = std::max(1, int(std::ceil((x1 - x0 + 2 * kMargin) / kCell)));
+    t.down = std::max(1, int(std::ceil((z1 - z0 + 2 * kMargin) / kCell)));
+    t.cost.assign(size_t(t.across) * size_t(t.down), kDefault);
+    // Past the map's own edges, off the map.
+    for (int z = 0; z < t.down; ++z)
+        for (int x = 0; x < t.across; ++x) {
+            const float cx = t.x0 + (float(x) + 0.5f) * kCell;
+            const float cz = t.z0 + (float(z) + 0.5f) * kCell;
+            if (cx < x0 || cx > x1 || cz < z0 || cz > z1)
+                t.cost[size_t(z) * size_t(t.across) + size_t(x)] = kOffMap;
+        }
+    return t;
+}
+
+void Movement::Terrain::mark(const gfx::Vec3 &middle, float half, int price) {
+    const int xa = std::max(0, int(std::floor((middle[0] - half - x0) / kCell)));
+    const int xb = std::min(across - 1, int(std::floor((middle[0] + half - x0) / kCell)));
+    const int za = std::max(0, int(std::floor((middle[2] - half - z0) / kCell)));
+    const int zb = std::min(down - 1, int(std::floor((middle[2] + half - z0) / kCell)));
+    for (int z = za; z <= zb; ++z)
+        for (int x = xa; x <= xb; ++x) {
+            int &c = cost[size_t(z) * size_t(across) + size_t(x)];
+            if (c == kImpassable)
+                continue;
+            c = price == kImpassable ? kImpassable : std::max(c, price);
+        }
+}
+
+int Movement::Terrain::at(float x, float z) const {
+    const int cx = int(std::floor((x - x0) / kCell));
+    const int cz = int(std::floor((z - z0) / kCell));
+    if (cx < 0 || cz < 0 || cx >= across || cz >= down)
+        return kOffMap;
+    return cost[size_t(cz) * size_t(across) + size_t(cx)];
+}
+
+std::vector<gfx::Vec3> Movement::plan(const Terrain &terrain, const gfx::Vec3 &from, const gfx::Vec3 &to) {
+    if (terrain.cost.empty())
+        return {to};
+    const float cell = Terrain::kCell;
+    auto cellOf = [&](const gfx::Vec3 &p) {
+        const int x = std::clamp(int(std::floor((p[0] - terrain.x0) / cell)), 0, terrain.across - 1);
+        const int z = std::clamp(int(std::floor((p[2] - terrain.z0) / cell)), 0, terrain.down - 1);
+        return z * terrain.across + x;
+    };
+    auto enterable = [&](int c) {
+        const int price = terrain.cost[size_t(c)];
+        return price != Terrain::kImpassable && price <= Terrain::kCannotEnter;
+    };
+    auto middleOf = [&](int c) {
+        return gfx::Vec3{terrain.x0 + (float(c % terrain.across) + 0.5f) * cell, from[1],
+                         terrain.z0 + (float(c / terrain.across) + 0.5f) * cell};
+    };
+    // The cost of the straight line between two points, by the cells it
+    // crosses, a step a quarter cell; infinite through one not entered.
+    auto lineCost = [&](const gfx::Vec3 &a, const gfx::Vec3 &b) {
+        const float length = std::hypot(b[0] - a[0], b[2] - a[2]);
+        const int steps = std::max(1, int(std::ceil(length / (cell / 4))));
+        double sum = 0;
+        for (int k = 0; k < steps; ++k) {
+            const float t = (float(k) + 0.5f) / float(steps);
+            const gfx::Vec3 p{a[0] + (b[0] - a[0]) * t, a[1], a[2] + (b[2] - a[2]) * t};
+            const int c = cellOf(p);
+            if (k > 0 && !enterable(c) && c != cellOf(a))
+                return std::numeric_limits<double>::infinity();
+            sum += double(length) / steps * terrain.cost[size_t(c)] / Terrain::kDefault;
+        }
+        return sum;
+    };
+    const int start = cellOf(from);
+    const int goal = cellOf(to);
+    // Clear all the way: straight there.
+    if (std::isfinite(lineCost(from, to)) && lineCost(from, to) <= std::hypot(to[0] - from[0], to[2] - from[2]) + 1e-3)
+        return {to};
+    // A* over the cells, eight ways, the straight distance to the goal its guess.
+    const size_t n = terrain.cost.size();
+    std::vector<double> best(n, std::numeric_limits<double>::infinity());
+    std::vector<int> cameFrom(n, -1);
+    using Entry = std::pair<double, int>;
+    std::priority_queue<Entry, std::vector<Entry>, std::greater<>> open;
+    auto guess = [&](int c) {
+        const gfx::Vec3 m = middleOf(c);
+        return double(std::hypot(m[0] - to[0], m[2] - to[2]));
+    };
+    best[size_t(start)] = 0;
+    open.push({guess(start), start});
+    int nearest = start;
+    double nearestLeft = guess(start);
+    while (!open.empty()) {
+        const auto [f, c] = open.top();
+        open.pop();
+        if (f - guess(c) > best[size_t(c)] + 1e-6)
+            continue;
+        if (c == goal) {
+            nearest = goal;
+            break;
+        }
+        if (guess(c) < nearestLeft)
+            nearest = c, nearestLeft = guess(c);
+        const int cx = c % terrain.across;
+        const int cz = c / terrain.across;
+        for (int dz = -1; dz <= 1; ++dz)
+            for (int dx = -1; dx <= 1; ++dx) {
+                if (!dx && !dz)
+                    continue;
+                const int nx = cx + dx;
+                const int nz = cz + dz;
+                if (nx < 0 || nz < 0 || nx >= terrain.across || nz >= terrain.down)
+                    continue;
+                const int next = nz * terrain.across + nx;
+                if (!enterable(next))
+                    continue;
+                const double step =
+                    (dx && dz ? std::numbers::sqrt2 : 1.0) * cell * terrain.cost[size_t(next)] / Terrain::kDefault;
+                if (best[size_t(c)] + step < best[size_t(next)]) {
+                    best[size_t(next)] = best[size_t(c)] + step;
+                    cameFrom[size_t(next)] = c;
+                    open.push({best[size_t(next)] + guess(next), next});
+                }
+            }
+    }
+    std::vector<gfx::Vec3> points;
+    for (int c = nearest; c != -1 && c != start; c = cameFrom[size_t(c)])
+        points.push_back(middleOf(c));
+    std::reverse(points.begin(), points.end());
+    if (nearest == goal) {
+        if (!points.empty())
+            points.back() = to;
+        else
+            points.push_back(to);
+    }
+    // Rubber banding: from each point, on to the furthest the straight line
+    // reaches for no more than the way there costs.
+    std::vector<gfx::Vec3> way;
+    gfx::Vec3 at = from;
+    size_t i = 0;
+    while (i < points.size()) {
+        size_t far = i;
+        double along = 0;
+        gfx::Vec3 prev = at;
+        for (size_t j = i; j < points.size(); ++j) {
+            along += lineCost(prev, points[j]);
+            prev = points[j];
+            const double straight = lineCost(at, points[j]);
+            if (!std::isfinite(straight))
+                break;
+            if (straight <= along + 1e-3)
+                far = j;
+        }
+        way.push_back(points[far]);
+        at = points[far];
+        i = far + 1;
+    }
+    return way;
 }
 
 } // namespace reluva::storm3d

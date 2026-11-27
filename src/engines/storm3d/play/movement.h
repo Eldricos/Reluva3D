@@ -57,6 +57,40 @@ public:
      */
     static std::vector<gfx::Vec3> routeAround(const gfx::Vec3 &from, const gfx::Vec3 &to,
                                               const std::vector<Obstacle> &obstacles, float radius);
+    /**
+     * What it costs to fly over each part of the map, as the program's path
+     * planner keeps it (0x4097c0): cells of HIGHEST_QUADTREE_GRID_RESOLUTION
+     * (50) over the map and 500 past each edge, each DEFAULT_TERRAIN_VALUE
+     * (100) but where something marks a square dearer, or impassable (-1).
+     */
+    struct Terrain {
+        static constexpr float kCell = 50;
+        static constexpr int kDefault = 100;
+        static constexpr int kImpassable = -1;
+        static constexpr int kCannotEnter = 200; // CANNOT_PATH_INTO_COST: dearer, no path goes in
+        static constexpr int kOffMap = 90000;    // OFF_MAP_PATHING_COST
+        float x0 = 0;
+        float z0 = 0;
+        int across = 0;
+        int down = 0;
+        std::vector<int> cost; // by cell, row by row
+        /** One over the map's area (x from `x0` to `x1`, z from `z0` to `z1`), 500 more each side off the map. */
+        static Terrain over(float x0, float z0, float x1, float z1);
+        /** A square `half` each way from `middle` marked at `price`, the dearer kept where squares meet (impassable the dearest). */
+        void mark(const gfx::Vec3 &middle, float half, int price);
+        /** The cost of the cell under a point; off the grid, off the map. */
+        int at(float x, float z) const;
+    };
+    /**
+     * The way across `terrain` from `from` to `to`: an A* search over its
+     * cells, a step its length times the cell's cost over the default, into
+     * no cell dearer than kCannotEnter; then the corners cut where the
+     * straight line costs no more (PERFORM_RUBBER_BANDING).
+     * @return the points it passes, `from` left out, its end last: `to`, or
+     *         the middle of the reachable cell nearest it if it can't be
+     *         reached
+     */
+    static std::vector<gfx::Vec3> plan(const Terrain &terrain, const gfx::Vec3 &from, const gfx::Vec3 &to);
     /** Another unit a ship keeps clear of: where its middle is, how it moves, and its size. */
     struct Neighbour {
         gfx::Vec3 middle{};

@@ -184,15 +184,13 @@ std::vector<Hud::Unit::Button> MissionView::orderPanelOf(bool ship) {
 
 void MissionView::sendTo(std::vector<Movement::Ship> &ships, const std::vector<MapScene::Unit> &units,
                          const std::vector<int> &selection, const std::vector<bool> &moves, const gfx::Vec3 &point,
-                         const std::vector<Movement::Obstacle> &fields) {
+                         const Movement::Terrain &terrain) {
     // Ships keep the rings' half sides apart, as the original's way round
     // the starbase did.
     std::vector<Movement::Obstacle> standing;
     for (size_t i = 0; i < units.size(); ++i)
         if (i >= moves.size() || !moves[i])
             standing.push_back({ringMiddleOf(units[i]), ringHalfOf(units[i])});
-    // And the map's asteroid fields and black holes.
-    standing.insert(standing.end(), fields.begin(), fields.end());
     std::vector<size_t> going;
     for (int i : selection)
         if (size_t(i) < ships.size() && size_t(i) < moves.size() && moves[size_t(i)])
@@ -218,11 +216,22 @@ void MissionView::sendTo(std::vector<Movement::Ship> &ships, const std::vector<M
             ox *= scale;
             oz *= scale;
         }
-        ships[i].goal = gfx::Vec3{point[0] + ox, ships[i].at[1], point[2] + oz};
+        const gfx::Vec3 spot{point[0] + ox, ships[i].at[1], point[2] + oz};
         ships[i].waiting = Movement::kSetOff;
-        ships[i].route = i < units.size()
-                             ? Movement::routeAround(ships[i].at, *ships[i].goal, standing, ringHalfOf(units[i]))
-                             : std::vector<gfx::Vec3>{};
+        // The planner's way over the terrain, to the spot or as near as it
+        // can get; each leg of it round what stands in it.
+        const std::vector<gfx::Vec3> way = Movement::plan(terrain, ships[i].at, spot);
+        ships[i].goal = way.empty() ? spot : way.back();
+        ships[i].route.clear();
+        gfx::Vec3 leg = ships[i].at;
+        for (size_t k = 0; k < way.size(); ++k) {
+            if (i < units.size())
+                for (const gfx::Vec3 &p : Movement::routeAround(leg, way[k], standing, ringHalfOf(units[i])))
+                    ships[i].route.push_back(p);
+            if (k + 1 < way.size())
+                ships[i].route.push_back(way[k]);
+            leg = way[k];
+        }
     }
 }
 
@@ -1625,22 +1634,40 @@ Error MissionView::startSkirmish(gfx::Renderer3D *renderer, const std::string &m
                  cover);
     _overview = startOf(parsed, slot);
     _slot = slot;
-    // What ships path round: RTS_CFG.h has asteroid belts too dear to path
-    // into, 150 kept from them (ASTEROID_BELT_PATHING_DISTANCE), and black
-    // holes impassable, half again their size kept (BLACKHOLE_PATHING_SAFETY_COEFFICIENT).
-    _fieldsInWay.clear();
+    // The path planner's terrain, each object marking its square as the
+    // program's do (0x4097c0), by RTS_CFG.h's settings: a nebula its
+    // effectRadius times NEBULAE_PATHING_SAFETY_COEFFICIENT (1.8) each way
+    // at its own pathing_cost, 199 if it says none (0x449934); an asteroid
+    // belt squares ASTEROID_BELT_PATHING_DISTANCE (150) across at 201, one
+    // each 75 over it (0x433026); a black hole impassable, its size times
+    // BLACKHOLE_PATHING_SAFETY_COEFFICIENT (1.5) (0x44dd25); a wormhole at 500,
+    // its size and 80 (0x451415). The holes' sizes are their models'
+    // *(guessed: the program's fields for them aren't named)*.
+    _terrain = Movement::Terrain::over(parsed.area[0], parsed.area[4], parsed.area[1], parsed.area[5]);
     for (const BznMap::Object &o : parsed.objects) {
         Odf def;
         if (def.load(o.odf + ".odf", loaderOf(_files.files())))
             continue;
         const std::string label = text::toLower(def.string("classLabel"));
-        if (label == "asteroidfield")
-            _fieldsInWay.push_back({o.position, float(def.number("fieldRadius")) + 150});
-        else if (label == "blackhole_obj")
-            if (auto box = _scene.boxOf(o.odf))
-                _fieldsInWay.push_back(
-                    {o.position,
-                     std::hypot(box->second[0] - box->first[0], box->second[2] - box->first[2]) / 2 * 1.5f});
+        auto sizeOf = [this, &o]() {
+            const auto box = _scene.boxOf(o.odf);
+            return box ? std::hypot(box->second[0] - box->first[0], box->second[2] - box->first[2]) / 2 : 0.0f;
+        };
+        if (label == "nebula_obj") {
+            _terrain.mark(o.position, float(def.number("effectRadius")) * 1.8f,
+                          int(def.number("pathing_cost", Movement::Terrain::kCannotEnter - 1)));
+        } else if (label == "asteroidfield") {
+            constexpr float kBelt = 150;
+            const float radius = float(def.number("fieldRadius"));
+            for (float dz = -radius; dz <= radius; dz += kBelt / 2)
+                for (float dx = -radius; dx <= radius; dx += kBelt / 2)
+                    if (std::hypot(dx, dz) <= radius)
+                        _terrain.mark({o.position[0] + dx, 0, o.position[2] + dz}, kBelt / 2, 201);
+        } else if (label == "blackhole_obj") {
+            _terrain.mark(o.position, sizeOf() * 1.5f, Movement::Terrain::kImpassable);
+        } else if (label == "wormhole_obj") {
+            _terrain.mark(o.position, sizeOf() + 80, 500);
+        }
     }
     // The pods there are: what the starting units can build, and what that
     // can, on down. A special weapon a pod gives wants it researched.
@@ -2093,6 +2120,7 @@ void MissionView::stop() {
     _parties.clear();
     _repairingAt.clear();
     _decommissioning.clear();
+    _terrain = {};
     _recrewing.clear();
     _poolCarry.clear();
     _revealedUntil.clear();
@@ -2210,7 +2238,7 @@ void MissionView::handleEvent(const Event &ev) {
         if (!_selection.empty() && size_t(_selection.front()) < _ships.size())
             if (auto point =
                     MapScene::pointOn(camera(), _ships[size_t(_selection.front())].at[1], ev.mouseX, ev.mouseY))
-                sendTo(_ships, _scene.units(), obeying(_selection), _moves, *point, _fieldsInWay);
+                sendTo(_ships, _scene.units(), obeying(_selection), _moves, *point, _terrain);
         return;
     }
     if (_pressX >= 0 && (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseUp)) {

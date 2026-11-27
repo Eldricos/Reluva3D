@@ -111,6 +111,40 @@ Seen: a Defiant sent to the computer player's base fought its starbase
 from where it stopped, within reach, at 38.5, neither circling nor
 climbing ([combat.md](combat.md#a-fight-with-the-computer)).
 
+## The path planner
+
+From the code *(from the code)*, the program keeps what it costs to fly
+over each part of the map in a quadtree (`A_Star_Graph_Map`), over the
+map and 500 past each edge (0x408d38), split down to
+`HIGHEST_QUADTREE_GRID_RESOLUTION` (50); each part costs
+`DEFAULT_TERRAIN_VALUE` (100) but where an object marks a square
+(0x4097c0, its middle and a half side, the square kept within the map):
+
+| What | Its square, each way | Its cost |
+|---|---|---|
+| A nebula (`nebula_obj`) | its `effectRadius` × `NEBULAE_PATHING_SAFETY_COEFFICIENT` (1.8) | its own `pathing_cost`, 199 if it says none (0x449934) |
+| An asteroid belt | half `ASTEROID_BELT_PATHING_DISTANCE`, 75, one each 75 along it (0x433026) | `ASTEROID_BELT_PATHING_COST`, 201 |
+| A black hole | its size × `BLACKHOLE_PATHING_SAFETY_COEFFICIENT` (1.5) (0x44dd25) | `BLACKHOLE_PATHING_COST`, impassable |
+| A wormhole | its size and 80 (0x451415) | 500 |
+
+Off the map costs `OFF_MAP_PATHING_COST` (90,000), and no way goes into
+a part dearer than `CANNOT_PATH_INTO_COST` (200) or impassable. So the
+radioactive nebulae (`pathing_cost` 2000), and those at 400 and 800, are
+gone round; the Metaphasic Nebula's 2 is cheaper than open space; a plain
+nebula, 199, is gone through if going round costs more. The settings'
+`NEBULAE_PATHING_COST` (198) is read but never used. The search is an A*
+(`A_Star_Search`), and its way is then smoothed
+(`PERFORM_RUBBER_BANDING`).
+
+What a step costs in the search isn't read from the code yet; Reluva
+takes its length times its cell's cost over the default *(inferred)*,
+and smooths the way by going straight on from each point to the
+furthest the straight line reaches for no more than the way there
+costs *(inferred)*. That the black hole's and wormhole's sizes are
+their models' is *(guessed)*: the program's fields for them aren't
+named. Reluva marks an asteroid field's squares over its whole
+`fieldRadius`, not along a belt's line.
+
 ## In Reluva
 
 - **Ordering:** the right button on the map, with units selected that
@@ -122,16 +156,11 @@ climbing ([combat.md](combat.md#a-fight-with-the-computer)).
   `MapScene::moveUnit` turns and moves its model, ring and box.
 - **Keeping clear,** by `RTS_CFG.h`'s collision avoidance and pathing
   settings:
-  - **the way,** set as a ship's sent, goes round each standing unit,
-    asteroid field and black hole it would come too near, nearest first,
-    each on the side away from it and on from there. An asteroid field
-    is kept its `fieldRadius` and 150 off (`ASTEROID_BELT_PATHING_DISTANCE`:
-    a belt costs 201 to path through, over the 200 nothing paths into),
-    a black hole half again its size (`BLACKHOLE_PATHING_SAFETY_COEFFICIENT`,
-    impassable). Nebulae, which cost 198, are flown through
-    *(guessed)*: the settings price them, but the planner that uses the
-    prices (a quadtree of cells 50 to `HIGHEST_QUADTREE_GRID_RESOLUTION`)
-    isn't made;
+  - **the way,** set as a ship's sent, by the planner below
+    (`Movement::plan`) over the map's terrain (`Movement::Terrain`), cells
+    of 50 rather than the program's quadtree, which comes to the same
+    cells at its finest; each leg of it then goes round each standing
+    unit it would come too near, nearest first, on the side away from it;
   - **as it flies,** each moving ship looks 1.4 seconds ahead
     (`COLLISION_LOOK_AHEAD_TIME`) for any other unit it would come within
     1.2 times their sizes together of (`COLLISION_SAFETY_MARGIN`, their
@@ -163,9 +192,10 @@ climbing ([combat.md](combat.md#a-fight-with-the-computer)).
 
 ## Open questions
 
-- How the original's collision avoidance moves a ship by its push, and
-  its path planner over the quadtree with the terrain costs: whether a
-  nebula is gone round or through.
+- How the original's collision avoidance moves a ship by its push; what
+  a step of its A* costs, and how its rubber banding smooths the way;
+  the fields its black holes' and wormholes' squares are sized by, and
+  the line an asteroid belt's squares follow.
 - How the program steers: its `turnRadius`, `pathLeadDistance`,
   inertias and coefficients, and its path finding round more than one
   obstacle, or round other ships.
