@@ -322,9 +322,11 @@ bool Park::board(int queue, int id) {
                 wear(size_t(q.object));
             }
             if (const Attractions::Attraction *a =
-                    q.object >= 0 ? _attractions.find(_objects[size_t(q.object)].id) : nullptr)
-                v.happiness =
-                    std::clamp(v.happiness + priceFeeling(priceOpinion(q.fare, a->expectedPrice)), 0.0f, 100.0f);
+                    q.object >= 0 ? _attractions.find(_objects[size_t(q.object)].id) : nullptr) {
+                const PriceOpinion opinion = priceOpinion(q.fare, a->expectedPrice);
+                notePrice(size_t(q.object), opinion);
+                v.happiness = std::clamp(v.happiness + priceFeeling(opinion), 0.0f, 100.0f);
+            }
         }
     return true;
 }

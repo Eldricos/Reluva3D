@@ -68,10 +68,11 @@ struct WorldView {
     float pitch = 0.6f;
     float distance = 1300;
     bool textured = true;
-    bool ground = true;  // the park's ground drawn
-    bool objects = true; // the placed objects drawn as markers
-    bool sky = true;     // the sky drawn behind, the world lit by its light
-    bool fence = true;   // the world's own fence, its model's `basic hoard` meshes, drawn
+    bool ground = true;   // the park's ground drawn
+    bool objects = true;  // the placed objects drawn as markers
+    bool sky = true;      // the sky drawn behind, the world lit by its light
+    bool skyShown = true; // with `sky`, the sky's picture drawn; else black behind, its light kept
+    bool fence = true;    // the world's own fence, its model's `basic hoard` meshes, drawn
 };
 
 /** The camera drawWorld draws through, for a screen of w × h. */

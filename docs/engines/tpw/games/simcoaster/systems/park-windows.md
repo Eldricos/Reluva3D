@@ -136,8 +136,11 @@ briefing over it ([players.md](players.md)). "Once a new themed zone
 is open, you can get to it by clicking the billboard outside the
 current park's gate, or by using the Overview Map" (`TOTD` 3): the
 billboard is the `signpost` of the world's model, outside the gates by
-the crossing in all three worlds, and a click on it opens the Overview
-Map *(guessed)*. The recording never opens
+the crossing in all three worlds. Its tooltips are "Go to Land Of
+Invention zone", "Go to Arabian Nights zone", "Go to Polar Zone"
+(`UIHELPTEXT` 164 to 166), and "This area is not yet open" (145): a click
+on it goes to the next world open after this park's, in the globe's
+order, as the Overview Map does *(guessed)*. The recording never opens
 it, and what the game shows (a map, or the globe) isn't known.
 
 ### The game's menu

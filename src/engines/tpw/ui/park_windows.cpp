@@ -128,6 +128,36 @@ constexpr Color kSliderGreen{40, 170, 60};
 constexpr Color kSliderRed{190, 40, 30};
 constexpr Color kSliderMark{255, 255, 255};
 
+// The tick box applying its settings to all of its kind, under its price
+// (laid out by guess), and its label by what it is.
+constexpr ScreenRect kApplyAllBox{290, 310, 16, 16};
+constexpr int kApplyAllLabelX = 312;
+constexpr uint32_t kApplyShopsText = 70;
+constexpr uint32_t kApplySideshowsText = 71;
+constexpr uint32_t kApplyBathroomsText = 72;
+constexpr uint32_t kApplyInfoKiosksText = 73;
+constexpr uint32_t kApplyPhotoKiosksText = 74;
+constexpr size_t kTickEmpty = 0;
+constexpr size_t kTicked = 1;
+
+// 0 for a ride, which has none; an info kiosk is a facility whose ShopType is 0.
+uint32_t applyAllText(const Attractions::Attraction &a) {
+    if (a.photo)
+        return kApplyPhotoKiosksText;
+    if (a.relief)
+        return kApplyBathroomsText;
+    switch (a.kind) {
+    case Attractions::Kind::kShop:
+        return kApplyShopsText;
+    case Attractions::Kind::kSideshow:
+        return kApplySideshowsText;
+    case Attractions::Kind::kFacility:
+        return a.shopType == 0 ? kApplyInfoKiosksText : 0;
+    default:
+        return 0;
+    }
+}
+
 ScreenRect sliderBar(size_t setting) {
     return {kSliderX, kSliderBarY + int(setting) * kSliderStep, kSliderWidth, kSliderHeight};
 }
@@ -541,6 +571,7 @@ void PopupMenu::open(std::string title, std::vector<uint32_t> items, int x, int 
     _values = std::move(values);
     _title = std::move(title);
     _items = std::move(items);
+    _labels.clear();
     _x = x;
     _y = y;
     _lit = -1;
@@ -571,6 +602,7 @@ WindowResult PopupMenu::handle(const Event &ev) {
     if (_lit < 0 || ev.button != MouseButton::kLeft)
         return WindowResult::kClosed;
     _chosen = _items[size_t(_lit)];
+    _chosenIndex = size_t(_lit);
     return WindowResult::kChose;
 }
 
@@ -581,7 +613,8 @@ void PopupMenu::draw(Surface &screen, const WindowKit &kit) const {
     kit.panel(screen, p);
     kit.title(screen, p.x + kMenuIndent, p.y + kMenuTitleY, _title, kMenuTitle);
     for (size_t i = 0; i < _items.size(); ++i)
-        kit.text(screen, p.x + kMenuIndent, itemRect(i).y + 2, kit.ui(_items[i], _values),
+        kit.text(screen, p.x + kMenuIndent, itemRect(i).y + 2,
+                 i < _labels.size() && !_labels[i].empty() ? _labels[i] : kit.ui(_items[i], _values),
                  int(i) == _lit ? kMenuItemLit : kMenuItem);
 }
 
@@ -593,6 +626,7 @@ void AttractionWindow::open(const Park &park, size_t object, std::string name, c
     _object = object;
     _name = std::move(name);
     _model = model;
+    _applyAll = false;
 }
 
 ScreenRect AttractionWindow::placeOf(Control control) {
@@ -613,6 +647,8 @@ ScreenRect AttractionWindow::placeOf(Control control) {
         const ScreenRect bar = sliderBar(size_t(control) - size_t(Control::kSpeed));
         return {bar.x, bar.y - kSliderReach, bar.w, bar.h + 2 * kSliderReach};
     }
+    case Control::kApplyAll:
+        return kApplyAllBox;
     default:
         return {};
     }
@@ -638,15 +674,35 @@ WindowResult AttractionWindow::handle(const Event &ev, Park &park) {
         return WindowResult::kNone;
     }
     const int queue = park.queueOf(_object);
+    const Attractions::Attraction *a = park.attractions().find(park.objects()[_object].id);
+    // Those it's to go to as well: every one of its kind, ticked.
+    const auto alike = [&](auto &&set) {
+        set(_object);
+        if (_applyAll)
+            for (size_t i = 0; i < park.objects().size(); ++i)
+                if (i != _object && park.objects()[i].id == park.objects()[_object].id)
+                    set(i);
+    };
+    if (WindowKit::isClick(ev) && kApplyAllBox.contains(ev.mouseX, ev.mouseY) && a && applyAllText(*a)) {
+        _applyAll = !_applyAll;
+        return WindowResult::kNone;
+    }
     switch (_over) {
     case Control::kMinus:
     case Control::kPlus:
-        if (queue >= 0)
-            park.setFare(queue, park.queues()[size_t(queue)].fare + (_over == Control::kPlus ? 1 : -1));
+        if (queue >= 0) {
+            const int fare = park.queues()[size_t(queue)].fare + (_over == Control::kPlus ? 1 : -1);
+            alike([&](size_t i) {
+                if (const int q = park.queueOf(i); q >= 0)
+                    park.setFare(q, fare);
+            });
+        }
         return WindowResult::kNone;
-    case Control::kDoor:
-        park.setOpen(_object, !park.objects()[_object].open);
+    case Control::kDoor: {
+        const bool open = !park.objects()[_object].open;
+        alike([&](size_t i) { park.setOpen(i, open); });
         return WindowResult::kNone;
+    }
     case Control::kOk:
     case Control::kClose:
         _open = false;
@@ -736,6 +792,10 @@ void AttractionWindow::draw(Surface &screen, const WindowKit &kit, const Park &p
     if (queue >= 0 && a)
         priceBox(screen, kit, kPriceBox, kAttractionMinus, kAttractionPlus, park.queues()[size_t(queue)].fare,
                  kit.ui(priceLabel(*a)), _over == Control::kMinus, _over == Control::kPlus);
+    if (a && applyAllText(*a)) {
+        kit.piece(screen, "i_boxtick", _applyAll ? kTicked : kTickEmpty, kApplyAllBox);
+        kit.text(screen, kApplyAllLabelX, kApplyAllBox.y + 4, kit.ui(applyAllText(*a)));
+    }
     kit.button(screen, WindowKit::Button::kDoor, kAttractionDoor, o.open ? WindowKit::kLit : WindowKit::kPlain);
     kit.button(screen, WindowKit::Button::kOk, kAttractionOk,
                _over == Control::kOk ? WindowKit::kLit : WindowKit::kPlain);

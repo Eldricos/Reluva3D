@@ -165,8 +165,15 @@ public:
     bool isOpen() const { return _open; }
     /** Takes a mouse event; a click on an item chooses it, one elsewhere closes the menu. */
     WindowResult handle(const Event &ev);
-    /** The item chosen, its string's number. */
+    /** The item chosen, its string's number, and its place in the menu. */
     uint32_t chosen() const { return _chosen; }
+    size_t chosenIndex() const { return _chosenIndex; }
+    /** Shows an item as this text rather than its string, as an object's name. */
+    void setLabel(size_t item, std::string label) {
+        _labels.resize(_items.size());
+        if (item < _labels.size())
+            _labels[item] = std::move(label);
+    }
     void draw(Surface &screen, const WindowKit &kit) const;
     /** An item's line, at 640 × 480. */
     ScreenRect itemRect(size_t item) const;
@@ -176,11 +183,13 @@ private:
     bool _open = false;
     std::string _title;
     std::vector<uint32_t> _items;
+    std::vector<std::string> _labels; // by item; empty for its string
     std::map<int, std::string> _values;
     int _x = 0;
     int _y = 0;
     int _lit = -1;
     uint32_t _chosen = 0;
+    size_t _chosenIndex = 0;
 };
 
 /**
@@ -190,8 +199,14 @@ private:
  */
 class AttractionWindow {
 public:
-    enum class Control { kNone, kMinus, kPlus, kDoor, kOk, kClose, kSpeed, kCapacity, kDuration };
+    enum class Control { kNone, kMinus, kPlus, kDoor, kOk, kClose, kSpeed, kCapacity, kDuration, kApplyAll };
     void open(const Park &park, size_t object, std::string name, const LoadedModel *model);
+    /**
+     * Whether its price and opening go to every attraction of its kind
+     * too ("Apply settings to all shops of this type" and the like, UITEXT
+     * 70 to 74): a shop's, sideshow's, toilet's or kiosk's tick box.
+     */
+    bool appliesToAll() const { return _applyAll; }
     void close() { _open = false; }
     bool isOpen() const { return _open; }
     size_t object() const { return _object; }
@@ -211,6 +226,7 @@ private:
     const LoadedModel *_model = nullptr;
     Control _over = Control::kNone;
     uint32_t _clock = 0;
+    bool _applyAll = false;
     mutable soft3d::Rasterizer _rasterizer;
 };
 

@@ -119,9 +119,12 @@ Error Attractions::load(const SearchSet &files, const std::string &folder) {
                 if (const int count = int(own.number("SkillSet[" + std::to_string(ability) + "].Num", 0)); count > 0)
                     a.skills.emplace_back(ability, count);
             a.photo = number("Info.IsPhotoBooth", 0) != 0;
-            if (kind == Attractions::Kind::kShop && parts[0] == "upgrades" && !a.photo)
-                continue;
-            a.available = !a.obstacle && !a.photo && number("Research.Group", -1) == 0 && a.price > 0;
+            if (parts[0] == "upgrades" && !a.photo) {
+                if (number("AddOn.UpgradeType", 0) != 1)
+                    continue;
+                a.addOnFor = int(own.number("AddOn.UpgradesId", 0));
+            }
+            a.available = !a.obstacle && !a.photo && !a.addOnFor && number("Research.Group", -1) == 0 && a.price > 0;
             // An obstacle's shape marks land its own way, which isn't worked
             // out: it stands on its first cell.
             if (const SamFile::Entry *shape = own.find("Info.Shape"); shape && !a.obstacle)

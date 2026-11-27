@@ -19,6 +19,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -62,6 +63,8 @@ public:
 
     /** Where a control is, at 640 × 480: a tab by its kind, a row by its place in the list. */
     static ScreenRect placeOf(Control control, size_t index = 0);
+    /** The tooltip of the control at a point, UIHELPTEXT's, if any. */
+    static std::optional<uint32_t> tipAt(int x, int y);
 
 private:
     void choose(size_t row);

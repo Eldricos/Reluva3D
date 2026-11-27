@@ -219,6 +219,11 @@ public:
      */
     /** Whether a point of the screen is on the billboard outside the gates (the world's model's `signpost`). */
     bool onBillboard(const Camera &camera, int x, int y) const;
+    /**
+     * The world the billboard goes to: the next open after this park's, in
+     * the globe's order (as Park numbers themes); −1 with none other open.
+     */
+    int billboardWorld(const Park &park) const;
     std::vector<OverviewMapWindow::World> worlds(const Park &park) const;
     /**
      * What a saved game keeps of the screen: the Message Center's
@@ -264,6 +269,8 @@ public:
     Camera groundCamera(const Park::Cell &cell, const Camera &from) const;
     /** An object's name as the game shows it, and its model; nullptr if it hasn't one. */
     std::string nameOf(const Park &park, size_t object) const;
+    /** An attraction's window's title: its name, or a photo kiosk's "Photo Kiosk - " its ride's. */
+    std::string windowTitle(const Park &park, size_t object) const;
     const LoadedModel *modelOf(const Park &park, size_t object) const;
 
     /** The HUD's buttons, which take the mouse before the park does. */

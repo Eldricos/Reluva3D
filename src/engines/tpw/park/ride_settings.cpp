@@ -16,6 +16,8 @@ namespace {
 
 // Of a ride's riders, the percent who buy their photo (guessed).
 constexpr uint32_t kPhotoBuyers = 33;
+// What a track add-on adds to its ride's excitement (guessed).
+constexpr int kAddOnExcitement = 10;
 
 } // namespace
 
@@ -68,10 +70,13 @@ int Park::excitementOf(size_t object) const {
     const Attractions::Attraction *a = _attractions.find(_objects[object].id);
     if (!a || a->excitement < 0)
         return -1;
+    // Its track's add-ons each add to it (guessed).
+    const int added = kAddOnExcitement * int(_objects[object].addOns.size());
     const std::optional<SettingRange> speed = rideSetting(object, RideSetting::kSpeed);
     if (!speed || a->levels[0].speed <= 0)
-        return a->excitement;
-    return std::clamp(int(std::lround(float(a->excitement) * float(speed->value) / float(a->levels[0].speed))), 0, 100);
+        return std::min(100, a->excitement + added);
+    return std::clamp(int(std::lround(float(a->excitement) * float(speed->value) / float(a->levels[0].speed))) + added,
+                      0, 100);
 }
 
 int Park::photoRideNear(const Footprint &f) const {
@@ -120,6 +125,7 @@ void Park::sellPhoto(Visitor &v, size_t ride) {
         v.spent += price;
         ++v.purchases;
         v.happiness = std::clamp(v.happiness + float(a->happinessEffect), 0.0f, 100.0f);
+        notePrice(k, priceOpinion(price, a->expectedPrice));
         book(Ledger::kShops, price);
         book(Ledger::kRunning, a->costOfGoods);
         ++o.users;

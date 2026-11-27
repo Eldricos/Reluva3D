@@ -11,6 +11,7 @@
 #include "engines/tpw/ui/text.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <utility>
@@ -169,6 +170,20 @@ bool HireWindow::needsLab() const {
         if (const Attractions::Attraction *a = _park->attractions().find(o.id); a && a->lab)
             return false;
     return true;
+}
+
+// Its tabs' tooltips by their order, then its buttons' (UIHELPTEXT).
+std::optional<uint32_t> HireWindow::tipAt(int x, int y) {
+    constexpr std::array<uint32_t, Park::kStaffKinds> kTabTips{211, 209, 210, 213, 212, 214};
+    for (size_t i = 0; i < kTabTips.size(); ++i)
+        if (placeOf(Control::kTab, i).contains(x, y))
+            return kTabTips[i];
+    constexpr std::array<std::pair<Control, uint32_t>, 4> kTips{
+        {{Control::kHire, 79}, {Control::kCancel, 3}, {Control::kClose, 1}, {Control::kHelp, 279}}};
+    for (const auto &[control, tip] : kTips)
+        if (placeOf(control).contains(x, y))
+            return tip;
+    return std::nullopt;
 }
 
 ScreenRect HireWindow::placeOf(Control control, size_t index) {

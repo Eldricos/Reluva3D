@@ -187,17 +187,25 @@ against the pointer, aren't measured *(guessed)*.
   Right-click for options / Experience: " (155) and a visitor's
   "Visitor #{1}: ... Happiness: " (156), the measure after them as
   Reluva keeps it (experience out of 100, happiness in percent); the
-  mission's obstacle's "Click to view details / Right-click for options"
+    mission's obstacle's "Click to view details / Right-click for options"
   (161) and another's "This is not your current objective / Click to
-  view objectives" (360); the gates' "Park Gates" (364).
+  view objectives" (360); the gates' "Park Gates" (364); trash's,
+  vomit's and a stink bomb's "...: Right-click for options" (160, 159,
+  158), their menu, "Trash", "Vomit" or "Stink Bomb" (`UITEXT` 519 to
+  521), with "Call janitor" (517), sending the nearest janitor free to
+  sweep it up; the billboard's ([park-windows.md](park-windows.md#the-overview-map)).
 - **While building**: placing's "Rotate using < and >, click to build /
   Hold CTRL when placing to build multiple" (146), path's "Click to
   build a length of path / Click onto existing path to finish" (148), a
   line's (150) and a track's (152).
 - **In the windows**: their OK, Close, Cancel, Previous and Next
-  buttons' "Ok", "Close", "Cancel", "Previous", "Next" (0, 1, 3, 5, 4),
+    buttons' "Ok", "Close", "Cancel", "Previous", "Next" (0, 1, 3, 5, 4),
   "Fire employee" (14), and the staff tabs' "Show engineers" to "Show
-  scientists" (57 to 62).
+  scientists" (57 to 62); the Buy window's tabs' "Show rides" and the
+  rest (63 to 67) and "Buy selected item" (13), the Hire Staff window's
+  "Click to list available janitors" and the rest (209 to 214) and
+  "Hire selected candidate" (79); "Help!" (279); a ride's sliders' "Ride
+  runs at optimum in the green zone", "... in the red zone" (274, 275).
 
 The thermometer's model is full, its liquid light blue; an empty one is
 black above the face. In a bare park it's empty and its face the red

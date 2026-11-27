@@ -203,7 +203,8 @@ void drawWorld(Surface &screen, soft3d::Rasterizer &rasterizer, const LoadedWorl
                const soft3d::OrbitCamera &camera) {
     soft3d::Vec light = defaultLight();
     if (view.sky && world.hasSky) {
-        drawSky(screen, camera, world.sky);
+        if (view.skyShown)
+            drawSky(screen, camera, world.sky);
         light = soft3d::normalize(toViewerWorld(world.sky.light));
     }
     rasterizer.begin(screen);

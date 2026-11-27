@@ -11,6 +11,7 @@
 #include "engines/tpw/ui/text.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <utility>
@@ -152,6 +153,20 @@ const Attractions::Attraction *BuyWindow::chosen() const {
 void BuyWindow::choose(size_t row) {
     if (row < _list.size())
         _row = row;
+}
+
+// Its tabs' tooltips by their order, then its buttons' (UIHELPTEXT).
+std::optional<uint32_t> BuyWindow::tipAt(int x, int y) {
+    constexpr std::array<uint32_t, Attractions::kKinds> kTabTips{63, 65, 64, 67, 66};
+    for (size_t i = 0; i < kTabTips.size(); ++i)
+        if (placeOf(Control::kTab, i).contains(x, y))
+            return kTabTips[i];
+    constexpr std::array<std::pair<Control, uint32_t>, 4> kTips{
+        {{Control::kBuy, 13}, {Control::kCancel, 3}, {Control::kClose, 1}, {Control::kHelp, 279}}};
+    for (const auto &[control, tip] : kTips)
+        if (placeOf(control).contains(x, y))
+            return tip;
+    return std::nullopt;
 }
 
 ScreenRect BuyWindow::placeOf(Control control, size_t index) {

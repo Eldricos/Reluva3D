@@ -405,6 +405,12 @@ public:
 
     /** Sends the nearest engineer free to mend an object, or calls them off. */
     void callEngineer(size_t object);
+    /**
+     * Sends the nearest janitor free to a cell of path to sweep its litter,
+     * vomit or stink bomb up, as litter's menu's "Call janitor" does (UITEXT
+     * 517). @return Whether one went.
+     */
+    bool callJanitor(const Cell &cell);
     void cancelEngineer(size_t object);
     /** Sends the nearest gardener free to water a plant. */
     void callGardener(size_t object);
@@ -481,6 +487,12 @@ public:
     /** What a visitor thinks of a price against what they think fair. */
     enum class PriceOpinion : uint8_t { kCheap, kAboutRight, kTooHigh, kMuchTooHigh };
     PriceOpinion priceOpinion(int price, int fair) const;
+    /**
+     * A user's opinion of an attraction's price this month, as its price
+     * letters count them (TAG_SYSTEM 248, 249: "Price Complaints",
+     * "Pricing Opportunity").
+     */
+    void notePrice(size_t object, PriceOpinion opinion);
     /**
      * What visitors think a fair entry fee: the park's attractions'
      * excitement over ExcitementToCostDivisor, not below MinimumEntryFee
@@ -723,9 +735,16 @@ public:
         std::vector<Cell> track;
         bool trackClosed = false;
         bool toldNoTrack = false; // its "haven't built any track" letter sent
+                                  // Track add-ons over its track: each one's number and the first of
+        // the two blocks it covers.
+        std::vector<std::pair<int, size_t>> addOns;
         // A ride's speed, capacity and duration as its window's sliders set
         // them (RideSetting's order); −1 for its level's own.
         std::array<int, 3> settings{-1, -1, -1};
+        // This month's users' opinions of its price: all, too high, too cheap.
+        int opinions = 0;
+        int pricey = 0;
+        int cheap = 0;
     };
     const std::vector<PlacedObject> &objects() const { return _objects; }
     /**
@@ -817,6 +836,23 @@ public:
     TrackLaying layTrack(size_t object, const Cell &to);
     /** Takes up a track's last block, as Backspace does (TOTD 4); nothing paid back (guessed). */
     bool undoTrack(size_t object);
+    /** The track add-ons on sale for a track ride, as its "Upgrade Ride" offers them. */
+    std::vector<const Attractions::Attraction *> addOnsFor(size_t object) const;
+    /**
+     * Buys a track add-on over a ride's track where it's clicked, at its
+     * price: over two blocks of straight track, the one clicked and the
+     * next, neither a crossing nor a bridge nor another add-on's, with
+     * track going on straight either side.
+     */
+    bool buyAddOn(size_t object, int addOn, const Cell &at);
+    /** A track add-on in place: its number, the middle of its four cells square, its turn (east towards south). */
+    struct AddOnPiece {
+        int id = 0;
+        Cell middle;
+        int angle = 0;
+    };
+    std::vector<AddOnPiece> addOnPieces(size_t object) const;
+
     /** The models a track is drawn with, each a block. */
     enum class TrackModel {
         kStart,    // beside the ride: the go-karts' trckM, a straight open on one side (guessed); the boats' trckS
@@ -1347,6 +1383,7 @@ private:
     std::map<int, int> _usesById;
     std::map<int, int> _photosById; // by the rides' numbers: their photos sold
     void sellPhoto(Visitor &v, size_t ride);
+    void priceLetters();
     int _kidPranks = 0;
     int _adultPranks = 0;
     int _heatwaves = 0;

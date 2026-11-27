@@ -181,6 +181,9 @@ pieces (`b_minus`, `b_plus`, `b_train`, `b_fire`, `b_arleft`,
   on strike, researching, training), experience, energy,
   happiness and motivation as bars (193 to 196), their agency (197); train
   and fire.
+- **Litter's menu**, right-clicking trash, vomit or a stink bomb: "Call
+  janitor" (517) sends the nearest janitor free to sweep it up, stink
+  bombs too ([park.md](park.md#menus-and-tooltips)).
 - **Their menu**, right-clicking them: set or clear their patrol area
   (603, 605), send for training (606), fire (608). Training, from here
   or their window, opens **Select Ability To Learn** (705): a list of

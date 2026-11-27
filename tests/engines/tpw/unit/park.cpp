@@ -1523,7 +1523,10 @@ void testTracks(const std::filesystem::path &tmp) {
     writeText(world / "rides" / "gokarts" / "gokarts.sam",
               "Info.Id 1150\r\nInfo.Shape\r\n---\r\n****\r\n****\r\n****\r\n*2N*\r\n---\r\n"
               "Bumper.WhichTrackType 1\r\nBumper.NorthXAdjust -2\r\nBumper.NorthYAdjust 1\r\n"
+              "UsageInfo.ExcitementLevel 50\r\n"
               "SupplementalMeshes[0].FileName \"gk_blue.md2\"\r\n");
+    writeText(world / "upgrades" / "dr_jump" / "dr_jump.sam",
+              "Info.Id 1505\r\nAddOn.UpgradesId 1150\r\nAddOn.UpgradeType 1\r\nUpgrades[0].CostOfUpgrade 800\r\n");
     constexpr int kSide = 16;
     tpw::testing::Bytes tiles(size_t(kSide) * kSide, 0);
     test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kSide, kSide, tiles));
@@ -1571,6 +1574,17 @@ void testTracks(const std::filesystem::path &tmp) {
     CHECK(starts == 1 && crossings == 1 && bends == 6);
     CHECK(park.trackCircuit(0).size() == 14);
     CHECK(park.awards()[size_t(Park::Award::kFastestGokart)].value == 4);
+
+    // A jump over the west side's straight; not across the crossing.
+    CHECK(park.addOnsFor(0).size() == 1 && park.addOnsFor(0)[0]->id == 1505);
+    const int before = park.cash();
+    const int exciting = park.excitementOf(0);
+    CHECK(!park.buyAddOn(0, 1505, {6, 7}) && park.buyAddOn(0, 1505, {4, 7}) && park.cash() == before - 800);
+    CHECK(!park.buyAddOn(0, 1505, {4, 9}));
+    const std::vector<Park::AddOnPiece> addOns = park.addOnPieces(0);
+    CHECK(addOns.size() == 1 && addOns[0].middle.x == 5 && addOns[0].middle.y == 9 && addOns[0].angle == 0);
+    CHECK(park.trackPieces(0).size() == 11);
+    CHECK(exciting == 50 && park.excitementOf(0) == 60);
 
     // Another without its track has a letter saying so the next day, once.
     CHECK(park.place(1150, 0, karts->shape, true, {12, 12}, 0) >= 0);
@@ -1664,6 +1678,22 @@ void testRideExtras(const std::filesystem::path &tmp) {
     CHECK(park.place(1500, 400, kiosk->shape, false, {25, 25}, 0) == Park::kNotPlaced);
     CHECK(park.place(1500, 400, kiosk->shape, false, {6, 2}, 0) != Park::kNotPlaced);
     CHECK(park.photoRideOf(1) == 0 && park.photoRideOf(0) == -1);
+
+    // Price letters at the month's end: the ride, used enough and mostly
+    // found too dear, "Price Complaints"; the kiosk, found cheap, "Pricing
+    // Opportunity"; one used too little, nothing.
+    for (int i = 0; i < 12; ++i)
+        park.notePrice(0, i < 8 ? Park::PriceOpinion::kMuchTooHigh : Park::PriceOpinion::kAboutRight);
+    for (int i = 0; i < 12; ++i)
+        park.notePrice(1, Park::PriceOpinion::kCheap);
+    park.takeMessages();
+    for (int d = 0; d < 32; ++d)
+        park.advance(Park::kDayMillis);
+    std::vector<std::pair<uint32_t, uint32_t>> letters;
+    for (const Park::Message &m : park.takeMessages())
+        if (m.title == 248 || m.title == 249)
+            letters.emplace_back(m.title, m.text);
+    CHECK((letters == std::vector<std::pair<uint32_t, uint32_t>>{{248, 134}, {249, 141}}));
 }
 
 void testSaving(const std::filesystem::path &tmp) {

@@ -100,6 +100,22 @@ sides its blocks meet at, at 30 units a second for the karts and 12 for
 the boats, each facing the way it goes (a kart's front is its model's
 −z).
 
+### Add-ons
+
+The worlds' `upgrades/` hold add-ons for their track rides
+(`AddOn.UpgradeType` 1, `AddOn.UpgradesId` the ride): Land of
+Invention's go-kart jump and tunnel (`dr_jump`, `dr_tun`) and water
+ride's drop (`mg_drop`), Polar Zone's `ll_jump`, `ll_tun` and `ic_berg`,
+Arabian Nights' `gk_jump`, `gk_tun` and `wr_cats`; § 800 each,
+`CostOfResearch` 50, or 100 in Arabian Nights. Each is four cells square (`*++*`), its model
+holding two blocks of track down its middle. Reluva offers them in the
+ride's "Upgrade Ride" (`UITEXT` 10, by their names), placed over two
+blocks of straight track where the player clicks, the track going on
+straight either side, not over a crossing, a bridge or another add-on;
+drawn in place of those blocks, each adds 10 to its ride's excitement
+*(guessed)*. They're on sale without research, and taken up with the
+track under them.
+
 ## In Reluva
 
 `Park::layTrack`, `undoTrack`, `trackStart`, `trackComplete`,
@@ -113,7 +129,8 @@ The prebuilt park's waterwheel has its track in the game's save, which
 isn't read: it runs as it did. `reluva-tool tpw track-shot <game folder>
 <world folder> <out.png> [seconds] [-water]` places a world's go-kart
 ride, or water ride, lays a loop of eight blocks beside it, and draws
-it; with `-bridge`, a longer loop over a band of path, bridged. The unit tests (`tpw.unit.park`) lay a go-kart track that crosses
+it; with `-bridge`, a longer loop over a band of path, bridged; with
+`-addon`, a longer loop with the ride's first add-on. The unit tests (`tpw.unit.park`) lay a go-kart track that crosses
 itself, refuse the wrong runs, take a block up, and take the ride down;
 and bridge a path, and lay path under the track.
 
@@ -138,5 +155,7 @@ and bridge a path, and lay path under the track.
   go on a bridge of one block.
 - The cars: how many, how fast, their riders, and what `BUMP`'s other
   commands do.
+- How add-ons are bought and placed, and what they do to a ride; their
+  research.
 - How the go-kart award's "longest straight section" and the water
   ride's length are counted.

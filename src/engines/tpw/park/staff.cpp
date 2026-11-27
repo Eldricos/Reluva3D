@@ -460,6 +460,20 @@ void Park::callEngineer(size_t object) {
         }
 }
 
+bool Park::callJanitor(const Cell &cell) {
+    if (!isPath(cell))
+        return false;
+    const int id = nearestFree(StaffKind::kJanitor, cell);
+    for (StaffMember &m : _staff)
+        if (m.id == id) {
+            m.target = -1;
+            m.working = false;
+            m.route = routeTo(m.cell, cell);
+            return !m.route.empty() || m.cell == cell;
+        }
+    return false;
+}
+
 void Park::cancelEngineer(size_t object) {
     if (object >= _objects.size())
         return;
@@ -587,7 +601,11 @@ void Park::staffWay(StaffMember &m) {
         const auto here = [&](const Litter &l) {
             return int(std::floor(l.x / kCellUnits)) == m.cell.x && int(std::floor(l.z / kCellUnits)) == m.cell.y;
         };
-        if (std::any_of(_litter.begin(), _litter.end(), here)) {
+        const auto bombHere = [&](const StinkBomb &b) {
+            return int(std::floor(b.x / kCellUnits)) == m.cell.x && int(std::floor(b.z / kCellUnits)) == m.cell.y;
+        };
+        if (std::any_of(_litter.begin(), _litter.end(), here) ||
+            std::any_of(_stinkBombs.begin(), _stinkBombs.end(), bombHere)) {
             startWork();
             return;
         }
@@ -650,12 +668,14 @@ void Park::staffWay(StaffMember &m) {
 void Park::finishWork(StaffMember &m) {
     m.working = false;
     if (m.kind == StaffKind::kJanitor) {
-        _litter.erase(std::remove_if(_litter.begin(), _litter.end(),
-                                     [&](const Litter &l) {
-                                         return int(std::floor(l.x / kCellUnits)) == m.cell.x &&
-                                                int(std::floor(l.z / kCellUnits)) == m.cell.y;
-                                     }),
+        const auto here = [&](float x, float z) {
+            return int(std::floor(x / kCellUnits)) == m.cell.x && int(std::floor(z / kCellUnits)) == m.cell.y;
+        };
+        _litter.erase(std::remove_if(_litter.begin(), _litter.end(), [&](const Litter &l) { return here(l.x, l.z); }),
                       _litter.end());
+        _stinkBombs.erase(
+            std::remove_if(_stinkBombs.begin(), _stinkBombs.end(), [&](const StinkBomb &b) { return here(b.x, b.z); }),
+            _stinkBombs.end());
         m.energy = std::max(0.0f, m.energy - kJobEnergy);
     }
     if (m.target >= 0 && size_t(m.target) < _objects.size()) {
@@ -933,6 +953,7 @@ void Park::staffMonth() {
         o.lastCosts = std::exchange(o.costs, 0);
         o.lastGoods = std::exchange(o.goods, 0);
     }
+    priceLetters();
 }
 
 } // namespace reluva::tpw

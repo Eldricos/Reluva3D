@@ -193,6 +193,77 @@ void Park::post(uint32_t title, uint32_t text, std::map<int, std::string> values
     _messages.push_back({title, text, std::move(values), {}});
 }
 
+namespace {
+
+// The letters' titles, and the opinions a month an attraction needs
+// before they're heard (guessed).
+constexpr uint32_t kPriceComplaintsTitle = 248;
+constexpr uint32_t kPricingOpportunityTitle = 249;
+constexpr int kOpinionsWanted = 10;
+
+} // namespace
+
+void Park::notePrice(size_t object, PriceOpinion opinion) {
+    if (object >= _objects.size())
+        return;
+    PlacedObject &o = _objects[object];
+    ++o.opinions;
+    o.pricey += opinion == PriceOpinion::kTooHigh || opinion == PriceOpinion::kMuchTooHigh;
+    o.cheap += opinion == PriceOpinion::kCheap;
+}
+
+// At a month's end, "Price Complaints" and "Pricing Opportunity"
+// (TAG_SYSTEM 248, 249): of an attraction with kOpinionsWanted users'
+// opinions or more, most of them that it's too dear, or too cheap (guessed);
+// "Re: {0} ... this ride" for one of a kind, "some of your rides" for
+// more (134 to 142, 143 to 151). Bathrooms are never found too cheap.
+void Park::priceLetters() {
+    enum Group { kRides, kShops, kSideshows, kPhotos, kBathrooms, kGroups };
+    // Each group's letters for one: too dear, too cheap (0 none); for several.
+    constexpr std::array<std::array<uint32_t, 4>, kGroups> kLetters{{
+        {134, 135, 143, 144},
+        {136, 137, 145, 146},
+        {138, 139, 147, 148},
+        {140, 141, 149, 150},
+        {142, 0, 151, 0},
+    }};
+    // Each group's attractions found too dear, and too cheap.
+    std::array<std::array<std::vector<size_t>, 2>, kGroups> found{};
+    for (size_t i = 0; i < _objects.size(); ++i) {
+        PlacedObject &o = _objects[i];
+        const int heard = std::exchange(o.opinions, 0);
+        const int dear = std::exchange(o.pricey, 0);
+        const int cheap = std::exchange(o.cheap, 0);
+        const Attractions::Attraction *a = _attractions.find(o.id);
+        if (!a || heard < kOpinionsWanted)
+            continue;
+        const int group = a->photo                                  ? kPhotos
+                          : a->relief                               ? kBathrooms
+                          : a->kind == Attractions::Kind::kRide     ? kRides
+                          : a->kind == Attractions::Kind::kShop     ? kShops
+                          : a->kind == Attractions::Kind::kSideshow ? kSideshows
+                                                                    : -1;
+        if (group < 0)
+            continue;
+        if (2 * dear > heard)
+            found[size_t(group)][0].push_back(i);
+        else if (2 * cheap > heard && kLetters[size_t(group)][1])
+            found[size_t(group)][1].push_back(i);
+    }
+    for (size_t g = 0; g < kGroups; ++g)
+        for (size_t which = 0; which < 2; ++which) {
+            const std::vector<size_t> &these = found[g][which];
+            const uint32_t title = which == 0 ? kPriceComplaintsTitle : kPricingOpportunityTitle;
+            if (these.size() == 1) {
+                const PlacedObject &o = _objects[these[0]];
+                const Attractions::Attraction *a = _attractions.find(o.id);
+                post(title, kLetters[g][which], {{0, o.name.empty() && a ? a->name : o.name}});
+            } else if (these.size() > 1) {
+                post(title, kLetters[g][2 + which]);
+            }
+        }
+}
+
 // Each day: the director's warnings as the money runs low or out; on a
 // month's first, its close.
 void Park::financeDay() {

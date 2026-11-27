@@ -177,17 +177,30 @@ std::optional<std::array<std::string, 2>> ObjectNames::find(const Attractions::A
 
 // The loudspeakers of a world all have the settings' name "Loudspeaker",
 // and which of OBJECT_NAMES' tunes is whose isn't known: they keep it.
-// The recording shows Land of Invention's "Chips Shop" as "Fries Shop",
-// the old name of the shops' pair. The photo kiosks' settings name them
-// "Bellow Photo" and "Photo Booth", as other objects; the game calls them
-// "Photo Kiosk" (UITEXT 44), OBJECT_NAMES' string 2.
+// Settings' names that aren't their old names: the recording shows Land
+// of Invention's "Chips Shop" as "Fries Shop", and its "TV sim" as
+// "InvenTiVe World", whose old name is "Mad Worlds Of Invention"; its log
+// flume's settings add "Flume" to the old "Hammer Fluge Log Ride"
+// (inferred). By world ("" any) and the settings' name, lower case.
+constexpr std::array<std::array<const char *, 3>, 3> kOldNames{{
+    {"", "chips shop", "fries shop"},
+    {"science", "tv sim", "mad worlds of invention"},
+    {"", "hammer fluge log flume ride", "hammer fluge log ride"},
+}};
+
+// The photo kiosks' settings name them "Bellow Photo" and "Photo Booth",
+// as other objects; the game calls them "Photo Kiosk" (UITEXT 44),
+// OBJECT_NAMES' string 2.
 std::array<std::string, 2> ObjectNames::lines(const Attractions::Attraction &a) const {
-    const std::string own = a.photo ? "photo kiosk" : lower(a.name) == "chips shop" ? "fries shop" : lower(a.name);
+    std::string own = a.photo ? "photo kiosk" : lower(a.name);
     if (has(own, "speaker"))
         return split(a.name);
     const size_t at = a.folder.find('/');
     const std::string world =
         at == std::string::npos ? std::string() : a.folder.substr(at + 1, a.folder.find('/', at + 1) - at - 1);
+    for (const auto &[in, settings, old] : kOldNames)
+        if ((*in == 0 || world == in) && own == settings)
+            own = old;
     for (const Section &s : kSections)
         if (world == s.world)
             if (auto found = find(a, own, s.begin, s.end))

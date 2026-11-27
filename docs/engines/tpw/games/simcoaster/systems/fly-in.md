@@ -81,8 +81,9 @@ HUD. `reluva-tool tpw flyin-shot <game folder> <world folder> <out.png>
 
 - The camera's look between 1:38 and 1:40 drifts from the recording's,
   a little to the right; what else the game does with the path.
-- The recording's sky is black through the fly-in; Reluva draws the
-  world's sky.
+- Why the recording's sky is black through the fly-in, as Reluva draws
+  it, the world lit by the sky's light all the same *(guessed)*.
+
 - The road's forecourt before the gates is grey in the recording, green
   in Reluva, as the ground's painting is guessed ([lnd.md](../formats/lnd.md)).
 - Whether the fly-in can be skipped, and how.

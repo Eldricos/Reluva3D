@@ -78,10 +78,14 @@ public:
         bool lab = false;              // UsageInfo.ThinkingSpace: a research room, which scientists need
         bool trainingRoom = false;     // UsageInfo.TrainingRoom
         bool requiresWatering = false; // UsageInfo.RequiresWatering: a plant
-        // Info.IsPhotoBooth: a photo kiosk, of the world's upgrades/, bought
-        // for a ride near it and selling its riders their photos; not in
-        // the Buy window.
+                                       // Info.IsPhotoBooth: a photo kiosk, of the world's upgrades/, bought
+                                       // for a ride near it and selling its riders their photos; not in
+                                       // the Buy window.
         bool photo = false;
+        // AddOn.UpgradesId of a track add-on (AddOn.UpgradeType 1), of
+        // upgrades/ too: the ride whose track it goes over, as the
+        // go-karts' jumps and tunnels; 0 for another.
+        int addOnFor = 0;
         // An obstacle (Info.IsObstacle, the world's obstacles folder): what
         // clearing it leaves, Obstacle.ReplaceWithID's object or nothing
         // (DeleteAfterUse); and whether it opens of itself as its mission's

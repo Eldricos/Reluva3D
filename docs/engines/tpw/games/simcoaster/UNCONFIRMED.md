@@ -175,6 +175,12 @@ None yet.
   [park.md](systems/park.md#menus-and-tooltips)). A recording of the game
   using them would settle them.
 
+- **Price letters, add-ons and "apply to all"**: when the price letters
+  come and how many grumbles they need; how track add-ons are bought and
+  placed, and what they do; what the windows' "Apply settings to all"
+  takes ([building.md](systems/building.md#photo-kiosks),
+  [tracks.md](systems/tracks.md#add-ons)).
+
 - **The park's mood, the sliders and photo kiosks**: that the
   thermometer shows the visitors' average happiness and its faces'
   steps; what speed, capacity and duration do to a ride; how photo
@@ -192,7 +198,7 @@ None yet.
 - **Fences and hoardings**: how the game lays a fence's pieces, which
   look where and which way they face, and that the world's own fence
   goes once a mission's comes; that the billboard outside the gates is
-  the world's `signpost` and opens the Overview Map
+  the world's `signpost` and goes to the next world open
   ([hoardings.md](formats/hoardings.md),
   [park-windows.md](systems/park-windows.md#the-overview-map)). The game
   played past Operation Expand! would settle it.

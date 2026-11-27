@@ -222,6 +222,10 @@ bool Park::undoTrack(size_t object) {
     PlacedObject &o = _objects[object];
     const Cell last = o.track.back();
     o.track.pop_back();
+    // An add-on over it goes with it.
+    o.addOns.erase(std::remove_if(o.addOns.begin(), o.addOns.end(),
+                                  [&](const auto &addOn) { return addOn.second + 1 >= o.track.size(); }),
+                   o.addOns.end());
     o.trackClosed = false;
     if (timesIn(o.track, last) == 0)
         freeTrackBlock(last);
@@ -276,6 +280,65 @@ void Park::freeTrackBlock(const Cell &block) {
                 _ground[size_t(block.y + dy) * size_t(_mapWidth) + size_t(block.x + dx)] = Ground::kOpen;
 }
 
+std::vector<const Attractions::Attraction *> Park::addOnsFor(size_t object) const {
+    std::vector<const Attractions::Attraction *> out;
+    if (!hasTrack(object))
+        return out;
+    for (const Attractions::Attraction &a : _attractions.all())
+        if (a.addOnFor == _objects[object].id && a.price > 0)
+            out.push_back(&a);
+    return out;
+}
+
+// The block clicked and the next, along a straight stretch of the track
+// (guessed: the add-ons' models hold two blocks of track, four cells long).
+bool Park::buyAddOn(size_t object, int addOn, const Cell &at) {
+    if (!hasTrack(object))
+        return false;
+    PlacedObject &o = _objects[object];
+    const Attractions::Attraction *a = _attractions.find(addOn);
+    if (!a || a->addOnFor != o.id || _cash < a->price)
+        return false;
+    const std::vector<Cell> &track = o.track;
+    const size_t n = track.size();
+    for (size_t k = 1; k + 2 < n || (o.trackClosed && k + 1 < n); ++k) {
+        const Cell &b = track[k];
+        if (at.x < b.x || at.x >= b.x + kTrackBlock || at.y < b.y || at.y >= b.y + kTrackBlock)
+            continue;
+        const int way = wayBetween(track[k - 1], b);
+        for (size_t j = k; j <= k + 1; ++j) {
+            if (timesIn(track, track[j]) > 1 || overWay(track[j]) || wayBetween(track[j], track[(j + 1) % n]) != way)
+                return false;
+            for (const auto &[id, first] : o.addOns)
+                if (j == first || j == first + 1)
+                    return false;
+        }
+        book(Ledger::kBuilding, a->price);
+        o.addOns.emplace_back(addOn, k);
+        return true;
+    }
+    return false;
+}
+
+// Its model four cells square, the track along its middle, north to south
+// unturned, laid as the way the track goes (guessed).
+std::vector<Park::AddOnPiece> Park::addOnPieces(size_t object) const {
+    std::vector<AddOnPiece> out;
+    if (!hasTrack(object))
+        return out;
+    const std::vector<Cell> &track = _objects[object].track;
+    for (const auto &[id, first] : _objects[object].addOns) {
+        if (first + 1 >= track.size())
+            continue;
+        const Cell &a = track[first];
+        const Cell &b = track[first + 1];
+        // The two blocks' middle: a point where four cells' corners meet.
+        const Cell middle{(a.x + b.x + kTrackBlock) / 2, (a.y + b.y + kTrackBlock) / 2};
+        out.push_back({id, middle, openAngle(wayBetween(a, b))});
+    }
+    return out;
+}
+
 std::vector<Park::TrackPiece> Park::trackPieces(size_t object) const {
     std::vector<TrackPiece> out;
     if (!hasTrack(object))
@@ -286,6 +349,9 @@ std::vector<Park::TrackPiece> Park::trackPieces(size_t object) const {
     const int along = trackAlongY(object) ? 0 : 90;
     for (size_t i = 0; i < n; ++i) {
         const Cell &b = track[i];
+        if (std::any_of(o.addOns.begin(), o.addOns.end(),
+                        [&](const auto &addOn) { return i == addOn.second || i == addOn.second + 1; }))
+            continue;
         if (timesIn(track, b) > 1) {
             if (std::find_if(track.begin(), track.end(), [&](const Cell &c) { return same(c, b); }) ==
                 track.begin() + long(i))

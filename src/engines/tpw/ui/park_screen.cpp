@@ -140,6 +140,8 @@ constexpr uint32_t kEditTrackItem = 527;
 constexpr uint32_t kUpgradeRideText = 10;
 constexpr uint32_t kUpgradeLevelItem = 126;
 constexpr uint32_t kPhotoKioskItem = 44;
+// A track add-on's line in it: "{0}", its name.
+constexpr uint32_t kAddOnItem = 915;
 // UIHELPTEXT's tooltips for what's in the park: an attraction ("{0}\nClick
 // to view details\nRight-click for options"), a closed one, a special
 // ride not yet activated; a member of staff, a visitor ("... Experience:
@@ -152,6 +154,21 @@ constexpr uint32_t kVisitorTip = 156;
 constexpr uint32_t kObstacleTip = 161;
 constexpr uint32_t kNotObjectiveTip = 360;
 constexpr uint32_t kGatesTip = 364;
+// Litter's, a stink bomb's ("Trash: Right-click for options" and the like);
+// the billboard's, by the world it goes to, or none open.
+// Litter's menu: its title "Trash", "Vomit" or "Stink Bomb", and "Call
+// janitor" (UITEXT 519 to 521, 517).
+constexpr uint32_t kTrashTitle = 519;
+constexpr uint32_t kVomitTitle = 520;
+constexpr uint32_t kStinkBombTitle = 521;
+constexpr uint32_t kCallJanitorItem = 517;
+constexpr uint32_t kStinkBombTip = 158;
+constexpr uint32_t kVomitTip = 159;
+constexpr uint32_t kTrashTip = 160;
+constexpr uint32_t kLandOfInventionTip = 164;
+constexpr uint32_t kArabianNightsTip = 165;
+constexpr uint32_t kPolarZoneTip = 166;
+constexpr uint32_t kNotOpenTip = 145;
 // What each way of building says while it's in use: placing ("Rotate
 // using < and >, click to build / Hold CTRL ..."), path, a line, a track.
 constexpr uint32_t kPlacingTip = 146;
@@ -363,14 +380,14 @@ gfx::Mat4 placeOf(const Park::Cell &at, int angle) {
             1};
 }
 
-// A piece of fence or track: its model two cells square, its middle on
-// the point where the cells' corners meet, turned about it.
+// A piece of fence or track: its model two cells square (or `cells`), its
+// middle on the point where the cells' corners meet, turned about it.
 void drawPiece(soft3d::Rasterizer &rasterizer, const soft3d::OrbitCamera &eye, const LoadedModel &model,
-               const Park::Cell &point, int angle, const soft3d::Vec &light) {
+               const Park::Cell &point, int angle, const soft3d::Vec &light, int cells = Park::kTrackBlock) {
     const float turn = float(angle) * kRadiansPerDegree;
     const float c = std::cos(turn);
     const float s = std::sin(turn);
-    const float half = Park::kCellUnits;
+    const float half = Park::kCellUnits * float(cells) / 2;
     const float px = float(point.x) * Park::kCellUnits;
     const float pz = float(point.y) * Park::kCellUnits;
     const gfx::Mat4 place{
@@ -662,6 +679,10 @@ void ParkScreen::drawTracks(soft3d::Rasterizer &rasterizer, const soft3d::OrbitC
         for (const Park::TrackPiece &piece : park.trackPieces(i))
             if (const LoadedModel *model = trackModel(id, piece.model))
                 drawPiece(rasterizer, eye, *model, {piece.at.x + 1, piece.at.y + 1}, piece.angle, light);
+        // Its add-ons, four cells square, their own track through them.
+        for (const Park::AddOnPiece &addOn : park.addOnPieces(i))
+            if (const LoadedModel *model = objectModel(addOn.id))
+                drawPiece(rasterizer, eye, *model, addOn.middle, addOn.angle, light, 2 * Park::kTrackBlock);
         const std::vector<gfx::Vec3> circuit = park.trackCircuit(i);
         const int queue = park.queueOf(i);
         if (circuit.size() < 2 || queue < 0)
@@ -1453,6 +1474,13 @@ std::string ParkScreen::tipAt(const Park &park, const Camera &camera, int x, int
     if (!_furnitureRead)
         return {};
     const Tooltip &tip = _furniture.tooltip();
+    if (onBillboard(camera, x, y)) {
+        const int world = billboardWorld(park);
+        return tip.help(world == 1   ? kLandOfInventionTip
+                        : world == 0 ? kArabianNightsTip
+                        : world == 2 ? kPolarZoneTip
+                                     : kNotOpenTip);
+    }
     if (const int id = staffAt(park, camera, x, y))
         if (const Park::StaffMember *m = park.staffMember(id))
             return tip.help(kStaffTip, {{0, _hire.nameOf(m->kind, m->name)}}) +
@@ -1464,6 +1492,15 @@ std::string ParkScreen::tipAt(const Park &park, const Camera &camera, int x, int
     Park::Cell under;
     if (!cellAt(camera, x, y, under))
         return {};
+    const auto in = [&](float wx, float wz) {
+        return int(std::floor(wx / Park::kCellUnits)) == under.x && int(std::floor(wz / Park::kCellUnits)) == under.y;
+    };
+    for (const Park::StinkBomb &b : park.stinkBombs())
+        if (in(b.x, b.z))
+            return tip.help(kStinkBombTip);
+    for (const Park::Litter &l : park.litter())
+        if (in(l.x, l.z))
+            return tip.help(l.vomit ? kVomitTip : kTrashTip);
     if (const int object = objectAt(park, under); object >= 0) {
         const Park::PlacedObject &o = park.objects()[size_t(object)];
         const Attractions::Attraction *a = park.attractions().find(o.id);
@@ -1506,6 +1543,25 @@ bool ParkScreen::onBillboard(const Camera &camera, int x, int y) const {
     return float(x) >= left && float(x) <= right && float(y) >= top && float(y) <= bottom;
 }
 
+// A photo kiosk's window is titled for its ride: "Photo Kiosk - {4}" (UITEXT 44).
+std::string ParkScreen::windowTitle(const Park &park, size_t object) const {
+    if (const int ride = park.photoRideOf(object); ride >= 0)
+        return _kit.ui(kPhotoKioskItem, {{4, nameOf(park, size_t(ride))}});
+    return nameOf(park, object);
+}
+
+int ParkScreen::billboardWorld(const Park &park) const {
+    const std::vector<OverviewMapWindow::World> all = worlds(park);
+    size_t here = 0;
+    for (size_t i = 0; i < all.size(); ++i)
+        if (all[i].theme == park.theme())
+            here = i;
+    for (size_t step = 1; step < all.size(); ++step)
+        if (const OverviewMapWindow::World &w = all[(here + step) % all.size()]; w.open)
+            return w.theme;
+    return -1;
+}
+
 std::vector<OverviewMapWindow::World> ParkScreen::worlds(const Park &park) const {
     // Land of Invention, Polar Zone, Arabian Nights, as the globe has them.
     constexpr std::array<int, 3> kGlobeOrder{1, 2, 0};
@@ -1521,11 +1577,13 @@ std::vector<OverviewMapWindow::World> ParkScreen::worlds(const Park &park) const
 
 void ParkScreen::drawScene(Surface &screen, soft3d::Rasterizer &rasterizer, const Park &park,
                            const soft3d::OrbitCamera &eye, float yaw) const {
-    std::fill(screen.pixels.begin(), screen.pixels.end(), uint8_t(0));
+    fillRect(screen, {0, 0, screen.w, screen.h}, Color{0, 0, 0});
     Camera facing;
     facing.yaw = yaw;
     WorldView view = viewOf(facing);
     view.fence = park.fence().empty();
+    // The recording's fly-in has no sky: black behind the world.
+    view.skyShown = false;
     drawWorld(screen, rasterizer, _world, view, eye);
     drawPaths(rasterizer, eye, park);
     drawObjects(rasterizer, eye, park);
@@ -1846,9 +1904,17 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
     // The attraction being placed, bought in the Buy window, and its turn.
     const Attractions::Attraction *placing = nullptr;
     int placingAngle = 0;
-    // What the right-click menu is of: an object, a member of staff, or the gates.
+    // What the right-click menu is of: an object, a member of staff, litter
+    // on a cell, or the gates.
     int menuObject = -1;
     int menuStaff = 0;
+    std::optional<Park::Cell> menuLitter;
+    // The track add-ons "Upgrade Ride" offers, by their places in it; one
+    // chosen, to be placed over its ride's track, and its ride.
+    std::vector<int> upgradeAddOns;
+    size_t upgradeAddOnsFrom = 0;
+    int addOnPlacing = 0;
+    size_t addOnRide = 0;
     // A patrol area being set: whose, and its first corner once clicked.
     int patrolling = 0;
     std::optional<Park::Cell> patrolCorner;
@@ -1890,7 +1956,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 if (!park.objects()[object].track.empty())
                     items.push_back(kDeleteTrackItem);
             }
-            if (park.levelOf(object, o.level + 1) || photoKiosk)
+            if (park.levelOf(object, o.level + 1) || photoKiosk || !park.addOnsFor(object).empty())
                 items.push_back(o.upgrading > 0 ? kCancelUpgradeItem : kBuyUpgradeItem);
             items.push_back(o.open ? kCloseItem : kOpenItem);
             items.push_back(kRideItem);
@@ -2000,7 +2066,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     if (screen.attractionList().handle(ev, park) == WindowResult::kChose) {
                         const size_t object = size_t(screen.attractionList().chosen());
                         if (park.queueOf(object) >= 0)
-                            screen.attractionWindow().open(park, object, screen.nameOf(park, object),
+                            screen.attractionWindow().open(park, object, screen.windowTitle(park, object),
                                                            screen.modelOf(park, object));
                         else
                             camera.target = Park::cellCentre(park.objects()[object].at);
@@ -2039,6 +2105,8 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 } else if (screen.popup().isOpen()) {
                     if (screen.popup().handle(ev) == WindowResult::kChose) {
                         const uint32_t item = screen.popup().chosen();
+                        if (menuLitter && item == kCallJanitorItem)
+                            park.callJanitor(*menuLitter);
                         if (menuObject >= 0) {
                             const size_t object = size_t(menuObject);
                             if (item == kCallEngineerItem)
@@ -2056,16 +2124,31 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             else if (item == kOpenItem || item == kCloseItem || item == kKioskOpenItem ||
                                      item == kKioskCloseItem)
                                 park.setOpen(object, item == kOpenItem || item == kKioskOpenItem);
-                            else if (item == kBuyUpgradeItem && photoKiosk)
-                                screen.popup().open(screen.kit().ui(kUpgradeRideText),
-                                                    {park.levelOf(object, park.objects()[object].level + 1)
-                                                         ? kUpgradeLevelItem
-                                                         : kFullyUpgradedText,
-                                                     kPhotoKioskItem},
-                                                    mouseX, mouseY,
+                            else if (item == kBuyUpgradeItem && (photoKiosk || !park.addOnsFor(object).empty())) {
+                                std::vector<uint32_t> items{park.levelOf(object, park.objects()[object].level + 1)
+                                                                ? kUpgradeLevelItem
+                                                                : kFullyUpgradedText};
+                                if (photoKiosk)
+                                    items.push_back(kPhotoKioskItem);
+                                upgradeAddOns.clear();
+                                upgradeAddOnsFrom = items.size();
+                                for (const Attractions::Attraction *a : park.addOnsFor(object)) {
+                                    upgradeAddOns.push_back(a->id);
+                                    items.push_back(kAddOnItem);
+                                }
+                                screen.popup().open(screen.kit().ui(kUpgradeRideText), items, mouseX, mouseY,
                                                     {{3, std::to_string(park.objects()[object].level + 1)},
                                                      {4, screen.nameOf(park, object)}});
-                            else if (item == kPhotoKioskItem && photoKiosk) {
+                                for (size_t k = 0; k < upgradeAddOns.size(); ++k)
+                                    if (const Attractions::Attraction *a = park.attractions().find(upgradeAddOns[k]))
+                                        screen.popup().setLabel(upgradeAddOnsFrom + k,
+                                                                screen.buyWindow().names().shown(*a) + " (" +
+                                                                    WindowKit::money(a->price) + ")");
+                            } else if (item == kAddOnItem &&
+                                       screen.popup().chosenIndex() - upgradeAddOnsFrom < upgradeAddOns.size()) {
+                                addOnPlacing = upgradeAddOns[screen.popup().chosenIndex() - upgradeAddOnsFrom];
+                                addOnRide = object;
+                            } else if (item == kPhotoKioskItem && photoKiosk) {
                                 placing = photoKiosk;
                                 placingAngle = 0;
                             } else if (item == kBuyUpgradeItem || item == kUpgradeLevelItem)
@@ -2109,6 +2192,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                             } else if (item == kDeleteItem) {
                                 const int queue = park.queueOf(object);
                                 park.remove(object);
+                                addOnPlacing = 0;
                                 for (int *track : {&trackLaying, &trackNext})
                                     if (*track == int(object))
                                         *track = -1;
@@ -2263,6 +2347,21 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     continue;
                 }
             }
+            // A track add-on: a click on its ride's track places it there.
+            if (addOnPlacing) {
+                if ((ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight) ||
+                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape)) {
+                    addOnPlacing = 0;
+                    continue;
+                }
+                if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && onGround) {
+                    if (park.buyAddOn(addOnRide, addOnPlacing, under))
+                        addOnPlacing = 0;
+                    else
+                        screen.notify(park, kInvalidTrackText);
+                    continue;
+                }
+            }
             if (queueLaying < 0 && trackNext >= 0) {
                 trackLaying = trackNext;
                 trackNext = -1;
@@ -2321,6 +2420,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 const int object = onGround ? screen.objectAt(park, under) : -1;
                 menuObject = -1;
                 menuStaff = 0;
+                menuLitter.reset();
                 // A visitor's window, clicking them.
                 if (const int visitor = left && !staff ? screen.visitorAt(park, camera, mouseX, mouseY) : 0) {
                     screen.visitorWindow().open(visitor);
@@ -2358,7 +2458,7 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                 if (object >= 0) {
                     const std::vector<uint32_t> items = objectItems(size_t(object));
                     if (left && park.queueOf(size_t(object)) >= 0) {
-                        screen.attractionWindow().open(park, size_t(object), screen.nameOf(park, size_t(object)),
+                        screen.attractionWindow().open(park, size_t(object), screen.windowTitle(park, size_t(object)),
                                                        screen.modelOf(park, size_t(object)));
                     } else if (!left && !items.empty()) {
                         menuObject = object;
@@ -2372,11 +2472,35 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
                     if (left || !items.empty())
                         continue;
                 }
-                // The billboard outside the gates: the way to the other
-                // zones, as the Overview Map is (TOTD 3).
+                // The billboard outside the gates: the way to the next zone
+                // open ("Once a new themed zone is open, you can get to it by
+                // clicking the billboard", TOTD 3; "Go to Polar Zone" and
+                // the others its tooltips, UIHELPTEXT 164 to 166).
                 if (left && screen.onBillboard(camera, mouseX, mouseY)) {
-                    screen.overviewMap().open(screen.worlds(park), park.theme());
+                    if (const int world = screen.billboardWorld(park); world >= 0) {
+                        screen.setTravel(world);
+                        return true;
+                    }
                     continue;
+                }
+                // Litter, vomit or a stink bomb: its menu, to call a janitor.
+                if (!left && onGround) {
+                    const auto in = [&](float x, float z) {
+                        return int(std::floor(x / Park::kCellUnits)) == under.x &&
+                               int(std::floor(z / Park::kCellUnits)) == under.y;
+                    };
+                    uint32_t title = 0;
+                    for (const Park::Litter &l : park.litter())
+                        if (in(l.x, l.z))
+                            title = l.vomit ? kVomitTitle : kTrashTitle;
+                    for (const Park::StinkBomb &b : park.stinkBombs())
+                        if (in(b.x, b.z))
+                            title = kStinkBombTitle;
+                    if (title) {
+                        menuLitter = under;
+                        screen.popup().open(screen.kit().ui(title), {kCallJanitorItem}, mouseX, mouseY);
+                        continue;
+                    }
                 }
                 if (onGround && onGates(under)) {
                     if (left)
@@ -2619,7 +2743,11 @@ bool playPark(System &sys, ParkScreen &screen, Park &park, const ObjectivesShowe
             const Tooltip &tips = screen.hud().tooltip();
             std::string tip;
             if (screen.windowOpen() || screen.buyWindow().isOpen() || screen.hireWindow().isOpen()) {
-                if (const std::optional<uint32_t> help = screen.kit().tipAt(mouseX, mouseY))
+                const std::optional<uint32_t> help = screen.buyWindow().isOpen() ? BuyWindow::tipAt(mouseX, mouseY)
+                                                     : screen.hireWindow().isOpen()
+                                                         ? HireWindow::tipAt(mouseX, mouseY)
+                                                         : screen.kit().tipAt(mouseX, mouseY);
+                if (help)
                     tip = tips.help(*help);
             } else if (!screen.hud().covers(mouseX, mouseY) && !screen.hud().menuOpen()) {
                 const ParkHud::Tool tool = screen.hud().tool();

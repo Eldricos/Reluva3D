@@ -19,6 +19,7 @@
 #include "engines/tpw/ui/info_windows.h"
 #include "engines/tpw/ui/object_names.h"
 #include "engines/tpw/ui/park_windows.h"
+#include "engines/tpw/park/park.h"
 #include "engines/tpw/ui/front_end_audio.h"
 #include "engines/tpw/ui/front_end_effects.h"
 #include "engines/tpw/ui/front_end_overlay.h"
@@ -38,6 +39,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <tuple>
 #include <vector>
 
 using namespace reluva;
@@ -503,6 +505,8 @@ void testObjectNames() {
     old.resize(200);
     put(old, 186, {"TV Sim", ""});
     put(shown, 186, {"Arctic", "Adventure"});
+    put(old, 20, {"Mad Worlds", "Of Invention"});
+    put(shown, 20, {"InvenTiVe", "World"});
     std::vector<std::string> descriptions(104);
     descriptions[67] = "race";
     descriptions[70] = "costumes";
@@ -528,7 +532,9 @@ void testObjectNames() {
     CHECK(names.shown(of(Attractions::Kind::kFeature, "Loudspeaker")) == "Loudspeaker");
     CHECK(names.shown(of(Attractions::Kind::kSideshow, "Gem Grabber")) == "Grab-a-Prize");
     CHECK(names.shown(of(ride, "Unknown Ride")) == "Unknown Ride");
-    CHECK(names.shown(of(ride, "TV sim", "levels/science/rides/tvsim")) == "Arctic Adventure");
+    CHECK(names.shown(of(ride, "TV sim", "levels/arabian/rides/tvsim")) == "Arctic Adventure");
+    // Land of Invention's by the old name the recording's shows it has.
+    CHECK(names.shown(of(ride, "TV sim", "levels/science/rides/tvsim")) == "InvenTiVe World");
 
     Attractions::Attraction game = of(Attractions::Kind::kSideshow, "Camel Racers");
     game.rideType = 23;
@@ -542,6 +548,62 @@ void testObjectNames() {
     karts.id = 1150;
     CHECK(names.description(karts) == "karts");
     CHECK(names.description(of(ride, "Log Mill")).empty());
+}
+
+// The Buy and Hire windows' tooltips, by their tabs and buttons; a shop's
+// window's tick box taking its price and door to the others like it.
+void testWindowTipsAndAlike(const std::filesystem::path &tmp) {
+    using tpw::BuyWindow;
+    using tpw::HireWindow;
+    const auto middle = [](const tpw::ScreenRect &r) { return std::pair{r.x + r.w / 2, r.y + r.h / 2}; };
+    const auto [buyX, buyY] = middle(BuyWindow::placeOf(BuyWindow::Control::kBuy));
+    CHECK(BuyWindow::tipAt(buyX, buyY) == 13u);
+    const auto [shopsX, shopsY] = middle(BuyWindow::placeOf(BuyWindow::Control::kTab, 2));
+    CHECK(BuyWindow::tipAt(shopsX, shopsY) == 64u && !BuyWindow::tipAt(0, 0));
+    const auto [janitorsX, janitorsY] = middle(HireWindow::placeOf(HireWindow::Control::kTab, 1));
+    CHECK(HireWindow::tipAt(janitorsX, janitorsY) == 209u);
+
+    const std::filesystem::path data = tmp / "game" / "Data";
+    const auto text = [](const std::filesystem::path &path, const std::string &s) {
+        test::writeFile(path, std::vector<uint8_t>(s.begin(), s.end()));
+    };
+    text(data / "levels" / "Standard.sam", "BankAccountInfo.InitialCash 10000\r\n");
+    text(data / "missions" / "miss00.sam", "Info.Number 0\r\nCompletion.EndingTheme 1\r\n");
+    const std::filesystem::path world = data / "levels" / "science";
+    text(world / "shops" / "Shops.sam", "Info.HasQueue 0\r\nInfo.IsChoosable 1\r\n");
+    text(world / "shops" / "balloon" / "balloon.sam",
+         "Info.Id 1209\r\nInfo.Shape\r\n---\r\n*2\r\n---\r\nUsageInfo.InitPricePerUse 10\r\n");
+    constexpr int kSide = 12;
+    tpw::testing::Bytes tiles(size_t(kSide) * kSide, 0);
+    test::writeFile(world / "terrain" / "base.map", tpw::testing::makeAttributeMap(kSide, kSide, tiles));
+    SearchSet files;
+    std::vector<std::string> warnings;
+    CHECK(!tpw::mountGame(files, tmp / "game", warnings));
+    tpw::Park park;
+    CHECK(!park.load(files, "levels/science", 0));
+    CHECK(park.place(1209, 0, {"*2"}, false, {2, 2}, 0) == -1 && park.place(1209, 0, {"*2"}, false, {2, 6}, 0) == -1);
+    const int first = park.queueOf(0);
+    const int second = park.queueOf(1);
+    CHECK(first >= 0 && second >= 0);
+    if (first < 0 || second < 0)
+        return;
+    tpw::AttractionWindow window;
+    window.open(park, 0, "Balloon Shop", nullptr);
+    auto click = [&](tpw::AttractionWindow::Control c) {
+        Event ev;
+        ev.type = EventType::kMouseDown;
+        ev.button = MouseButton::kLeft;
+        std::tie(ev.mouseX, ev.mouseY) = middle(tpw::AttractionWindow::placeOf(c));
+        window.handle(ev, park);
+    };
+    click(tpw::AttractionWindow::Control::kPlus);
+    CHECK(park.queues()[size_t(first)].fare == 11 && park.queues()[size_t(second)].fare == 10);
+    click(tpw::AttractionWindow::Control::kApplyAll);
+    CHECK(window.appliesToAll());
+    click(tpw::AttractionWindow::Control::kPlus);
+    CHECK(park.queues()[size_t(first)].fare == 12 && park.queues()[size_t(second)].fare == 12);
+    click(tpw::AttractionWindow::Control::kDoor);
+    CHECK(!park.objects()[0].open && !park.objects()[1].open);
 }
 
 // The Hire Staff window's clicks: an empty pool hires nobody; scientists
@@ -870,6 +932,7 @@ static const reluva::test::Suite
                               {"park-hud", [](const std::filesystem::path &) { testParkHud(); }},
                               {"buy-window", [](const std::filesystem::path &) { testBuyWindow(); }},
                               {"object-names", [](const std::filesystem::path &) { testObjectNames(); }},
+                              {"window-tips", [](const std::filesystem::path &tmp) { testWindowTipsAndAlike(tmp); }},
                               {"hire-window", [](const std::filesystem::path &) { testHireWindow(); }},
                               {"park-windows", [](const std::filesystem::path &) { testParkWindows(); }},
                           });

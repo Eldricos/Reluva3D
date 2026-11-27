@@ -66,14 +66,14 @@ None yet.
   rule ([staff.md](systems/staff.md)); the missions' fences laid in
   pieces by guessed rules, the world's own hidden once one stands
   ([hoardings.md](formats/hoardings.md)); the billboard outside the gates
-    opening the Overview Map, a guess; go-kart and water tracks laid by
+  going to the next world open, a guess; go-kart and water tracks laid by
     guessed rules, bridged by guessed rules, their cars going round at a guessed
   pace   ([tracks.md](systems/tracks.md)); no coasters yet; rides' sliders and
-  photo kiosks by guessed rules, the other add-ons not built
+  photo kiosks, track add-ons, price letters and the "apply to all"
+  tick box by guessed rules
   ([building.md](systems/building.md#photo-kiosks)); the park's mood its
   visitors' average happiness, a guess
-  ([park.md](systems/park.md#the-hud)); the fly-in under the world's sky, where the
-  recording's is black, and ended by a click or a key, a guess
+  ([park.md](systems/park.md#the-hud)); the fly-in ended by a click or a key, a guess
   ([fly-in.md](systems/fly-in.md)); the advisor bare, with no lip-sync,
   saying seven of his lines, each once a park
   ([advisor.md](systems/advisor.md))

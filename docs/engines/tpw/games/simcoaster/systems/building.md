@@ -71,13 +71,14 @@ name's place *(inferred)*:
 - Features' and facilities' names are one string each ("Small Bush",
   "Bush (small)"; "Medium rock", "Boulder").
 
-Not all come out right. Land of Invention's "TV sim", shown in the
-recording as "InvenTiVe World" (whose old name is "Mad Worlds Of
-Invention"), matches only the Polar Zone's "TV Sim", Arctic Adventure;
-its log flume ("Splashomatic") and a few others match none and keep
-their settings' names. The recording's Fries Shop is Land of
-Invention's "Chips Shop" *(confirmed)*, a name that matches nothing:
-Reluva takes it for the old "Fries" "Shop", in every world. The four
+Some settings' names aren't their old names, and Reluva looks for the
+old name in their place. Land of Invention's "TV sim" is shown in the
+recording as "InvenTiVe World" *(confirmed)*, whose old name is "Mad
+Worlds Of Invention"; its log flume's settings, "Hammer Fluge Log Flume
+Ride", add "Flume" to the old "Hammer Fluge" "Log Ride", Splashomatic
+*(inferred)*. The recording's Fries Shop is Land of Invention's "Chips
+Shop" *(confirmed)*, the old "Fries" "Shop", in every world. A few others
+match none and keep their settings' names. The four
 loudspeakers of a world all have the settings' name "Loudspeaker",
 and the tunes' names ("Loudspeaker:" "Desert Nights") can't be told
 apart by it: they keep it *(guessed)*.
@@ -226,7 +227,8 @@ the go-karts' jumps and tunnels and a mine drop for tracks
 3500: "Bellow Photo", "Photo Booth" in the settings, "Photo Kiosk" in
 `OBJECT_NAMES` and the window's title "Photo Kiosk - {4}", `UITEXT` 44):
 `Info.IsPhotoBooth` 1, "A shop" (`WhichUIType` 1), `ShopType` 7, a
-photo § 40 (its cost § 12, happiness + 15), § 400 to build,
+photo § 40 (its cost § 12, happiness + 15), § 400 to build in Land of
+Invention, 600 in Polar Zone, 800 in Arabian Nights,
 `AddOn.UpgradesAnyRide` 1, `UpgradeDistance` "4 - 10 cells distance
 from main object". The recording's Buy window doesn't list it.
 
@@ -236,8 +238,21 @@ is fully upgraded", 125) or "Photo Kiosk - {4}" with the ride's name
 *(guessed)*. It's placed as an attraction is, within 10 cells of a ride,
 and serves the nearest; a third of the riders coming off buy a photo,
 if they have the money *(guessed)*. Attraction Finance Controls' "Photo
-Sale Price" sets the kiosks' price ([finance.md](finance.md)). The other
-add-ons aren't built.
+Sale Price" sets the kiosks' price ([finance.md](finance.md)). A kiosk's
+window is titled for its ride, "Photo Kiosk - {4}". The track add-ons
+are in [tracks.md](tracks.md#add-ons).
+
+A shop's, sideshow's, toilet's or kiosk's window has a tick box under
+its price, "Apply settings to all shops of this type" and the like
+(`UITEXT` 70 to 74), laid out by guess: ticked, its price and opening
+go to every one of the same attraction *(guessed)*.
+
+At a month's end, an attraction whose users' opinions of its price,
+ten or more, were mostly that it's too dear brings "Price Complaints"
+(`TAG_SYSTEM` 248), "Visitors are grumbling about the price of this
+ride" and the like (134 to 142); mostly that it's cheap, "Pricing
+Opportunity" (249); several of a kind, "some of your rides" (143 to
+151) *(guessed)*.
 
 What it brings in, a month's users and takings; what it costs, its
 level's `RunningCost` paid each month, its upgrades, and its
@@ -295,8 +310,8 @@ and click the windows.
 ## Open questions
 
 - Each object's name and description: where the game finds its strings
-  of `OBJECT_NAMES` and `OBJECT_DESC` (Land of Invention's TV sim's
-  shows a name no rule here finds); which rides' descriptions are whose.
+    of `OBJECT_NAMES` and `OBJECT_DESC`, where the settings' and old
+  names differ; which rides' descriptions are whose.
 - What "Reliability" is made from; the weather icons under the ratings
   (`clim_*`, the settings' `WeatherModifier`); the two small header
   buttons; the tick's green (Reluva's comes out yellow).

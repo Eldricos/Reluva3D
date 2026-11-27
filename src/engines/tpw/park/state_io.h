@@ -264,6 +264,10 @@ void io(A &a, Park::PlacedObject &o) {
     io(a, o.toldNoTrack);
     for (int &setting : o.settings)
         io(a, setting);
+    io(a, o.addOns);
+    io(a, o.opinions);
+    io(a, o.pricey);
+    io(a, o.cheap);
 }
 
 template<class A>
