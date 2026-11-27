@@ -46,8 +46,8 @@ None now.
   by box and Shift; fighting:
   sight blocked by the models' `Bounds Poly`, a shot meeting those on its
   line at once, stunning, the health bar's cut, and a
-  click on an enemy to attack it; noise: going to look, and the rings'
-  look; the enemies going to retreat and acting on their messages, and
+  click on an enemy to attack it; noise: what an enemy does after
+  looking about; the enemies going to retreat and acting on their messages, and
   officers stunned
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** the debriefing's lines typed only once their panel's

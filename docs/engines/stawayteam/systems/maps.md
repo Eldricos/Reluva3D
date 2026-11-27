@@ -970,9 +970,22 @@ them) and shots are silent to the others; an action's noise
   `CChaseInvestigateAI` in 30 of Mission 01's enemies: `Run To
   Investigate`, `Time To Investigate` (5), path finding on, and its own
   `Investigate AI`, a `CScanInvestigateAI` whose `AI` is a `CScanAreaAI`
-  (-30 to 30 degrees).
-- **Shown:** each noise is drawn as a ring growing to its radius over its
-  age, by sin(time gone / age x pi/2) (`0x5197c0`). The button box's
+  (-30 to 30 degrees). It goes through states (`Debug/State`, `0x47ea60`,
+  its jump table at `0x47ee00`): chasing, walking to the place, running
+  with Run To Investigate, till it's there or within `Radius to
+  Investigate Point` (0 in the maps), measured with up and down counted
+  1.403 times (`0x4fe320`); turning to face the place, its timer set to
+  Time To Investigate (`0x47eba3`); investigating, its own Investigate
+  AI run while the timer counts down (`0x47ec76`); and done, sending its
+  enemy a message that it's finished (`0x47edc1`). Two more states walk
+  it back and turn it to its starting facing.
+- **Shown:** each noise grows to its radius over its age, by sin(time
+  gone / age x pi/2), handed to the player's display of noises
+  (`0x5197c0`, `0x519870`), which draws it in blue (`0x5199b1`) as four
+  arcs (`0x519970`): a quarter turn each to its right and left (-45 to
+  45 degrees, 135 to 225) at its radius and at 15/16 of it
+  (`0x626c0c`), flattened up and down by 0.712766; each arc in its
+  radius / 4 straight pieces, 10 to 25 of them (`0x4ff090`). The button box's
   sound button, and the key bound to Toggle Sound Cones (S), press it
   (`0x476c3f`); Toggle Vision Cones (V) presses the vision button
   (`0x476c01`).
@@ -1322,14 +1335,16 @@ Noise (`ui/map_noise.cpp`): an officer's walk makes its footsteps'
 noise as its frames pass them, as loud as the program reckons; an
 officer's shot makes its weapon's. An enemy with Investigate Sounds, on
 patrol or investigating, that hears the newest noise it's inside goes
-there by the waypoints (running with Run To Investigate) and looks about
-by its own AI for Time To Investigate, then goes back on patrol where it
-left off; another noise heard meanwhile sends it there instead; seeing an
-officer meanwhile alerts it *(inferred)*.
+there by the waypoints (running with Run To Investigate), turns to face
+the place, and looks about by its own AI for Time To Investigate, as
+the chase investigate AI does. Its going back on patrol where it left
+off, another noise heard meanwhile sending it there instead, and seeing
+an officer meanwhile alerting it are *(inferred)*.
 A wall between stops a noise, and an officer's bolt makes a noise of
 200 for 1.5 seconds on the enemy it meets. The sound button, or S, shows the
-noises as yellow rings, squashed up and down as they're heard, the button
-held down meanwhile *(inferred)*.
+noises as the program draws them: blue arcs either side, at the ring's
+size and 15/16 of it, flattened up and down; the button's held down
+meanwhile *(inferred)*.
 
 A mission's maps (`ui/main_menu.cpp`): each is loaded as the team's
 first sent there, its parts as they start, and kept while the mission
@@ -1468,7 +1483,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   team- and every-touching triggers' own code, read from the maps' fields.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
-- **Noise:** how the rings are drawn, and the investigating AI's rules.
 - **Fighting:** the program's rules for sight (whether the footprints
   are what blocks it, `Half Height`), the bolt's hitting someone moving
   out of its way, how long a beam's shown and how high it ends,

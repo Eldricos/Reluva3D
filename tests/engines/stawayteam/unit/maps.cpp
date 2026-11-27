@@ -1079,10 +1079,31 @@ void testNoise() {
     while (now < 6000)
         screen.update(now += 50);
     CHECK(guard.state == "Patrol");
-    // The sound button shows the noises.
+    // The sound button shows the noises: blue arcs to either side, none
+    // above (0x5199b1, 0x519a00).
     CHECK(!screen.listening());
     screen.setListening(true);
     CHECK(screen.listening());
+    screen.makeNoise(400.0f, 500.0f, 60.0f, 1.0f);
+    screen.update(now += 500);
+    screen.moveCamera(400.0f, 500.0f);
+    Surface view;
+    view.create(640, 480, PixelFormat::kRGBA32);
+    screen.draw(view, now);
+    const auto blue = [&](float x, float y) {
+        const int sx = int(std::lround(x - screen.mapX(0)));
+        const int sy = int(std::lround(y - screen.mapY(0)));
+        for (int dy = -2; dy <= 2; ++dy)
+            for (int dx = -2; dx <= 2; ++dx) {
+                const uint8_t *p = view.row(sy + dy) + (sx + dx) * 4;
+                if (p[0] == 0 && p[1] == 0 && p[2] == 255)
+                    return true;
+            }
+        return false;
+    };
+    const float grown = 60.0f * std::sin(0.5f * 3.14159265f / 2.0f);
+    CHECK(blue(400.0f + grown, 500.0f) && blue(400.0f - grown, 500.0f));
+    CHECK(!blue(400.0f, 500.0f - grown * 0.712766f));
 }
 
 void testObjectives() {

@@ -8,6 +8,7 @@
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace reluva::stawayteam {
@@ -92,10 +93,11 @@ void MapScreen::investigate(Enemy &e, float x, float y) {
 }
 
 bool MapScreen::runInvestigate(Enemy &e, float seconds, const char *stateName, const char *aiKey) {
-    // A CChaseInvestigateAI goes there by the waypoints (Do Path Finding),
-    // running with Run To Investigate, then runs its own Investigate AI
-    // (looking about) for Time To Investigate (inferred: the AI's code
-    // isn't traced). Others turn to the noise and wait.
+    // A CChaseInvestigateAI (0x47ea60) goes there by the waypoints (Do
+    // Path Finding), running with Run To Investigate; there, turns to face
+    // the place (its state 1), then runs its own Investigate AI, looking
+    // about, for Time To Investigate (state 2), and is done (state 5).
+    // Others turn to the noise and wait (inferred).
     const TextObject *state = e.ai->object(stateName);
     const TextObject *ai = state ? state->object(aiKey) : nullptr;
     const bool chases = ai && ai->className == "CChaseInvestigateAI";
@@ -112,6 +114,10 @@ bool MapScreen::runInvestigate(Enemy &e, float seconds, const char *stateName, c
                 return false;
             e.route.erase(e.route.begin());
         }
+        // The turn's pace isn't traced: as the others' (inferred).
+        if (chases && std::hypot(e.heardX - e.x, e.heardY - e.y) > 1.0f &&
+            !turnTo(e, std::atan2(e.heardY - e.y, -(e.heardX - e.x)), 180.0f, seconds))
+            return false;
         e.looked = 0.0f;
     }
     e.looked += seconds;
@@ -135,26 +141,35 @@ bool MapScreen::runInvestigate(Enemy &e, float seconds, const char *stateName, c
 }
 
 void MapScreen::drawNoises(Surface &view, int left, int top) const {
-    // Each a ring growing to its radius over its age by a quarter sine
-    // (0x5197c0), squashed up and down as it's heard (inferred for how
-    // it's drawn: its colour and the squash).
+    // Each grows to its radius over its age by a quarter sine (0x5197c0),
+    // drawn in blue (0x5199b1) as two pairs of arcs, a quarter turn each
+    // to its left and right, at that radius and 15/16 of it (0x626c0c),
+    // squashed up and down by the map's Y to X ratio; each arc in its
+    // radius / 4 straight pieces, 10 to 25 of them (0x4ff090).
     if (!_listening)
         return;
+    constexpr std::array<uint8_t, 3> kBlue = {0, 0, 255};
+    constexpr float kInner = 0.9375f;
+    const auto arc = [&](float x, float y, float r, float from, float to) {
+        const int pieces = std::clamp(int(r) / 4, 10, 25);
+        float px = x + std::cos(from) * r;
+        float py = y + std::sin(from) * r / kHearingSquash;
+        for (int k = 1; k <= pieces; ++k) {
+            const float a = from + (to - from) * float(k) / float(pieces);
+            const float nx = x + std::cos(a) * r;
+            const float ny = y + std::sin(a) * r / kHearingSquash;
+            drawLine(view, px - float(left), py - float(top), nx - float(left), ny - float(top), kBlue, 1.0f);
+            px = nx;
+            py = ny;
+        }
+    };
     for (const Noise &n : _noises) {
         const float grown = n.radius * std::sin((n.age - n.left) / n.age * kPi / 2.0f);
         if (grown < 1.0f)
             continue;
-        const int steps = std::max(16, int(2.0f * kPi * grown));
-        for (int k = 0; k < steps; ++k) {
-            const float a = 2.0f * kPi * float(k) / float(steps);
-            const int x = int(std::lround(n.x + grown * std::cos(a))) - left;
-            const int y = int(std::lround(n.y + grown / kHearingSquash * std::sin(a))) - top;
-            if (x < 0 || y < 0 || x >= view.w || y >= view.h)
-                continue;
-            uint8_t *p = view.row(y) + x * 4;
-            p[0] = 255;
-            p[1] = 255;
-            p[2] = 0;
+        for (const float r : {grown, grown * kInner}) {
+            arc(n.x, n.y, r, -kPi / 4.0f, kPi / 4.0f);
+            arc(n.x, n.y, r, 3.0f * kPi / 4.0f, 5.0f * kPi / 4.0f);
         }
     }
 }
