@@ -59,6 +59,14 @@ public:
     void start() { _started = true; }
     /** Gives it its network, or another, from the next call on. */
     void setSockets(std::shared_ptr<net::Sockets> sockets) { _options.sockets = std::move(sockets); }
+    /** Tells `log` what the calls do, and `traffic` each packet (Options' hooks), from now on. */
+    void setLog(std::function<void(const std::string &line)> log,
+                std::function<void(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data,
+                                   size_t size, bool dropped)>
+                    traffic) {
+        _options.log = std::move(log);
+        _options.traffic = std::move(traffic);
+    }
 
 private:
     struct Socket {

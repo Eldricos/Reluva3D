@@ -13,7 +13,9 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **`win32.h`, `win32.cpp`: a Windows process.** It loads a DLL or an EXE
   (relocated if its preferred address is taken), binds its imports
   (functions, and variables for data imports), and runs its `DllMain`, or
-  an EXE's entry point. Where the stack and thread blocks go is the
+  an EXE's entry point. A module is listed (`GetModuleHandleA`,
+  `GetProcAddress`) before the DLLs it imports are started, as Windows
+  lists it: one DLL's start-up asks its program for its exports. Where the stack and thread blocks go is the
   engine's choice (`Win32Process`'s constructor): by default first in
   memory, as the engine tests' records were made with; kept clear of
   0x400000 when an EXE is to be loaded (`loadsExe`); or at the top of

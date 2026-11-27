@@ -38,7 +38,8 @@ Sockets 2, `WS2_32.dll`, built on it, for programs run in the
   sockets get where the program asks for any, so copies on one machine
   each have one; where broadcasts go; and hooks to log the calls and the
   traffic, and to lose packets on purpose (Need for Speed III's
-  `-netlog` and `-netdrop`).
+  `-netlog` and `-netdrop`); the log hooks can also be set once the
+  program is loaded (`setLog`, Starfleet Command II's `-netlog`).
 
 - **Windows Sockets 2** (`WS2_32`): the same functions at its ordinals,
   which are WSOCK32's but for `ioctlsocket`, `inet_addr` and `inet_ntoa`

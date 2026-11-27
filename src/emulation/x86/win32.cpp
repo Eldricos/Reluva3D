@@ -536,6 +536,11 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
                 v += delta;
                 std::memcpy(image + rva, &v, 4);
             }
+    // Listed before the DLLs it imports are loaded and started, as Windows
+    // lists it: a DLL's start-up may look in it (Starfleet Command II
+    // 2.0.3.6's ImportExportTable.dll asks the program for its exports).
+    Module *self = m.get();
+    _modules.push_back(std::move(m));
     // A DLL it imports that's neither loaded nor stood in for is loaded from
     // the program's files first, and started, as Windows does: Starfleet
     // Command II 2.0.3.6 imports ImportExportTable.dll from its folder. One
@@ -579,11 +584,10 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
             _staticTls.push_back(std::move(s));
         }
     }
-    m->entry = pe.entryPoint ? base + pe.entryPoint : 0;
+    self->entry = pe.entryPoint ? base + pe.entryPoint : 0;
     // Its addresses may have held a DLL freed before.
     _cpu.noteWrite(base, size);
-    _modules.push_back(std::move(m));
-    out = _modules.back().get();
+    out = self;
     return Error::success();
 }
 
@@ -775,8 +779,12 @@ void Win32Process::addStandIns() {
                     if ((byOrdinal ? e.ordinal == name : e.name == function) && e.forwarder.empty())
                         return m->base + e.rva;
         _lastError = 127; // ERROR_PROC_NOT_FOUND
-        if (output)
-            output("GetProcAddress found no " + (byOrdinal ? "#" + std::to_string(name) : function) + "\n");
+        if (output) {
+            char at[16];
+            std::snprintf(at, sizeof at, "0x%x", handle);
+            output("GetProcAddress found no " + (byOrdinal ? "#" + std::to_string(name) : function) +
+                   " in the module at " + at + "\n");
+        }
         return 0u;
     });
     // LoadLibraryA: a module loaded or stood in for already, or else one
