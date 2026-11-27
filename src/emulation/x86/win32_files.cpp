@@ -1518,13 +1518,27 @@ void Win32Process::addFileStandIns() {
             return handle;
         }
         const auto host = mapPath ? mapPath(folder, false) : std::nullopt;
+        const auto written = writtenFolder ? writtenFolder(folder) : std::nullopt;
         Search s;
-        std::error_code ec;
-        if (host)
-            for (std::filesystem::directory_iterator it(*host, ec), end; !ec && it != end; it.increment(ec))
-                if (wildcard(pattern, it->path().filename().string()))
-                    s.entries.push_back(*it);
-        std::sort(s.entries.begin(), s.entries.end());
+        std::vector<std::string> seen;
+        std::vector<std::filesystem::path> dirs;
+        if (written)
+            dirs.push_back(*written);
+        if (host && host != written)
+            dirs.push_back(*host);
+        for (const std::filesystem::path &dir : dirs) {
+            std::error_code ec;
+            for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+                const std::string name = it->path().filename().string();
+                if (!wildcard(pattern, name) || std::find(seen.begin(), seen.end(), lower(name)) != seen.end())
+                    continue;
+                seen.push_back(lower(name));
+                s.entries.push_back(*it);
+            }
+        }
+        std::sort(s.entries.begin(), s.entries.end(), [](const auto &a, const auto &b) {
+            return lower(a.path().filename().string()) < lower(b.path().filename().string());
+        });
         if (s.entries.empty()) {
             _lastError = host ? kErrorFileNotFound : kErrorPathNotFound;
             return kInvalidHandle;

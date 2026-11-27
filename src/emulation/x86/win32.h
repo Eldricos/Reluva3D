@@ -303,6 +303,13 @@ public:
     // it (and without drives), the program finds no files.
     std::function<std::optional<std::filesystem::path>(const std::string &windowsPath, bool forWriting)> mapPath;
     /**
+     * Where what the program wrote to a folder went, when that isn't the
+     * folder mapPath gives (an engine keeping writes out of the install):
+     * a search lists both, these first, each name once. Unset, or nothing
+     * for a folder, a search lists mapPath's alone.
+     */
+    std::function<std::optional<std::filesystem::path>(const std::string &windowsFolder)> writtenFolder;
+    /**
      * A path as the program gave it, made full: relative ones are taken from
      * the current folder (the program's own folder, until SetCurrentDirectory
      * or _chdir changes it).

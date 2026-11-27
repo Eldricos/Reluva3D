@@ -471,6 +471,21 @@ static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileA"), {text("C:\\Game\\DATA.TXT"), find}, r) && r != 0xffffffffu &&
           cpu.string(find + 44) == "DATA.TXT" && cpu.read32(find + 32) == 11);
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
+    // What the program wrote elsewhere (writtenFolder) is listed with the
+    // folder's own, first, a name in both once.
+    std::filesystem::create_directories(tmp / "Written");
+    std::ofstream(tmp / "Written" / "Auto1.txt", std::ios::binary) << "rec";
+    std::ofstream(tmp / "Written" / "data.txt", std::ios::binary) << "copy";
+    process.writtenFolder = [&](const std::string &folder) -> std::optional<std::filesystem::path> {
+        return folder == "C:\\Game\\" ? std::optional(tmp / "Written") : std::nullopt;
+    };
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindFirstFileA"), {text("C:\\Game\\*.txt"), find}, r) && r != 0xffffffffu &&
+          cpu.string(find + 44) == "Auto1.txt");
+    uint32_t found = 0;
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, found) && found == 1 &&
+          cpu.string(find + 44) == "data.txt" && cpu.read32(find + 32) == 4);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
+    process.writtenFolder = nullptr;
     // MoveFileA: what the program wrote is renamed; its own files aren't
     // moved, nor anything onto a file that's there.
     std::ofstream(tmp / "Game" / "Out.dat", std::ios::binary) << "moved";

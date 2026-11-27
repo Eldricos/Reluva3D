@@ -45,7 +45,9 @@ C++ library have pages of their own ([directx.md](directx.md),
     which a statically linked C runtime's `open` checks), and the 16-bit era's `OpenFile`/`_lread`;
   - searches (`FindFirstFileA` with wildcards; a name without them finds
     that one file or folder through `mapPath`, so a program's folder is
-    found though its parent isn't mapped);
+    found though its parent isn't mapped; with `writtenFolder`, what the
+    program wrote to a folder, kept elsewhere, is listed with it, first,
+    each name once, as the drives list their writable copies);
   - full paths (`fullPath`) with `.` and `..` resolved, from the drive's
     root or the current folder, as Windows resolves them; a name starting
     `\\` (a device's, a network path) as it is;
