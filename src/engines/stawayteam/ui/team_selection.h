@@ -151,6 +151,8 @@ private:
     Animation _marker;
     std::vector<std::pair<int, int>> _places;
     std::vector<StaticText> _transporterTexts;
+    std::vector<RandomNumbers> _transporterNumbers; // its random-number nernies
+    uint64_t _numbersLast = 0;
     std::map<std::string, ItemDefinition> _items;
     std::vector<std::string> _itemTypes;
     std::map<std::string, image::Image> _icons;

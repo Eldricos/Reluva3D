@@ -97,8 +97,10 @@ said:
   Body.seq16`), and over it their own, the head
   (`Cache/Sequences/Characters/<name>.seq16`), a frame of each together,
   at the head's rate plus 2k / n less 0.1 frames a second for the kth of
-  n, so they don't move as one (`0x5e7870`), drawn through a render
-  effect not yet worked out; the
+  n, so they don't move as one (`0x5e7870`), each drawn through its
+  sequence's render effect (`0x55ba70`): for all 22 of the characters'
+  sequences, `Transparent Mask`, the default draw (`0x71d1f8`, registered
+  at `0x45dc00`), its see-through colour left out; the
   name of the officer under the mouse, or chosen, centred at `Team
   Selection Title Pos`.
 - **The inventory** (`0x5ea5b7`, drawn at `0x5eb2c0`) in place of the
@@ -171,9 +173,9 @@ back to the main menu. In a build with developer keys, the engine's
 mission. The items are read by `loadItems` and `loadItemTypes`
 (`game/team.cpp`), the officers' inventories and the mission's items as
 had by `resolveInventories` and `heldAs`. The figures' time is the
-game's from its start, where the program's is the screen's *(inferred)*. Not
-there yet: the transporter's random numbers, and the render effect the
-figures are drawn through.
+game's from its start, where the program's is the screen's *(inferred)*. The
+transporter's random numbers roll as the briefing's
+([briefing.md](briefing.md#the-screen)).
 
 ## Sources and checks
 
@@ -206,6 +208,4 @@ figures are drawn through.
   lit under the mouse, and Esc closing a description. Reluva's choices
   are noted in the code.
 - **A message's time:** Reluva takes the 50 as seconds.
-- **The figures' effect:** what the render effect the program draws
-  them through does.
 - **Where a place answers a click:** Reluva takes about the figure.

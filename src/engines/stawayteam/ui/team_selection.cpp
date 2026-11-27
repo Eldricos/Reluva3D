@@ -128,6 +128,7 @@ TeamSelectionScreen::TeamSelectionScreen(const Archive &data, const TextObject &
                                      comma == std::string::npos ? 0 : std::atoi(item->value.c_str() + comma + 1));
             }
         _transporterTexts = readStaticTexts(data, &background);
+        _transporterNumbers = readRandomNumbers(data, &background, 1);
     }
     (void)_marker.load(data, "Interface/Selection", "Idle");
 
@@ -704,6 +705,12 @@ void TeamSelectionScreen::drawTransporter(Surface &screen, uint64_t now) {
     blitBy(screen, _transporter.at(now), tx + bx, ty + by);
     for (const StaticText &t : _transporterTexts)
         t.draw(screen, tx, ty);
+    const float dt = _numbersLast ? float(now - std::min(now, _numbersLast)) / 1000.0f : 0.0f;
+    _numbersLast = now;
+    for (RandomNumbers &n : _transporterNumbers) {
+        n.update(dt);
+        n.draw(screen, tx, ty);
+    }
     // The name of the officer under the mouse, or chosen, over the picture.
     int titleX = 0;
     int titleY = 0;

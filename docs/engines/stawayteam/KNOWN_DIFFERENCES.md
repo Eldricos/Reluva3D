@@ -38,9 +38,6 @@ None yet.
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from
   its briefing; the save screens' picture isn't shown ([systems/menus.md](systems/menus.md#saved-games)).
-- **The team selection:** the transporter's random numbers and the
-  effect the figures are drawn through aren't there yet
-  ([systems/team-selection.md](systems/team-selection.md#in-reluva)).
 - **The pointer** is the system's during the opening movies; from the
   main menu on it's the game's.
 - **Keys' names** are Reluva's table of the US keyboard's, not what
