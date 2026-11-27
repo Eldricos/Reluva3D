@@ -19,6 +19,10 @@ systems (a CD check, a mode the hardware no longer has). -->
   developer keys, "Developer: first mission" starts a new game at a later
   mission, to reach its team selection
   ([systems/team-selection.md](systems/team-selection.md#in-reluva)).
+- **The camera's and zoom's steps at 30 a second.** The original takes
+  one each frame it draws, as fast as the machine draws; Reluva takes 30
+  a second, the original's longest step, whatever its frame rate
+  ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Opening movies as a setting.** The original always plays them;
   Reluva's "Opening movies" setting can leave them out
   ([systems/startup.md](systems/startup.md)).

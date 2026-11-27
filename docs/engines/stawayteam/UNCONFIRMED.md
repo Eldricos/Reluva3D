@@ -40,9 +40,7 @@ None now.
   keyboard screen's borders, voiceovers' and movies' volume following
   the effects'
   ([systems/menus.md](systems/menus.md#open-questions)).
-- **Maps:** the camera's and zoom's frames taken as 30 a second, the
-  drawing order's ties, the water's clock stopping while
-  paused, enemies not seeing past what stands between; the mouse's
+- **Maps:** the drawing order's ties; the mouse's
   buttons, the info bar rising under the
   mouse, the move button's order, the
   view held
@@ -64,11 +62,10 @@ None now.
   it, and tricorders' scans
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** orders given with time stopped, what
-  Cancel Orders drops, how an enemy's sight is chosen and drawn, and the
-  escape menu holding the game
+  Cancel Orders drops, and how an enemy's sight is chosen and drawn
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The interface's bar and minimap:** the inventory's places in the
-  team selection's order, and the zoom's steps at 30 a second ([systems/maps.md](systems/maps.md#open-questions)).
+  team selection's order ([systems/maps.md](systems/maps.md#open-questions)).
 - **The gadgets:** an enemy shooting a hologram down by its hit points,
   and what's put down running its model's AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).

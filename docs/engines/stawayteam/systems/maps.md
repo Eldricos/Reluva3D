@@ -101,7 +101,9 @@ A polygon of `Render Type` `Warped` (29 in the maps, in Missions 03, 04,
 08, 10 and 14) is drawn as a textured one is (`0x54eb66`), its texture
 its `Warp Effect`, a `Water Warp Effects/<name>.txt` (a
 `CWaterWarpEffectFrame`): a `Static Texture` warped afresh each time the
-game's time moves on (`0x5f5450`), into a picture of 128 x 128:
+game's time moves on (`0x5f5450`), into a picture of 128 x 128. The time is the game's own
+clock (`0x71f128+0x44`), moved on by every step of the game's loop
+whether the game's held or paused (`0x4d54b9`):
 
 - **Its waves:** `V1 Wave`, `V2 Wave`, `H1 Wave` and `H2 Wave`, each a
   `CWaterWaveFormData` of `Num Waves`, `Amplitude` and `Pixels Per
@@ -636,6 +638,12 @@ state machine: `Patrol`, `Alert`, `Attack`, `Pursue`, `Investigate`,
 (`CBorgStatePatrol`...) holding a tree of small AIs, its `Start Action`
 and `End Action`, and `Current State` the one it starts in (`Patrol`).
 
+- **The game's steps:** each frame, the time since the last (at most
+  1/6 second) is run in steps of at most 1/30 second, a remainder under
+  1/90 kept for the next (`0x4d5410`, the three set at `0x4f4b6a`), then
+  the frame's drawn; the camera's scrolling and the zoom take a step
+  each frame drawn (`0x4f73e2`, `0x5bfe20`, `0x4f6f00`), so as many a
+  second as the machine draws.
 - **Sight** (the AI's `Targeting`, a `CBorgSetClosestTarget`, whose
   fields are written into the AI itself in the maps): `Max Distance`
   (300 unless it says, `0x5dd316`; 375 in the Romulan's model, 430 in
@@ -644,7 +652,9 @@ and `End Action`, and `Current State` the one it starts in (`Patrol`).
   nearer than Max Distance and within half the cone either side of its
   facing, a cone of 0 or of 360 degrees or more seeing all round
   (`0x5dd690`, `0x4fe710`); the finding has no test of sight past what
-  stands between.
+  stands between, but the states test their target with one
+  (`0x434e90`, from Got a Target, `0x42e260`, and the others): the line
+  from the enemy to the target swept as a noise's is (`0x497d40`).
 - **The patrol's AIs:** `CSeriesAI` (its `AIs` one after another),
   `CLimitedTimeAI` (`What To Do` for `Max Time`), `CIdleAI` (its `Idle
   Behavior`'s `Num Seconds`), `CFollowPathAI` (along the polygon of the
@@ -902,8 +912,9 @@ its ground, and its parts' models, places and polygons. `MapScreen`
   `Trans` colours, while they're active, adding 10 steps of 16-bit
   colour to their channel, red and blue of 31 and green of 63, at most
   full (`0x5429e4`, `0x53fe85`, `0x53f985`); `Warped`, water, over the
-  ground each frame, warped by `game/water_warp.cpp` to the game's time
-  (which stops while it's paused *(inferred)*); the waypoints' and
+  ground each frame, warped by `game/water_warp.cpp` to the game's time,
+  which goes on while it's paused or held, as the program's clock does
+  (`0x5f545e`, moved on each step, `0x4d54b9`); the waypoints' and
   free-range ones aren't drawn.
 - **Models:** each part's model's sequence, its first direction's frames
   in time, lifted, cut into strips and drawn back to front as above; a
@@ -914,7 +925,8 @@ its ground, and its parts' models, places and polygons. `MapScreen`
   program keeps it, scrolled by the keys bound to Scroll Map Left,
   Right, Up and Down (the arrows) and by the mouse at the view's edges,
   speeding up and slowing as the program's does; the program's frames
-  aren't fixed, and Reluva takes 30 a second for them *(inferred)*.
+  aren't fixed (each frame drawn takes one), and Reluva takes 30 a
+  second for them, the program's longest step.
   Esc asks before going back to the main menu.
 
 The interface (`GameHud`, `ui/game_hud.cpp`) around it, its parts at
@@ -972,9 +984,11 @@ Cones (Tab) the next enemy in the view *(inferred)*. Its sight, in its
 Max Distance and Vision Cone and in sight past what stands in the way,
 is tinted over the ground in squares *(inferred)*.
 The options button, or Esc, opens the escape menu, holding the game
-still *(inferred)*: CONFIGURE the settings over the map, RESTART MISSION
-and END GAME as asked, RESUME, Enter or Esc back ([menus.md](menus.md#the-programs-keys)); SAVE GAME and LOAD GAME are
-greyed out, as saved games aren't there yet.
+still, as the program counts it on its holds (`0x5ba9f9`): CONFIGURE the
+settings over the map, RESTART MISSION and END GAME as asked, RESUME or
+Esc back, Enter pressing the button with the focus
+([menus.md](menus.md#the-programs-keys)); SAVE GAME and LOAD GAME the
+save screens ([menus.md](menus.md#saved-games)).
 
 The map's other characters face their `Facing Angle`, their shadow under
 them and their head over them, as the officers are *(inferred)*.
@@ -1352,14 +1366,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **The interface:** what the inventory's places are.
 - **Processes:** how the program chooses one, walks to it, and when the
   officer must be in range.
-- **Frames:** how many a second the program's camera and zoom took
-  their steps at: as many as the machine drew.
 - **Drawing order:** how the program breaks ties between equal keys,
   and where the polygons' `YSort` puts those drawn standing.
-- **Enemies' sight:** whether anything stops an enemy seeing past what
-  stands between (the program's finding of a target doesn't).
-- **Water's time:** whether the program's clock the water moves by
-  stops while the game is paused.
 - **The triggers:** the order the program finds those in a touching
   trigger in (the last found is the one it holds), and the anything-,
   team- and every-touching triggers' own code, read from the maps' fields.
@@ -1381,8 +1389,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.
 - **The buttons:** whether orders can be given with time stopped, what
-  CANCEL ORDERS drops, how an enemy's sight is chosen and drawn, and
-  whether the escape menu holds the game.
+  CANCEL ORDERS drops, and how an enemy's sight is chosen and drawn.
 - **A mission's maps:** whether those the team's left go on, which place
   each officer arrives at, what Only on this map does, and the other
   relocations.

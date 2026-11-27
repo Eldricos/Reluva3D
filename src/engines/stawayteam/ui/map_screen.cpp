@@ -26,7 +26,9 @@ constexpr int kCell = kGroundCell;
 // How far a shadow's cast left for each pixel of height; down, half
 // (0x491451).
 constexpr float kShadowSlantX = 0.7014925f;
-// The scrolling's frames a second (inferred: see scroll()).
+// The scrolling's frames a second: the program takes a step each frame
+// it draws (0x4f73e2), as fast as the machine draws; Reluva takes 30, the
+// program's longest step (0x4f4b6f).
 constexpr float kScrollFrames = 30.0f;
 // The mouse this near the view's edge scrolls it (inferred).
 constexpr int kEdge = 4;
@@ -487,8 +489,7 @@ void MapScreen::scroll(float seconds) {
     // Each frame, a way held adds the Scroll Acceleration to the velocity,
     // held to the Scroll Speed; none held, it slows by a factor from 0.95
     // at the least acceleration to 0.5 at the most, stopping under 0.05
-    // (0x5c0de0, 0x5bc6a6). The program's frames aren't fixed: Reluva
-    // takes 30 a second (inferred).
+    // (0x5c0de0, 0x5bc6a6), at kScrollFrames.
     const float speed = _options.scrollSpeed;
     const float accel = _options.scrollAccel;
     const float slowing = 0.5f + 0.45f * (1.0f - (accel - GameOptions::kScrollAccelMin) / 67.5f);
@@ -895,6 +896,9 @@ void MapScreen::update(uint64_t now) {
     const float seconds = float(now - std::min(now, _last)) / 1000.0f;
     _last = now;
     _itemTitle = std::max(0.0f, _itemTitle - seconds);
+    // The water moves by the game's own clock, whatever's held or paused
+    // (0x5f545e, moved on each frame step at 0x4d54b9).
+    _waterTime += seconds;
     // The objectives window and the escape menu hold the game still,
     // counted on the program's holds (0x51ad9b, 0x5ba9f9); the End Game
     // Menu only takes the map's input (0x5ca130), the game going on under
@@ -909,7 +913,6 @@ void MapScreen::update(uint64_t now) {
     }
     if (_active)
         _progress->time += seconds;
-    _waterTime += seconds;
     playScripts(seconds);
     _warpLeft = std::max(0.0f, _warpLeft - seconds);
     if (!_dialogText.empty()) {
