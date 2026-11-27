@@ -69,6 +69,11 @@ struct Level {
         ///@}
         /** Each corner's light. */
         std::vector<float> intensities;
+        /**
+         * Each corner's red, green and blue light, in Mysteries of the
+         * Sith's levels; empty in Jedi Knight's.
+         */
+        std::vector<Vec3> colours;
         Vec3 normal;
     };
 

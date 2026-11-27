@@ -6,6 +6,7 @@
 #include "common/fs.h"
 
 #include <cstdlib>
+#include <cstdio>
 #include <sstream>
 
 namespace reluva::sith {
@@ -36,21 +37,21 @@ Error parseSoundClass(const std::vector<uint8_t> &data, SoundClass &out) {
             continue;
         if (!(in >> e.wav))
             return Error::fail("sound class line " + std::to_string(lineNumber) + " names no sound");
-        auto bad = [&] { return Error::fail("sound class line " + std::to_string(lineNumber) + " has a bad number"); };
+        // As the games read them: the flags with sscanf's %x, always
+        // hexadecimal, left at their default where they don't start as a
+        // number ("x0", a typo in Mysteries of the Sith's kybobafett.snd);
+        // the rest with atof, 0 where they don't (JK.EXE 0x4e68ac, JKM.EXE
+        // 0x5342e2).
         std::string word;
         if (in >> word) {
-            char *after = nullptr;
-            e.flags = uint32_t(std::strtoul(word.c_str(), &after, 16)); // always hexadecimal (0x4e68ac)
-            if (*after)
-                return bad();
+            unsigned flags = 0;
+            if (std::sscanf(word.c_str(), "%x", &flags) == 1)
+                e.flags = uint32_t(flags);
         }
         for (std::optional<float> *field : {&e.minRadius, &e.maxRadius, &e.maxVolume}) {
             if (!(in >> word))
                 break;
-            char *after = nullptr;
-            *field = std::strtof(word.c_str(), &after);
-            if (*after)
-                return bad();
+            *field = float(std::atof(word.c_str()));
         }
         out.entries.push_back(std::move(e));
     }

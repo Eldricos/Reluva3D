@@ -98,7 +98,29 @@ The game keeps `InstallData` in its registry (the save folder's
   cut scene, the finale and the credits ([TESTING.md](TESTING.md#last-checked)). The engine's
   settings act on it as on Jedi Knight ([Where Reluva reaches into the
   program](#where-reluva-reaches-into-the-program)).
-- **The data viewer:** not yet for this game.
+- **The data viewer:** reads its archives (`.goo`, the `.gob` format) and
+  every file in them as Jedi Knight's ([Its files](#its-files)), and shows
+  them as it does Jedi Knight's; its levels drawn from the player's
+  start as the game's software renderer draws them. Its SMUSH cut scenes
+  aren't decoded yet ([PLAN.md](PLAN.md), phase 5).
+
+### Its files
+
+The archives hold Jedi Knight's formats, read by the same readers: of
+7,119 files, every one reads (`reluva-tool sith formats`) but two
+materials the game can't load either, as its loader takes only `MAT `
+version 50 (`0x44f6df`) *(from the code)*: `00skyline.mat` is empty and
+`01narsky.mat` is version 10. What differs:
+
+- **Levels:** four lights for each corner of a surface, a light and its
+  red, green and blue ([jkl.md](../jk/formats/jkl.md#in-reluva)).
+- **Three odd files** the game reads anyway, and the readers now read as
+  it does: a sound class's flag written `x0` and a line missing its `#`
+  ([snd.md](../jk/formats/snd.md#in-reluva)), and an animation with a
+  stray line after its nodes ([key.md](../jk/formats/key.md#in-reluva)).
+- **Cut scenes:** SMUSH (`.san`), with codec 48 pictures, 640 by 350:
+  public write-ups describe its container and outline the codec; the
+  rest is in `JKM.EXE` ([PLAN.md](PLAN.md), phase 5).
 
 ### Where Reluva reaches into the program
 

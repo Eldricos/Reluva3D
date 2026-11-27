@@ -108,7 +108,9 @@ Footsteps and strokes sound only from a track weighing at least a half
 
 `parseKeyframes` (`src/engines/sith/formats/keyframe.h`) reads one into
 `Keyframes`; `Keyframes::at` gives a node's position and rotation at any
-frame. The data viewer's Models page plays the animations whose nodes are
+frame. It stops after the nodes `NODES` gives, as the game does: its
+loader closes the file after the last (`0x44b1a3`) *(from the code)*;
+Mysteries of the Sith's `s1shred.key` has a stray `0` line after them. The data viewer's Models page plays the animations whose nodes are
 all the model's. `reluva-tool sith formats <install>` reads them all.
 
 ## Sources and checks

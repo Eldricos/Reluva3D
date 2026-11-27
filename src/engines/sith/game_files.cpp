@@ -22,7 +22,9 @@ Error GameFiles::open(const std::filesystem::path &install) {
         std::vector<std::filesystem::path> gobs;
         std::error_code ec;
         for (const auto &e : std::filesystem::directory_iterator(*dir, ec))
-            if (e.is_regular_file(ec) && fs::toLower(e.path().extension().string()) == ".gob")
+            // Mysteries of the Sith's are .goo, the same format.
+            if (const std::string ext = fs::toLower(e.path().extension().string());
+                e.is_regular_file(ec) && (ext == ".gob" || ext == ".goo"))
                 gobs.push_back(e.path());
         std::sort(gobs.begin(), gobs.end(), [](const auto &a, const auto &b) {
             return fs::windowsNameLess(a.filename().string(), b.filename().string());
@@ -35,7 +37,7 @@ Error GameFiles::open(const std::filesystem::path &install) {
         }
     }
     if (_archives.empty())
-        return Error::fail("No .gob archives in " + install.string() + "'s Resource or Episode folders");
+        return Error::fail("No .gob or .goo archives in " + install.string() + "'s Resource or Episode folders");
     return Error::success();
 }
 

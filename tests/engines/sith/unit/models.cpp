@@ -95,6 +95,12 @@ void testKeyframes() {
     std::vector<uint8_t> cut = testing::makeKeyframeFile();
     cut.resize(cut.size() - 20);
     CHECK(parseKeyframes(cut, key));
+
+    // What follows the nodes NODES gives isn't read, as in the game.
+    std::vector<uint8_t> extra = testing::makeKeyframeFile();
+    for (char c : std::string("0\r\nanything\r\n"))
+        extra.push_back(uint8_t(c));
+    CHECK(!parseKeyframes(extra, key) && key.nodes.size() == 2);
 }
 
 void testPuppet() {

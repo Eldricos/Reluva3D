@@ -32,12 +32,20 @@ Error parseKeyframes(const std::vector<uint8_t> &data, Keyframes &out) {
         return w.size() >= at + 3 && toFloat(w[at], v.x) && toFloat(w[at + 1], v.y) && toFloat(w[at + 2], v.z);
     };
     Keyframes::Node *node = nullptr;
+    // The game reads as many nodes as NODES gives and stops (JK.EXE
+    // 0x44b1a3): Mysteries of the Sith's s1shred.key has a stray line after.
+    int nodeCount = -1;
     while (!lines.done()) {
         const std::string_view line = lines.next();
         const std::vector<std::string_view> w = words(line);
         bool ok = true;
-        if (startsWith(line, "SECTION:") || startsWith(line, "NODES"))
+        if (startsWith(line, "SECTION:"))
             continue;
+        if (startsWith(line, "NODES")) {
+            if (w.size() < 2 || !toInt(w[1], nodeCount))
+                return bad("the node count");
+            continue;
+        }
         if (startsWith(line, "FLAGS"))
             ok = w.size() > 1 && toFlags(w[1], out.flags);
         else if (startsWith(line, "TYPE"))
@@ -84,6 +92,8 @@ Error parseKeyframes(const std::vector<uint8_t> &data, Keyframes &out) {
                     return bad("an entry's changes");
                 node->entries.push_back(e);
             }
+            if (nodeCount >= 0 && out.nodes.size() == size_t(nodeCount))
+                break;
         } else
             return bad("an unknown line");
         if (!ok)

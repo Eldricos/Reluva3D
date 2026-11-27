@@ -311,8 +311,13 @@ void testSoundClass() {
     const SoundClass::Entry *corpse = snd.find("corpsehit"); // flags are hexadecimal, written with 0x or not
     CHECK(corpse && corpse->flags == 0x10u);
 
-    const std::string bad = "moving a.wav 0x1 near\n";
-    CHECK(parseSoundClass(std::vector<uint8_t>(bad.begin(), bad.end()), snd));
+    // Numbers as the games read them: flags that don't start as hex left
+    // out, the rest 0 where they don't start as a number, or up to where
+    // they stop.
+    const std::string odd = "moving a.wav x0 near 2.5m\nstopmove b.wav 1fz\n";
+    CHECK(!parseSoundClass(std::vector<uint8_t>(odd.begin(), odd.end()), snd));
+    CHECK(snd.entries.size() == 2 && !snd.entries[0].flags && snd.entries[0].minRadius == 0.0f &&
+          snd.entries[0].maxRadius == 2.5f && snd.entries[1].flags == 0x1fu);
     const std::string noWav = "moving\n";
     CHECK(parseSoundClass(std::vector<uint8_t>(noWav.begin(), noWav.end()), snd));
 }

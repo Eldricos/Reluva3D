@@ -58,6 +58,23 @@ void testRead() {
     }
 }
 
+// Mysteries of the Sith's surfaces: four lights a corner, the light then
+// red, green and blue.
+void testColouredLight() {
+    const std::vector<uint8_t> file = testing::makeLevelFile();
+    std::string text(file.begin(), file.end());
+    const std::string jk = "3\t4,-1\t5,-1\t6,-1\t1\t1\t1\r\n";
+    text.replace(text.find(jk), jk.size(), "3\t4,-1\t5,-1\t6,-1\t.9 .9 .8 .7\t1 1 1 1\t.5 .1 .2 .3\r\n");
+    Level level;
+    CHECK(!parseLevel(std::vector<uint8_t>(text.begin(), text.end()), level));
+    if (level.surfaces.size() == 4) {
+        const Level::Surface &s = level.surfaces[1];
+        CHECK(s.intensities.size() == 3 && s.intensities[0] == 0.9f && s.intensities[2] == 0.5f);
+        CHECK(s.colours.size() == 3 && s.colours[0].z == 0.7f && s.colours[2].x == 0.1f);
+        CHECK(level.surfaces[0].colours.empty());
+    }
+}
+
 void testBad() {
     const std::vector<uint8_t> file = testing::makeLevelFile();
     const std::string text(file.begin(), file.end());
@@ -78,8 +95,9 @@ void testBad() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("sith.unit.levels",
-                                        {
-                                            {"read", [](const std::filesystem::path &) { testRead(); }},
-                                            {"bad", [](const std::filesystem::path &) { testBad(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("sith.unit.levels", {
+                                   {"read", [](const std::filesystem::path &) { testRead(); }},
+                                   {"coloured light", [](const std::filesystem::path &) { testColouredLight(); }},
+                                   {"bad", [](const std::filesystem::path &) { testBad(); }},
+                               });

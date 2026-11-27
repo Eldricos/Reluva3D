@@ -209,7 +209,11 @@ private:
             !toInt(f[5], s.textureMode) || !toInt(f[6], s.adjoin) || !toFloat(f[7], s.extraLight) ||
             !toInt(f[8], corners) || corners < 0 || f.size() < 9 + size_t(corners) * 2)
             return bad("a surface");
-        // Each corner is "vertex,texture vertex", then each corner's light.
+        // Each corner is "vertex,texture vertex", then each corner's light:
+        // one value in Jedi Knight's levels; in Mysteries of the Sith's, four,
+        // a light then red, green and blue (JKM.EXE 0x533965).
+        const size_t lights = f.size() - 9 - size_t(corners);
+        const bool coloured = lights == size_t(corners) * 4 && corners > 0;
         for (int c = 0; c < corners; ++c) {
             const std::string_view pair = f[9 + size_t(c)];
             const size_t comma = pair.find(',');
@@ -221,10 +225,17 @@ private:
                 return bad("a surface's corner");
             s.vertices.push_back(v);
             s.texVertices.push_back(t);
+            const size_t at = 9 + size_t(corners) + (coloured ? size_t(c) * 4 : size_t(c));
             float light = 0;
-            if (!toFloat(f[9 + size_t(corners + c)], light))
+            if (!toFloat(f[at], light))
                 return bad("a surface's light");
             s.intensities.push_back(light);
+            if (coloured) {
+                Vec3 colour;
+                if (!toFloat(f[at + 1], colour.x) || !toFloat(f[at + 2], colour.y) || !toFloat(f[at + 3], colour.z))
+                    return bad("a surface's light");
+                s.colours.push_back(colour);
+            }
         }
         _out.surfaces.push_back(std::move(s));
         return Error::success();

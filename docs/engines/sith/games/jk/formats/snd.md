@@ -108,8 +108,14 @@ In `JK.EXE`: `0x4dcc00`, each frame for each sound playing, after
 ## In Reluva
 
 `parseSoundClass` (`src/engines/sith/formats/sound_class.h`) reads one
-into a `SoundClass`, leaving out the fields a line hasn't, the flags
-read as hexadecimal as the game reads them. The data
+into a `SoundClass`, leaving out the fields a line hasn't, the numbers
+read as the game reads them: the flags with `%x`, always hexadecimal,
+left at their default where they don't start as a number; the radii and
+volume with `atof`, 0 where they don't. Mysteries of the Sith's sound
+classes need it: `kybobafett.snd` writes a flag `x0`, read as the
+default `0x40` (`JKM.EXE` `0x5342e2`), and `kyfemale.snd` has a line of
+speech left without its `#`, which the game skips, its first word being
+no event (`0x534250`) *(from the code)*. The data
 viewer's Sound classes page lists each event and plays its sound.
 `reluva-tool sith formats <install>` reads them all.
 

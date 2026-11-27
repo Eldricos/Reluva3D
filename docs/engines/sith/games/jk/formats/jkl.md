@@ -335,7 +335,14 @@ stop at adjoins with `0x10`; the lines of sight and the AI's checks with
 
 `parseLevel` (`src/engines/sith/formats/level.h`) reads one into a
 `Level`; `Level::setting` looks a thing's setting up through its
-template's bases. The data viewer's Levels page draws a level from the
+template's bases. Mysteries of the Sith's levels give four values for
+each corner of a surface where Jedi Knight's give one: its light, then
+red, green and blue (`JKM.EXE` reads them at `0x533965`; where every
+corner's three are grey it keeps the light alone, else all four and the
+surface's flag `0x1000000`) *(from the code)*. The reader keeps the
+colours as `Surface::colours`; the viewer lights by the light alone, as
+the game's software renderer does (its Direct3D draws the colours)
+*(confirmed)*. The data viewer's Levels page draws a level from the
 player's start (its position, 0.04 higher, facing its yaw), as the game's
 camera sees: 90 degrees across the view (`0x4c4deb`), the focal length
 half the view's width over tan 45° (`0x4436ad` to `0x443721`) *(from the
