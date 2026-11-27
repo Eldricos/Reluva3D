@@ -237,11 +237,23 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         }
         return best;
     };
+    // Moved over before a place it was stuck at (below), from 40 points
+    // before it to 10 after: what it hit there isn't in the road's data
+    // (Pacific Spirit's signposts at its point 278, in the middle of where
+    // the road forks round its car park).
+    auto moved = [&](uint32_t q) {
+        const uint32_t i = (q - points) / 36;
+        float shift = 0;
+        for (const auto &[at, stop] : _slowAt)
+            if ((at + n + 10 - i) % n <= 50)
+                shift = stop.shift;
+        return shift;
+    };
     auto line = [&](uint32_t q) {
         float centre = 0;
         if (!splitSide(q, centre))
             centre = (float(c.read16(q + 28)) - float(c.read16(q + 26))) / 512.0f;
-        return clear(q, centre + _options.right) + (now < _asideUntil ? _aside : 0.0f);
+        return clear(q, centre + _options.right + moved(q)) + (now < _asideUntil ? _aside : 0.0f);
     };
 
     // Past a car ahead in its way, and faster or close: 3 m to the side of
@@ -280,12 +292,13 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
             const float mine = across(q, x, z);
             const float right = at + 3.0f;
             const float left = at - 3.0f;
+            const float home = line(q);
             const bool rightFits = right <= lanes.right;
             const bool leftFits = left >= -lanes.left;
             if (rightFits || leftFits) {
                 const float to =
                     rightFits && (!leftFits || std::fabs(right - mine) < std::fabs(left - mine)) ? right : left;
-                _passWanted = to - line(q);
+                _passWanted = to - home;
                 _passUntil = now + 1500;
             } else {
                 follow = fixed(ahead + kSpeed);
@@ -369,7 +382,8 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // Where it was stuck before in this race, slower: at the speed it came
     // in at, less, and the braking there's room for before it (Mystic
     // Peaks' bends at its points 120 and 250, into the wall every lap).
-    for (const auto &[at, cap] : _slowAt) {
+    for (const auto &[at, stop] : _slowAt) {
+        const float cap = stop.cap;
         const uint32_t ahead = (at + n - slice) % n;
         if (ahead > 60 && ahead < n - 10)
             continue;
@@ -435,17 +449,22 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         constexpr float kAside[] = {3, -3, 6, -6, 9, -9};
         const int tries = _backOffs++;
         // Remembered, if it came in fast: there, 15% slower than then, or
-        // than the last time it was stuck there.
+        // than the last time it was stuck there, and 4 m to the other side
+        // of the road's line from where it was, 2 m more each time after.
         if (tries == 0 && now < _fastAt + 3000) {
-            float cap = 0.85f * _fastSpeed;
+            const uint32_t q = point(slice);
+            const float side = across(q, x, z) < line(q) ? 1.0f : -1.0f;
+            Stop stop{0.85f * _fastSpeed, 4.0f * side};
             for (auto it = _slowAt.begin(); it != _slowAt.end();)
                 if ((it->first + n + 10 - slice) % n <= 20) {
-                    cap = std::min(cap, 0.85f * it->second);
+                    stop.cap = std::min(stop.cap, 0.85f * it->second.cap);
+                    if (it->second.shift * side > 0)
+                        stop.shift = it->second.shift + 2.0f * side;
                     it = _slowAt.erase(it);
                 } else {
                     ++it;
                 }
-            _slowAt[slice] = cap;
+            _slowAt[slice] = stop;
         }
         _reverseUntil = now + 2500;
         _aside = kAside[tries % 6];
@@ -480,9 +499,9 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         char line[200];
         std::snprintf(line, sizeof line,
                       "road driver at %llu ms: slice %u, %.1f m/s (wanted %.1f), %.2f rad, steer %d gas %d brake %d"
-                      " gear %u off %.1f",
+                      " gear %u off %.1f pass %.1f",
                       (unsigned long long)now, slice, v, wanted, angle, steer, gas, brake, gear,
-                      across(point(slice), x, z));
+                      across(point(slice), x, z), _pass);
         log(line);
     }
 }

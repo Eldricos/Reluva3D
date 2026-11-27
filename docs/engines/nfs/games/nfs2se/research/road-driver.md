@@ -115,7 +115,15 @@ safe.
   there on, it comes in 15% slower than it did (and 15% slower again
   each time it's stuck there after), with the braking there's room for
   before it: on Mystic Peaks the bends at its points 120 and 250, where
-  it hit the wall every lap, a stop a race or so instead.
+  it hit the wall every lap, a stop a race or so instead. And it moves
+  its line 4 m to the other side of the road's line from where it was
+  stuck (2 m more each time after), from 40 points before the place to
+  10 after: what it hits there may not be in the road's data at all.
+  Pacific Spirit's signposts at its point 278 stand where the road
+  forks round its car park, on the virtual road's middle, its slots all
+  drivable; laps there of 140 to 145 s, 2 s a race backing off instead
+  of 18. (Keeping passes to a lane from the road's line didn't help
+  there, and cost Mystic Peaks 10 s a lap: the car wasn't passing.)
 - **Stuck:** slow (under 5 m/s), turned round, or no farther round the road for 3 s
   (against a wall its wheels spin, and its speed doesn't stay low), for
   1.5 s more (not timed while it backs off), it backs off in reverse for
@@ -211,13 +219,9 @@ Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
 
 ## Left open
 
-- Its time lost getting free of walls: on Mystic Peaks about half
-  what it was round its points 120 and 250 with the stops remembered
-  (laps of 172 to 181 s); round 250 the road's left edge moves from
-  6 to 17 units out and back, its middle with it, and the line. On
-  Pacific Spirit it still runs into the car park's signposts at its
-  point 278 now and then, 9 to 12 m left of the road's middle, where
-  coming in slower doesn't help (laps of 141 to 161 s, against 138 to
-  145 s in the race before): its line there, not its speed.
+- Its time lost getting free of walls on Mystic Peaks: a stop or two a
+  race still round its points 120 and 250 (laps of 174 to 179 s, 1st);
+  round 250 the road's left edge moves from 6 to 17 units out and back,
+  its middle with it, and the line.
 - The computer cars' slots across the road (`[0x4c2b0c]`): zero at
   every point of the tables the single races loaded, so not taken.
