@@ -1541,6 +1541,10 @@ static void testInput() {
     // GetAsyncKeyState also says A was pressed since it last asked, once.
     CHECK(!cpu.call(fn("USER32.dll", "GetAsyncKeyState"), {0x41}, r) && r == 1);
     CHECK(!cpu.call(fn("USER32.dll", "GetAsyncKeyState"), {0x41}, r) && r == 0);
+    // MapVirtualKeyA: Shift's scan code, a scan code's key, A's character.
+    CHECK(!cpu.call(fn("USER32.dll", "MapVirtualKeyA"), {0x10, 0}, r) && r == 0x2a);
+    CHECK(!cpu.call(fn("USER32.dll", "MapVirtualKeyA"), {0x1e, 1}, r) && r == 0x41);
+    CHECK(!cpu.call(fn("USER32.dll", "MapVirtualKeyA"), {0x41, 2}, r) && r == 'A');
     // ClipCursor keeps the pointer in.
     const uint32_t rc = process.memory().alloc(16);
     for (uint32_t i = 0; i < 4; ++i)

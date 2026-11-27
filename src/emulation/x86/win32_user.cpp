@@ -783,6 +783,25 @@ void Win32Process::addUserStandIns() {
     provideCdecl(u, "wsprintfA", [wsprintf](Cpu &c) { return wsprintf(c, c.reg[Cpu::ESP] + 4 + 4 * 2); });
     stdcall(u, "wvsprintfA", 3, [wsprintf](Cpu &c) { return wsprintf(c, c.arg(2)); });
     stdcall(u, "GetKeyState", 1, [this](Cpu &c) { return _keysDown[c.arg(0) & 0xff] ? 0xffff8000u : 0u; });
+    // MapVirtualKeyA(code, type), by windowsKey's US keyboard: 0, a
+    // virtual key's scan code; 1 and 3, a scan code's virtual key (1 not
+    // telling the left keys from the right); 2, the character a virtual
+    // key types unshifted, its letters as capitals. 0 where there's none.
+    stdcall(u, "MapVirtualKeyA", 2, [](Cpu &c) {
+        const uint32_t code = c.arg(0);
+        const uint32_t type = c.arg(1);
+        for (uint32_t k = 0; k < 0x400; ++k) {
+            uint32_t vk = 0;
+            uint32_t scan = 0;
+            if (!windowsKey(k, vk, scan))
+                continue;
+            if ((type == 0 && vk == code) || (type == 2 && vk == code && k >= 0x20 && k < 0x7f))
+                return type == 0 ? scan & 0xff : uint32_t(std::toupper(int(k)));
+            if ((type == 1 || type == 3) && (scan & 0xff) == (code & 0xff))
+                return vk;
+        }
+        return 0u;
+    });
     stdcall(u, "GetAsyncKeyState", 1, [this](Cpu &c) {
         const uint32_t key = c.arg(0) & 0xff;
         const uint32_t state = (_keysDown[key] ? 0xffff8000u : 0u) | (_pressedSinceAsked[key] ? 1u : 0u);
