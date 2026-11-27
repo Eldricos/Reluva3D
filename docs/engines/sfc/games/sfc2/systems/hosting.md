@@ -262,6 +262,48 @@ frames instead, without red alert, kept changing the target before the
 phasers, never charged, could destroy one, and the course went on with
 nothing destroyed.
 
+The others, passed the same way, headless with `-fixed-clock` (frames
+counted from the program's start, the course chosen at frame 2,800):
+
+- **Command 290, Intermediate Helm Controls** (Captain Wells): red alert
+  as ordered (the order has a time limit: R at frame 6,000 came too late,
+  "you have failed to follow orders"), S to accelerate, a click on the
+  3D view toward the large asteroids, speed 4 (at 7 the ship ran into a
+  large asteroid, which ends the course), a full stop (A) inside the
+  field, then the nearest small asteroids targeted and fired on (Y and
+  the keypad's *, Z every 60 frames) once told to; firing before that is
+  failing. "You have passed course Command 290 ... promoted to Acting
+  Lieutenant Commander", 20 asteroids destroyed.
+- **Weapons 380, Weapons Station** (Captain Sulu): each order waits to
+  be followed. Red alert and speed 15; the blinking All Weapons button
+  (the ship panel's corner, 187,341); Ctrl+3 to keep that group; the
+  starboard photon bank clicked, then the port one with Shift held, and
+  Ctrl+1 to keep the photons as group 1; the freighter targeted (T),
+  group 1 chosen (1) and fired on (Z) when permitted; Overload clicked
+  (56,442), the freighter followed and fired on until destroyed; the
+  Weapons Officer panel (183,95) and a mine laid (M). "Congratulations
+  Lieutenant Commander. You did very well on the course today", at
+  13:10. Firing stopped before the freighter was destroyed left the
+  mine's order never given, and the course failed.
+- **Weapons Advanced 480, Defensive Controls** (Captain Sulu): red alert
+  and some speed; the Shield Control panel (12,242) and the Electronic
+  Warfare panel (12,258), which it asks for and then talks about
+  without waiting for the shields or ECM to be set; Erratic Maneuvers
+  by the blinking helm button (120,46: the keypad's / didn't count);
+  then it talks through High Energy Turns and Emergency Deceleration and
+  sets a mock battle against the USS Daystrom, whose weapons do no
+  harm, ended at ten minutes. "Congratulations Lieutenant Commander.
+  You are now ready to begin your career as a Starship Captain."
+- **Command 590, Fleet Maneuvers** (Captain Sulu): the blinking Fleet
+  Control button (183,175) opens the fleet panels (the Essex, Renown and
+  Hannibal; formations and their discipline, weapons state, attack,
+  capture, defend), which it explains without waiting; then captured
+  Klingon ships enter. Red alert, speed raised, the nearest enemy
+  targeted and followed every 2,500 frames and Z every 60, the fleet
+  attacking with the player: "Congratulations Captain. It looks like you
+  are well prepared for the responsibility of fleet command", at 6:59,
+  518 damage scored and none lost.
+
 A single-player campaign starts from Campaign's Campaign Selector (its
 saved games, LOAD GAME, NEW GAME, DELETE GAME): NEW GAME lists the twelve
 campaigns (Federation vs ISC first), the skill level, the era and the

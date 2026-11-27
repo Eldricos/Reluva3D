@@ -52,8 +52,8 @@ None yet.
   tutorials, a campaign's first missions with its saves, and
   multiplayer (against AI players, and between copies of Reluva to a
   game's end) run, and a skirmish and a campaign's Convoy Escort have
-  been won, and the Command 190 tutorial passed; the other tutorials
-haven't been passed, and the Film Room's playback hasn't been
+  been won, and five of the six tutorials passed (Science 310 played
+  to its transporter, not yet passed), and the Film Room's playback hasn't been
   tried (its list was empty: the recordings it lists aren't known yet) ([systems/hosting.md](systems/hosting.md)).
 - **Multiplayer's groups aren't there,** nor DirectPlay's own chat
   messages, which the game doesn't use; a new host, across machines,

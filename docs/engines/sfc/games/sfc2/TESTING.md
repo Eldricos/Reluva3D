@@ -85,6 +85,7 @@ to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 27 November 2026 | English retail 1.0 | Linux | Four more tutorials passed, headless with `-fixed-clock`: Command 290 (20 asteroids destroyed), Weapons 380 (the freighter destroyed with overloaded photons, a mine laid, 13:10), Weapons Advanced 480 (the mock battle with the Daystrom to its ten minutes) and Command 590 (the captured Klingons fought with the fleet, 6:59); Science 310 played to its transporter, three of its runs ending against asteroids |
 | 26 November 2026 | English retail 1.0 | Linux | A loaded campaign starting missions again, headless with `-fixed-clock`: a new campaign, Convoy Escort won and Monster played, the auto-save loaded in a second run (the clock going on from the first) and Patrol accepted, READY: the mission started. Before, the same save stuck at READY; with the tick count moved on by 0.5 to 36 million ms it started, the date left as it was |
 | 26 November 2026 | English retail 1.0 | Linux | Online play: Dynaverse II's login on the shared Winsock, its directory servers not found and said so; MPlayer's button starting its site and ending the game; IPX searching; two copies joining over TCP/IP as before |
 | 26 November 2026 | English retail 1.0 | Linux | Multiplayer between two copies, headless with `-fixed-clock -net`: chat typed in the joining copy's lobby shown in both; the host forfeiting, the joining copy taking the session over and winning (`DPSESSION_MIGRATEHOST`) |
