@@ -20,16 +20,11 @@ None yet.
 
 ## Not yet as the original
 
-- **The scope's sight in widescreen:** the stormtrooper rifle's scope
-  sees as much height as at 4:3 and more at the sides, but its green
-  sight is drawn a third wider at 16:9 than at 4:3, as tall: the game
-  sizes it by the screen's width
-  ([../jk/systems/hosting.md](../jk/systems/hosting.md), step 24).
-
 ## Additions outside the game
 
 - The engine's settings, as for Jedi Knight
   ([../jk/KNOWN_DIFFERENCES.md](../jk/KNOWN_DIFFERENCES.md)): the 3D on the
   graphics card, larger and smoothed; *Frame rate*, the world moved
-  at each frame up to 100 a second; and *Widescreen*
+  at each frame up to 100 a second; and *Widescreen*, the scope's sight
+  kept as it is at 4:3
   ([README.md](README.md#where-reluva-reaches-into-the-program)).

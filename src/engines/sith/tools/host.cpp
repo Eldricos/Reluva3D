@@ -246,8 +246,8 @@ int cmdHost(int argc, char **argv) {
     for (const std::string &m : process.missingImports())
         std::printf("not stood in for: %s\n", m.c_str());
     if (wideWidth)
-        std::printf("widescreen: %dx480, the view widened: %s\n", wideWidth,
-                    game.viewWidened() ? "yes" : "not this program");
+        std::printf("widescreen: %dx480, the view widened: %s, the scope's sight kept its shape: %s\n", wideWidth,
+                    game.viewWidened() ? "yes" : "not this program", game.sightKept() ? "yes" : "no sight");
     if (everyFrame)
         std::printf("the world moved at every frame: %s\n", game.updateEveryFrame() ? "yes" : "not this program");
 

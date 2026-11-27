@@ -128,8 +128,10 @@ Error GameProcess::load() {
     if (Error e = _process->load(_game.program, file, _exe))
         return Error::fail(std::string(_game.program) + ": " + e.message);
     hookCdCheck();
-    if (_widescreen)
+    if (_widescreen) {
         hookFocalLength();
+        keepSightShape();
+    }
     if (smack)
         if (Error e = _process->attach(*smack))
             return e;
@@ -223,6 +225,13 @@ struct ProgramCode {
     // half its field of view: the call of the tangent, and its function.
     uint32_t tangentCall;
     uint32_t tangent;
+    // The scope's sight (00SiteA.bm), scaled as it's loaded by the
+    // screen's width over 640 and its height over 480, each in
+    // thousandths: where the first is read for it (mov ecx, [width's]),
+    // and the two. 0 where there's no sight.
+    uint32_t sightWidthRead;
+    uint32_t sightWidthScale;
+    uint32_t sightHeightScale;
 };
 
 constexpr ProgramCode kPrograms[] = {
@@ -240,7 +249,10 @@ constexpr ProgramCode kPrograms[] = {
      {0x403d62, 0, 0},
      0x552b9c,
      0x4436e6, // in 0x443670
-     0x432396},
+     0x432396,
+     0,
+     0,
+     0},
     // CD check (0x410db0): 2 for Jedi Knight's CD 2, which it asks for
     // once, 0x13 for its own; it looks from the drive after its second
     // argument's letter, so right after finding Jedi Knight's CD it would
@@ -257,7 +269,10 @@ constexpr ProgramCode kPrograms[] = {
      {0x403cd6, 0x404302, 0x40455f},
      0x5ad42c,
      0x447e26, // in 0x447db0
-     0x436386},
+     0x436386,
+     0x4124f6, // the scales worked out at 0x412449
+     0x5b08e0,
+     0x5b08e4},
 };
 
 } // namespace
@@ -397,6 +412,20 @@ void GameProcess::hookFocalLength() {
     c.write32(factor, 0x3f800000); // 1.0
     c.write32(code->tangentCall + 1, trampoline - (code->tangentCall + 5));
     _viewWidened = true;
+}
+
+// The scope's sight scaled by the screen's height both ways, as a 4:3
+// screen scales it, rather than wider than it is tall.
+void GameProcess::keepSightShape() {
+    const auto *code = static_cast<const ProgramCode *>(this->code());
+    if (!code || !code->sightWidthRead)
+        return;
+    const uint32_t w = code->sightWidthScale;
+    const uint8_t read[] = {0x8b, 0x0d, uint8_t(w), uint8_t(w >> 8), uint8_t(w >> 16), uint8_t(w >> 24)};
+    if (!matches(code->sightWidthRead, read, sizeof read))
+        return;
+    _cpu->write32(code->sightWidthRead + 2, code->sightHeightScale);
+    _sightKept = true;
 }
 
 // A trampoline at the CD check's start puts the CD it asks for in drive D

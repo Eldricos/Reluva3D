@@ -470,8 +470,18 @@ Windows does when it fails, and dialog boxes are made but not drawn
     times through the scripts' zoom. At 4 times, at 16:9 and at 4:3 with
     the view the whole screen, the field of view the game kept was 28.07°
     in both and the focal length 1278.5 and 1278.0: the same height seen,
-    the 16:9 wider *(confirmed)*. Its green sight is drawn a third wider
-    at 16:9, as tall: the game sizes it by the screen's width.
+    the 16:9 wider *(confirmed)*. Its green sight (`00SiteA16.bm`, the
+    one entry of a table of the HUD's bitmaps at `0x57eec0`, drawn at
+    `0x412760` while the view is the scope's) is loaded scaled by the
+    screen's width over 640 and its height over 480, each in thousandths
+    (`0x5b08e0` and `0x5b08e4`, worked out at `0x412449`, read at
+    `0x4124f1` and `0x4124f6` for the loader `0x430040`), and placed at
+    their middle:
+    at 16:9, a third wider than tall. In widescreen the host has the
+    loader read the height's scale both ways (`mov ecx, [0x5b08e0]` at
+    `0x4124f6` made `[0x5b08e4]`): at 16:10, 16:9 and 21:9 the sight was
+    126 by 30 pixels as at 4:3, in the screen's middle *(confirmed)*.
+    Nothing else reads the two. Jedi Knight has no sight.
 
     The view's size is changed in play by `-` (*Decrease viewsize*) and
     `=` (*Increase viewsize*) in both games, as the controls the games
@@ -479,8 +489,7 @@ Windows does when it fails, and dialog boxes are made but not drawn
     *(confirmed)*.
 
     Left open: the game's own software renderer, never offered a wide
-    mode (it draws in 8-bit modes, 1024 by 768 at most); the scope's
-    sight, drawn wider.
+    mode (it draws in 8-bit modes, 1024 by 768 at most).
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were

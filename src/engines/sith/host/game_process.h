@@ -75,13 +75,16 @@ public:
      * sides, where the program is a US release's
      * (docs/engines/sith/games/jk/systems/hosting.md, step 24). The menus
      * and cut scenes stay 640 by 480. The view's size is widescreen's own:
-     * 9, the whole screen, until the player changes it; the registry file
+     * 9, the whole screen, until the player changes it; Mysteries of the
+     * Sith's scope sight keeps its shape; the registry file
      * keeps the player's display and view size for 4:3. Before load().
      * @return False, changing nothing, if `width` isn't wider than 640.
      */
     bool useWidescreen(int width);
     /** Whether load() widened the view for widescreen: the program is a US release's. */
     bool viewWidened() const { return _viewWidened; }
+    /** Whether load() kept the scope's sight as tall as it's wide in widescreen: Mysteries of the Sith's US release. */
+    bool sightKept() const { return _sightKept; }
     /**
      * Puts the game's CD `number` (1 or 2: GameInfo::cdMarks) in drive D,
      * if it was found; false if it wasn't.
@@ -138,8 +141,10 @@ private:
     int _cdInDrive = 0;
     bool _widescreen = false;
     bool _viewWidened = false;
+    bool _sightKept = false;
     void hookCdCheck();
     void hookFocalLength();
+    void keepSightShape();
     void setDirect3D(uint32_t mode); // Setup's 3D acceleration on, in `mode` (an index of those offered)
     // The program's addresses (a ProgramCode in game_process.cpp), or null
     // where they aren't known.

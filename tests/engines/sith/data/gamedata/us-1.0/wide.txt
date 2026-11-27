@@ -1,5 +1,5 @@
 wide: c98fd70dd3648104 | 5553 files opened
 wide.reached: cut scene 01-02a.smk
 wide.reached: cut scene 03-04a.smk
-widescreen: 854x480, the view widened: yes
+widescreen: 854x480, the view widened: yes, the scope's sight kept its shape: no sight
 frame sizes: 640x480 854x480

@@ -163,7 +163,9 @@ there are the US release's (`kPrograms`,
   24). Its scripts set the field of view again at each level's start
   from their zoom (`0x513670`), so the cameras' own 90° can't be the
   place: the focal length, worked out from whatever they set, is
-  *(confirmed)*.
+  *(confirmed)*. The scope's sight, scaled by the screen's width across
+  and its height down, is scaled by its height both ways: the loader's
+  scale read at `0x4124f6` from `0x5b08e4` rather than `0x5b08e0`.
 - ***Setup*'s settings saved** when Reluva is closed with the game
   running: its own saving of them to the registry (`0x417560`, called
   from its end at `0x4013d5`, as Jedi Knight's at `0x4148f0`) run for it
