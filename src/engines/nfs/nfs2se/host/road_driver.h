@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
 
 namespace reluva::nfs {
@@ -65,7 +66,13 @@ private:
     float _passWanted = 0;
     uint64_t _passUntil = 0;
     uint64_t _lastMs = 0;
-    uint64_t _lockSince = 0;   // since when it's been on full lock, far off its aim
+    uint64_t _lockSince = 0; // since when it's been on full lock, far off its aim
+    uint32_t _slice = ~0u;   // its road point, kept over the game's jumps off the road
+    // Where it was stuck in this race (road points) and how fast to come
+    // in there; its speed when last above 15 m/s, and when.
+    std::map<uint32_t, float> _slowAt;
+    float _fastSpeed = 0;
+    uint64_t _fastAt = 0;
     int32_t _progressMark = 0; // the car's progress (laps times points) when last well on its way
     int32_t _bestProgress = 0; // the farthest it has been, and when it got there
     uint64_t _advancedAt = 0;

@@ -119,11 +119,24 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     const float x = fixed(car + kX);
     const float z = fixed(car + kZ);
     const float v = fixed(car + kSpeed);
-    const uint32_t slice = c.read32(car + kSlice) % n;
+    uint32_t slice = c.read32(car + kSlice) % n;
     auto point = [&](uint32_t i) { return points + 36 * (i % n); };
     auto distance = [&](uint32_t a, uint32_t b) {
         return std::hypot(fixed(a) - fixed(b), fixed(a + 8) - fixed(b + 8));
     };
+    // Off the road where it passes near itself (Pacific Spirit's points 278
+    // and 372, some 70 m apart), the game's road point for the car jumps
+    // between the two as it moves; aimed at each by turns, it backed off
+    // and on for half a minute. A jump of more than 30 points to one it's
+    // far from is taken as that: it keeps the last.
+    {
+        const uint32_t q = point(slice);
+        const float off = (x - fixed(q)) * s8(q + 18) / 128 + (z - fixed(q + 8)) * s8(q + 20) / 128;
+        const int64_t jump = (int64_t(slice) - int64_t(_slice) + int64_t(n) * 3 / 2) % int64_t(n) - int64_t(n) / 2;
+        if (_slice < n && std::abs(jump) > 30 && std::fabs(off) > 25.0f)
+            slice = _slice;
+        _slice = slice;
+    }
     // The middle of the road at a point, from its distances to the edges
     // (col.md, The virtual road), or of its right side where it splits, and
     // right of it as asked: the points
@@ -353,6 +366,22 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     }
 
     wanted = std::min(wanted, follow);
+    // Where it was stuck before in this race, slower: at the speed it came
+    // in at, less, and the braking there's room for before it (Mystic
+    // Peaks' bends at its points 120 and 250, into the wall every lap).
+    for (const auto &[at, cap] : _slowAt) {
+        const uint32_t ahead = (at + n - slice) % n;
+        if (ahead > 60 && ahead < n - 10)
+            continue;
+        float along = 0;
+        for (uint32_t k = slice; k < slice + std::min(ahead, 60u); ++k)
+            along += distance(point(k), point(k + 1));
+        wanted = std::min(wanted, std::sqrt(cap * cap + 2 * kBraking * along));
+    }
+    if (v > 15.0f) {
+        _fastSpeed = v;
+        _fastAt = now;
+    }
     // On full lock and still well off its aim for 0.3 s, it's going too
     // fast to turn as the road does: the computer cars, which can't skid,
     // take some bends faster than a car can (Mystic Peaks' at its points
@@ -387,6 +416,8 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // No farther along the road for 3 s is stuck too: pushing against
     // something, its wheels spinning, its speed doesn't stay low.
     if (progress > _bestProgress || progress < _bestProgress - 100) {
+        if (progress < _bestProgress - 100) // a new race
+            _slowAt.clear();
         _bestProgress = progress;
         _advancedAt = now;
     }
@@ -403,6 +434,19 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
         // columns).
         constexpr float kAside[] = {3, -3, 6, -6, 9, -9};
         const int tries = _backOffs++;
+        // Remembered, if it came in fast: there, 15% slower than then, or
+        // than the last time it was stuck there.
+        if (tries == 0 && now < _fastAt + 3000) {
+            float cap = 0.85f * _fastSpeed;
+            for (auto it = _slowAt.begin(); it != _slowAt.end();)
+                if ((it->first + n + 10 - slice) % n <= 20) {
+                    cap = std::min(cap, 0.85f * it->second);
+                    it = _slowAt.erase(it);
+                } else {
+                    ++it;
+                }
+            _slowAt[slice] = cap;
+        }
         _reverseUntil = now + 2500;
         _aside = kAside[tries % 6];
         _asideUntil = _reverseUntil + 4000 + 1000 * uint64_t(tries % 6);

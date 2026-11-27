@@ -105,6 +105,17 @@ safe.
   one point, as far as the edges, it swerved at 64 m/s into Pacific
   Spirit's car park at its point 275, into the signposts standing in it,
   and was there half a minute a lap.
+- **Its road point** is the game's (`car+0x14`), but not over a jump of
+  more than 30 points to one it's more than 25 m from: off the road
+  where it passes near itself, the game's moves between the two parts
+  as the car does (Pacific Spirit's points 278 and 372, some 70 m
+  apart), and aimed at each by turns, it backed off and on for half a
+  minute of a knockout's round.
+- **Where it was stuck before** in the race, from the first back off
+  there on, it comes in 15% slower than it did (and 15% slower again
+  each time it's stuck there after), with the braking there's room for
+  before it: on Mystic Peaks the bends at its points 120 and 250, where
+  it hit the wall every lap, a stop a race or so instead.
 - **Stuck:** slow (under 5 m/s), turned round, or no farther round the road for 3 s
   (against a wall its wheels spin, and its speed doesn't stay low), for
   1.5 s more (not timed while it backs off), it backs off in reverse for
@@ -200,9 +211,13 @@ Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
 
 ## Left open
 
-- Its time lost getting free of walls: still about 25 s a race on
-  Mystic Peaks, round its points 120 and 250, slowing on full lock
-  being too late at 63 m/s. Round 250 the road's left edge moves from
-  6 to 17 units out and back, its middle with it, and the line.
+- Its time lost getting free of walls: on Mystic Peaks about half
+  what it was round its points 120 and 250 with the stops remembered
+  (laps of 172 to 181 s); round 250 the road's left edge moves from
+  6 to 17 units out and back, its middle with it, and the line. On
+  Pacific Spirit it still runs into the car park's signposts at its
+  point 278 now and then, 9 to 12 m left of the road's middle, where
+  coming in slower doesn't help (laps of 141 to 161 s, against 138 to
+  145 s in the race before): its line there, not its speed.
 - The computer cars' slots across the road (`[0x4c2b0c]`): zero at
   every point of the tables the single races loaded, so not taken.
