@@ -573,8 +573,11 @@ Game/Background`:
   multiply, as gains (a hundredth of a decibel each), into its music and
   effects volumes; speech, the movies' and voiceovers', go with the
   effects. Voiceovers turn the briefing's voice-overs and movie sound
-  on and off ([briefing.md](briefing.md)); stereo and mixing are kept,
-  but don't change what's heard yet. CONFIGURE KEYBOARD opens the keyboard screen
+  on and off ([briefing.md](briefing.md)); MONO folds the mix to one
+  channel, as the game opens its sound device with one (`0x56c080`,
+  22050 a second in 16 bits, `0x56cb90`). The mixing channels are kept
+  on the device (`0x504400`), where nothing found reads them, and change
+  nothing in Reluva either. CONFIGURE KEYBOARD opens the keyboard screen
   (`KeyConfigScreen`, `ui/key_config.cpp`; the actions and bindings in
   `Controls`, `game/controls.cpp`, kept with the options): a click on an
   action, then keys, bind it as the game does, a key held before

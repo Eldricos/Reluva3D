@@ -120,6 +120,10 @@ void GameOptions::applySound(audio::Mixer &mixer) const {
     mixer.setTypeVolume(audio::SoundType::kMusic, int(std::lround(master * music * audio::kMaxVolume)));
     mixer.setTypeVolume(audio::SoundType::kEffects, int(std::lround(master * effects * audio::kMaxVolume)));
     mixer.setTypeVolume(audio::SoundType::kSpeech, int(std::lround(master * effects * audio::kMaxVolume)));
+    // MONO makes the sound device's output one channel (0x56c080, at 22050
+    // a second in 16 bits, 0x56cb90). Sounds Mixing Channels is kept on
+    // the device (0x504400) and nothing found reads it.
+    mixer.setMono(!stereo);
 }
 
 } // namespace reluva::stawayteam

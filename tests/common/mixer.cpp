@@ -198,6 +198,11 @@ void testBalance() {
     m.setBalance(0);
     m.mix(out.data(), 1);
     CHECK(out[0] == 1000 && out[1] == 1000);
+    // Mono: both sides their mean.
+    m.setBalance(kMaxPan);
+    m.setMono(true);
+    m.mix(out.data(), 1);
+    CHECK(out[0] == 500 && out[1] == 500);
 }
 
 } // namespace

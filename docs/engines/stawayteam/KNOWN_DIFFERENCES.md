@@ -35,10 +35,6 @@ None yet.
   the program's DirectPlay, so the original can't be met; there's no IPX;
   and the missions aren't played over the network yet: the lobby's
   countdown runs out in it ([systems/network.md](systems/network.md)).
-- **The main menu:** in Settings, the sound's stereo and mixing
-  choices, and the keyboard's bindings, are kept but don't change
-  anything yet
-  ([systems/menus.md](systems/menus.md)).
 - **Saved games** are Reluva's own, not the game's: a save keeps the
   mission as it began, and loading one starts that mission again from
   its briefing; the save screens' picture and random numbers aren't

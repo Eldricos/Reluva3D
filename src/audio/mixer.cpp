@@ -311,6 +311,11 @@ void Mixer::setBalance(int balance) {
     _balance = std::clamp(balance, -kMaxPan, kMaxPan);
 }
 
+void Mixer::setMono(bool mono) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _mono = mono;
+}
+
 int Mixer::masterVolume() const {
     std::lock_guard<std::mutex> lock(_mutex);
     return _masterVolume;
@@ -529,6 +534,9 @@ void Mixer::mix(int16_t *out, int frames) {
             int32_t &side = _accumulator[_balance > 0 ? i : i + 1];
             side = int32_t(int64_t(side) * (kMaxPan - std::abs(_balance)) / kMaxPan);
         }
+    if (_mono)
+        for (size_t i = 0; i < _accumulator.size(); i += 2)
+            _accumulator[i] = _accumulator[i + 1] = (_accumulator[i] + _accumulator[i + 1]) / 2;
     for (size_t i = 0; i < _accumulator.size(); ++i)
         out[i] = int16_t(std::clamp<int32_t>(_accumulator[i], -32768, 32767));
     _channels.erase(std::remove_if(_channels.begin(), _channels.end(), [](const Channel &c) { return c.done; }),

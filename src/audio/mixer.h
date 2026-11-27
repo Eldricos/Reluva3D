@@ -257,6 +257,8 @@ public:
      * far side quieter, linearly (a game's balance setting).
      */
     void setBalance(int balance);
+    /** Both sides as their mean, for a game's mono output setting. */
+    void setMono(bool mono);
 
     /** The output's frames a second. */
     int outputRate() const { return _outputRate; }
@@ -343,6 +345,7 @@ private:
     int _typeVolume[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
     int _masterVolume = kMaxVolume;
     int _balance = 0;
+    bool _mono = false;
     bool _allPaused = false;
     std::vector<int32_t> _accumulator; // mix()'s working buffer, stereo
 };
