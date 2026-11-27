@@ -262,9 +262,11 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
     const std::string &kind = action->className;
     if (kind == "CAddToTeamAction") {
         // A character joins the team where they stand (Data, Worf, a
-        // rescued warrior): the roster's officer of their name, else one
-        // made of their part, its model their body; the part's gone from
-        // the map, its AI with it (inferred).
+        // rescued warrior): the program takes the same character, which
+        // must be a CEntityStarTrekTeamMember, gives it a CPlayerAI if it
+        // has none and puts it on the team (0x57a9f0, 0x5be8e0). Here, the
+        // roster's officer of their name, else one made of their part, its
+        // model their body, in its place.
         const std::string name = readText(action, "Who To Add");
         std::vector<size_t> parts;
         const int who = whoNamed(name, instigator, trigger);
@@ -291,7 +293,7 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
                     back = true;
                     joinedTeam(size_t(&o - _officers.data()));
                 }
-            if (back)
+            if (back || p.className != "CEntityStarTrekTeamMember")
                 continue;
             TeamMember member;
             member.firstName = p.name;

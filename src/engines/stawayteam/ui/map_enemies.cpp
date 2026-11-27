@@ -965,7 +965,7 @@ void MapScreen::updateEnemies(float seconds) {
             for (const float spread : {kPi / 4.0f, kPi}) {
                 const float a = away + (randomUnit() * 2.0f - 1.0f) * spread;
                 const float r = reach * (kRetreatNearest + randomUnit() * (kRetreatFarthest - kRetreatNearest));
-                e.route = route(e, o.x + std::cos(a) * r, o.y + std::sin(a) * r * ParticleSystem::kYToX);
+                e.route = route(e, o.x + std::cos(a) * r, o.y + std::sin(a) * r * ParticleSystem::kYToX, false);
                 if (!e.route.empty())
                     break;
             }

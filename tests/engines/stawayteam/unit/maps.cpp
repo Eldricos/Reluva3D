@@ -3177,8 +3177,10 @@ void testCompany() {
     // Ann and Bo; a prisoner to rescue, another to join the team, a third
     // held still; a lamp lit for a scientist.
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    // Only a CEntityStarTrekTeamMember can join the team (0x57a9f9).
     const auto character = [](const std::string &name, int x, int y) {
-        return "Level Part=CEntityWalking\n{\nName=" + name +
+        return "Level Part=" + std::string(name == "Helper" ? "CEntityStarTrekTeamMember" : "CEntityWalking") +
+               "\n{\nName=" + name +
                "\nActivity=Array\n{\nItem Count=1\nActivity=CBorgAI\n{\nCurrent State=Patrol\n"
                "Targeting=CBorgSetClosestTarget\n{\nValid Targets=\n}\n}\n}\nModel=Characters/Guard\nPosition X=" +
                std::to_string(x) + "\nPosition Y=" + std::to_string(y) + "\n}\n";

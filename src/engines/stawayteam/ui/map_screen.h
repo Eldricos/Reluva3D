@@ -851,13 +851,15 @@ private:
                          float opacity);
     // The way from (x0, y0) to (x1, y1) along the waypoints, round the
     // characters standing in it if that's not much farther, the officer or
-    // enemy given not among them; straight there without waypoints.
-    std::vector<std::pair<float, float>> route(float x0, float y0, float x1, float y1, int officer, int enemy) const;
+    // enemy given not among them; straight there without waypoints, or
+    // with no way by them, unless `straight` is false: then none.
+    std::vector<std::pair<float, float>> route(float x0, float y0, float x1, float y1, int officer, int enemy,
+                                               bool straight = true) const;
     std::vector<std::pair<float, float>> route(const Officer &o, float x, float y) const {
         return route(o.x, o.y, x, y, int(&o - _officers.data()), -1);
     }
-    std::vector<std::pair<float, float>> route(const Enemy &e, float x, float y) const {
-        return route(e.x, e.y, x, y, -1, int(&e - _enemies.data()));
+    std::vector<std::pair<float, float>> route(const Enemy &e, float x, float y, bool straight = true) const {
+        return route(e.x, e.y, x, y, -1, int(&e - _enemies.data()), straight);
     }
     void drawOfficer(Surface &view, const Officer &o, int left, int top, uint64_t now);
     const Animation &animation(const std::string &model, const std::string &sequence);

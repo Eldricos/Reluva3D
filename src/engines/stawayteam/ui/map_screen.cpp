@@ -718,15 +718,18 @@ bool MapScreen::shapeBlockedAt(const std::vector<std::pair<float, float>> &shape
     return false;
 }
 
-std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float x1, float y1, int officer,
-                                                      int enemy) const {
+std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float x1, float y1, int officer, int enemy,
+                                                      bool straight) const {
     // Planned as the move starts, round where the characters stand then,
     // and not again (0x4492c0): its path collide checker makes a line
     // through one cost five times as much, and one through anything else
     // in the way not taken (0x438d90); here the doors, the waypoints
     // already keeping off the rest (inferred).
     // With no waypoint near either end there's no way, and the walker goes
-    // straight there (0x52e8a4).
+    // straight there (0x52e8a4). It plans first with a plain checker, every
+    // line clear of what's fixed costing 1 (0x6523b8, 0x435d20), then with
+    // its own; with no way by either it goes straight there too (0x44960a,
+    // 0x4495ef).
     if (_wayPoints.points.empty() || !_wayPoints.reaches(x0, y0) || !_wayPoints.reaches(x1, y1))
         return {{x1, y1}};
     // Each character standing, by its outline (its body's or its model's
@@ -816,7 +819,10 @@ std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float 
         }
         return 1.0f;
     };
-    return _wayPoints.path(x0, y0, x1, y1, factor);
+    std::vector<std::pair<float, float>> way = _wayPoints.path(x0, y0, x1, y1, factor);
+    if (way.empty() && straight)
+        return {{x1, y1}};
+    return way;
 }
 
 void MapScreen::showDialog(const std::string &script, const std::string &line, const std::string &speaker) {

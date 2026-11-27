@@ -388,9 +388,12 @@ the main menu?" (`0x5bb190`).
   joining those within `MaxDistToConnect` (29).
 - **Going round one another:** only as the way is planned. A walker's
   move (`CEntityBehaviorMoveToPos`) plans its way along the waypoints as
-  it starts (`0x4492c0`), and not again: first with a plain checker,
-  then, if there's a way, with its `Path Collide Checker`
-  (`CPathCollideChecker`); with no way, it goes straight there. The
+  it starts (`0x4492c0`), and not again: first with a plain checker
+  (`0x6523b8`), whose lines clear of what's fixed (`0x438cb0`, as the
+  other's) each cost 1 (`0x435d20`), so it only asks whether there's a
+  way at all; then, if there is, with its `Path Collide Checker`
+  (`CPathCollideChecker`, `0x449548`); with no way by either, it goes
+  straight there (`0x44960a`, `0x4495ef`). The
   way runs from the waypoint nearest the start to the one nearest the
   end, each taken only if some waypoint is within four times the map's
   `MaxDistToConnect` (29 in every map) of that end (`0x52f230`, then the
@@ -419,7 +422,9 @@ the main menu?" (`0x5bb190`).
   wanderer's AI keeps a `TimeOfLastChangeDirectionDueToCollide`.
 - **Joining the team:** `CAddToTeamAction` (`Who To Add`: Data, Ambassador
   Worf, Brexen Ijoula, Ivan Verov, and `$Trigger` 19 times) makes a
-  character of the map one of the team, given a `CPlayerAI` as well;
+  character of the map one of the team (`0x57a9f0`): only a
+  `CEntityStarTrekTeamMember` (4 in the maps), the same character, given
+  a `CPlayerAI` if it has none and put on the team (`0x5be8e0`);
   `CRemoveFromTeamAction` (17) takes one off it. Data and Worf are in the
   roster (`Character/Starting Roster`).
 - **Rescues:** a prisoner is a character with an enemy's AI whose `Valid
@@ -1533,8 +1538,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   `0x56a450`) lists parts in, which decides who a touching trigger holds
   (the last found) and an anything-touching one's instigator (the
   first); whether the team's count takes in those down.
-- **Walking:** the plain checker's part in planning, and how a joined
-  character's made an officer.
 - **Fighting:** the beam's head's furthest (`+0x118`, set at `0x5c98a5` from what the
   shooter's slot `0xa4` gives); a strike's flashes; stunning, death,
   and the mouse for attacking.
