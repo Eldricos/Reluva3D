@@ -49,6 +49,7 @@ public:
         float construction = 0;
         std::string wireframe;         // its texture: "FWbase"
         std::array<bool, 5> systems{}; // as info_system's icons: shields, engines, weapons, life support, sensors
+        std::array<float, 5> systemHealth{1, 1, 1, 1, 1}; // each one's hit points, 0 to 1 of its most
         /** An order's button: its place (controlButton1 to 12), its icon and border sprites, whether the unit can. */
         struct Button {
             int slot = 1;

@@ -41,6 +41,25 @@ every second from then to 140 seconds.
 - **Destroyed,** it left debris and its officers went back to the count
   (4 to 2 of 120); the selection lost it.
 
+### Crew and systems
+
+The construction ship's crew, on the info panel once it was selected at
+67 seconds: 390 of 500 after five volleys, 235 after the sixth, the
+first all on its hull (155 at once), then 229, 224, 218 and 213 a
+second apart, about 5.5 a second between volleys. All five of its
+system icons were red from then, and it burned.
+
+From the definitions: a shot's ordnance has `shieldCrewModifier` (0.2
+for the starbase's) and `hullCrewModifier` (0.3); a unit has five
+systems, each with `<system>HitPoints` (10 each for a construction
+ship), `<system>HitPercent` (the share of the hits it takes: shields
+7.5, engines 2, weapons 10, life support 2.5, sensors 7.5; the hull 70,
+critical 0.5), `<system>RepairTime` and `<system>CrewLoss`, and
+`lifeSupportLoss` (2). `ART_CFG.h` has the debris: the "chunk manager",
+`ST3D_CHUNK_DENSITY` 0.8, pieces flying at up to 70 and turning at up
+to 4 a second, for up to 2.75 seconds, as the original's shards were
+gone within two.
+
 ### Chasing
 
 A shipyard built, and a destroyer (`fdestroy`, its `dpulse` reaching
@@ -136,8 +155,32 @@ From the same run's frames and draws:
   Antimatter Mines, each going for the nearest ship of another's in its
   sight and hitting it when within half its size *(guessed)*; and the
   cannons and launchers whose ordnance does damage, as a shot. A pod
-  built gives its player its weapon instead of a ship, and goes dark in
-  its station's menu.
+  built gives its player its weapon instead of a ship, its model fixed
+  to the station's next pod node (`podHardpoints`), and goes dark in
+  its station's menu. A mine gets up to its speed at its `shotAccel`.
+- **Crew and systems:** a hit takes crew, its ordnance's shield or hull
+  modifier a point of damage on each; what gets past the shields lands
+  on a system by their hit percents, taking its hit points and its
+  `CrewLoss` percent of the crew. A system with none left is out until
+  repaired over its repair time: engines out, the ship stops; weapons,
+  it doesn't fire; the shield generator, its shields don't come back;
+  life support, it loses `lifeSupportLoss` percent of its crew a second
+  *(inferred)*: the sixth volley's 155 by this is about 110 and the
+  systems' share, and the dribble about 5 a second, near the
+  original's; the shields' crew comes out about a fifth over. The info
+  panel shows the crew so, and each system's icon from green, whole, to
+  red, out. A unit burns while one of its systems is out, as the
+  original's caught fire after the first volley on its hull.
+- **Hit chance:** each shot hits by its weapon's `hitChance`, a roll of
+  Reluva's own; one that misses flies past.
+- **Destroyed,** a unit breaks up: its model's parts (not its single
+  triangles, as the original's shards look) at the chunk manager's
+  density, flying and turning as above; and its fireball's shockwave
+  follows by its `shockwaveDelay`, a flat ring of `xshock`'s 16 rays
+  in `wselfdes`'s texture and its colour, out at its rate to its
+  `radiusFactor` times the unit's size, at least `shockwaveMinimum`,
+  fading over its last `fadeFactor` *(guessed)*: what the factor
+  multiplies isn't known, nor the fade.
 - **Chasing:** a ship whose target is out of its weapons' reach flies
   to the point on its way at 0.95 of that reach from the target, set
   afresh as the target moves, and stops there; within reach it holds
@@ -172,19 +215,23 @@ From the same run's frames and draws:
 
 ## Open questions
 
-- The hull's share exactly, and what `damageThreshold`,
-  `shieldCrewModifier` and `hullCrewModifier` do (crew lost to hits).
+- The hull's share exactly, what `damageThreshold` does, and how crew
+  is lost on the shields: Reluva's loses a fifth too many.
+- Why all five system icons were red after one volley on the hull, and
+  what the critical hits (`criticalHitPercent`) do; what sensors out
+  do.
 - The shield's shape and size exactly, and whether it glows when a hit
   gets past it.
-- The debris, the shockwave (`xshock`), the blue sparks of hull hits,
-  and when the fires start: by the systems' damage, likely.
-- The hit chance's part (`hitChance`, 1 for these).
+- The debris's pieces as the original's (single triangles, likely),
+  the shockwave's size and fade, and the blue sparks of hull hits.
+- The hit chance's modifiers (`warpToHitModifier` and the rest).
 - The other special weapons: the cloaks, the beams, the wormholes, the
   area weapons and the rest, each its own; and how many mines a ship
   drops, how they move (`omegaTurn`, `shotAccel`) and what they do to
   shields.
-- The pod's model on its station (`podHardpoints`), not drawn yet; and
-  why Corbomite Reflector was dark before any research.
+- Which pod node the original takes first (its Antimatter Mines went
+  to an arm, not known which), the pod growing as it's built, and why
+  Corbomite Reflector was dark before any research.
 - What `RTS_CFG.h`'s `DOGFIGHT_RANGE` (70) and anchor settings do: the
   destroyer chasing a construction ship didn't circle it. And what a
   right click on an enemy does.

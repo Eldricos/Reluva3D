@@ -132,6 +132,13 @@ public:
     void draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind = false,
               const std::vector<std::optional<gfx::Vec3>> *teams = nullptr,
               const std::vector<bool> *damaged = nullptr) const; // damaged: each one's damage emitters run
+    /** One of a model's parts on its own, placed by `place` (a piece of a ship broken up). */
+    void drawPiece(const Built &built, size_t part, const gfx::Mat4 &place) const {
+        if (part < built.parts.size())
+            drawPart(built.parts[part], place, false);
+    }
+    /** A texture by name, made once; 0 if it isn't there. */
+    gfx::TextureId textureNamed(const std::string &name) { return texture(name); }
     /** A model at a time of its own (an explosion's since it began), not setView's. */
     void drawAt(const Built &built, const gfx::Mat4 &place, double seconds) const;
     /**

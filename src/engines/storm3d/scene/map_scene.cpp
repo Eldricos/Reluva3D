@@ -3,6 +3,8 @@
 
 #include "engines/storm3d/scene/map_scene.h"
 
+#include "engines/storm3d/formats/sod.h"
+
 #include "common/text.h"
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/scene/model_tree.h"
@@ -432,6 +434,12 @@ void MapScene::clear() {
     _teams.clear();
     _damaged.clear();
     _hiding.clear();
+    _pieces.clear();
+    _attached.clear();
+    if (_renderer)
+        for (const auto &[rays, mesh] : _rings)
+            _renderer->destroyMesh(mesh);
+    _rings.clear();
     _units.clear();
     _unitModels.clear();
     _background = nullptr;
@@ -582,6 +590,128 @@ void MapScene::drawEffect(const std::string &model, const gfx::Vec3 &at, double 
     _meshes.drawAt(*built, place, seconds);
 }
 
+void MapScene::breakUp(size_t unit, double now) {
+    if (unit >= _unitModels.size())
+        return;
+    const auto &[built, place] = _placed[_unitModels[unit].placed];
+    if (!built)
+        return;
+    // ART_CFG.h's chunk manager: the share of the model kept, the longest
+    // a piece lasts, and how fast at most it flies and turns.
+    constexpr float kDensity = 0.8f;
+    constexpr double kLifetime = 2.75;
+    constexpr float kVelocity = 70;
+    constexpr float kSpin = 4;
+    auto roll = [this] {
+        _pieceRoll ^= _pieceRoll << 13;
+        _pieceRoll ^= _pieceRoll >> 17;
+        _pieceRoll ^= _pieceRoll << 5;
+        return float(_pieceRoll >> 8) / float(1u << 24);
+    };
+    const gfx::Vec3 middle = _units[unit].middle();
+    for (size_t p = 0; p < built->parts.size(); ++p) {
+        if (roll() >= kDensity)
+            continue;
+        Piece piece;
+        piece.built = built;
+        piece.part = p;
+        piece.place = place;
+        piece.middle = middle;
+        // A way out, any way round.
+        gfx::Vec3 dir{roll() * 2 - 1, roll() * 2 - 1, roll() * 2 - 1};
+        const float n = std::max(1e-3f, std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]));
+        const float speed = kVelocity * roll();
+        for (size_t k = 0; k < 3; ++k)
+            piece.velocity[k] = dir[k] / n * speed;
+        gfx::Vec3 axis{roll() * 2 - 1, roll() * 2 - 1, roll() * 2 - 1};
+        const float m = std::max(1e-3f, std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]));
+        for (size_t k = 0; k < 3; ++k)
+            piece.axis[k] = axis[k] / m;
+        piece.spin = kSpin * (roll() * 2 - 1);
+        piece.began = now;
+        piece.life = kLifetime * (0.5 + 0.5 * roll());
+        _pieces.push_back(piece);
+    }
+}
+
+void MapScene::drawDebris(double now) {
+    std::erase_if(_pieces, [now](const Piece &p) { return now - p.began >= p.life; });
+    if (!_renderer)
+        return;
+    for (const Piece &p : _pieces) {
+        const float t = float(now - p.began);
+        // Turned about its unit's middle, then carried along its way.
+        const float a = p.spin * t;
+        const float c = std::cos(a);
+        const float s = std::sin(a);
+        const gfx::Vec3 &u = p.axis;
+        gfx::Mat4 turn = gfx::identity();
+        turn[0] = c + u[0] * u[0] * (1 - c);
+        turn[1] = u[1] * u[0] * (1 - c) + u[2] * s;
+        turn[2] = u[2] * u[0] * (1 - c) - u[1] * s;
+        turn[4] = u[0] * u[1] * (1 - c) - u[2] * s;
+        turn[5] = c + u[1] * u[1] * (1 - c);
+        turn[6] = u[2] * u[1] * (1 - c) + u[0] * s;
+        turn[8] = u[0] * u[2] * (1 - c) + u[1] * s;
+        turn[9] = u[1] * u[2] * (1 - c) - u[0] * s;
+        turn[10] = c + u[2] * u[2] * (1 - c);
+        gfx::Mat4 to = gfx::identity();
+        gfx::Mat4 back = gfx::identity();
+        for (size_t k = 0; k < 3; ++k) {
+            to[12 + k] = p.middle[k] + p.velocity[k] * t;
+            back[12 + k] = -p.middle[k];
+        }
+        _meshes.drawPiece(*p.built, p.part, gfx::multiply(gfx::multiply(to, gfx::multiply(turn, back)), p.place));
+    }
+}
+
+void MapScene::drawShockwave(const gfx::Vec3 &at, float radius, int rays, const std::string &texture,
+                             const std::array<float, 3> &colour) {
+    if (!_renderer || radius <= 0 || rays < 3)
+        return;
+    auto ring = _rings.find(rays);
+    if (ring == _rings.end()) {
+        // A flat band from 0.8 to 1 of the radius, a quad a ray, the
+        // texture once across the band and round each ray.
+        std::vector<gfx::Vertex> vertices;
+        std::vector<uint32_t> indices;
+        for (int r = 0; r <= rays; ++r) {
+            const float a = float(r) / float(rays) * 2 * 3.14159265f;
+            for (const float reach : {0.8f, 1.0f}) {
+                gfx::Vertex v{};
+                v.pos[0] = std::sin(a) * reach;
+                v.pos[2] = std::cos(a) * reach;
+                v.normal[1] = 1;
+                v.uv[0] = float(r % 2);
+                v.uv[1] = reach < 1 ? 1.0f : 0.0f;
+                std::fill(std::begin(v.color), std::end(v.color), uint8_t(255));
+                vertices.push_back(v);
+            }
+        }
+        for (uint32_t r = 0; r < uint32_t(rays); ++r) {
+            const uint32_t i = r * 2;
+            indices.insert(indices.end(), {i, i + 1, i + 3, i, i + 3, i + 2});
+        }
+        gfx::MeshId mesh = 0;
+        if (_renderer->createMesh(vertices, indices, mesh))
+            return;
+        ring = _rings.emplace(rays, mesh).first;
+    }
+    gfx::DrawCall call;
+    call.mesh = ring->second;
+    call.indexCount = uint32_t(rays) * 6;
+    call.model = gfx::identity();
+    call.model[0] = call.model[5] = call.model[10] = radius;
+    call.model[12] = at[0], call.model[13] = at[1], call.model[14] = at[2];
+    call.texture = _meshes.textureNamed(texture);
+    call.color = {colour[0], colour[1], colour[2], 1};
+    call.state.cull = gfx::Cull::kNone;
+    call.state.src = gfx::Blend::kOne;
+    call.state.dst = gfx::Blend::kOne;
+    call.state.depthWrite = false;
+    _renderer->draw(call);
+}
+
 void MapScene::drawShieldHit(size_t unit, const gfx::Vec3 &from, int frame, const std::array<float, 3> &colour,
                              const std::string &texture) {
     if (!_renderer || unit >= _unitModels.size())
@@ -598,11 +728,40 @@ void MapScene::setDamaged(size_t unit, bool damaged) {
     _damaged[_unitModels[unit].placed] = damaged;
 }
 
+bool MapScene::attachTo(size_t unit, const std::string &node, const std::string &odf) {
+    if (unit >= _unitModels.size())
+        return false;
+    const Look &host = lookFor(_units[unit].odf);
+    const Look &look = lookFor(odf);
+    const SodMeshes::Built *built = look.model.empty() ? nullptr : _meshes.model(look.model);
+    std::vector<uint8_t> data;
+    SodModel model;
+    if (!built || host.model.empty() || _files.read("SOD/" + host.model + ".sod", data) || model.parse(data))
+        return false;
+    const std::vector<gfx::Mat4> world = ModelTree::worldMatrices(model);
+    for (size_t i = 0; i < model.nodes.size() && i < world.size(); ++i) {
+        if (!text::equalsIgnoreCase(model.nodes[i].name, node))
+            continue;
+        gfx::Mat4 scale = gfx::identity();
+        scale[0] = scale[5] = scale[10] = look.scale;
+        const gfx::Mat4 place = gfx::multiply(gfx::multiply(_placed[_unitModels[unit].placed].second, world[i]), scale);
+        _hiding.resize(_placed.size());
+        const Hiding hiding = _hiding[_unitModels[unit].placed];
+        _placed.push_back({built, place});
+        _hiding.push_back(hiding);
+        _attached.emplace(unit, _placed.size() - 1);
+        return true;
+    }
+    return false;
+}
+
 void MapScene::hideUnit(size_t unit) {
     // Its draw scaled to nothing: its place in the lists stays, as the
     // play's own lists go by it.
     if (unit < _unitModels.size())
         _placed[_unitModels[unit].placed].second = gfx::Mat4{};
+    for (auto [it, end] = _attached.equal_range(unit); it != end; ++it)
+        _placed[it->second].second = gfx::Mat4{};
     // And its box far below the map, where nothing picks it.
     if (unit < _units.size())
         _units[unit].lo = _units[unit].hi = _units[unit].at = {0, -1e6f, 0};

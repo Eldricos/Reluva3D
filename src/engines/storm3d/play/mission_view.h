@@ -325,6 +325,7 @@ private:
     std::vector<std::vector<Combat::Special>> _specials; // each unit's special weapons
     std::set<std::string> _pods;                         // the research keys pods give (Combat::researchKeyOf)
     std::map<int, std::set<std::string>> _researched;    // each player's, by slot
+    std::map<size_t, int> _podsAt;                       // pods fixed to each research station
     std::string _arming; // a special weapon's button pressed that wants a target: the next click's
     // A mine dropped: where, whose, and what it does, homing on the nearest
     // enemy ship in its sight.
@@ -333,6 +334,7 @@ private:
         int slot = 0;
         Combat::Special special;
         double left = 0; // seconds of its life
+        float speed = 0; // now, up to its shot's
     };
     std::vector<Mine> _mines;
     std::vector<bool> _chasing; // as _targets: its goal is its target's, set by pursue()
@@ -352,6 +354,15 @@ private:
         std::string model;
         gfx::Vec3 at{};
         double began = 0;
+        // Its shockwave (the fireball's shockwave, xshock): when, how fast,
+        // how far, and how it's drawn.
+        double shockDelay = 0;
+        float shockRate = 0; // 0: none
+        float shockRadius = 0;
+        float shockFade = 0; // the share of its way over which it fades out
+        int shockRays = 16;
+        std::string shockTexture;
+        std::array<float, 3> shockColour{1, 1, 1};
     };
     std::vector<Explosion> _explosions;
     std::vector<Player> _players;

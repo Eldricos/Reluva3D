@@ -360,14 +360,20 @@ void Hud::drawInfo(Surface &screen, const Unit &unit) {
     sprite(_layout.text("infoSingleConstructionBar"), "infoSingleConstructionBarArea", kConstruction, false,
            unit.construction);
     drawWireframe(screen, unit.wireframe, at("infoSingleWireframeIconArea"));
-    // The systems: each icon added on in dark grey, then in green if the
-    // unit has it.
+    // The systems: each icon added on in dark grey, then if the unit has
+    // it, green whole to red out (guessed: the original's were all red
+    // after its first volley on the hull).
     for (size_t i = 0; i < unit.systems.size(); ++i) {
         const std::array<int, 4> a = at("infoSystem_" + std::to_string(i));
         const std::string icon = _layout.text("infoSystem") + "." + std::to_string(i);
         drawSprite(screen, icon, a[0], a[1], a[2], a[3], kSystemOff, true);
+        const float h = std::clamp(unit.systemHealth[i], 0.0f, 1.0f);
         if (unit.systems[i])
-            drawSprite(screen, icon, a[0], a[1], a[2], a[3], kGreen, true);
+            drawSprite(screen, icon, a[0], a[1], a[2], a[3],
+                       h >= 1 ? kGreen
+                              : std::array<uint8_t, 3>{uint8_t(std::lround(255 * (1 - h))),
+                                                       uint8_t(std::lround(kGreen[1] * h)), 0},
+                       true);
     }
 }
 

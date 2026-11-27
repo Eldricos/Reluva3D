@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <map>
 #include <set>
 
@@ -874,9 +875,13 @@ int MissionView::liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const {
 void MissionView::fight(double seconds) {
     const std::vector<MapScene::Unit> &units = _scene.units();
     const size_t count = std::min({units.size(), _vitals.size(), _weapons.size(), _targets.size(), _dead.size()});
+    // Its fires burn while one of its systems is out: the original's ship
+    // caught fire after the first volley on its hull.
     for (size_t i = 0; i < count; ++i)
-        if (!_dead[i])
+        if (!_dead[i]) {
             Combat::regenerate(_vitals[i], seconds);
+            _scene.setDamaged(i, _vitals[i].damaged());
+        }
     for (std::vector<Combat::Special> &specials : _specials)
         for (Combat::Special &sp : specials)
             sp.ready = std::max(0.0, sp.ready - seconds);
@@ -896,12 +901,24 @@ void MissionView::fight(double seconds) {
         const float distance = std::hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
         for (Combat::Weapon &w : _weapons[i]) {
             w.ready = std::max(0.0, w.ready - seconds);
-            if (w.ready > 0 || distance > w.range)
+            // Its weapons out, it doesn't fire.
+            if (w.ready > 0 || distance > w.range || _vitals[i].systems[Combat::kWeapons].out())
                 continue;
             // A roll from a little generator of our own, the same each game.
             _roll = _roll * 1664525u + 1013904223u;
             const float roll = float(_roll >> 8) / float(1u << 24);
-            _shots.push_back({size_t(t), from, w.speed, Combat::damageOf(w, roll), w.sprite, from, units[i].slot});
+            // Another roll for whether it hits, by its hit chance.
+            _roll = _roll * 1664525u + 1013904223u;
+            const bool miss = float(_roll >> 8) / float(1u << 24) >= w.hitChance;
+            _shots.push_back({size_t(t),
+                              from,
+                              w.speed,
+                              Combat::damageOf(w, roll),
+                              w.sprite,
+                              from,
+                              units[i].slot,
+                              {w.shieldCrew, w.hullCrew},
+                              miss});
             w.ready = w.delay;
         }
     }
@@ -922,7 +939,12 @@ void MissionView::fight(double seconds) {
         if (left <= step || shot.speed <= 0) {
             Combat::Vitals &v = _vitals[shot.target];
             const bool shielded = v.shields > 0;
-            Combat::hit(v, shot.damage);
+            if (shot.miss) {
+                _shots.erase(_shots.begin() + std::ptrdiff_t(s));
+                continue;
+            }
+            _roll = _roll * 1664525u + 1013904223u;
+            Combat::hit(v, shot.damage, shot.crew, float(_roll >> 8) / float(1u << 24));
             // The shield glows where it's hit, a new hit starting it over;
             // a hit on the hull alone doesn't (guessed).
             if (shielded) {
@@ -930,9 +952,7 @@ void MissionView::fight(double seconds) {
                 _shieldHits.push_back(
                     {shot.target, shot.from, double(_last) / 1000, v.maxShields > 0 ? v.shields / v.maxShields : 0});
             }
-            // Its fires once its hull is down to two thirds (guessed: the
-            // original's ship was burning after its sixth volley, not its fifth).
-            _scene.setDamaged(shot.target, v.hull < v.maxHull * 2 / 3);
+
             if (!v.alive())
                 killed.emplace_back(shot.target, shot.slot);
             _shots.erase(_shots.begin() + std::ptrdiff_t(s));
@@ -962,9 +982,39 @@ void MissionView::destroy(size_t unit, int by) {
         Odf def;
         Odf fireball;
         if (!def.load(_scene.units()[unit].odf + ".odf", loader) && !def.string("fireball").empty() &&
-            !fireball.load(def.string("fireball") + ".odf", loader) && !fireball.string("dbName").empty())
-            _explosions.push_back({fireball.string("dbName"), _scene.units()[unit].middle(), double(_last) / 1000});
+            !fireball.load(def.string("fireball") + ".odf", loader) && !fireball.string("dbName").empty()) {
+            Explosion e;
+            e.model = fireball.string("dbName");
+            e.at = _scene.units()[unit].middle();
+            e.began = double(_last) / 1000;
+            // Its shockwave follows: xfirebmd's shockwaveDelay, out to
+            // xshock's radiusFactor times the unit's size, at least
+            // shockwaveMinimum *(guessed: what the factor multiplies)*.
+            Odf shock;
+            if (!fireball.string("shockwave").empty() && !shock.load(fireball.string("shockwave") + ".odf", loader)) {
+                e.shockDelay = fireball.number("shockwaveDelay");
+                e.shockRate = float(shock.number("rate"));
+                e.shockRadius = std::max(float(fireball.number("shockwaveMinimum")),
+                                         float(shock.number("radiusFactor")) * _scene.units()[unit].radius());
+                e.shockFade = float(shock.number("fadeFactor"));
+                e.shockRays = int(shock.number("rays", 16));
+                e.shockTexture = shock.string("texture");
+                // "1.0 0.3 0.0": its three numbers in turn.
+                const std::string colour = shock.string("color");
+                const char *at = colour.c_str();
+                for (size_t k = 0; k < 3 && *at; ++k) {
+                    char *end = nullptr;
+                    e.shockColour[k] = std::strtof(at, &end);
+                    if (end == at)
+                        break;
+                    at = end;
+                }
+            }
+            _explosions.push_back(e);
+        }
     }
+    // And breaks up, its pieces flying out.
+    _scene.breakUp(unit, double(_last) / 1000);
     _scene.hideUnit(unit);
     // Its officers go back to the count: the original's 4 of 120 became 2
     // as its construction ship went.
@@ -1068,6 +1118,15 @@ void MissionView::launch(size_t builder, const std::string &item) {
     Odf def;
     if (!def.load(item + ".odf", loaderOf(_files.files())) && text::equalsIgnoreCase(def.string("classLabel"), "pod")) {
         _researched[from.slot].insert(Combat::researchKeyOf(def.string("tooltip")));
+        // Fixed to the station's next free pod node (podHardpoints), as the
+        // original's was to one of its arms.
+        Odf station;
+        if (!station.load(from.odf + ".odf", loaderOf(_files.files()))) {
+            const std::vector<std::string> nodes = station.strings("podHardpoints");
+            int &used = _podsAt[builder];
+            if (size_t(used) < nodes.size() && _scene.attachTo(builder, nodes[size_t(used)], item))
+                ++used;
+        }
         return;
     }
     const gfx::Vec3 to = launchPointOf(from.at);
@@ -1435,9 +1494,24 @@ void MissionView::drawEffects(double now) {
     // The explosion's sprites are drawn for 1.1 to 1.5 seconds (their
     // "draw" animations); it ends with the last.
     constexpr double kExplosion = 1.5;
-    std::erase_if(_explosions, [&](const Explosion &e) { return now - e.began >= kExplosion; });
-    for (const Explosion &e : _explosions)
-        _scene.drawEffect(e.model, e.at, now - e.began);
+    std::erase_if(_explosions, [&](const Explosion &e) {
+        const double shock = e.shockRate > 0 ? e.shockDelay + e.shockRadius / e.shockRate : 0;
+        return now - e.began >= std::max(kExplosion, shock);
+    });
+    for (const Explosion &e : _explosions) {
+        if (now - e.began < kExplosion)
+            _scene.drawEffect(e.model, e.at, now - e.began);
+        const double t = now - e.began - e.shockDelay;
+        if (e.shockRate <= 0 || t < 0)
+            continue;
+        // Out at its rate, fading over the last of its way.
+        const float radius = float(t) * e.shockRate;
+        const float left = 1 - radius / e.shockRadius;
+        const float bright = e.shockFade > 0 ? std::clamp(left / e.shockFade, 0.0f, 1.0f) : 1.0f;
+        _scene.drawShockwave(e.at, radius, e.shockRays, e.shockTexture,
+                             {e.shockColour[0] * bright, e.shockColour[1] * bright, e.shockColour[2] * bright});
+    }
+    _scene.drawDebris(now);
     for (const Mine &m : _mines)
         _scene.drawEffect(m.special.model, m.at, now);
 }
@@ -1654,6 +1728,7 @@ void MissionView::stop() {
     _specials.clear();
     _pods.clear();
     _researched.clear();
+    _podsAt.clear();
     _arming.clear();
     _mines.clear();
     _dead.clear();
@@ -1875,7 +1950,7 @@ void MissionView::fireSpecial(size_t unit, Combat::Special &special, int target)
     special.ready = special.delay;
     if (special.kind == "minelayer") {
         // Left where the ship is, to wait for a ship of another's.
-        _mines.push_back({units[unit].middle(), units[unit].slot, special, special.life});
+        _mines.push_back({units[unit].middle(), units[unit].slot, special, special.life, 0});
         return;
     }
     if (target < 0 || size_t(target) >= units.size() || _dead[size_t(target)])
@@ -1911,13 +1986,19 @@ void MissionView::moveMines(double seconds) {
         bool spent = mine.left <= 0;
         if (prey >= 0) {
             const gfx::Vec3 c = units[size_t(prey)].middle();
-            const float step = float(mine.special.speed * seconds);
+            // Up to its speed at its shotAccel, from still.
+            mine.speed = mine.special.accel > 0
+                             ? std::min(mine.special.speed, mine.speed + float(mine.special.accel * seconds))
+                             : mine.special.speed;
+            const float step = float(mine.speed * seconds);
             if (best <= std::max(step, units[size_t(prey)].radius() * 0.5f)) {
                 _roll = _roll * 1664525u + 1013904223u;
                 Combat::Weapon as;
                 as.damage = mine.special.damage;
                 as.variance = mine.special.variance;
-                Combat::hit(_vitals[size_t(prey)], Combat::damageOf(as, float(_roll >> 8) / float(1u << 24)));
+                const float damage = Combat::damageOf(as, float(_roll >> 8) / float(1u << 24));
+                _roll = _roll * 1664525u + 1013904223u;
+                Combat::hit(_vitals[size_t(prey)], damage, mine.special.crew, float(_roll >> 8) / float(1u << 24));
                 if (!_vitals[size_t(prey)].alive())
                     killed.emplace_back(size_t(prey), mine.slot);
                 spent = true;
@@ -1996,6 +2077,11 @@ void MissionView::draw(uint64_t millis) {
     for (size_t i = 0; i < _ships.size(); ++i) {
         if (!_physics[i] || (!_ships[i].goal && _ships[i].speed == 0))
             continue;
+        // Its engines out, it drifts to a stop where it is.
+        if (i < _vitals.size() && _vitals[i].systems[Combat::kEngines].out()) {
+            _ships[i].speed = 0;
+            continue;
+        }
         for (int s = 0; s < steps; ++s)
             Movement::step(_ships[i], *_physics[i], seconds / steps);
         if (!_ships[i].goal && std::abs(_ships[i].speed) < 0.01f)
@@ -2103,8 +2189,15 @@ void MissionView::draw(uint64_t millis) {
         const size_t i = size_t(_selection[k]);
         if (i < _vitals.size() && _vitals[i].maxShields > 0)
             _display[k].shields = _vitals[i].shields / _vitals[i].maxShields;
-        if (i < _vitals.size())
-            _display[k].energy = _vitals[i].maxEnergy > 0 ? _vitals[i].energy / _vitals[i].maxEnergy : 0;
+        if (i < _vitals.size()) {
+            const Combat::Vitals &v = _vitals[i];
+            _display[k].energy = v.maxEnergy > 0 ? v.energy / v.maxEnergy : 0;
+            if (v.maxCrew > 0)
+                _display[k].crew = int(std::lround(v.crew));
+            for (size_t n = 0; n < v.systems.size(); ++n)
+                _display[k].systemHealth[n] =
+                    v.systems[n].maxHitPoints > 0 ? v.systems[n].hitPoints / v.systems[n].maxHitPoints : 1;
+        }
     }
     Hud::Unit orders = _orders;
     // A special weapon's button lit while any unit selected could fire it.

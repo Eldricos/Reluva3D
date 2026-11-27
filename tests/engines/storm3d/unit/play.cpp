@@ -646,6 +646,34 @@ void testSpecials() {
     CHECK(v.energy == 1000);
 }
 
+// Crew lost as a ship's hit: a point of damage on the shields costs the
+// shot's shieldCrewModifier, on the hull its hullCrewModifier; a hull hit
+// landing on a system takes its hit points, and life support out drains
+// the crew; systems are repaired over their repair time.
+void testCrewAndSystems() {
+    using reluva::storm3d::Combat;
+    Combat::Vitals v;
+    v.maxShields = v.shields = 10;
+    v.maxHull = v.hull = 700;
+    v.maxCrew = v.crew = 500;
+    v.lifeSupportLoss = 2;
+    Combat::SystemState &life = v.systems[Combat::kLifeSupport];
+    life.maxHitPoints = life.hitPoints = 10;
+    life.hitPercent = 100;
+    life.repairTime = 10;
+    // 22 on a ship with 10 shields left: 10 on them, 12 past, 24 off the hull.
+    Combat::hit(v, 22, {0.2f, 0.3f}, 0.5f);
+    CHECK(std::fabs(v.hull - 676) < 1e-3f);
+    CHECK(life.out() && v.damaged());
+    CHECK(std::fabs(v.crew - (500 - 2 - 7.2f)) < 1e-3f);
+    // Out, its crew drains 2% a second; repaired over its 10 seconds.
+    const float before = v.crew;
+    Combat::regenerate(v, 1);
+    CHECK(v.crew < before && v.crew > before * 0.97f);
+    Combat::regenerate(v, 10);
+    CHECK(!life.out() && !v.damaged());
+}
+
 // The original's destroyer: within its reach of 250 it held; its target
 // flown to 300 away, it flew to the edge of its reach on the way.
 void testChase() {
@@ -677,6 +705,7 @@ static const reluva::test::Suite kSuite("storm3d.unit.play",
                                             {"placing", [](const std::filesystem::path &) { testPlacing(); }},
                                             {"chase", [](const std::filesystem::path &) { testChase(); }},
                                             {"specials", [](const std::filesystem::path &) { testSpecials(); }},
+                                            {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
                                             {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                             {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                             {"combat", [](const std::filesystem::path &) { testCombat(); }},

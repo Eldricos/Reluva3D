@@ -28,6 +28,17 @@ Combat::Vitals Combat::vitalsOf(const Odf &unit) {
     v.shieldRate = float(unit.number("shieldRate"));
     v.maxEnergy = v.energy = float(unit.number("maxSpecialEnergy"));
     v.energyRate = float(unit.number("specialEnergyRate"));
+    v.maxCrew = v.crew = float(unit.number("maximumCrew", unit.number("crewCost")));
+    v.lifeSupportLoss = float(unit.number("lifeSupportLoss"));
+    static const char *const kNames[kSystems] = {"shieldGenerator", "engines", "weapons", "lifeSupport", "sensors"};
+    for (size_t i = 0; i < kSystems; ++i) {
+        const std::string name = kNames[i];
+        SystemState &s = v.systems[i];
+        s.maxHitPoints = s.hitPoints = float(unit.number(name + "HitPoints"));
+        s.hitPercent = float(unit.number(name + "HitPercent"));
+        s.repairTime = float(unit.number(name + "RepairTime"));
+        s.crewLoss = float(unit.number(name + "CrewLoss"));
+    }
     return v;
 }
 
@@ -50,6 +61,9 @@ std::vector<Combat::Weapon> Combat::weaponsOf(const Odf &unit, const Odf::Loader
         w.variance = float(ordnance.number("damageVariance"));
         w.speed = float(ordnance.number("shotSpeed"));
         w.sprite = ordnance.string("Sprite");
+        w.hitChance = float(weapon.number("hitChance", 1));
+        w.shieldCrew = float(ordnance.number("shieldCrewModifier"));
+        w.hullCrew = float(ordnance.number("hullCrewModifier"));
         weapons.push_back(w);
     }
     return weapons;
@@ -82,6 +96,8 @@ std::vector<Combat::Special> Combat::specialsOf(const Odf &unit, const Odf::Load
             s.variance = float(ordnance.number("damageVariance"));
             s.speed = float(ordnance.number("shotSpeed"));
             s.detect = float(ordnance.number("detectRadius"));
+            s.accel = float(ordnance.number("shotAccel"));
+            s.crew = {float(ordnance.number("shieldCrewModifier")), float(ordnance.number("hullCrewModifier"))};
             s.life = ordnance.number("lifeSpan");
             s.sprite = ordnance.string("Sprite");
             s.model = ordnance.string("shotGeometry");
@@ -118,17 +134,48 @@ std::string Combat::researchKeyOf(const std::string &tooltip) {
     return text::toLower(squeezed);
 }
 
-void Combat::hit(Vitals &vitals, float damage) {
+bool Combat::Vitals::damaged() const {
+    for (const SystemState &s : systems)
+        if (s.out())
+            return true;
+    return false;
+}
+
+void Combat::hit(Vitals &vitals, float damage, const CrewCost &crew, float roll) {
     const float onShields = std::min(vitals.shields, damage);
     vitals.shields -= onShields;
-    vitals.hull = std::max(0.0f, vitals.hull - (damage - onShields) * kHullFactor);
+    const float onHull = (damage - onShields) * kHullFactor;
+    vitals.hull = std::max(0.0f, vitals.hull - onHull);
+    float lost = onShields * crew.shields + onHull * crew.hull;
+    // What gets past the shields lands on a system by their hit percents,
+    // the rest of the hundred on the hull alone.
+    if (onHull > 0) {
+        float at = std::clamp(roll, 0.0f, 1.0f) * 100;
+        for (SystemState &s : vitals.systems) {
+            if (s.maxHitPoints <= 0 || at >= s.hitPercent) {
+                at -= s.hitPercent;
+                continue;
+            }
+            s.hitPoints = std::max(0.0f, s.hitPoints - onHull);
+            lost += vitals.crew * s.crewLoss / 100;
+            break;
+        }
+    }
+    vitals.crew = std::max(0.0f, vitals.crew - lost);
 }
 
 void Combat::regenerate(Vitals &vitals, double seconds) {
     if (!vitals.alive())
         return;
-    vitals.shields = std::min(vitals.maxShields, vitals.shields + float(vitals.shieldRate * seconds));
+    // Without its shield generator, its shields don't come back.
+    if (!vitals.systems[kShieldGenerator].out())
+        vitals.shields = std::min(vitals.maxShields, vitals.shields + float(vitals.shieldRate * seconds));
     vitals.energy = std::min(vitals.maxEnergy, vitals.energy + float(vitals.energyRate * seconds));
+    if (vitals.systems[kLifeSupport].out())
+        vitals.crew = std::max(0.0f, vitals.crew - vitals.crew * vitals.lifeSupportLoss / 100 * float(seconds));
+    for (SystemState &s : vitals.systems)
+        if (s.maxHitPoints > 0 && s.repairTime > 0)
+            s.hitPoints = std::min(s.maxHitPoints, s.hitPoints + s.maxHitPoints / s.repairTime * float(seconds));
 }
 
 float Combat::damageOf(const Weapon &weapon, float roll) {

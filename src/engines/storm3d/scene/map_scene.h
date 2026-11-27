@@ -204,6 +204,20 @@ public:
      */
     void drawEffect(const std::string &model, const gfx::Vec3 &at, double seconds);
     /**
+     * Breaks a unit's model up as it's destroyed, at the game's `now`: its
+     * parts, ST3D_CHUNK_DENSITY of them, flying out and turning, each for
+     * up to ST3D_CHUNK_MAX_LIFETIME seconds (ART_CFG.h's).
+     */
+    void breakUp(size_t unit, double now);
+    /** Draws the pieces still flying, after draw. */
+    void drawDebris(double now);
+    /**
+     * Draws a shockwave after draw: a flat ring of `rays` about `at`,
+     * `radius` out, `texture` added on in `colour`.
+     */
+    void drawShockwave(const gfx::Vec3 &at, float radius, int rays, const std::string &texture,
+                       const std::array<float, 3> &colour);
+    /**
      * Draws a unit's shield glowing where it's hit from `from`, after
      * draw: frame `frame` of `texture`'s flip-book in `colour`.
      */
@@ -211,6 +225,12 @@ public:
                        const std::string &texture);
     /** Whether a unit's damage emitters run (its fires). */
     void setDamaged(size_t unit, bool damaged);
+    /**
+     * Fixes a definition's model to a node of a standing unit's (a pod on
+     * its research station's `pod01`), drawn and hidden with it.
+     * @return false if the node or the model isn't there
+     */
+    bool attachTo(size_t unit, const std::string &node, const std::string &odf);
     /** Stops drawing a unit: one destroyed. */
     void hideUnit(size_t unit);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
@@ -263,6 +283,23 @@ private:
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
     std::vector<bool> _damaged;                   // as _placed: its damage emitters run
+    // A piece of a unit broken up: its model's part, where it was, and how
+    // it flies and turns from the time it broke.
+    struct Piece {
+        const SodMeshes::Built *built = nullptr;
+        size_t part = 0;
+        gfx::Mat4 place{};
+        gfx::Vec3 middle{};   // its unit's, about which it turns
+        gfx::Vec3 velocity{}; // units a second
+        gfx::Vec3 axis{0, 1, 0};
+        float spin = 0; // radians a second
+        double began = 0;
+        double life = 0;
+    };
+    std::vector<Piece> _pieces;
+    std::multimap<size_t, size_t> _attached; // by unit: what's fixed to it, in _placed
+    uint32_t _pieceRoll = 2463534242u;       // the pieces' rolls: a generator of Reluva's own
+    std::map<int, gfx::MeshId> _rings;       // drawShockwave's, by rays
     // As _placed: whether the cover can hide it (not the planets and suns,
     // nor the player's units), and where it is.
     struct Hiding {

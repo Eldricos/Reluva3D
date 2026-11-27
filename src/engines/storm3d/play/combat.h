@@ -6,6 +6,7 @@
 #include "engines/storm3d/formats/odf.h"
 #include "graphics/gfx3d.h"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -20,6 +21,17 @@ namespace reluva::storm3d {
  */
 class Combat {
 public:
+    /** A unit's systems, in the order of the info panel's icons. */
+    enum System { kShieldGenerator, kEngines, kWeapons, kLifeSupport, kSensors, kSystems };
+    /** One of them: its hit points now and most, how much of a hull hit lands on it, and its repairs. */
+    struct SystemState {
+        float hitPoints = 0;
+        float maxHitPoints = 0; // 0: the unit hasn't it
+        float hitPercent = 0;   // of the hits past the shields, which land on it
+        float repairTime = 0;   // seconds from none to whole
+        float crewLoss = 0;     // of its crew, in percent, as it's hit
+        bool out() const { return maxHitPoints > 0 && hitPoints <= 0; }
+    };
     /** A unit's shields and hull, in its maxHealth's points. */
     struct Vitals {
         float shields = 0;
@@ -30,7 +42,13 @@ public:
         float energy = 0;     // special energy, for the special weapons
         float maxEnergy = 0;  // maxSpecialEnergy
         float energyRate = 0; // specialEnergyRate, regained a second
+        float crew = 0;
+        float maxCrew = 0;
+        float lifeSupportLoss = 0; // of its crew, in percent a second, while its life support is out
+        std::array<SystemState, kSystems> systems{};
         bool alive() const { return hull > 0; }
+        /** Whether any of its systems is out (its fires burn). */
+        bool damaged() const;
     };
     /**
      * A unit's, from its definition: shields and hull both its maxHealth,
@@ -40,17 +58,25 @@ public:
 
     /** One of a unit's weapons that fires at what it attacks (not its special weapons). */
     struct Weapon {
-        float range = 0;    // the weapon's
-        double delay = 0;   // shotDelay, seconds between its shots
-        float damage = 0;   // its ordnance's damageBase
-        float variance = 0; // and damageVariance, either way
-        float speed = 0;    // the shot's, units a second
-        std::string sprite; // the shot's sprite: "pphaser"
-        double ready = 0;   // seconds until it can fire again
+        float range = 0;      // the weapon's
+        double delay = 0;     // shotDelay, seconds between its shots
+        float damage = 0;     // its ordnance's damageBase
+        float variance = 0;   // and damageVariance, either way
+        float speed = 0;      // the shot's, units a second
+        std::string sprite;   // the shot's sprite: "pphaser"
+        float hitChance = 1;  // of a shot hitting
+        float shieldCrew = 0; // its ordnance's shieldCrewModifier: crew lost a point of damage on the shields
+        float hullCrew = 0;   // and hullCrewModifier, a point on the hull
+        double ready = 0;     // seconds until it can fire again
     };
     /** A unit's weapons from weapon1 on, their ordnance read through `loader`; those with `special` left out. */
     static std::vector<Weapon> weaponsOf(const Odf &unit, const Odf::Loader &loader);
 
+    /** What a hit takes besides hit points: crew a point of damage, on the shields and on the hull. */
+    struct CrewCost {
+        float shields = 0;
+        float hull = 0;
+    };
     /** One of a unit's special weapons (`special` 1), fired by its button. */
     struct Special {
         std::string weapon;   // its definition: "gamine"
@@ -66,9 +92,11 @@ public:
         float damage = 0;
         float variance = 0;
         float speed = 0;
+        float accel = 0;  // shotAccel: how fast it gets up to its speed, units a second each second
         float detect = 0; // a mine's detectRadius: how far it sees a ship to go for
         double life = 0;  // its shot's lifeSpan, seconds
         bool needTarget = false;
+        CrewCost crew{};  // what its hits take of the crew
         double ready = 0; // seconds until it can fire again
     };
     /** A unit's special weapons, their ordnance read through `loader`. */
@@ -87,13 +115,26 @@ public:
         float speed = 0;
         float damage = 0;
         std::string sprite;
-        gfx::Vec3 from{}; // where it was fired from
-        int slot = 0;     // whose it is: the player's slot
+        gfx::Vec3 from{};  // where it was fired from
+        int slot = 0;      // whose it is: the player's slot
+        CrewCost crew{};   // what its hits take of the crew
+        bool miss = false; // it flies past, by its weapon's hit chance
     };
 
-    /** Damage taken: by the shields while they last, then by the hull, twice as much. */
-    static void hit(Vitals &vitals, float damage);
-    /** Shields and special energy regained over `seconds`, up to their most, while the unit lives. */
+    /**
+     * Damage taken: by the shields while they last, then by the hull, twice
+     * as much; crew with it, by `crew`; and what gets past the shields, by
+     * `roll` (0 to 1), lands on one of the systems by their hit percents,
+     * taking its hit points and its share of the crew.
+     */
+    static void hit(Vitals &vitals, float damage, const CrewCost &crew, float roll);
+    /** Damage taken without crew or systems: the shields', then the hull's. */
+    static void hit(Vitals &vitals, float damage) { hit(vitals, damage, CrewCost{}, 1); }
+    /**
+     * Over `seconds`, while the unit lives: shields and special energy
+     * regained up to their most, systems repaired over their repair time,
+     * and crew lost while its life support is out.
+     */
     static void regenerate(Vitals &vitals, double seconds);
     /** A shot's damage: its base, give or take its variance, by `roll` (0 to 1). */
     static float damageOf(const Weapon &weapon, float roll);
