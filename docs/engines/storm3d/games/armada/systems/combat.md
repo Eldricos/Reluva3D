@@ -60,6 +60,30 @@ critical 0.5), `<system>RepairTime` and `<system>CrewLoss`, and
 to 4 a second, for up to 2.75 seconds, as the original's shards were
 gone within two.
 
+From the code *(from the code)*:
+
+- **A shot landing** (0x449d60) does its ordnance's `damageValue` and
+  `damageVariance` times a random number from -1 to 1 (0x4fa4c0: the
+  game's own generator, its seed times 2,273 and 31 added, modulo
+  0x19981595, the remainder of 100,001 less 50,000 over 50,000), times
+  a factor its caller gives, carrying the ordnance's `damageThreshold`
+  and crew and hull modifiers with it. One system is picked for it
+  (0x461930): a roll from 0 to 99 run down each system's share in turn.
+- **A weapon's chance** is its `hitChance` changed by six modifiers, the
+  definitions' own comments say ("Modifier that changes the percent
+  chance (from hitChance)"): the shooter's `stopToHitModifier`,
+  `slowToHitModifier` and `warpToHitModifier`, and the target's
+  `toHitStopModifier`, `toHitSlowModifier` and `toHitWarpModifier`.
+  The pulses' and torpedoes' base definitions (`pulse.odf`,
+  `photon.odf`) hit 0.7 of the time, with 0.5 more at a target stopped
+  and 0.1 at one slow; the phasers' (`phaser.odf`) all of the time.
+- **The debris** is the model's faces, each a piece of its own
+  (0x572a40, the chunk manager): face by face, the density, 0.8, is
+  added up, and each time the sum comes past 1, a face is broken off
+  and 1 taken away, about four faces in five, starting from nothing
+  again at each of the model's meshes; past
+  `ST3D_CHUNK_MANAGER_MAX_CHUNKS` (1,500), the oldest go.
+
 ### Boarding, capture and repair
 
 From the files: the order buttons' tooltips (`Dynamic_Localized_Strings.h`)
@@ -256,11 +280,15 @@ From the same run's frames and draws:
   mended over half a minute by its `repairStrength` and recrewed from the
   pool, 20 a second *(guessed)*. A station's Recrew takes crew from the
   pool the same way, to its most.
-- **Hit chance:** each shot hits by its weapon's `hitChance`, a roll of
-  Reluva's own; one that misses flies past.
-- **Destroyed,** a unit breaks up: its model's parts (not its single
-  triangles, as the original's shards look) at the chunk manager's
-  density, flying and turning as above; and its fireball's shockwave
+- **Hit chance:** each shot hits by its weapon's `hitChance` with the
+  modifiers for how it and its target move, a roll of Reluva's own;
+  one that misses flies past. A unit is stopped below half a unit a
+  second, at warp past its impulse speed, slow between *(guessed)*: how
+  the game tells them apart isn't known.
+- **Destroyed,** a unit breaks up: its model's faces, each a piece, at
+  the chunk manager's density, as above, flying and turning by a roll
+  of Reluva's own within the chunk manager's speeds, each about its
+  own middle *(guessed)*; and its fireball's shockwave
   follows by its `shockwaveDelay`, a flat ring of `xshock`'s 16 rays
   in `wselfdes`'s texture and its colour, out at its rate to its
   `radiusFactor` times the unit's size, fading over its last
@@ -292,11 +320,13 @@ From the same run's frames and draws:
 
 - **Where the facts come from:** the original's draws every second from
   45 to 140 seconds; the definitions (`fbase`, `fbpulse`, `fbpulseo`,
-  `fconst`).
+  `fconst`, the weapons' bases); the program's code, for a shot's
+  damage, the system it hits and the debris.
 - **How it was checked:** the unit tests (`storm3d.unit.play`) fire the
   starbase's volleys at the ship's vitals: three quarters of its shields
   after the first, none after the fifth, gone at the seventh, 27 seconds
-  in, as the original's. `engine-shot` giving the same orders: the bar
+  in, as the original's; and a pulse's chances by how it and its target
+  move. `engine-shot` giving the same orders: the bar
   falling, and the ship gone, its officers back, as in the original's
   frames.
 
@@ -309,9 +339,11 @@ From the same run's frames and draws:
   do.
 - The shield's shape and size exactly, and whether it glows when a hit
   gets past it.
-- The debris's pieces as the original's (single triangles, likely),
+- How fast and which way the debris's pieces fly and turn, within the
+  chunk manager's limits,
   the shockwave's size and fade, and the blue sparks of hull hits.
-- The hit chance's modifiers (`warpToHitModifier` and the rest).
+- Where the game rolls a shot's hit, so how it tells a unit stopped,
+  slow or at warp; what `damageThreshold` does.
 - How the special weapons really run: each is made from what its
   description and definition say, the rest of every one a guess (their
   strengths, reaches and times where the files don't give them, what a

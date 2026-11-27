@@ -520,7 +520,8 @@ void testCombat() {
     using reluva::storm3d::Combat;
     const std::map<std::string, std::string> files = {
         {"fbase.odf", "[S]\nweapon1 = \"fbpulse\"\nweapon2 = \"fbpulse\"\nweapon3 = \"gtracbm\"\n"},
-        {"fbpulse.odf", "[W]\nordName = \"fbpulseo\"\nshotDelay = 4.5\nrange = 400.0f\n"},
+        {"fbpulse.odf", "[W]\nordName = \"fbpulseo\"\nshotDelay = 4.5\nrange = 400.0f\nhitChance = 0.7\n"
+                        "toHitStopModifier = 0.50\ntoHitSlowModifier = 0.10\nwarpToHitModifier = -0.25\n"},
         {"fbpulseo.odf", "[O]\ndamageBase = 22\ndamageVariance = 2\nshotSpeed = 300\nSprite = \"pphaser\"\n"},
         {"gtracbm.odf", "[W]\nordName = \"tracbm\"\nspecial = 1\n"},
         {"fconst.odf", "[S]\nmaxHealth = 700\nshieldRate = 3.5\n"},
@@ -539,6 +540,13 @@ void testCombat() {
     CHECK(weapons.size() == 2 && weapons[0].range == 400 && weapons[0].delay == 4.5 && weapons[0].damage == 22);
     CHECK(weapons[0].variance == 2 && weapons[0].speed == 300 && weapons[0].sprite == "pphaser");
     CHECK(Combat::damageOf(weapons[0], 0) == 20 && Combat::damageOf(weapons[0], 1) == 24);
+    // pulse.odf's chances: 0.7 at a target moving fast, 0.8 at one slow,
+    // all at one stopped; a quarter less from a shooter at warp.
+    using Pace = Combat::Pace;
+    CHECK(std::abs(Combat::hitChanceOf(weapons[0], Pace::kStopped, Pace::kWarp) - 0.7f) < 1e-6f);
+    CHECK(std::abs(Combat::hitChanceOf(weapons[0], Pace::kStopped, Pace::kSlow) - 0.8f) < 1e-6f);
+    CHECK(Combat::hitChanceOf(weapons[0], Pace::kStopped, Pace::kStopped) >= 1);
+    CHECK(std::abs(Combat::hitChanceOf(weapons[0], Pace::kWarp, Pace::kWarp) - 0.45f) < 1e-6f);
 
     Combat::Vitals v = Combat::vitalsOf(ship);
     CHECK(v.shields == 700 && v.hull == 700 && v.shieldRate == 3.5f);
@@ -736,6 +744,20 @@ void testBoardingAndRepair() {
     CHECK(engines.hitPoints == 0);
 }
 
+// A ship pushed up or down climbs or dives, but not on past the ceiling
+// or floor (67 and 10), and settles back to the plane at their middle.
+void testClimb() {
+    using reluva::storm3d::Movement;
+    CHECK(Movement::kPlane == 38.5f);
+    CHECK(Movement::climb(38.5f, 0, 1) == 38.5f);
+    CHECK(Movement::climb(38.5f, 5, 0) == 43.5f);
+    CHECK(Movement::climb(38.5f, 5, 1) == 42.5f);
+    CHECK(Movement::climb(70, 5, 0) == 70);  // above the ceiling: no higher
+    CHECK(Movement::climb(70, -5, 0) == 65); // but down
+    CHECK(Movement::climb(8, -5, 0) == 8);   // below the floor: no lower
+    CHECK(Movement::climb(40, 0, 5) == 38.5f);
+}
+
 // Two ships closing head on are pushed apart before they meet, by what
 // they'd come within 1.4 seconds; one passing well clear isn't; the push
 // builds up from the last frame's. A way past two obstacles goes round
@@ -797,6 +819,7 @@ static const reluva::test::Suite
                                     {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
                                     {"boarding", [](const std::filesystem::path &) { testBoardingAndRepair(); }},
                                     {"avoidance", [](const std::filesystem::path &) { testAvoidance(); }},
+                                    {"climb", [](const std::filesystem::path &) { testClimb(); }},
                                     {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
                                     {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
                                     {"combat", [](const std::filesystem::path &) { testCombat(); }},

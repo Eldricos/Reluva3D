@@ -85,6 +85,28 @@ further apart keeps its shape, weren't seen. The files' formation moves
 by default (`DEFAULT_TO_FORMATION_MOVE` 0) and no key in `Input.map`
 asks for one.
 
+### Height, and moving in a fight
+
+From the code *(from the code)*:
+
+- **Height:** `RTS_CFG.h`'s `SHIP_COMBAT_FLOOR` (10) and
+  `SHIP_COMBAT_CEILING` (67) make the plane ships fly on, their middle,
+  38.5: where a ship is sent, and every point the program makes for
+  ships to go to, is at that height. In a fight the steering is three
+  dimensional, but its upward part is dropped while a ship is above the
+  ceiling and its downward part while it's below the floor (0x42b53d,
+  0x42c457 and five more places).
+- **Centres of combat:** ships fighting are gathered to centres, one
+  within twice `CENTER_OF_COMBAT_PERSISTENCE_CUTOFF` (24) of a ship
+  taking it (0x422960); each centre's ships are given parts, in turn 3,
+  2 and 1, 1 for one without weapons, and others 7 (0x422e1f). A ship of
+  part 7 is steered round its centre, at the plane's height: towards a
+  point `ANCHOR_RADIUS` (4) out from it, turned
+  `ANCHOR_PURSUIT_POINT_ANGLE` (30 degrees) from the way to the ship,
+  with `ANCHOR_PURSUIT_FORCE` (1) (0x42c2e0). What the other parts do
+  wasn't followed.
+- **`DOGFIGHT_RANGE`** (70) is read from `RTS_CFG.h` and never used.
+
 ## In Reluva
 
 - **Ordering:** the right button on the map, with units selected that
@@ -112,9 +134,11 @@ asks for one.
     rings' half sides), and is pushed away from where it would be by how
     far inside it comes, the push 0.7 last frame's and 0.3 this one's
     (`OLD_AVOIDANCE_FORCE_WEIGHT`), at its speed, or 10 a second at a
-    stop *(guessed)*: how the push moves it isn't known. It's pushed
-    across the plane only: `Y_REPULSION`'s climbing and diving waits on
-    ships changing height;
+    stop *(guessed)*: how the push moves it isn't known. It's pushed up
+    and down by `Y_REPULSION` (0.5) of it, going no higher once above the
+    ceiling nor lower once below the floor, as the game's steering in a
+    fight, and comes back to the plane at a fifth of its pace
+    *(guessed)*;
   - **the map's edge:** ships and where they're sent kept 100 inside it
     (`MAP_EDGE_BUFFER`).
 
@@ -125,12 +149,13 @@ asks for one.
 
 - **Where the facts come from:** the original's draws every tenth of a
   second over two flights; `cnstphys.odf`; the model's box from
-  `fconst.sod`.
+  `fconst.sod`; the program's code, for height and moving in a fight.
 - **How it was checked:** our flight, shot by `engine-shot` every second
   from the right click, set beside the original's frames at the same
   times: the way round the starbase, the turn and the stop match. The
   unit tests (`storm3d.unit.play`) check the straight flight's times and
-  speeds, the way round, the click's point and a group's goals.
+  speeds, the way round, the click's point and a group's goals, and a
+  ship pushed up or down kept within the floor and ceiling.
 
 ## Open questions
 
@@ -140,7 +165,10 @@ asks for one.
 - How the program steers: its `turnRadius`, `pathLeadDistance`,
   inertias and coefficients, and its path finding round more than one
   obstacle, or round other ships.
-- How ships climb, and to what height.
+- How fast a ship pushed off the plane comes back to it, and whether it
+  climbs away from others out of a fight too.
+- What the parts a centre of combat gives its ships do, but for part 7's
+  circling, and which ships take 7; none of it is made.
 - Which ship of a group goes to the point, and how a group further than
   100 apart, or of ships of different speeds, moves.
 - Whether the original backs up so, and how its other physics files'

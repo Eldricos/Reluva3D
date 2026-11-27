@@ -39,6 +39,7 @@ public:
         // Its material's mode: 0 its diffuse colour, unlit; 1 lit; 2 lit
         // with highlights. Lit when it names no material.
         uint8_t mode = 1;
+        std::vector<gfx::Vec3> faceMiddles; // each face's, in its node's space, three indices a face
     };
     /** A sprite node's sprite, placed in the model (SpriteTable::spriteNodeFor). */
     struct SpritePart {
@@ -137,10 +138,14 @@ public:
     void draw(const std::vector<std::pair<const Built *, gfx::Mat4>> &batch, bool behind = false,
               const std::vector<std::optional<gfx::Vec3>> *teams = nullptr,
               const std::vector<bool> *damaged = nullptr) const; // damaged: each one's damage emitters run
-    /** One of a model's parts on its own, placed by `place` (a piece of a ship broken up). */
-    void drawPiece(const Built &built, size_t part, const gfx::Mat4 &place) const {
-        if (part < built.parts.size())
-            drawPart(built.parts[part], place, false);
+    /** One face of a model's part on its own, placed by `place` (a piece of a ship broken up). */
+    void drawFace(const Built &built, size_t part, size_t face, const gfx::Mat4 &place) const {
+        if (part >= built.parts.size() || face * 3 + 3 > built.parts[part].indexCount)
+            return;
+        Part one = built.parts[part];
+        one.firstIndex += uint32_t(face * 3);
+        one.indexCount = 3;
+        drawPart(one, place, false);
     }
     /** A texture by name, made once; 0 if it isn't there. */
     gfx::TextureId textureNamed(const std::string &name) { return texture(name); }

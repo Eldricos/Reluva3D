@@ -204,9 +204,11 @@ public:
      */
     void drawEffect(const std::string &model, const gfx::Vec3 &at, double seconds);
     /**
-     * Breaks a unit's model up as it's destroyed, at the game's `now`: its
-     * parts, ST3D_CHUNK_DENSITY of them, flying out and turning, each for
-     * up to ST3D_CHUNK_MAX_LIFETIME seconds (ART_CFG.h's).
+     * Breaks a unit's model up as it's destroyed, at the game's `now`, as
+     * the game's chunk manager does (0x572a40): its faces, each a piece,
+     * ST3D_CHUNK_DENSITY of them (four in five), flying out and turning,
+     * each for up to ST3D_CHUNK_MAX_LIFETIME seconds, the oldest gone past
+     * ST3D_CHUNK_MANAGER_MAX_CHUNKS (ART_CFG.h's).
      */
     void breakUp(size_t unit, double now);
     /** Draws the pieces still flying, after draw. */
@@ -287,13 +289,14 @@ private:
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
     std::vector<bool> _damaged;                   // as _placed: its damage emitters run
-    // A piece of a unit broken up: its model's part, where it was, and how
-    // it flies and turns from the time it broke.
+    // A piece of a unit broken up: a face of its model, where it was, and
+    // how it flies and turns from the time it broke.
     struct Piece {
         const SodMeshes::Built *built = nullptr;
         size_t part = 0;
+        size_t face = 0;
         gfx::Mat4 place{};
-        gfx::Vec3 middle{};   // its unit's, about which it turns
+        gfx::Vec3 middle{};   // the face's, in the world, about which it turns
         gfx::Vec3 velocity{}; // units a second
         gfx::Vec3 axis{0, 1, 0};
         float spin = 0; // radians a second

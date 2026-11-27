@@ -85,7 +85,12 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
         for (const SodModel::Group &g : mesh.groups) {
             Part part;
             part.firstIndex = uint32_t(indices.size());
-            for (const SodModel::Face &f : g.faces)
+            for (const SodModel::Face &f : g.faces) {
+                gfx::Vec3 middle{};
+                for (const uint16_t k : f.vertex)
+                    for (size_t d = 0; d < 3; ++d)
+                        middle[d] += mesh.vertices[k][d] / 3;
+                part.faceMiddles.push_back(middle);
                 for (int k = 0; k < 3; ++k) {
                     gfx::Vertex v{};
                     const auto &p = mesh.vertices[f.vertex[size_t(k)]];
@@ -107,6 +112,7 @@ SodMeshes::Built SodMeshes::build(const SodModel &model, int level) {
                         built.hi[size_t(d)] = std::max(built.hi[size_t(d)], at[size_t(d)]);
                     }
                 }
+            }
             part.indexCount = uint32_t(indices.size()) - part.firstIndex;
             for (const SodModel::LightingMaterial &m : model.materials)
                 if (m.name == g.material) {

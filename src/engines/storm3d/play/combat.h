@@ -82,17 +82,32 @@ public:
 
     /** One of a unit's weapons that fires at what it attacks (not its special weapons). */
     struct Weapon {
-        float range = 0;      // the weapon's
-        double delay = 0;     // shotDelay, seconds between its shots
-        float damage = 0;     // its ordnance's damageBase
-        float variance = 0;   // and damageVariance, either way
-        float speed = 0;      // the shot's, units a second
-        std::string sprite;   // the shot's sprite: "pphaser"
-        float hitChance = 1;  // of a shot hitting
+        float range = 0;     // the weapon's
+        double delay = 0;    // shotDelay, seconds between its shots
+        float damage = 0;    // its ordnance's damageBase
+        float variance = 0;  // and damageVariance, either way
+        float speed = 0;     // the shot's, units a second
+        std::string sprite;  // the shot's sprite: "pphaser"
+        float hitChance = 1; // of a shot hitting
+        // Added to it by how the shooter moves (stopToHitModifier,
+        // slowToHitModifier, warpToHitModifier) and the target
+        // (toHitStopModifier...), by Pace.
+        std::array<float, 3> shooterModifier{};
+        std::array<float, 3> targetModifier{};
         float shieldCrew = 0; // its ordnance's shieldCrewModifier: crew lost a point of damage on the shields
         float hullCrew = 0;   // and hullCrewModifier, a point on the hull
         double ready = 0;     // seconds until it can fire again
     };
+    /** How a unit moves, for a shot's chance: stopped, slower than impulse speed, or faster. */
+    enum class Pace { kStopped, kSlow, kWarp };
+    /**
+     * A weapon's chance of hitting, its hitChance with the modifiers for
+     * the shooter's pace and the target's added, as its definition's
+     * comments say ("changes the percent chance (from hitChance)").
+     */
+    static float hitChanceOf(const Weapon &w, Pace shooter, Pace target);
+    /** A weapon's definition's six modifiers into `w`. */
+    static void readModifiers(const Odf &weapon, Weapon &w);
     /** A unit's weapons from weapon1 on, their ordnance read through `loader`; those with `special` left out. */
     static std::vector<Weapon> weaponsOf(const Odf &unit, const Odf::Loader &loader);
 

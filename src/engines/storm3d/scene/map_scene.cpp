@@ -596,41 +596,56 @@ void MapScene::breakUp(size_t unit, double now) {
     const auto &[built, place] = _placed[_unitModels[unit].placed];
     if (!built)
         return;
-    // ART_CFG.h's chunk manager: the share of the model kept, the longest
-    // a piece lasts, and how fast at most it flies and turns.
+    // ART_CFG.h's chunk manager: the share of the faces kept, the longest
+    // a piece lasts, how fast at most it flies and turns, and how many
+    // there may be.
     constexpr float kDensity = 0.8f;
     constexpr double kLifetime = 2.75;
     constexpr float kVelocity = 70;
     constexpr float kSpin = 4;
+    constexpr size_t kMaxPieces = 1500;
     auto roll = [this] {
         _pieceRoll ^= _pieceRoll << 13;
         _pieceRoll ^= _pieceRoll >> 17;
         _pieceRoll ^= _pieceRoll << 5;
         return float(_pieceRoll >> 8) / float(1u << 24);
     };
-    const gfx::Vec3 middle = _units[unit].middle();
+    // The density added up face by face, a piece each time it comes past
+    // a whole one: about four faces in five, evenly, not by chance; from
+    // nothing again at each node, its parts those placed alike.
+    float owed = 0;
     for (size_t p = 0; p < built->parts.size(); ++p) {
-        if (roll() >= kDensity)
-            continue;
-        Piece piece;
-        piece.built = built;
-        piece.part = p;
-        piece.place = place;
-        piece.middle = middle;
-        // A way out, any way round.
-        gfx::Vec3 dir{roll() * 2 - 1, roll() * 2 - 1, roll() * 2 - 1};
-        const float n = std::max(1e-3f, std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]));
-        const float speed = kVelocity * roll();
-        for (size_t k = 0; k < 3; ++k)
-            piece.velocity[k] = dir[k] / n * speed;
-        gfx::Vec3 axis{roll() * 2 - 1, roll() * 2 - 1, roll() * 2 - 1};
-        const float m = std::max(1e-3f, std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]));
-        for (size_t k = 0; k < 3; ++k)
-            piece.axis[k] = axis[k] / m;
-        piece.spin = kSpin * (roll() * 2 - 1);
-        piece.began = now;
-        piece.life = kLifetime * (0.5 + 0.5 * roll());
-        _pieces.push_back(piece);
+        if (p == 0 || built->parts[p].world != built->parts[p - 1].world)
+            owed = 0;
+        for (size_t f = 0; f < built->parts[p].faceMiddles.size(); ++f) {
+            owed += kDensity;
+            if (owed <= 1)
+                continue;
+            owed -= 1;
+            if (_pieces.size() >= kMaxPieces)
+                _pieces.erase(_pieces.begin());
+            Piece piece;
+            piece.built = built;
+            piece.part = p;
+            piece.face = f;
+            piece.place = place;
+            piece.middle =
+                gfx::transformPoint(gfx::multiply(place, built->parts[p].world), built->parts[p].faceMiddles[f]);
+            // A way out, any way round.
+            gfx::Vec3 dir{roll() * 2 - 1, roll() * 2 - 1, roll() * 2 - 1};
+            const float n = std::max(1e-3f, std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]));
+            const float speed = kVelocity * roll();
+            for (size_t k = 0; k < 3; ++k)
+                piece.velocity[k] = dir[k] / n * speed;
+            gfx::Vec3 axis{roll() * 2 - 1, roll() * 2 - 1, roll() * 2 - 1};
+            const float m = std::max(1e-3f, std::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]));
+            for (size_t k = 0; k < 3; ++k)
+                piece.axis[k] = axis[k] / m;
+            piece.spin = kSpin * (roll() * 2 - 1);
+            piece.began = now;
+            piece.life = kLifetime * (0.5 + 0.5 * roll());
+            _pieces.push_back(piece);
+        }
     }
 }
 
@@ -661,7 +676,8 @@ void MapScene::drawDebris(double now) {
             to[12 + k] = p.middle[k] + p.velocity[k] * t;
             back[12 + k] = -p.middle[k];
         }
-        _meshes.drawPiece(*p.built, p.part, gfx::multiply(gfx::multiply(to, gfx::multiply(turn, back)), p.place));
+        _meshes.drawFace(*p.built, p.part, p.face,
+                         gfx::multiply(gfx::multiply(to, gfx::multiply(turn, back)), p.place));
     }
 }
 

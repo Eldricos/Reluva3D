@@ -833,6 +833,13 @@ void MissionView::weighStances() {
     }
 }
 
+Combat::Pace MissionView::paceOf(size_t unit) const {
+    // At warp is past its impulse speed *(guessed)*; a station never moves.
+    if (unit >= _ships.size() || unit >= _physics.size() || !_physics[unit] || std::abs(_ships[unit].speed) < 0.5f)
+        return Combat::Pace::kStopped;
+    return std::abs(_ships[unit].speed) > _physics[unit]->cornerSpeed ? Combat::Pace::kWarp : Combat::Pace::kSlow;
+}
+
 void MissionView::think(double seconds) {
     _stanceClock -= seconds;
     if (_stanceClock <= 0) {
@@ -1059,9 +1066,11 @@ void MissionView::fight(double seconds) {
             // A roll from a little generator of our own, the same each game.
             _roll = _roll * 1664525u + 1013904223u;
             const float roll = float(_roll >> 8) / float(1u << 24);
-            // Another roll for whether it hits, by its hit chance.
+            // Another roll for whether it hits, by its hit chance for how
+            // it and its target move.
             _roll = _roll * 1664525u + 1013904223u;
-            const bool miss = float(_roll >> 8) / float(1u << 24) >= w.hitChance;
+            const bool miss =
+                float(_roll >> 8) / float(1u << 24) >= Combat::hitChanceOf(w, paceOf(i), paceOf(size_t(t)));
             // Death Chant's frenzy: half again *(guessed)*.
             const float boost = active(e.boosted) ? 1.5f : 1.0f;
             _shots.push_back({size_t(t),
@@ -2425,9 +2434,10 @@ void MissionView::draw(uint64_t millis) {
         const double pace = i < _effects.size() && active(_effects[i].slowed) ? 0.5 : 1.0;
         for (int s = 0; s < steps; ++s)
             Movement::step(_ships[i], *_physics[i], seconds * pace / steps);
-        // Steered clear of the others it'd come too near, across the plane
-        // (its climbing and diving, Y_REPULSION's part, isn't made), at its
-        // speed, or a crawl if it's slowing to a stop *(guessed)*.
+        // Steered clear of the others it'd come too near, at its speed, or
+        // a crawl if it's slowing to a stop *(guessed)*; climbing or diving
+        // by Y_REPULSION's part, then back to the plane its goals are on,
+        // as fast as a fifth of its pace *(guessed)*.
         std::vector<Movement::Neighbour> others;
         for (size_t j = 0; j < everyone.size(); ++j)
             if (j != i && everyone[j].radius > 0)
@@ -2437,6 +2447,7 @@ void MissionView::draw(uint64_t millis) {
         const float pace2 = float(std::max(std::abs(_ships[i].speed), 10.0f) * seconds);
         _ships[i].at[0] += push[0] * pace2;
         _ships[i].at[2] += push[2] * pace2;
+        _ships[i].at[1] = Movement::climb(_ships[i].at[1], push[1] * pace2, pace2 * 0.2f);
         inside(_ships[i].at);
         if (!_ships[i].goal && std::abs(_ships[i].speed) < 0.01f)
             _ships[i].speed = 0;

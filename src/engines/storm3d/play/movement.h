@@ -75,6 +75,19 @@ public:
     static gfx::Vec3 avoid(Ship &ship, const gfx::Vec3 &middle, float radius, const std::vector<Neighbour> &others);
     /** Moves a ship on by `seconds` (a frame's, a tenth of a second or less). */
     static void step(Ship &ship, const Physics &physics, double seconds);
+
+    /** RTS_CFG.h's SHIP_COMBAT_FLOOR and SHIP_COMBAT_CEILING: the heights ships keep between. */
+    static constexpr float kFloor = 10;
+    static constexpr float kCeiling = 67;
+    /** The height ships fly at, their goals' (the floor's and ceiling's middle, 38.5). */
+    static constexpr float kPlane = (kFloor + kCeiling) / 2;
+    /**
+     * A ship's height after being pushed up or down by `rise` (units, its
+     * avoidance's part, this frame's), going no higher once above the
+     * ceiling nor lower once below the floor (0x42c457); and back towards
+     * the plane by up to `settle`.
+     */
+    static float climb(float height, float rise, float settle);
 };
 
 } // namespace reluva::storm3d

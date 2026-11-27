@@ -46,6 +46,19 @@ Combat::Vitals Combat::vitalsOf(const Odf &unit) {
     return v;
 }
 
+void Combat::readModifiers(const Odf &weapon, Weapon &w) {
+    static constexpr const char *kPaces[3] = {"stop", "slow", "warp"};
+    static constexpr const char *kTargets[3] = {"Stop", "Slow", "Warp"};
+    for (size_t p = 0; p < 3; ++p) {
+        w.shooterModifier[p] = float(weapon.number(std::string(kPaces[p]) + "ToHitModifier"));
+        w.targetModifier[p] = float(weapon.number(std::string("toHit") + kTargets[p] + "Modifier"));
+    }
+}
+
+float Combat::hitChanceOf(const Weapon &w, Pace shooter, Pace target) {
+    return w.hitChance + w.shooterModifier[size_t(shooter)] + w.targetModifier[size_t(target)];
+}
+
 std::vector<Combat::Weapon> Combat::weaponsOf(const Odf &unit, const Odf::Loader &loader) {
     std::vector<Weapon> weapons;
     for (int i = 1;; ++i) {
@@ -66,6 +79,7 @@ std::vector<Combat::Weapon> Combat::weaponsOf(const Odf &unit, const Odf::Loader
         w.speed = float(ordnance.number("shotSpeed"));
         w.sprite = ordnance.string("Sprite");
         w.hitChance = float(weapon.number("hitChance", 1));
+        readModifiers(weapon, w);
         w.shieldCrew = float(ordnance.number("shieldCrewModifier"));
         w.hullCrew = float(ordnance.number("hullCrewModifier"));
         weapons.push_back(w);

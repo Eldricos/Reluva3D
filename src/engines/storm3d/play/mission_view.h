@@ -510,7 +510,8 @@ private:
     Hud::Resources *bankOf(int slot); // a player's counters: the player's, or a computer's
     void startSite(size_t builder, const gfx::Vec3 &at, const std::string &item, const Footprint &station);
     std::optional<gfx::Vec3> siteFor(int slot, const ComputerPlayer::Element &e, const Footprint &station);
-    void think(double seconds); // the computer players'
+    void think(double seconds);             // the computer players'
+    Combat::Pace paceOf(size_t unit) const; // how it moves, for a shot's chance
     // A computer player: its slot, its build list, its counters.
     struct Computer {
         int slot = 0;

@@ -95,6 +95,15 @@ gfx::Vec3 Movement::avoid(Ship &ship, const gfx::Vec3 &middle, float radius, con
     return ship.avoiding;
 }
 
+float Movement::climb(float height, float rise, float settle) {
+    // The original drops the steering's upward part above the ceiling and
+    // its downward part below the floor, rather than holding the ship.
+    if ((height > kCeiling && rise > 0) || (height < kFloor && rise < 0))
+        rise = 0;
+    height += rise;
+    return height + std::clamp(kPlane - height, -settle, settle);
+}
+
 std::vector<gfx::Vec3> Movement::routeAround(const gfx::Vec3 &from, const gfx::Vec3 &to,
                                              const std::vector<Obstacle> &obstacles, float radius) {
     // Past the first obstacle in the way, then on from there past the next,
