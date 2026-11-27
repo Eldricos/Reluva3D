@@ -7,6 +7,7 @@ reluva_add_engine(sith
     ACCESSOR sithMetaEngine
     SOURCES
         sith.cpp
+        cut_scene.cpp
         folders.cpp
         game_files.cpp
         games.cpp
@@ -80,3 +81,9 @@ reluva_add_gamedata_test(sith
     ENV RELUVA_JK
     SCRIPT ${tests}/gamedata.cmake
     STEPS release formats movies start level)
+reluva_add_gamedata_test(sith
+    NAME sith.mots
+    GAME mots
+    ENV RELUVA_MOTS
+    SCRIPT ${tests}/gamedata_mots.cmake
+    STEPS release formats movies)

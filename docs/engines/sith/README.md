@@ -24,8 +24,8 @@ emulator, in Reluva's window, with its sound and the CDs' music. See the game's 
 
 Mysteries of the Sith is recognised, imported from its CD or its image
 (with Jedi Knight's CD 2, which it asks for once), and played the same
-way, its `JKM.EXE` in the emulator; its files aren't in the data viewer
-yet. See its [README](games/mots/README.md) and
+way, its `JKM.EXE` in the emulator; its files and SMUSH cut scenes are
+in the data viewer. See its [README](games/mots/README.md) and
 [PLAN.md](games/mots/PLAN.md).
 
 ## Using it
@@ -55,6 +55,7 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 | `sith.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: the game in the window |
 | `host/` | The game's program (`JK.EXE`, `JKM.EXE`) run in the x86 emulator: the process and its devices (`game_process.cpp`), and the game's own thread, its frames and input (`player.cpp`) |
 | `games.cpp` | The games, their programs and CDs, and their releases |
+| `cut_scene.cpp` | A cut scene, Smacker (Jedi Knight's) or SMUSH (Mysteries of the Sith's) |
 | `folders.cpp` | Telling the CDs apart, finding them for an install, and their cut scenes |
 | `import.cpp` | Making an install from the CDs, copies of them or their images (*Import Game...*) |
 | `game_files.cpp` | The install's archives, as one set |

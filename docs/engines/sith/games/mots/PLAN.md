@@ -53,11 +53,15 @@ reaches into the program.
    cheats, as Jedi Knight's were: its 14 levels, its 23 cut scenes, the
    finale and the credits ([TESTING.md](TESTING.md#last-checked)). Its
    cheats found in `JKM.EXE` ([README](README.md#its-cheats)).
-5. **The data viewer.** The `.goo` archives read as `.gob`; each kind of
+5. **The data viewer** (done). The `.goo` archives read as `.gob`; each kind of
    file checked on every file for what differs from Jedi Knight's (the
    levels, models, `.per` files, AI); and the SMUSH cut scenes decoded,
    a new video format for Reluva, needed only by the viewer since the
-   game plays them itself.
+   game plays them itself. Done: the readers fixed for the three odd
+   files the game reads anyway, the levels' coloured lights kept, and
+   SMUSH decoded from `JKM.EXE`'s player
+   ([smush.md](../../../../common/video/smush.md)), checked against the
+   game's own frames.
 
 ## Decisions
 
@@ -69,4 +73,5 @@ reaches into the program.
 | November 2026 | Only Jedi Knight's CD 2's marker is copied for Mysteries of the Sith, not its cut scenes or music | The game reads nothing else from it |
 | November 2026 | The CD check made to search from the first drive each time | Right after Jedi Knight's CD 2 it searches from the drive after it, so with Reluva's one drive it would ask for its own CD once more; a player swapping CDs pressed *Ok* there for the same result |
 | November 2026 | Each program's addresses in one table in the host, checked against its bytes before any change | One host for both games; a release whose bytes differ is left as it is, as Jedi Knight's were |
+| November 2026 | SMUSH decoded from `JKM.EXE`'s own player, checked against frames the game draws in the emulator | Public write-ups give only its container and an outline of codec 48; the program is the only full account, and the emulator shows its frames to compare with |
 | November 2026 | Disc images read by Reluva itself (ISO 9660 on a cue sheet's data track or an `.iso`), for importing | Players keep their CDs as images; the cut scenes are on the CD only, and an image holds its music too |

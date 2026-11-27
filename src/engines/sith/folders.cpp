@@ -118,7 +118,8 @@ std::vector<CutScene> findCutScenes(const GameFolders &folders) {
         std::vector<CutScene> found;
         std::error_code ec;
         for (const auto &e : stdfs::directory_iterator(*video, ec))
-            if (e.is_regular_file(ec) && fs::toLower(e.path().extension().string()) == ".smk")
+            if (const std::string ext = fs::toLower(e.path().extension().string());
+                e.is_regular_file(ec) && (ext == ".smk" || ext == ".san"))
                 found.push_back({e.path().filename().string(), i + 1, e.path()});
         std::sort(found.begin(), found.end(),
                   [](const CutScene &a, const CutScene &b) { return fs::windowsNameLess(a.name, b.name); });

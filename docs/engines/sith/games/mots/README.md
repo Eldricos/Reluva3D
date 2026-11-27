@@ -101,8 +101,10 @@ The game keeps `InstallData` in its registry (the save folder's
 - **The data viewer:** reads its archives (`.goo`, the `.gob` format) and
   every file in them as Jedi Knight's ([Its files](#its-files)), and shows
   them as it does Jedi Knight's; its levels drawn from the player's
-  start as the game's software renderer draws them. Its SMUSH cut scenes
-  aren't decoded yet ([PLAN.md](PLAN.md), phase 5).
+  start as the game's software renderer draws them. Its cut scenes play
+  on the Cut scenes page with their sound and subtitles: SMUSH, decoded
+  by Reluva ([smush.md](../../../../common/video/smush.md)), each frame
+  the same as the game shows it *(confirmed)*.
 
 ### Its files
 
@@ -118,9 +120,16 @@ version 50 (`0x44f6df`) *(from the code)*: `00skyline.mat` is empty and
   it does: a sound class's flag written `x0` and a line missing its `#`
   ([snd.md](../jk/formats/snd.md#in-reluva)), and an animation with a
   stray line after its nodes ([key.md](../jk/formats/key.md#in-reluva)).
-- **Cut scenes:** SMUSH (`.san`), with codec 48 pictures, 640 by 350:
-  public write-ups describe its container and outline the codec; the
-  rest is in `JKM.EXE` ([PLAN.md](PLAN.md), phase 5).
+- **Cut scenes:** SMUSH (`.san`), with codec 48 pictures, 640 by 350
+  (the opening 640 by 300), 12 frames a second, and sound
+  ([smush.md](../../../../common/video/smush.md)). Their subtitles are
+  `COG_` strings, in `ui\jkstrings.uni` or the episode's
+  `misc\cogstrings.uni`: a `TRES` chunk's number plus 50,000 *(inferred:
+  166 and 21101 in `S1L1ECS.SAN` are `COG_50166` and `COG_71101`, and so
+  for four other files; `S5L3ECS.SAN`'s twelve, 5301 to 5312, have no
+  strings so)*. A line starting `|` (in Huttese, spoken) always shows,
+  the rest only with *full subtitles*, as `jkstrings.uni`'s own comment
+  says.
 
 ### Where Reluva reaches into the program
 

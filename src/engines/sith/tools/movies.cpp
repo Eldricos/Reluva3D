@@ -4,12 +4,11 @@
 // reluva-tool's Sith commands for the episodes and the CDs' cut scenes.
 
 #include "common/fs.h"
-#include "common/stream.h"
 #include "devtools/tool.h"
+#include "engines/sith/cut_scene.h"
 #include "engines/sith/folders.h"
 #include "engines/sith/formats/episode.h"
 #include "engines/sith/game_files.h"
-#include "video/smacker.h"
 
 #include <cstdio>
 #include <memory>
@@ -52,7 +51,7 @@ int cmdEpisode(int argc, char **argv) {
                     episode.steps.size());
         for (const sith::Episode::Step &s : episode.steps) {
             std::string where;
-            if (reluva::fs::toLower(s.file).ends_with(".smk")) {
+            if (const std::string f = reluva::fs::toLower(s.file); f.ends_with(".smk") || f.ends_with(".san")) {
                 where = "  (not on the CDs found)";
                 for (const sith::CutScene &c : cuts)
                     if (reluva::fs::toLower(c.name) == reluva::fs::toLower(s.file))
@@ -90,15 +89,10 @@ int cmdMovies(int argc, char **argv) {
     }
     int failures = 0;
     for (const sith::CutScene &cut : cuts) {
-        std::vector<uint8_t> data;
-        if (!reluva::readFile(cut.path, data)) {
-            std::printf("CD %d %s: FAILED: can't read it\n", cut.cd, cut.name.c_str());
-            ++failures;
-            continue;
-        }
-        reluva::smacker::Decoder dec;
-        if (!dec.load(std::make_unique<reluva::MemoryReadStream>(std::move(data)))) {
-            std::printf("CD %d %s: FAILED: not a Smacker video\n", cut.cd, cut.name.c_str());
+        sith::CutSceneVideo dec;
+        std::string error;
+        if (!dec.open(cut.path, error)) {
+            std::printf("CD %d %s: FAILED: %s\n", cut.cd, cut.name.c_str(), error.c_str());
             ++failures;
             continue;
         }
@@ -106,23 +100,22 @@ int cmdMovies(int argc, char **argv) {
         size_t samples = 0;
         uint64_t hash = 0xcbf29ce484222325ull;
         bool ok = true;
-        if (all) {
-            while (!dec.endOfVideo()) {
-                if (!dec.decodeNextFrame()) {
-                    ok = false;
-                    break;
-                }
-                ++frames;
-                const std::vector<int16_t> audio = dec.takeAudio();
-                samples += audio.size();
-                addTo(hash, audio.data(), audio.size() * 2);
-                const reluva::Surface &picture = dec.surface();
-                for (int y = 0; y < picture.h; ++y)
-                    addTo(hash, picture.row(y), size_t(picture.w));
-                addTo(hash, dec.palette(), 768);
-                const std::vector<uint8_t> &subtitle = dec.trackData(1);
-                addTo(hash, subtitle.data(), subtitle.size());
+        // The first frame is decoded as it opens.
+        for (bool first = true; all && ok && (first || !dec.endOfVideo()); first = false) {
+            if (!first && !dec.decodeNextFrame()) {
+                ok = false;
+                break;
             }
+            ++frames;
+            const std::vector<int16_t> audio = dec.takeAudio();
+            samples += audio.size();
+            addTo(hash, audio.data(), audio.size() * 2);
+            const reluva::Surface &picture = dec.surface();
+            for (int y = 0; y < picture.h; ++y)
+                addTo(hash, picture.row(y), size_t(picture.w));
+            addTo(hash, dec.palette(), 768);
+            const std::vector<uint8_t> subtitle = dec.subtitleData();
+            addTo(hash, subtitle.data(), subtitle.size());
         }
         std::printf("CD %d %-12s %dx%d, %d frames, %.2f fps, %.1f s, sound %s", cut.cd, cut.name.c_str(), dec.width(),
                     dec.height(), dec.frameCount(), 1e6 / dec.frameMicros(),

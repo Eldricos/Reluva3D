@@ -15,10 +15,11 @@
 #include "engines/sith/pages/pages.h"
 #include "graphics/font.h"
 #include "image/image.h"
-#include "video/smacker.h"
+#include "engines/sith/cut_scene.h"
 
 #include <algorithm>
 #include <cstdio>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -92,10 +93,10 @@ private:
 
 /**
  * The cut scenes on the CDs found, placed as on the game's 640x480 screen:
- * the picture at row 50, played with its sound, and its subtitles below
- * (smk.md, Behaviour). Space plays or pauses, `.` steps a frame while
- * paused, S shows every subtitle as the game's full subtitles do, not
- * just the titles.
+ * the picture at row 50 (Jedi Knight's, smk.md, Behaviour) or 25
+ * (Mysteries of the Sith's), played with its sound, and its subtitles
+ * below. Space plays or pauses, `.` steps a frame while paused, S shows
+ * every subtitle as the game's full subtitles do, not just the titles.
  */
 class CutScenePage : public Page {
 public:
@@ -103,6 +104,14 @@ public:
         : _data(data), _cuts(findCutScenes(data.folders)), _episodes(readEpisodes(data.files)) {
         std::vector<uint8_t> bytes;
         _hasStrings = !data.files.read("ui\\cutstrings.uni", bytes) && !parseStrings(bytes, _strings);
+        // Mysteries of the Sith's lines are COG_ strings, the interface's
+        // and the episode's.
+        for (const char *table : {"ui\\jkstrings.uni", "misc\\cogstrings.uni"}) {
+            StringTable t;
+            if (!data.files.read(table, bytes) && !parseStrings(bytes, t))
+                for (auto &[key, text] : t.entries)
+                    _cogStrings.emplace(fs::toLower(key), text);
+        }
         _hasFont = !data.files.read("ui\\sft\\subtitlefont.sft", bytes) && !parseFont(bytes, _font) &&
                    !_font.strip.cels.empty();
     }
@@ -188,7 +197,7 @@ public:
         // The game's screen, its picture in the rectangle (0, 50, 640, 300).
         const int ox = (kViewerW - kGameW) / 2;
         const int oy = (kViewerH - 16 - kGameH) / 2;
-        image::blit(screen, img, ox + (kGameW - img.w) / 2, oy + 50);
+        image::blit(screen, img, ox + (kGameW - img.w) / 2, oy + (_decoder->isSmush() ? 25 : 50));
         const std::string subtitle = currentSubtitle();
         if (!subtitle.empty())
             drawSubtitle(screen, subtitle, ox, oy, pal);
@@ -220,7 +229,9 @@ private:
     // full subtitles (0x4214b8). The number is the string's place in
     // cutstrings.uni, 0 for none (0x4214f2).
     std::string currentSubtitle() const {
-        const std::vector<uint8_t> &data = _decoder->trackData(1);
+        const std::vector<uint8_t> data = _decoder->subtitleData();
+        if (_decoder->isSmush())
+            return smushSubtitle(data);
         if (!_hasStrings || data.size() < 4)
             return {};
         const uint32_t value =
@@ -231,21 +242,44 @@ private:
         return _strings.entries[place].second;
     }
 
+    // A SMUSH video's TRES number is its line's: COG_ and the number plus
+    // 50000, as the strings and the numbers pair up (S1L1ECS's 166 and
+    // 21101 are COG_50166 and COG_71101), inferred. A line starting
+    // with '|' is always shown, the rest only with full subtitles, as
+    // jkstrings.uni's own comment says.
+    std::string smushSubtitle(const std::vector<uint8_t> &data) const {
+        if (data.size() < 4)
+            return {};
+        const int number =
+            int(uint32_t(data[0]) | uint32_t(data[1]) << 8 | uint32_t(data[2]) << 16 | uint32_t(data[3]) << 24);
+        char key[32];
+        std::snprintf(key, sizeof key, "cog_%05d", number + 50000);
+        const auto it = _cogStrings.find(key);
+        if (it == _cogStrings.end())
+            return {};
+        const bool always = !it->second.empty() && it->second[0] == '|';
+        if (!always && !_fullSubtitles)
+            return {};
+        return always ? it->second.substr(1) : it->second;
+    }
+
     // Centred in the game's rectangle (10, 360, 620, 120), below the
     // picture, in the subtitle font through the video's palette, as the
     // game's 8-bit screen draws it; broken into lines as the game breaks
     // them (subtitleLines), the lines the font's height and gap apart
-    // (0x434d34) (smk.md).
+    // (0x434d34) (smk.md). Mysteries of the Sith's, where its taller picture
+    // ends (row 375): where it draws them hasn't been looked into.
     void drawSubtitle(Surface &screen, const std::string &text, int ox, int oy, const uint8_t *pal) const {
+        const int top = oy + (_decoder->isSmush() ? 380 : 360);
         if (!_hasFont)
             return;
         Palette palette;
         for (int i = 0; i < 256; ++i)
             palette[size_t(i)] = {pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2]};
         const image::Image strip = bitmapToImage(_font.strip, _font.strip.cels[0], palette, true);
-        int y = oy + 360;
+        int y = top;
         for (const std::string &l : subtitleLines(_font, text, kSubtitleW)) {
-            if (y + strip.h > oy + 360 + 120)
+            if (y + strip.h > oy + 480)
                 break;
             drawFontText(screen, _font, strip, ox + 10 + (kSubtitleW - fontTextWidth(_font, l)) / 2, y, l);
             y += strip.h + _font.gap;
@@ -254,16 +288,9 @@ private:
     static constexpr int kSubtitleW = 620;
 
     bool open(const CutScene &cut) {
-        std::vector<uint8_t> bytes;
-        if (!readFile(cut.path, bytes)) {
-            _error = "can't read " + cut.path.string();
+        auto decoder = std::make_unique<CutSceneVideo>();
+        if (!decoder->open(cut.path, _error))
             return false;
-        }
-        auto decoder = std::make_unique<smacker::Decoder>();
-        if (!decoder->load(std::make_unique<MemoryReadStream>(std::move(bytes))) || !decoder->decodeNextFrame()) {
-            _error = "not a Smacker video, or its first frame doesn't decode";
-            return false;
-        }
         decoder->takeAudio(); // played only once it plays
         _decoder = std::move(decoder);
         _error.clear();
@@ -305,9 +332,10 @@ private:
     std::vector<CutScene> _cuts;
     std::vector<std::pair<std::string, Episode>> _episodes;
     size_t _index = 0;
-    std::unique_ptr<smacker::Decoder> _decoder;
+    std::unique_ptr<CutSceneVideo> _decoder;
     std::string _error;
     StringTable _strings;
+    std::map<std::string, std::string> _cogStrings;
     bool _hasStrings = false;
     Font _font;
     bool _hasFont = false;

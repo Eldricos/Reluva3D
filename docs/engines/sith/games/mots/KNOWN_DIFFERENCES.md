@@ -20,8 +20,12 @@ None yet.
 
 ## Not yet as the original
 
-- The data viewer doesn't show this game's files ([PLAN.md](PLAN.md),
-  phase 5).
+- **The data viewer's cut scene subtitles** are drawn below the
+  picture, in the subtitle font, where the game draws them hasn't been
+  looked into ([UNCONFIRMED.md](UNCONFIRMED.md)).
+- **The data viewer's levels** are lit by each corner's light alone, as
+  the game's software renderer draws them; its Direct3D draws their
+  colours too ([jkl.md](../jk/formats/jkl.md#in-reluva)).
 
 ## Additions outside the game
 

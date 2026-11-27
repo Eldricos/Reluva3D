@@ -50,7 +50,7 @@ GameFolders findFolders(const std::filesystem::path &install, const std::map<std
 
 /** A cut scene on one of the CDs. */
 struct CutScene {
-    /** Its file's name, as on the CD ("23A.SMK"). */
+    /** Its file's name, as on the CD ("23A.SMK", "S1L1ECS.SAN"). */
     std::string name;
     /** Which CD it's on: 1 or 2. */
     int cd = 0;
@@ -58,8 +58,8 @@ struct CutScene {
 };
 
 /**
- * Every Smacker cut scene (.smk, Jedi Knight's) in the CDs'
- * GAMEDATA/RESOURCE/VIDEO folders, CD 1's
+ * Every cut scene (Jedi Knight's .smk, Mysteries of the Sith's .san) in the
+ * CDs' GAMEDATA/RESOURCE/VIDEO folders, CD 1's
  * then CD 2's, each sorted by name.
  */
 std::vector<CutScene> findCutScenes(const GameFolders &folders);

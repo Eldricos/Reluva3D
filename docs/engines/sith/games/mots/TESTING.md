@@ -13,6 +13,9 @@ check this game too:
 | `sith.unit.folders` | Its CD and Jedi Knight's CD 2 told apart by their markers, as its CDs 1 and 2; found for its install |
 | `sith.unit.import` | Imported from its CD's image (a cue sheet, a raw data track and an audio track built in the test), Jedi Knight's CD 2 added with *Add other disc...*; what's made recognised, its CDs and music found |
 | `common.unit.files` | Disc images read: ISO 9660 on a raw track through a cue sheet and on an `.iso` |
+| `common.unit.video` (smush) | A SMUSH file built in the test: runs and a table of averages, blocks moved, filled and averaged, a palette fade, sound split across chunks, a subtitle |
+| `sith.unit.levels` (coloured light) | Surfaces with four lights a corner |
+| `sith.unit.formats`, `sith.unit.models` | Sound class numbers as the game reads them; an animation's lines after its nodes left alone |
 
 ### The basic engine test
 
@@ -20,7 +23,15 @@ The engine's, `sith.engine`, on Jedi Knight's files.
 
 ### The game-files test
 
-Not yet.
+`sith.mots.gamedata.*` (`tests/engines/sith/gamedata_mots.cmake`), with
+`RELUVA_MOTS` naming an install as *Import Game...* makes it; records in
+`tests/engines/sith/data/gamedata/mots-us-1.0/`:
+
+| Step | What it checks |
+|---|---|
+| `release` | The release recognised, its CD and Jedi Knight's CD 2 found, its 13 music tracks |
+| `formats` | Every file in the archives decoded, each kind as a checksum; the two materials the game can't load either failing |
+| `movies` | Every cut scene's frames, palettes, sound and subtitle numbers, as a checksum |
 
 ### What the automated checks don't cover
 
@@ -51,3 +62,4 @@ after four seconds.
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool import` with Jedi Knight's CD 2, then `reluva-tool sith host` on the import, its save folder new | Files the same as the install's; 13 music tracks found; on its first start both CD checks passed without a request, the opening, a new game's cut scene, and play in the first level with its music asked for |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith host` | A game saved from the in-game menu, listed and loaded; *Setup*'s settings saved when stopped; `-everyframe -fps 100`, the world moved about twice as often; `-d3d -gpu`, 154 scenes matching; two copies with `-net`, one hosting *Kill The Fool With The Ysalamiri*, the other joining with its own character, each seeing the other in the level |
 | November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith host -skim` from *New Game*, in software at the game's own rate | The whole single-player episode in 25 minutes: its 14 levels in order (`s1l1_rebelbase.jkl` to `s5l4_lowersith.jkl`, both halves of Katraasii), each loaded, drawn and played a few seconds; all 23 of the CD's cut scenes started where the game plays them (the opening, each level's opening and closing scenes from inside the level, the finale); the credits run to their end; nothing stopped, no message box, no Windows call without a stand-in |
+| November 2026 | US retail, from its CD's image | Linux, `reluva-tool sith movies -all`, `sith page`, and frames from `sith host` | Every cut scene decoded with its sound; the opening's frames against the game's own, the same pixels ([smush.md](../../../../common/video/smush.md#sources-and-checks)); a frame on the Cut scenes page the same as the prototype's, with its subtitle; the first level drawn from the player's start |
