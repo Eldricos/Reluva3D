@@ -106,6 +106,9 @@ reaches its menus; then DirectSound; then a level.
    144), the world moved at each, by lowering the game's 10 ms floor on
    a step, once 100 has been tried on a display faster than that and
    more is wanted ([systems/hosting.md](systems/hosting.md), step 22).
+   Another: widescreen, for both games, shown feasible by a trial (16:9
+   modes offered, the field of view widened at its setter) and not yet
+   built ([systems/hosting.md](systems/hosting.md), step 24).
 7. **Mysteries of the Sith**, its own plan:
    [../mots/PLAN.md](../mots/PLAN.md).
 

@@ -381,6 +381,44 @@ Windows does when it fails, and dialog boxes are made but not drawn
     and an autosave as each level starts, `_JKAUTO_<level>.jks`. *Load
     Game* leaves the autosaves out by their names, and any save whose
     title (the level's name, `~`, the save's) has no `~`.
+24. **Widescreen**, a trial, not yet an option. The game takes its
+    screen's size from the display modes DirectDraw lists, and draws
+    its 3D and status gauges for whatever size it's given. Offered
+    1280 by 720 and 1920 by 1080 (16-bit, chosen for it as
+    `displayMode`), `JK.EXE` played through Direct3D at both, two levels
+    at 1080 without a fault, its gauges in the screen's bottom corners,
+    its messages centred *(confirmed)*; `JKM.EXE` the same at 1280 by
+    720 *(confirmed)*. The menus and cut scenes are 640 by 480 pictures
+    of their own, to be shown in the middle with bars at the sides.
+
+    As it is, the view is cut down from above and below: the 3D's focal
+    length is half the view's width over the tangent of half its field
+    of view (`0x443670`; `JKM.EXE` `0x447db0`), so the field of view is
+    90° across whatever the width, and a wider screen shows less of the
+    height. Shown as much height as at 4:3, the view must be wider:
+    2·atan(tan(fov/2)·(aspect / (4/3))), 106.26° for 90° at 16:9. Both
+    programs set it through one function, held to between 5° and 179°
+    (`0x4434d0`; `JKM.EXE` `0x447c10`, the field of view at the canvas's
+    `+0x38`). `JK.EXE`'s cameras are made at 90° (the `push 0x42b40000`
+    at `0x415ce5` and `0x4c4deb` to `0x4c4eae`) and kept so; patched to
+    106.26°, the picture at 16:9 had the same height as at 4:3 and more
+    at the sides *(confirmed)*. `JKM.EXE` sets its field of view again
+    from its scripts' zoom (`0x513670`, from the verb at `0x558c90`, at
+    each level's start), two times the angle whose tangent is the view's
+    half width over the same times the zoom, 90.19° with the angle its
+    own approximation: the cameras' constants alone change nothing. A
+    trampoline at the setter, widening each field of view it's given by
+    the formula, gave `JKM.EXE` the same height as at 4:3 and more at the
+    sides (106.44° from 90.19°) *(confirmed)*; the same at `JK.EXE`'s
+    setter covers its zooms too.
+
+    Left open: the software renderer at these sizes (its modes are 8-bit
+    and listed only up to 1024 by 768); the gauges, drawn at their own
+    pixels, small at 1080; each status bitmap and the view's sizes
+    (`viewSize`: 10 is the whole screen without gauges) at 16:9; the
+    scopes and zooms, through the same setter but never seen widened;
+    and Direct3D on the graphics card (step 21), whose scaling assumes
+    640 by 480.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
