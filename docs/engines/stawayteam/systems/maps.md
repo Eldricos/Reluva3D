@@ -702,9 +702,12 @@ In all the maps' 776 enemies:
   is taken (`0x429610`, `0x42a67e`); stunned, where the shot came from,
   the target dropped (`0x42cdd8`); a body seen, its place, and the body
   put in the AI's `Dead Bodies` (`CDeadBodyInfo`) so as not to be
-  looked at again. `Got a Target` (`0x42e1d0`), with a target in sight,
-  its reaction time past, not dead, and in its Valid Targets, goes to
-  `Acquired a Target`, else `Default`; without one, to `Dead Body` with
+  looked at again. `Got a Target` (`0x42e1d0`), with a target in its cone (`0x42e237`)
+  and in sight (`0x42e260`), its reaction time past, not dead, and in its
+  Valid Targets, goes to `Acquired a Target`, else `Default`; the
+  reaction time is 2.5 seconds from being hit by someone other than its
+  target (a `CHitTargetMessage`, `0x434617`), counted down each run
+  (`0x434806`); without one, to `Dead Body` with
   a body's place, `Had a Target` with another, else `Default`. `Lost a
   Target` (`0x42d970`) goes to `Had a Target` with a place, else
   `Default`. Investigate goes to the place.
@@ -742,7 +745,10 @@ In all the maps' 776 enemies:
   `CBorgSetTargetTypeAction` (504) changes them.
 - **Run Away If Too Close** (757): with its target within a twentieth of
   its weapon's range, it runs away (state 13) for three seconds
-  (`0x42b084`), by a `CRunAwayRetreatAI`.
+  (`0x42b084`), by a `CRunAwayRetreatAI`; else, its energy weapon short
+  of a shot's energy for more than a quarter of a second, it runs away
+  that long, a second at most (`0x42b0e2`, `0x42aee0`): the time its
+  Energy Use less its energy takes at its Energy Recharge.
 - **Recharge:** 80 start in it; its `Recharge AI` (a `CSeriesAI`, a
   `CGotoRadiusAI`, a `CRechargeHealthAI` giving back `Hit Points`) and
   `Time To Recharge` (-1 for 521, 2.5 for 130); `End Recharge`'s AI, a
@@ -814,6 +820,15 @@ They tell one another, by actions:
   bar's `Health Bar Background` and `Foreground` at Rules.txt's `Team
   Health Offset` (54, 7) in each officer's slot. The characters'
   models have `Shoot1`, `Death`, `Dead` and `Throw` sequences.
+- **The officers' hurts and healing:** a part keeps the hurt it's taken
+  (`+0x88`), a hurt adding to it (`0x495220`), healing taking it off down
+  to none (`0x4951f0`). An officer's own (`CEntityStarTrekTeamMember`'s,
+  `0x4a9ab0`) first takes the difficulty's share of a hurt, 0.55 of it on
+  easy and all of it on normal (`0x5c6080`, the table at `0x63cdb8`;
+  above normal, more by a third of it a level, up to twice it), then
+  divides it, and any healing (`0x4a99a0`), by their `Stamina` (the
+  roster's, of 100) times 1.5, and a half: with the roster's 15, a hurt's
+  1.38 times as much.
 - **What hides what:** a model's `Bounds Poly` is its outline on the
   ground about where it stands, in floats (the Klingon wall's from 47.3,
   118.6 round to -87.1, 101.5); a part's `Collideable` and `Full Height`
@@ -1377,8 +1392,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
   up, what holding a retreat's place is, what `$Trigger` and the
   instigator are in their states' actions, and how a radius's action
   chooses whom it reaches.
-- **The states:** what makes a low-health enemy run away (`0x42b0e2`),
-  and the reaction time Got a Target waits on.
 - **Walking:** the plain checker's part in planning, and how a joined
   character's made an officer.
 - **Noise:** how the rings are drawn, and the investigating AI's rules.

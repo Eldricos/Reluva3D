@@ -161,8 +161,9 @@ void MapScreen::updateMeld(float seconds) {
         return;
     }
     turnTo(e, angleOf(f.x - e.x, f.y - e.y), kTurnSpeed, seconds);
-    if (e.reload > 0.0f)
+    if (e.reload > 0.0f || !hasShot(*e.weapon, e.energy))
         return;
+    spendShot(*e.weapon, e.energy);
     e.reload = e.weapon->reuseDelay;
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;

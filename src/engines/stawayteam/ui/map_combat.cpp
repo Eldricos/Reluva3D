@@ -348,10 +348,20 @@ float MapScreen::enhancement(int officer) const {
     return enhanced ? 1.25f : 1.0f;
 }
 
+namespace {
+
+constexpr float kReaction = 2.5f;
+
+} // namespace
+
 void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun) {
     Enemy &e = _enemies[enemy];
     if (!e.alive())
         return;
+    // Hit by someone other than its target, it's slow to take a target
+    // for 2.5 seconds (CHitTargetMessage, 0x434617).
+    if (attacker != e.target)
+        e.reaction = kReaction;
     if (const TextObject *action = e.ai->object("Damage Action"))
         runAction(action, attacker, int(e.part));
     // A weapon set to stun puts it down for the weapon's Stun Duration,
@@ -476,6 +486,31 @@ void MapScreen::hitWith(int who, const ItemDefinition &weapon, int shooter, bool
         hurtEnemy(size_t(kEnemyInstigator - who), weapon, shooter >= 0 ? shooter : -1, stun);
 }
 
+bool MapScreen::hasShot(const ItemDefinition &weapon, float energy) {
+    return weapon.dischargeAction != "CShootEnergyWeaponAction" || energy >= weapon.energyUse;
+}
+
+void MapScreen::spendShot(const ItemDefinition &weapon, float &energy) {
+    if (weapon.dischargeAction == "CShootEnergyWeaponAction")
+        energy = std::max(0.0f, energy - weapon.energyUse);
+}
+
+float *MapScreen::weaponEnergy(Officer &o) {
+    if (!o.weapon)
+        return nullptr;
+    for (Officer::Held &h : o.items)
+        if (h.name == o.weapon->name)
+            return &h.energy;
+    return nullptr;
+}
+
+float MapScreen::staminaFactor(size_t officer) const {
+    for (const TeamMember::Attribute &a : _team[_officers[officer].member].attributes)
+        if (a.name == "Stamina")
+            return float(a.value) / 100.0f * 1.5f + 0.5f;
+    return 1.0f;
+}
+
 void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun) {
     Officer &o = _officers[officer];
     if (!o.alive())
@@ -489,7 +524,16 @@ void MapScreen::hurtOfficer(size_t officer, const ItemDefinition &weapon, bool s
         o.attacking = -1;
         return;
     }
-    o.health = std::max(0.0f, o.health - weapon.weaponDamage);
+    // An officer's hurt by the difficulty's share of it, and by less the
+    // more Stamina they have (0x4a9ab0): on easy 0.55 of it, on normal all
+    // of it (0x63cdb8); above, more by a third of it for each level, to
+    // twice it.
+    float damage = weapon.weaponDamage;
+    if (_difficulty <= 1)
+        damage *= 0.55f;
+    else if (_difficulty > 2)
+        damage += std::min(damage, float(_difficulty - 2) * damage * 0.33f);
+    o.health = std::max(0.0f, o.health - damage / staminaFactor(officer));
     if (o.health > 0.0f)
         return;
     // Fallen: out of the player's hands, and failing whatever objective
@@ -575,7 +619,16 @@ void MapScreen::updateCombat(float seconds) {
         const Animation &a = animation(f.model, "Idle");
         return a.fps <= 0.0f || f.time * a.fps >= float(a.perDirection());
     });
+    // An energy weapon's energy comes back at its Energy Recharge a second,
+    // to 100 (0x5d08a8); a charged item's is its own (map_gadgets.cpp).
+    const auto recharge = [&](const ItemDefinition &def, float &energy) {
+        if (def.dischargeAction == "CShootEnergyWeaponAction" && !def.charged)
+            energy = std::min(100.0f, energy + def.energyRecharge * seconds);
+    };
     for (Officer &o : _officers) {
+        for (Officer::Held &h : o.items)
+            if (const auto def = _items.find(h.name); def != _items.end())
+                recharge(def->second, h.energy);
         o.reload = std::max(0.0f, o.reload - seconds);
         o.enhanced = std::max(0.0f, o.enhanced - seconds);
         if (!o.alive()) {
@@ -619,7 +672,10 @@ void MapScreen::updateCombat(float seconds) {
         if (distance <= reach && clearSight(o.x, o.y, e.x, e.y)) {
             o.path.clear();
             o.direction = directionOf(e.x - o.x, e.y - o.y);
-            if (o.reload <= 0.0f) {
+            float *energy = weaponEnergy(o);
+            if (o.reload <= 0.0f && (!energy || hasShot(*o.weapon, *energy))) {
+                if (energy)
+                    spendShot(*o.weapon, *energy);
                 o.reload = o.weapon->reuseDelay;
                 o.discharge = o.weapon->dischargeSequence.empty() ? "Shoot1" : o.weapon->dischargeSequence;
                 shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y, int(&o - _officers.data()));
@@ -637,6 +693,8 @@ void MapScreen::updateCombat(float seconds) {
         }
     }
     for (Enemy &e : _enemies) {
+        if (e.weapon)
+            recharge(*e.weapon, e.energy);
         e.reload = std::max(0.0f, e.reload - seconds);
         if (!e.alive()) {
             e.dead += seconds;

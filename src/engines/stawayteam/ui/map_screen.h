@@ -259,10 +259,12 @@ public:
         bool stuns = false; // its weapon's set to stun
         float reload = 0.0f;
         float shooting = 0.0f;
-        float dead = -1.0f;   // seconds since it fell; below 0 alive
-        float stunned = 0.0f; // seconds of its stun left
-        float held = 0.0f;    // seconds it's held to a task (a stasis field's, an EM pulse's), kHeldForever
-        int decoy = -1;       // the decoy's part it's after, or -1
+        float dead = -1.0f;    // seconds since it fell; below 0 alive
+        float stunned = 0.0f;  // seconds of its stun left
+        float held = 0.0f;     // seconds it's held to a task (a stasis field's, an EM pulse's), kHeldForever
+        int decoy = -1;        // the decoy's part it's after, or -1
+        float reaction = 0.0f; // seconds before Got a Target takes a target again, hit by another
+        float energy = 100.0f; // its energy weapon's, out of 100
 
         bool alive() const { return dead < 0.0f; }
         bool down() const { return dead >= 0.0f || stunned > 0.0f; }
@@ -388,6 +390,16 @@ public:
     void hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attacker, bool stun);
     /** A shot at officer `officer` with `weapon`: stunning them with `stun`, else hurting them. */
     void hurtOfficer(size_t officer, const ItemDefinition &weapon, bool stun);
+    /**
+     * The difficulty, 1 easy, 2 normal, as the difficulty window has it:
+     * what the officers' hurts are multiplied by (0x4a9ac1).
+     */
+    void setDifficulty(int level) { _difficulty = level; }
+    /**
+     * What a change to officer `officer`'s health is divided by: their
+     * Stamina of 100, times 1.5, and a half (0x4a99a0, 0x4a9b72); 1 without one.
+     */
+    float staminaFactor(size_t officer) const;
     /**
      * Who a shot from (x0, y0) at (x1, y1) by `shooter` (an officer, or
      * kEnemyInstigator less an enemy) meets first: the first standing
@@ -518,6 +530,14 @@ public:
      * any (0x423da0, 0x423e90).
      */
     void stepItem(int officer, int step);
+
+    /**
+     * Whether an energy weapon's `energy` (0-100) holds a shot's Energy Use
+     * (0x5d0980); other weapons are always ready.
+     */
+    static bool hasShot(const ItemDefinition &weapon, float energy);
+    /** A shot's Energy Use spent from an energy weapon's `energy`, to none at least (0x5d094b). */
+    static void spendShot(const ItemDefinition &weapon, float &energy);
 
     /** Where the officers, enemies and points of interest are, for the minimap. */
     std::vector<GameHud::Mark> minimapMarks() const;
@@ -740,6 +760,8 @@ private:
     // An officer's process a step; true once it's through.
     bool runProcess(size_t officer, float seconds);
     bool stuns(const Officer &o) const;
+    // The energy of officer `o`'s weapon, the item of theirs it is; nullptr if none.
+    float *weaponEnergy(Officer &o);
     // A line of a script of Levels/; empty if there's none.
     std::string describe(const std::string &script, const std::string &line) const;
     const ItemDefinition *itemOf(const Officer &o) const;
@@ -1060,6 +1082,7 @@ private:
     std::map<std::string, Animation> _cursors; // by name
     bool _overInterface = false;               // the mouse over the interface, not the map
     std::shared_ptr<MissionProgress> _progress;
+    int _difficulty = 2;
     bool _active = true;
     std::vector<Relocation> _relocations;
     int _switchTo = -1;

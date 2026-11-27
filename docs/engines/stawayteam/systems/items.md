@@ -320,15 +320,22 @@ reason they walk over one lying on the ground. Then its Explosion and Death Soun
 explosion (`0x496710`). That reaches every active character, the team's
 too, within an oval of its Explosion Radial Damage across and that over
 1.403 up and down (`0x4883bf`), in sight of it if it needs that
-(`0x4883b8`). Each is hurt by less the farther off it is, falling
-evenly to none at the edge (`0x488357`); what it falls from is the
-grenade's Weapon Damage *(inferred)*. One that does no damage stuns
-those it reaches for its Stun Duration instead *(inferred)*. A grenade's own Destroyed Action,
+(`0x4883b8`). Each is hurt by less the farther off it is, from twice
+its Explosion Radial Damage at its middle evenly to none at the edge
+(`0x488357`): the explosion (`0x496710`) asks with its radius and,
+doubled, the hurt (`0x49676b`), and each reached is hurt by that with
+its model's `Collide Damage Type` (`Unavoidable` for the grenades,
+`Physical` for the mines) and the thrower as its instigator
+(`0x488330`, `0x495220`). The item's own Weapon Damage and Stun
+Duration play no part, and nothing on the way stuns: a concussion
+grenade's 150 hurts by 300 at its middle. A grenade's own Destroyed Action,
 more than a noise, runs where it went off: the EM pulse's holds the
 Electronic Equipment within it 15 seconds, doing nothing *(inferred)*.
 With a hypospray chosen, a click on an
 officer (themselves too, if it can) sends them there to heal them by its
-Health, up to their whole *(inferred)*. Each use takes one of its count;
+Health (`CGiveHealthAction`, `0x4d6cd9`), divided by their Stamina as
+their hurts are, up to their whole
+([maps.md](maps.md#fighting)). Each use takes one of its count;
 none left, it can't be used. The bar shows each item's uses left in its
 corner *(inferred)*.
 
@@ -336,9 +343,9 @@ A mine chosen is put down where's clicked, the officer walking there
 first (its `CDropItemAI`'s `Move Behavior`, `Do Path Finding`); drawn on the ground, its model's Default Sequence
 over and over *(inferred)*. A proximity mine arms after its model's
 delay, then goes when an enemy's in its oval: its Activate Sound and
-noise, and its explosion its fuse later, as a grenade's, hurting by the
-mine's Weapon Damage (read from its model's AI; *inferred* for running
-it here). A remote mine waits for DETONATE on its panel, which sends a message
+noise, and its explosion its fuse later, as a grenade's, hurting from
+twice its model's Explosion Radial Damage (150 for each of the mines)
+as above. A remote mine waits for DETONATE on its panel, which sends a message
 on the player's `Remote Mine` broadcaster (`0x48bca0`), setting off
 every one they've put down; its Destroyed Action makes a noise of 350
 and shocks the living within 150 (an `Electric Shock` effect). A tricorder chosen, a click on a part
@@ -409,12 +416,19 @@ it's on patrol *(inferred)*. Its panel shows the meter's frame for the
 charge left, BREAK CONTROL and CENTER while it's on, else its Text
 *(inferred)*; CENTER brings the view to the enemy.
 
+An energy weapon (`CStarTrekEnergyWeaponInventoryItem`: the phasers,
+the disruptors, the Borg guns) has an energy of 100 (`Current Energy`,
+the item's `+0x2c`): a shot needs its `Energy Use` (20 for most) as well
+as its Reuse Delay past (`0x5d0980`) and spends it (`0x5d094b`); it
+comes back at its `Energy Recharge` a second (2.5 for most), to 100
+(`0x5d08a8`). So five quick shots, then one each eight seconds. The
+enemies' are theirs alike.
+
 An enhancement, kept for each officer rather than each item (it's given
 to all their weapons at once), multiplies their weapons' damage and
 range by 1.25, shown in the phaser's panel. An overloaded phaser can't be fired; thrown, it goes off as its
-overload runs out *(inferred)*; going off, it hurts by the phaser's own
-Weapon Damage within its projectile's Explosion Radial Damage, its
-holder too *(inferred)*.
+overload runs out *(inferred)*; going off, its projectile explodes as a
+grenade does, its holder too ([grenades](#grenades)).
 
 While the enemy taken over is chosen, its bar holds the Psychic Rack's
 `Controller Item`, the Psyche Displacement Controller (given it as it's
@@ -467,11 +481,10 @@ system ([particles.md](particles.md)).
 - **How it was checked:** Reluva run on the retail files, Mission 01:
   the team's items and counts; Marcus Refelian's concussion grenade
   chosen and thrown at the nearest Romulan, walking into its range first,
-  the grenade flying there, its explosion stunning the Romulan for 30
-  seconds, four left; the bar with the grenade on its selected
+  the grenade flying there and going off by the Romulan, four left; the bar with the grenade on its selected
   background. Not yet against the original running. Unit tests
-  (`stawayteam.unit.maps`) check the counts, a concussion grenade
-  stunning a guard in its reach and not one outside it, a grenade hurting
+  (`stawayteam.unit.maps`) check the counts, a concussion grenade's
+  blast killing a guard in its reach and not one outside it, a grenade hurting
   an officer, none left after the last, and a hypospray walked to an
   officer and healing them; a phaser switched to stun stunning a guard
   unhurt, a remote mine put down and set off, a tricorder on a guard
@@ -510,17 +523,19 @@ system ([particles.md](particles.md)).
   its model's Max Velocity.
 - **Gadgets:** how an enemy shoots a hologram, and how the player orders an enemy taken over, and how its own mind comes
   back.
-- **Overload:** what an overloaded phaser's projectile does when it
-  goes off, and whether a thrown one keeps its countdown.
-- **Grenades:** what an explosion's hurt falls from (a reading of the
-  stack gave twice its Explosion Radial Damage, which the items' numbers
-  don't bear out), and what the EM Pulse Grenade does.
+- **Overload:** whether a thrown one keeps its countdown (the item's
+  `+0x18`, `0x5cf3e0`) or takes its projectile's own Shot Duration.
+- **Grenades:** what the EM Pulse Grenade does beyond holding the
+  Electronic Equipment, and how a damage type's `Unavoidable damage`
+  weighs against a character's own (`0x495297`).
 - **The bar:** where a count is shown, where the More Indicator is
   drawn, the order of its places, and whether the full inventory's
   items are in their Item Frames.
 - **Cursors:** when the program shows each of an item's cursors.
 - **The panels:** where each part of an item's panel is drawn, whether
-  it's over the minimap, and how the phaser's switch is used.
+  it's over the minimap, how the phaser's switch is used, and how its
+  Power Indicator shows its energy, in a shot's worth of it a step
+  (`0x534890`); Reluva draws it full.
 - **Mines:** where one's put down, who a remote mine's DETONATE sets off,
   and the mines' sequences.
 - **Tricorders:** what can be scanned, and what the Medical Tricorder

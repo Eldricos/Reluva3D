@@ -278,13 +278,15 @@ bool MapScreen::doTask(size_t officer) {
             removeItem(o, size_t(o.item));
         return true;
     }
-    // Used on an officer: its Health action's Health given, up to their
-    // whole (inferred), or their weapons enhanced for its time, from then
-    // whatever was left (0x5cf050); with its Use Sound.
+    // Used on an officer: its Health action's Health given, less the more
+    // Stamina they have, the hurt they've taken going down to none, so up
+    // to their whole (0x4d6cd9, 0x4a99a0, 0x4951f0); or their weapons
+    // enhanced for its time, from then whatever was left (0x5cf050); with
+    // its Use Sound.
     Officer &target = _officers[size_t(o.taskOfficer)];
     if (&target != &o)
         o.direction = directionOf(target.x - o.x, target.y - o.y);
-    target.health = std::min(target.maxHealth, target.health + def->health);
+    target.health = std::min(target.maxHealth, target.health + def->health / staminaFactor(size_t(o.taskOfficer)));
     if (def->enhanceTime > 0.0f)
         target.enhanced = def->enhanceTime;
     if (_mixer)
@@ -299,10 +301,10 @@ void MapScreen::explode(const Thrown &t) {
     // character within its Explosion Radial Damage, an oval on the ground
     // as the map's foreshortening has it (0x4883bf), the team too (only
     // Active asked of them, 0x4883b8), with a clear line to it if it
-    // Requires LOS For Damage: stunned for the grenade's Stun Duration if
-    // it does no damage (a concussion grenade's), else hurt, less the
-    // further off, to none at its edge (0x488357). What it's hurt from at
-    // the middle, the grenade's Weapon Damage, is inferred.
+    // Requires LOS For Damage: hurt by twice its Explosion Radial Damage at
+    // the middle, less the further off, to none at its edge (0x49676b,
+    // 0x488357), whatever the item's own Weapon Damage; its model's Collide
+    // Damage Type goes with it, none a stun (0x495220).
     const ModelInfo &info = modelInfo(t.model);
     if (!info.explosion.empty())
         _flashes.push_back({info.explosion, t.x, t.y});
@@ -326,24 +328,23 @@ void MapScreen::explode(const Thrown &t) {
     const float radius = info.explosionRadius;
     if (radius <= 0.0f)
         return;
-    const bool stun = t.item->weaponDamage <= 0.0f && t.item->stunDuration > 0.0f;
     const auto off = [&](float x, float y) { return std::hypot(x - t.x, (y - t.y) / ParticleSystem::kYToX); };
     const auto reaches = [&](float x, float y) {
         return off(x, y) <= radius && (!info.explosionNeedsSight || clearSight(t.x, t.y, x, y));
     };
     const auto at = [&](float x, float y) {
         ItemDefinition weakened = *t.item;
-        weakened.weaponDamage *= 1.0f - off(x, y) / radius;
+        weakened.weaponDamage = 2.0f * radius * (1.0f - off(x, y) / radius);
         return weakened;
     };
     for (size_t i = 0; i < _enemies.size(); ++i) {
         const Enemy &e = _enemies[i];
         if (e.alive() && _partStates[e.part].active && !_partStates[e.part].deleted && reaches(e.x, e.y))
-            hurtEnemy(i, at(e.x, e.y), t.thrower, stun);
+            hurtEnemy(i, at(e.x, e.y), t.thrower, false);
     }
     for (size_t i = 0; i < _officers.size(); ++i)
         if (_officers[i].alive() && reaches(_officers[i].x, _officers[i].y))
-            hurtOfficer(i, at(_officers[i].x, _officers[i].y), stun);
+            hurtOfficer(i, at(_officers[i].x, _officers[i].y), false);
 }
 
 bool MapScreen::inItemRange(const ItemDefinition &item, float fromX, float fromY, float x, float y, float range) const {

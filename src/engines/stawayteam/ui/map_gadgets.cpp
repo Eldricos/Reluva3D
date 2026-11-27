@@ -583,8 +583,9 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
         return true;
     }
     e.angle = std::atan2(p.y - e.y, e.x - p.x);
-    if (e.reload > 0.0f)
+    if (e.reload > 0.0f || !hasShot(*e.weapon, e.energy))
         return true;
+    spendShot(*e.weapon, e.energy);
     e.reload = e.weapon->reuseDelay;
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, p.x, p.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;

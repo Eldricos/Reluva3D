@@ -28,6 +28,10 @@ constexpr float kSeenOpacity = 0.35f;
 // away does, this long (0x42b0ad, 0x42b0d1).
 constexpr float kTooClose = 0.05f;
 constexpr float kRunAwayTime = 3.0f;
+// Its weapon short of a shot's energy for more than this, in seconds, it
+// runs away for that long, this most (0x617400; 0x42b12a).
+constexpr float kShortOfShot = 0.25f;
+constexpr float kLongestShort = 1.0f;
 // A retreat's reach as a part of its weapon's range, and its spot's
 // nearest and farthest as parts of that (0x617400, 0x6296f0, 0x614320).
 constexpr float kRetreatPart = 0.25f;
@@ -649,6 +653,7 @@ void MapScreen::updateEnemies(float seconds) {
             continue;
         }
         e.stateTime += seconds;
+        e.reaction = std::max(0.0f, e.reaction - seconds); // 0x434806
         const TextObject *states = e.ai;
         const int self = int(e.part);
         // Seeing an officer, a patrolling enemy is alerted: its Alert
@@ -838,14 +843,21 @@ void MapScreen::updateEnemies(float seconds) {
             continue;
         }
         // Alert Time over, its Next State (0x42a189): mostly Got a Target,
-        // which with a target goes to its Acquired a Target, mostly
-        // Attack (inferred: how GotATarget chooses isn't traced).
+        // which goes to its Acquired a Target, mostly Attack, with a target
+        // alive, in its cone and in sight, and its reaction time over; else
+        // to its Default (0x42e1d0).
         const TextObject *alert = states->object("Alert");
         if (e.state == "Alert" && e.stateTime >= number(alert, "Alert Time", 2.0f)) {
             std::string next = stateKey(alert ? readText(alert, "Next State") : std::string());
             if (next.empty() || next == "GotATarget") {
                 const TextObject *got = states->object("GotATarget");
-                next = stateKey(got ? readText(got, "Acquired a Target") : std::string());
+                const bool acquired = e.target >= 0 && size_t(e.target) < _officers.size() &&
+                                      !_officers[size_t(e.target)].down() && sees(e, _officers[size_t(e.target)]) &&
+                                      e.reaction <= 0.0f;
+                next = stateKey(got ? readText(got, acquired ? "Acquired a Target" : "Default")
+                                    : std::string(acquired ? "Attack" : "Patrol"));
+                if (next.empty())
+                    next = acquired ? "Attack" : "Patrol";
             }
             if (next.empty() || next == "Attack") {
                 attackOfficer(e, e.target);
@@ -877,7 +889,18 @@ void MapScreen::updateEnemies(float seconds) {
         // the target (0x430702), 0.83 to 1.2 times that, within 45 degrees
         // of straight away from them, on the ground unforeshortened; with
         // no way there, anywhere round them (0x5530f0, 0x5531a0).
-        if (distance <= e.weapon->range * kTooClose && readText(e.ai, "Run Away If Too Close") == "1") {
+        // Else, its weapon short of a shot's energy for more than a quarter
+        // of a second, it runs away that long, a second at most (0x42b0e2,
+        // 0x42aee0).
+        float runFor = 0.0f;
+        if (readText(e.ai, "Run Away If Too Close") == "1") {
+            if (distance <= e.weapon->range * kTooClose)
+                runFor = kRunAwayTime;
+            else if (!hasShot(*e.weapon, e.energy) && e.weapon->energyRecharge > 0.0f &&
+                     (e.weapon->energyUse - e.energy) / e.weapon->energyRecharge > kShortOfShot)
+                runFor = std::min(kLongestShort, (e.weapon->energyUse - e.energy) / e.weapon->energyRecharge);
+        }
+        if (runFor > 0.0f) {
             const auto randomUnit = [&] {
                 _random = _random * 1103515245u + 12345u;
                 return float((_random >> 8) & 0xffffff) / float(0xffffff);
@@ -891,12 +914,13 @@ void MapScreen::updateEnemies(float seconds) {
                 if (!e.route.empty())
                     break;
             }
-            e.runAway = kRunAwayTime;
+            e.runAway = runFor;
             setState(e, "RunAway");
             continue;
         }
         const float off = std::abs(wrap(toward - e.angle)) * 180.0f / kPi;
-        if (off <= e.weapon->maxShootAngle && e.reload <= 0.0f) {
+        if (off <= e.weapon->maxShootAngle && e.reload <= 0.0f && hasShot(*e.weapon, e.energy)) {
+            spendShot(*e.weapon, e.energy);
             e.reload = e.weapon->reuseDelay;
             shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, o.x, o.y,
                   kEnemyInstigator - int(&e - _enemies.data()));
@@ -966,8 +990,9 @@ bool MapScreen::fightFoe(size_t self, float seconds) {
     }
     e.walking = false;
     const float off = std::abs(wrap(toward - e.angle)) * 180.0f / kPi;
-    if (off > e.weapon->maxShootAngle || e.reload > 0.0f)
+    if (off > e.weapon->maxShootAngle || e.reload > 0.0f || !hasShot(*e.weapon, e.energy))
         return true;
+    spendShot(*e.weapon, e.energy);
     e.reload = e.weapon->reuseDelay;
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;

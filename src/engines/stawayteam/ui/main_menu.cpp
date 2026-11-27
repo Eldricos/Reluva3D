@@ -658,6 +658,7 @@ MapScreen *MainMenu::openMap(const std::string &name, bool arriving) {
         log::warning("Mission %d's waypoints: %s", _mission.number, err.message.c_str());
     auto screen = std::make_unique<MapScreen>(_data, _rules, std::move(map), _options, _sys.getMillis(), _missionTeam,
                                               std::move(wayPoints), _mixer, arriving);
+    screen->setDifficulty(int(_difficulty));
     // The mission's progress is the same on all its maps.
     if (!_maps.empty())
         screen->shareProgress(_maps.begin()->second->progress());

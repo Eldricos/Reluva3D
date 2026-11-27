@@ -275,6 +275,8 @@ void MapScreen::state(StateIo &s) {
         for (float *f : {&e.reload, &e.shooting, &e.dead, &e.stunned, &e.held})
             s.io(*f);
         s.io(e.decoy);
+        s.io(e.reaction);
+        s.io(e.energy);
         s.map(e.progress, [&](const TextObject *&ai, Enemy::Progress &p) {
             s.io(ai);
             s.io(p.time);

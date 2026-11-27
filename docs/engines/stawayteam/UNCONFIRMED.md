@@ -28,8 +28,7 @@ None now.
 - **Mines' sequences:** a mine's Deploy Sequence once as it's put down,
   and its Activate held at its last frame once set off
   ([systems/items.md](systems/items.md#in-reluva)).
-- **Overload:** a thrown overloaded phaser keeping its countdown, and its
-  going off hurting by its own damage, its holder too
+- **Overload:** a thrown overloaded phaser keeping its countdown
   ([systems/items.md](systems/items.md#in-reluva)).
 - **Network games:** only the host starting, the chat's lines' form,
   the chosen game's and mission's font, the host starting on the first
@@ -56,8 +55,7 @@ None now.
 - **Objectives:** the debriefing's lines typed only once their panel's
   in ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **Items:** the counts for -1, the keys matched to items by name,
-  walking into range before using one, what a grenade's explosion's
-  hurt falls from, healing up to the whole, and where the bar
+  walking into range before using one, and where the bar
   shows counts; the items' panels' layout and the phaser's switch on
   it, and tricorders' scans
   ([systems/items.md](systems/items.md#open-questions)).

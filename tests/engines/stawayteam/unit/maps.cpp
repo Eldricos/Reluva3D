@@ -426,6 +426,52 @@ void testEnemies() {
     CHECK(screen.enemies()[0].state == "Attack" && screen.enemies()[0].target == 0);
 }
 
+void testOfficerHurt() {
+    // An officer's hurt by the difficulty's share and less for more
+    // Stamina (0x4a9ab0): on easy, 0.55 of 40, over 50 Stamina's 1.25;
+    // healed by 20 over the same, so 16.
+    const std::string zax = "CLayerSaveData\n{\n\tWidth=1000\n\tHeight=1000\n\tView Position=100.000000,100.000000\n"
+                            "\tTree List=CSortList2D\n\t{\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n}\n", rules));
+    GameOptions options;
+    options.pauseWhenHit = false;
+    TeamMember officer;
+    officer.firstName = "Ann";
+    officer.attributes = {{"Stamina", 50}};
+    MapScreen screen(data, rules, map, options, 0, {officer});
+    screen.setDifficulty(1);
+    ItemDefinition phaser;
+    phaser.weaponDamage = 40.0f;
+    screen.hurtOfficer(0, phaser, false);
+    CHECK(std::abs(screen.officers()[0].health - (100.0f - 17.6f)) < 0.01f);
+    screen.setDifficulty(2);
+    screen.hurtOfficer(0, phaser, false);
+    CHECK(std::abs(screen.officers()[0].health - (100.0f - 17.6f - 32.0f)) < 0.01f);
+}
+
+void testWeaponEnergy() {
+    // An energy weapon's shot needs its Energy Use of its 100 and spends
+    // it (0x5d0980, 0x5d094b): five of 20, then none till it's back.
+    ItemDefinition phaser;
+    phaser.dischargeAction = "CShootEnergyWeaponAction";
+    phaser.energyUse = 20.0f;
+    float energy = 100.0f;
+    int shots = 0;
+    while (MapScreen::hasShot(phaser, energy) && shots < 10) {
+        MapScreen::spendShot(phaser, energy);
+        ++shots;
+    }
+    CHECK(shots == 5 && energy == 0.0f);
+    ItemDefinition rifle;
+    rifle.dischargeAction = "CShootProjectileWeaponAction";
+    CHECK(MapScreen::hasShot(rifle, 0.0f));
+}
+
 void testEndGameGoesOn() {
     // Under the End Game Menu the game goes on, its time counted: it only
     // takes the map's input (0x5ca130).
@@ -1253,7 +1299,7 @@ void testItems() {
     data.files["Cache/Models/Shots/Concussion.mdl16"] =
         modelFile("Concussion", 1, 1, 50.0f, {}, 150.0f, true, 400.0f, grenadeLook());
     data.files["Cache/Models/Shots/Frag.mdl16"] =
-        modelFile("Frag", 1, 1, 50.0f, {}, 60.0f, false, 400.0f, grenadeLook());
+        modelFile("Frag", 1, 1, 50.0f, {}, 40.0f, false, 400.0f, grenadeLook());
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const auto grenade = [&](const std::string &damage, const std::string &projectile) {
         return bytesOf(
@@ -1303,7 +1349,8 @@ void testItems() {
             screen.update(now += 50);
     };
     // A concussion grenade thrown at the guard, in range: three seconds on
-    // it stuns Guard A, in its 150, not Guard B.
+    // its blast kills Guard A, in its 150, twice that at its middle; not
+    // Guard B.
     screen.choose(0);
     screen.chooseItem(0, 0);
     CHECK(screen.useItem(600.0f, 500.0f));
@@ -1323,11 +1370,12 @@ void testItems() {
     run(3000);
     CHECK(screen.thrown()[0].x > 580.0f && screen.thrown()[0].x < 640.0f && screen.thrown()[0].y == 500.0f);
     run(3200);
-    CHECK(screen.thrown().empty() && screen.enemies()[0].state == "Stun" && screen.enemies()[0].health == 100.0f);
+    CHECK(screen.thrown().empty() && !screen.enemies()[0].alive());
     CHECK(screen.enemies()[1].state == "Patrol");
     // The frag grenade thrown 50 toward Bo skips on to his feet: he's hurt,
-    // by no more than its 30, less the further off; Ann, 100 off, isn't;
-    // then there's none left.
+    // by twice its 40 at its middle, less the further off (he's 32 off as
+    // the ground's foreshortening has it); Ann, 100 off, isn't; then
+    // there's none left.
     screen.chooseItem(0, 1);
     CHECK(screen.useItem(300.0f, 450.0f));
     run(7000);
@@ -1355,8 +1403,9 @@ void testItems() {
 
 void testOverload() {
     // Ann's phaser set to overload, a guard 100 off: ten seconds on it goes
-    // off where she is, hurting both, and it's gone. Bo's, set and thrown
-    // at a guard 300 off, goes off there when its time's up.
+    // off where she is, its projectile's blast hurting both (twice its 150
+    // at her, 100 at the guard), and it's gone. Bo's, set and thrown at a
+    // guard 300 off, goes off there when its time's up.
     const auto part = [](const std::string &name, int x, int y, const std::string &rest) {
         return "Level Part=CEntityWalking\n{\nName=" + name + "\nVisible=1\nActive=1\n" + rest +
                "Position X=" + std::to_string(x) + "\nPosition Y=" + std::to_string(y) + "\n}\n";
@@ -1409,8 +1458,7 @@ void testOverload() {
     run(9000);
     CHECK(a.items.size() == 1 && screen.enemies()[0].health == 100.0f);
     run(11000);
-    CHECK(a.items.empty() && a.weapon == nullptr && screen.enemies()[0].health >= 60.0f &&
-          screen.enemies()[0].health < 100.0f && a.health == 60.0f);
+    CHECK(a.items.empty() && a.weapon == nullptr && screen.enemies()[0].health < 100.0f && !a.alive());
     // Bo's thrown: it's gone from him as it's thrown, and goes off by the guard.
     screen.choose(1);
     screen.chooseItem(1, 0);
@@ -1419,8 +1467,7 @@ void testOverload() {
     run(now + 1000);
     CHECK(b.items.empty() && screen.thrown().size() == 1 && screen.thrown()[0].model == "Shots/Concussion");
     run(now + 10000);
-    CHECK(screen.thrown().empty() && screen.enemies()[1].health >= 60.0f && screen.enemies()[1].health < 100.0f &&
-          b.health == 100.0f);
+    CHECK(screen.thrown().empty() && screen.enemies()[1].health < 100.0f && b.health == 100.0f);
 }
 
 void testMeld() {
@@ -1841,7 +1888,7 @@ void testGadgets() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(zax.begin(), zax.end());
     data.files["Cache/Models/Characters/Guard.mdl16"] = modelFile("Guard", 1, 1);
-    data.files["Cache/Models/Shots/Remote.mdl16"] = modelFile("Remote", 1, 1, 1.0f, {}, 100.0f, false, 0.0f);
+    data.files["Cache/Models/Shots/Remote.mdl16"] = modelFile("Remote", 1, 1, 1.0f, {}, 40.0f, false, 0.0f);
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     data.files["Levels/Model Descriptions.RDS"] = bytesOf(":A test model\r\nA guard, armed.\r\n");
     data.files["Inventory/Item Definitions/Phaser.txt"] =
@@ -1890,7 +1937,7 @@ void testGadgets() {
     run(500);
     CHECK(guard.state == "Stun" && guard.health == 100.0f);
     // A remote mine put down by the guard; she walks off, and it goes
-    // when it's set off.
+    // when it's set off: the guard, 20 off, hurt by half of twice its 40.
     screen.chooseItem(0, 1);
     CHECK(a.items[1].count == 2 && screen.useItem(480.0f, 300.0f));
     run(8000);
@@ -3247,6 +3294,8 @@ static const reluva::test::Suite
                {"enemies", [](const std::filesystem::path &) { testEnemies(); }},
                {"saved map", [](const std::filesystem::path &) { testSavedMap(); }},
                {"end game goes on", [](const std::filesystem::path &) { testEndGameGoesOn(); }},
+               {"officer hurt", [](const std::filesystem::path &) { testOfficerHurt(); }},
+               {"weapon energy", [](const std::filesystem::path &) { testWeaponEnergy(); }},
                {"closest", [](const std::filesystem::path &) { testClosest(); }},
                {"foes", [](const std::filesystem::path &) { testFoes(); }},
                {"hostage", [](const std::filesystem::path &) { testHostage(); }},
