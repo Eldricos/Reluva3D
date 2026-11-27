@@ -209,9 +209,12 @@ time its reads alone take a second or more. The host now counts a
 file's bytes read (and mapped) at 2,000 a millisecond, a hard disk of
 the time (`GameHost::Options::diskBytesPerMs`), on the instruction
 clock for NFS II SE: the load then takes about 1.5 s, the counter 14
-when checked, and 15 or 16 at each round's in two knockouts after.
-Both of those were out in the third round (7th of 7 at Last Resort),
-so a fifth round hasn't been loaded with it.
+when checked, and 14 to 16 at each round's in the knockouts after.
+Those the driver lost early; with the computer cars' top speeds held to
+70 m/s (their table at 0x4c32e0 poked, for the test only), it won
+through to the fifth round, and its load passed, the counter 16. A
+round won puts up *congratulations!* before the standings, one more
+Enter to take.
 
 Slowed on full lock (late November 2026), laps of 53 s on Proving
 Grounds, 92 to 95 s on the Outback (2nd), 138 to 145 s on
