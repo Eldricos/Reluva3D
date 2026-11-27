@@ -25,6 +25,7 @@ reluva_add_engine(storm3d
         formats/odf.cpp
         formats/preferences.cpp
         formats/shell_progress.cpp
+        formats/tech_tree.cpp
         formats/sod.cpp
         formats/sprite_table.cpp
         formats/zfs_archive.cpp

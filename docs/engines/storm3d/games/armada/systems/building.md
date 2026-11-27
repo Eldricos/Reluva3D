@@ -59,8 +59,8 @@ Cannon (`fturret`, 250 dilithium, 2 officers, 25 seconds):
   (Starbase, Shipyard, Sensor Array, Pulse Cannon, Mining Station,
   Research Facility), the last four dark (Science Station, Advanced
   Shipyard, Torpedo Turret, Temporal Research). Their definitions don't
-  say why: what each needs is *(guessed)*, a research facility, and a
-  shipyard for the advanced one.
+  say why; the map's tech tree does ([tech-tree.md](../formats/tech-tree.md)):
+  those four need a shipyard, a research facility, or both.
 - **Placing:** the item pressed is drawn in (254, 235, 142), and over the
   map the station's model follows the pointer on the plane its builder
   is on, where it will stand: not moved to a cell's middle. Under it, on
@@ -104,7 +104,7 @@ first dilithium moon:
 
 `MissionView` opens the menu from the build button (`Hud::controlAt`
 finds the button under a click), lists the items (`buildListOf`, lit by
-`buildMenuOf`), pays for one (`orderOf`, `pay`) and queues it on its
+`buildMenuOf` where the map's tech tree allows them), pays for one (`orderOf`, `pay`) and queues it on its
 builder; each builder's first item is built on by the frame's time, and
 when it's done, `MapScene::addUnit` adds the unit at its builder, which
 flies to `launchPointOf` by the movement rules
@@ -134,13 +134,10 @@ station's model coming bit by bit aren't drawn yet.
 - Where a shipyard (`fyard`) may go: the original refused one at a site
   whose square Reluva finds clear, left of the start, and drew its
   square's right edge 20 pixels further right than Reluva's at another.
-- What makes other items dark, and whether a menu item is dark without
-  the dilithium or crew for it.
+- Whether a menu item is dark without the dilithium or crew for it.
 - What cancel takes off and pays back, and how the queue is shown past
   its first.
 - Where other builders' units come out, and what the tooltips say.
 - The rail's wipe's angle, a few degrees from the bar's share.
-- What makes the construction ship's last four items dark, and the
-  other races' equivalents.
 - Whether a mining station must be near a moon, and whether ships take
   cells.
