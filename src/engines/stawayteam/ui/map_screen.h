@@ -353,7 +353,7 @@ public:
     const std::vector<Mine> &mines() const { return _mines; }
     /** Sets off every remote mine put down (the remote mine's DETONATE). */
     void detonate();
-    /** Switches the chosen officer's chosen item between kill and stun, one that has both. */
+    /** Switches the shown officer's chosen item between kill and stun, and every chosen officer's that has both with it. */
     void toggleStun();
     /**
      * Sets the chosen officer's chosen item to overload, one that can be,

@@ -2034,6 +2034,42 @@ void testScansPerOfficer() {
     CHECK(screen.scanText() == "A crate.");
 }
 
+void testStunSwitch() {
+    // Ann and Bob, both chosen, each with a phaser: the panel's switch
+    // sets both phasers, as it does every chosen officer's (0x5b6390).
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=400.000000,300.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=300\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=360\n\t\t}\n\t}\n}\n";
+    const auto bytesOf = [](const std::string &text) { return std::vector<uint8_t>(text.begin(), text.end()); };
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Inventory/Item Definitions/Phaser.txt"] =
+        bytesOf("CStarTrekInventoryItemDefinition\n{\n\tDisplay In Inventory=1\n\tHas Multiple Settings=1\n"
+                "\tDefault Inventory Item=CStarTrekEnergyWeaponInventoryItem\n\t{\n\t\tWeapon Setting=Kill\n\t}\n}\n");
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n}\n", rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.inventory = {{"Phaser", -1}};
+    TeamMember bob = ann;
+    bob.firstName = "Bob";
+    MapScreen screen(data, rules, map, options, 0, {ann, bob});
+    screen.chooseItem(0, 0);
+    screen.chooseItem(1, 0);
+    screen.chooseAll();
+    screen.toggleStun();
+    CHECK(screen.officers()[0].items[0].stun && screen.officers()[1].items[0].stun);
+    screen.toggleStun();
+    CHECK(!screen.officers()[0].items[0].stun && !screen.officers()[1].items[0].stun);
+}
+
 void testProcesses() {
     // A console whose process, used with nothing chosen, walks the officer
     // to it and puts a line on the tricorder's panel and the crate on the
@@ -3402,6 +3438,7 @@ static const reluva::test::Suite
                {"gadgets", [](const std::filesystem::path &) { testGadgets(); }},
                {"scans per officer", [](const std::filesystem::path &) { testScansPerOfficer(); }},
                {"mine place", [](const std::filesystem::path &) { testMinePlace(); }},
+               {"stun switch", [](const std::filesystem::path &) { testStunSwitch(); }},
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},

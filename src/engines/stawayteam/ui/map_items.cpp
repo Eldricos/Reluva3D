@@ -823,10 +823,20 @@ bool MapScreen::stuns(const Officer &o) const {
 void MapScreen::toggleStun() {
     if (_selected < 0)
         return;
-    Officer &o = _officers[size_t(_selected)];
-    const ItemDefinition *def = itemOf(o);
-    if (def && def->multipleSettings)
-        o.items[size_t(o.item)].stun = !o.items[size_t(o.item)].stun;
+    const Officer &shown = _officers[size_t(_selected)];
+    const ItemDefinition *def = itemOf(shown);
+    if (!def || !def->multipleSettings)
+        return;
+    // The switch's new setting goes to every chosen officer's chosen item
+    // that has settings, not only the one shown (0x5350c4, 0x5b6390).
+    const bool stun = !shown.items[size_t(shown.item)].stun;
+    for (size_t i = 0; i < _officers.size(); ++i) {
+        Officer &o = _officers[i];
+        if (!o.chosen && int(i) != _selected)
+            continue;
+        if (const ItemDefinition *held = itemOf(o); held && held->multipleSettings)
+            o.items[size_t(o.item)].stun = stun;
+    }
 }
 
 void MapScreen::toggleOverload() {

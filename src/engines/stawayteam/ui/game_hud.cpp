@@ -483,9 +483,15 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
     const auto drawItem = [&](int item, int x, int y) {
         const Held &held = _held[size_t(item)];
         const auto def = _items.find(held.name);
-        image::blit(screen, picture("Inventory/Item Frame"), x, y);
+        // The frame and the chosen one's background centred on the place,
+        // as the icon is (0x422e09, 0x422e48); the full inventory's items
+        // likewise, each over black (0x423188, 0x423358).
+        const auto centred = [&](const image::Image &pic) {
+            image::blit(screen, pic, x + (iw - pic.w) / 2, y + (ih - pic.h) / 2);
+        };
+        centred(picture("Inventory/Item Frame"));
         if (item == _heldChosen)
-            image::blit(screen, picture("Inventory/Selected Icon Background"), x, y);
+            centred(picture("Inventory/Selected Icon Background"));
         if (def != _items.end()) {
             auto found = _icons.find(def->second.iconImage);
             if (found == _icons.end())

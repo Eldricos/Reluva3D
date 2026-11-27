@@ -212,7 +212,11 @@ seconds left, "OVERLOAD: %1.1f", at `Overload Offset` (`0x534c80`), and
 two buttons (`Buttons/Stun Pos` 155, 39; `Overload Pos` 95, 39), each's
 words at its `Text Pos`: STUN in Trek Small with it set to stun, else
 KILL in Trek Small Red; OVERLOAD likewise, made only for an item that
-`Is Overloadable` (`0x534ed1`). The phaser comes set to `Kill` (its
+`Is Overloadable` (`0x534ed1`). A click on the switch sends its new
+setting as a command (`0x5350c4`, `0x482630`), which sets it on every
+chosen officer's chosen item that's an energy weapon, not only the
+officer shown (`0x5b6390`); OVERLOAD likewise goes as a command
+(`0x5350ee`). The phaser comes set to `Kill` (its
 `Default Inventory Item`'s `Weapon Setting`); a map can set an enemy's
 to `Stun` (34 Borg guns).
 
@@ -289,8 +293,10 @@ click chooses the icon under the mouse, the pop-up's or the bar's, and
 closes it (`0x423a60`). It closes too 1.5 seconds after the mouse leaves
 the bar and it (`0x423940`, `0x423b8d`). Over each of the bar's places it
 shows all the officer's items of its type, one above another from an
-icon and a space over the bar, each on black and drawn as the bar's, the
-chosen one on the Selected Icon Background (`0x424880`).
+icon and a space over the bar, each on an opaque black square
+(`0x423188`) and drawn as the bar's, in its `Item Frame` with the
+chosen one on the Selected Icon Background, both centred on the place
+as the icon is (`0x423358`, `0x422dd0`; `0x424880`).
 
 ### Its cursors
 
@@ -561,7 +567,6 @@ system ([particles.md](particles.md)).
 - **Grenades:** what the EM Pulse Grenade does beyond holding the
   Electronic Equipment, and how a damage type's `Unavoidable damage`
   weighs against a character's own (`0x495297`).
-- **The bar:** whether the full inventory's items are in their Item
-  Frames.
-- **The panels:** where each part of an item's panel is drawn, whether
-  it's over the minimap, and how the phaser's switch is used.
+- **The panels:** where each part of an item's panel is drawn, and
+  whether it's over the minimap: the point the info bar hands the
+  panel's draw (its slot `0x64`, `0x534a70`) isn't traced.
