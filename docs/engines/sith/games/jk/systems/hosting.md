@@ -530,6 +530,20 @@ Windows does when it fails, and dialog boxes are made but not drawn
     users and debugging", its own settings marked as for LucasArts'
     support), not opened here.
 
+    `JKM.EXE` has the same *(confirmed)*: `-devMode` (`0x401545`) sets
+    `0x941d40` and `0x941d44`, which turn on "(Debug)" on *Single Player*
+    (`0x41cfd8`; its episodes *Mysteries of the Sith*, *Kill The Fool With
+    The Ysalamiri*, *Sith Multiplayer Duel* and *Sith Lightsaber
+    Training*), *Setup*'s *Advanced* (`0x4176ec`), and, with
+    `-windowGUI`'s `0x941d48`, the Jedi Console (`0x4224d1`). It also
+    shows *Cutscenes* on the main menu (`GUI_VIEWCUTSCENES`, `0x412bf8`),
+    which without it Mysteries of the Sith leaves out.
+
+    Reluva's *Level select* setting puts `-devMode` after the command
+    line (`sith::gameCommandLine`), once, for either game. Through the
+    launcher, a level chosen this way started in both: the third of each
+    episode, `03katarn.jkl` and `s1l3_astcore.jkl`.
+
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
 offered, so the program never met their absence.

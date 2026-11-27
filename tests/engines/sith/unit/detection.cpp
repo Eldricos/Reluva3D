@@ -12,6 +12,9 @@
 #include "tests/engines/sith/fixtures.h"
 #include "tests/support/test.h"
 
+#include <map>
+#include <string>
+
 using namespace reluva;
 using namespace reluva::sith;
 using namespace reluva::sith::testing;
@@ -83,6 +86,19 @@ void testNotTheGame(const stdfs::path &tmp) {
     CHECK(sith::detectGames(cd).empty());
 }
 
+// The level select: -devMode after the command line given, once.
+void testCommandLine() {
+    using Settings = std::map<std::string, std::string>;
+    CHECK(sith::gameCommandLine({}).empty());
+    CHECK(sith::gameCommandLine(Settings{{"commandline", "-windowGUI"}}) == "-windowGUI");
+    CHECK(sith::gameCommandLine(Settings{{"levelselect", "off"}}).empty());
+    CHECK(sith::gameCommandLine(Settings{{"levelselect", "on"}}) == "-devMode");
+    CHECK(sith::gameCommandLine(Settings{{"levelselect", "on"}, {"commandline", "-windowGUI"}}) ==
+          "-windowGUI -devMode");
+    CHECK(sith::gameCommandLine(Settings{{"levelselect", "on"}, {"commandline", "-DEVMODE"}}) == "-DEVMODE");
+    CHECK(sith::gameCommandLine(Settings{{"levelselect", "on"}, {"commandline", "devMode"}}) == "devMode");
+}
+
 } // namespace
 
 static const reluva::test::Suite
@@ -94,4 +110,5 @@ static const reluva::test::Suite
                {"names' case", [](const std::filesystem::path &tmp) { testNamesCase(tmp); }},
                {"Mysteries of the Sith", [](const std::filesystem::path &tmp) { testMots(tmp); }},
                {"not the game", [](const std::filesystem::path &tmp) { testNotTheGame(tmp); }},
+               {"command line", [](const std::filesystem::path &) { testCommandLine(); }},
            });

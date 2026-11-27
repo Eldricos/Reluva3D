@@ -154,9 +154,11 @@ Sith's is the same.
 `JK.EXE` on its command line, as a Windows shortcut would give it:
 `commandline=-windowGUI` plays it windowed, drawn through Windows' GDI
 rather than DirectDraw, which looks the same in Reluva's window.
-`commandline=-devMode` adds "(Debug)" to *Single Player*: any level of
-any episode to start from ([systems/hosting.md](systems/hosting.md),
-step 25).
+*Level select* (off by default) gives the game `-devMode` on its
+command line, which shows its debug menus: "(Debug)" on *Single
+Player*, any level of any episode to start from, and *Advanced* in
+*Setup*'s display settings ([systems/hosting.md](systems/hosting.md),
+step 25). Mysteries of the Sith's is the same.
 
 The data viewer is `reluva-viewer` (`reluva-viewer <its name in the
 launcher>`, or `reluva-viewer <the install>`). Tab moves between its

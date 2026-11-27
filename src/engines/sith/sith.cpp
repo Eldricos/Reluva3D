@@ -49,11 +49,11 @@ public:
                     sys.stopAudio();
             }
         } audioStop{_sys, audioOut};
-        // `commandline` (reluva.ini): what follows the program's name, as a shortcut on
-        // Windows would give it (-windowGUI, -devMode...).
-        const auto commandLine = _target.settings.find("commandline");
+        // What follows the program's name, as a shortcut on Windows would
+        // give it: `commandline` (reluva.ini; -windowGUI...), and the level
+        // select's -devMode.
         Player player(findFolders(_target.path, _target.settings), _target.savePath, audioOut ? &mixer : nullptr,
-                      network(), commandLine == _target.settings.end() ? std::string() : commandLine->second);
+                      network(), gameCommandLine(_target.settings));
         // The controllers, if they're offered: the game's two joysticks.
         const auto joystickSetting = _target.settings.find("joystick");
         const bool joystick = joystickSetting == _target.settings.end() || joystickSetting->second != "off";
@@ -324,7 +324,14 @@ public:
                              "its menus and cut scenes stay 4:3 in the middle. Uses the game's 3D acceleration "
                              "(Direct3D), whatever its Setup says.";
         widescreen.choices = {{"off", "Off (4:3)"}, {"16:9", "16:9"}, {"16:10", "16:10"}, {"21:9", "21:9"}};
-        return {joystick, drawing, size, smoothing, rate, widescreen};
+        GameOption levels;
+        levels.key = "levelselect";
+        levels.label = "Level select";
+        levels.tooltip = "The game's own debug menus, as its -devMode option shows them: (Debug) on Single Player, "
+                         "to start any level of any episode; Setup's Advanced display settings; in Mysteries of "
+                         "the Sith, the Cutscenes button.";
+        levels.choices = {{"off", "Off"}, {"on", "On"}};
+        return {joystick, drawing, size, smoothing, rate, widescreen, levels};
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {

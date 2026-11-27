@@ -8,6 +8,8 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <map>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -36,6 +38,16 @@ struct GameInfo {
 
 /** The games the engine knows, in the order the launcher lists them. */
 const std::vector<GameInfo> &games();
+
+/**
+ * What follows the program's name on its command line, from a game's
+ * settings: `commandline` as it is, and `-devMode` after it when
+ * `levelselect` is "on" and it isn't there already. Both programs take
+ * `-devMode` for their debug menus: (Debug) on Single Player, any level
+ * of any episode to start from
+ * (docs/engines/sith/games/jk/systems/hosting.md, step 25).
+ */
+std::string gameCommandLine(const std::map<std::string, std::string> &settings);
 
 /** The game with this id, or nullptr. */
 const GameInfo *findGame(std::string_view gameId);

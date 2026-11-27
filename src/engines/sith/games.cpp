@@ -13,6 +13,17 @@ constexpr const char *kEngineId = "sith";
 
 } // namespace
 
+std::string gameCommandLine(const std::map<std::string, std::string> &settings) {
+    std::string line;
+    if (const auto given = settings.find("commandline"); given != settings.end())
+        line = given->second;
+    const auto levels = settings.find("levelselect");
+    // The programs take -devMode or devMode, in any case.
+    if (levels != settings.end() && levels->second == "on" && fs::toLower(line).find("devmode") == std::string::npos)
+        line += line.empty() ? "-devMode" : " -devMode";
+    return line;
+}
+
 const std::vector<GameInfo> &games() {
     // JK_.CD's bytes tell each CD apart (docs/engines/sith/games/jk/formats/jk-cd.md);
     // the labels are the volumes' names a CD drive shows the game.

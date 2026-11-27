@@ -148,6 +148,7 @@ graphics card:
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | *Level select* through `reluva` on a virtual display: "(Debug)" on *Single Player*, opening *Choose Episode*; with `host -args -devMode`, the episode's third level chosen through it started (`03katarn.jkl`). Off, no "(Debug)". `sith.unit.detection`'s *command line* test |
 | November 2026 | US retail | Linux | The console and `-devMode`: `version` and `coords` typed after T in Nar Shaddaa printed the build's date and the player's place; `help` and `fly` weren't recognised, with `-devMode` or without. With `-devMode`, "(Debug)" on *Single Player* listed the episodes, the multiplayer ones too, and *The Force Within*'s levels to choose from |
 | November 2026 | US retail | Linux | Widescreen's loose ends. The whole light side at 16:9 from *New Game* (`host -wide 854 -skim`), its 21 levels to the ending's cut scene, a frame each 10 seconds: the 3D across the width and the gauges in their corners in each, but where an edge was black and in the Maw's own camera. The view's size changed by `-` and `=` in play (9, 8, 7, 8), kept as widescreen's |
 | November 2026 | US retail | Linux | The `wide1610` and `wide219` steps made, and the three widescreen steps of both games, six runs, passed run four at a time as recorded |

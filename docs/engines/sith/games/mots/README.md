@@ -221,6 +221,12 @@ where the `cd1path` and `cd2path` settings say
 ([../jk/README.md](../jk/README.md#using-it)); here `cd2path` names Jedi
 Knight's CD 2. `reluva-tool sith folders <install>` shows what's found.
 
+*Level select*, as for Jedi Knight, shows the game's debug menus:
+"(Debug)" on *Single Player*, to start any level of any episode, *Setup*'s
+*Advanced*, and *Cutscenes* on the main menu, which the game otherwise
+leaves out ([../jk/systems/hosting.md](../jk/systems/hosting.md), step
+25).
+
 ## This folder
 
 | Page | What's in it |
