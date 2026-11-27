@@ -179,8 +179,18 @@ On Pacific Spirit its second lap was as in a single race (143 s), the
 first lost to backing off walls among the other cars (21 s in reverse).
 The game then went back to its main menu. In the earlier run the
 program ended itself as round 5 loaded (exit code 1, no message, after
-its loading picture); the run with the same keys at other moments
-didn't, and what ended it wasn't found.
+its loading picture), and in two of three runs more, the keys sent at
+other moments. From a memory dump at its end, its last call was the
+exit at 0x45d0a0: before a race the program sets a counter going on its
+timer (0x4402f0, one more each two of the timer's ticks, 128 a second,
+by 0x440340), loads the race, and quits if the counter is still 0
+(0x45cee0); the dump had 0. The load took 15 ms of the instruction
+clock, about two ticks, as the files read took none: on a machine of the
+time its reads alone take a second or more. The host now counts a
+file's bytes read (and mapped) at 2,000 a millisecond, a hard disk of
+the time (`GameHost::Options::diskBytesPerMs`), on the instruction
+clock for NFS II SE: the load then takes about 1.5 s, the counter 14
+when checked.
 
 Slowed on full lock (late November 2026), laps of 53 s on Proving
 Grounds, 92 to 95 s on the Outback (2nd), 138 to 145 s on
@@ -194,4 +204,3 @@ Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
   6 to 17 units out and back, its middle with it, and the line.
 - The computer cars' slots across the road (`[0x4c2b0c]`): zero at
   every point of the tables the single races loaded, so not taken.
-- What ended the program once as a knockout's fifth round loaded.

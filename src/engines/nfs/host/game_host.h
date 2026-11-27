@@ -96,6 +96,11 @@ public:
         // (0: real time). Runs are then the same each time, for comparing
         // builds of the interpreter.
         uint32_t instructionsPerMs = 0;
+        // With instructionsPerMs, the bytes a file read takes a millisecond
+        // to, as a disk would (0: no time). NFS II SE checks its race timer
+        // has ticked after loading the race (0x45cee0), and quits if not:
+        // with reads taking no time, now and then it hadn't.
+        uint32_t diskBytesPerMs = 0;
         // The processor's clock the time stamp counter reports, in MHz, by
         // the game's clock. The game sets its detail defaults from it on a
         // first run, and its movies' display mode (mad.md: 1 under 133, 2
@@ -439,7 +444,9 @@ private:
     Options _options;
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
-    std::atomic<uint64_t> _idleMs{0}; // Options::instructionsPerMs: the milliseconds every thread waited
+    std::atomic<uint64_t> _idleMs{
+        0};                  // Options::instructionsPerMs: the milliseconds every thread waited, and the disk took
+    uint64_t _diskBytes = 0; // read, and not yet a whole millisecond
     const x86::Win32Process::Module *_exe = nullptr;
     int _logged = 0;
 

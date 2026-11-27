@@ -471,6 +471,10 @@ public:
     // Called when every thread waits, instead of sleeping a millisecond: for
     // a clock that isn't the real one (it should move that clock on).
     std::function<void()> idleTick;
+    // Called with the bytes of a file read (ReadFile, or a view mapped), not
+    // a device's: for a clock that isn't the real one, to add the time a
+    // disk would have taken.
+    std::function<void(uint32_t bytes)> fileRead;
     // Called when a thread of the program calls Sleep or SleepEx, before it
     // sleeps: for the host's own deliveries to a thread that polls so
     // (TAPI's callbacks, say).

@@ -79,6 +79,12 @@ GameHost::GameHost(GameFolders folders, Options options) : _folders(std::move(fo
         const uint64_t perMs = _options.instructionsPerMs;
         _process->milliseconds = [this, perMs] { return uint32_t(_cpu->executed() / perMs + _idleMs); };
         _process->idleTick = [this] { ++_idleMs; };
+        if (const uint64_t rate = _options.diskBytesPerMs)
+            _process->fileRead = [this, rate](uint32_t bytes) {
+                _diskBytes += bytes;
+                _idleMs += _diskBytes / rate;
+                _diskBytes %= rate;
+            };
         // The date too: files dated, and the clock starting, at
         // kDeterministicDate (FILETIME's units: 100 ns since 1601).
         _process->fixedFileTime = (uint64_t(kDeterministicDate) + 11644473600ull) * 10000000ull;

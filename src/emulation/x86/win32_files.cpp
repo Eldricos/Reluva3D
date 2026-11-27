@@ -476,6 +476,8 @@ void Win32Process::addDriveStandIns() {
         const size_t n = size ? std::fread(c.memory().data() + buffer, 1, size, f->file) : 0;
         if (done)
             c.write32(done, uint32_t(n));
+        if (fileRead && n)
+            fileRead(uint32_t(n));
         return 1u;
     });
     // GetOverlappedResult(handle, OVERLAPPED*, LPDWORD done, wait): a
@@ -896,9 +898,12 @@ void Win32Process::addDriveStandIns() {
             return 0u;
         const uint32_t bytes = c.arg(4) ? c.arg(4) : uint32_t(m->data.size() - offset);
         const uint32_t p = _arena->alloc(std::max(bytes, 1u), 0x10000);
-        if (p)
-            std::memcpy(c.memory().data() + p, m->data.data() + offset,
-                        std::min<size_t>(bytes, m->data.size() - offset));
+        if (p) {
+            const size_t n = std::min<size_t>(bytes, m->data.size() - offset);
+            std::memcpy(c.memory().data() + p, m->data.data() + offset, n);
+            if (fileRead && n)
+                fileRead(uint32_t(n));
+        }
         return p;
     });
     stdcall(k, "UnmapViewOfFile", 1, [this](Cpu &c) {
@@ -1021,6 +1026,8 @@ void Win32Process::addFileStandIns() {
         const size_t n = std::fread(c.memory().data() + buffer, 1, size, f->file);
         if (c.arg(3))
             c.write32(c.arg(3), uint32_t(n));
+        if (fileRead && n)
+            fileRead(uint32_t(n));
         return 1u;
     });
     // SetFilePointer(handle, low, high*, method): 32-bit offsets only.
@@ -1237,8 +1244,9 @@ void Win32Process::addFileStandIns() {
             const long at = std::ftell(f->file);
             std::fseek(f->file, long(offset), SEEK_SET);
             const size_t n = std::fread(c.memory().data() + view, 1, size, f->file);
-            (void)n;
             std::fseek(f->file, at, SEEK_SET);
+            if (fileRead && n)
+                fileRead(uint32_t(n));
         }
         return view;
     });

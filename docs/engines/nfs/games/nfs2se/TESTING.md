@@ -51,7 +51,7 @@ ctest --test-dir out\build\x64-release -L gamedata -R nfs2se
 | `formats` | Every archive, picture, string table, font, track, model, sound, music section and movie frame decoded, each kind as a checksum (`nfs survey -hash`) |
 | `host_glide` | The same run with the 3dfx program (`nfs2sea.exe`, the install's or else the CD's) on Reluva's Glide stand-in as a Voodoo Graphics, drawn by its software rasterizer: about five minutes |
 | `drive` | `nfs2sen.exe` on the same clock, a knockout's first round at Proving Grounds (2 laps, 9 cars) driven to its end by the road driver (`-roaddrive`; [research/road-driver.md](research/road-driver.md)): each lap's place and the finishing place, its end state and its last frame: about four minutes |
-| `host` | `nfs2sen.exe` on a clock of instructions (`nfs host -deterministic 300000`): the title movie skipped with Enter, the menu taken to RACE with four Downs, a race at Proving Grounds with Up held; its end state, its system calls and its last frame, as checksums |
+| `host` | `nfs2sen.exe` on a clock of instructions (`nfs host -deterministic 300000`, a file read taking a millisecond for each 2,000 bytes): the title movie skipped with Enter, the menu taken to RACE with four Downs, a race at Proving Grounds with Up held; its end state, its system calls and its last frame, as checksums |
 
 The records, `tests/engines/nfs/data/gamedata/nfs2se-en-windows/`, are
 the US CD's English install's, made on Linux and the same on Windows.
