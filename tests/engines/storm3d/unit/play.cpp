@@ -9,6 +9,7 @@
 #include "engines/storm3d/play/combat.h"
 #include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
+#include "engines/storm3d/play/mission_scripts.h"
 #include "engines/storm3d/play/mission_view.h"
 #include "engines/storm3d/play/movement.h"
 #include "engines/storm3d/play/strategy.h"
@@ -864,6 +865,28 @@ void testCrewAndSystems() {
     CHECK(!life.out() && !v.damaged());
 }
 
+// The mission scripts' imports, read from their decorated names: their
+// arguments' bytes, members popping their own, a float's result, data.
+void testScriptSignatures() {
+    using reluva::storm3d::MissionScripts;
+    auto goTo = MissionScripts::signatureOf("?Goto@@YAXHPADH@Z");
+    CHECK(goTo && goTo->name == "Goto" && !goTo->member && goTo->argBytes == 12);
+    auto build = MissionScripts::signatureOf("?BuildObject@@YAHPADH0H@Z");
+    CHECK(build && build->argBytes == 16);
+    auto time = MissionScripts::signatureOf("?GetTime@@YAMXZ");
+    CHECK(time && time->returnsFloat && time->argBytes == 0);
+    auto step = MissionScripts::signatureOf("?add_step@script@@QAEXP6AHPAV1@@Z@Z");
+    CHECK(step && step->name == "script::add_step" && step->member && step->argBytes == 4);
+    auto rule = MissionScripts::signatureOf("?create_rule@IIIE@@QAEPAVrule@@P6AHXZP6AXXZPAD@Z");
+    CHECK(rule && rule->argBytes == 12);
+    auto made = MissionScripts::signatureOf("??0hot_int@@QAE@PAD@Z");
+    CHECK(made && made->name == "hot_int::constructor" && made->argBytes == 4);
+    auto world = MissionScripts::signatureOf("?WORLD@@3Vcharacter@@A");
+    CHECK(world && world->data && world->name == "WORLD");
+    auto vector = MissionScripts::signatureOf("?out@@YA_NPAU_iobuf@@PAVVector3@@IPAD@Z");
+    CHECK(vector && vector->argBytes == 16);
+}
+
 // A boarding party against a crew, each times its race's strength (the
 // Klingons' 1.5, the Federation's 1): the bigger side keeps the
 // difference, in its own crew. Repairs go by the crew: faster by the
@@ -950,37 +973,39 @@ void testChase() {
 }
 
 static const reluva::test::Suite
-    kSuite("storm3d.unit.play", {
-                                    {"keys", [](const std::filesystem::path &) { testKeys(); }},
-                                    {"moves", [](const std::filesystem::path &) { testMoves(); }},
-                                    {"start", [](const std::filesystem::path &) { testStart(); }},
-                                    {"layout", [](const std::filesystem::path &) { testLayout(); }},
-                                    {"counters", [](const std::filesystem::path &) { testCounters(); }},
-                                    {"selection", [](const std::filesystem::path &) { testSelection(); }},
-                                    {"display", [](const std::filesystem::path &) { testDisplay(); }},
-                                    {"box", [](const std::filesystem::path &) { testBox(); }},
-                                    {"group orders", [](const std::filesystem::path &) { testGroupOrders(); }},
-                                    {"movement", [](const std::filesystem::path &) { testMovement(); }},
-                                    {"point on", [](const std::filesystem::path &) { testPointOn(); }},
-                                    {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
-                                    {"crew", [](const std::filesystem::path &) { testCrew(); }},
-                                    {"minimap", [](const std::filesystem::path &) { testMinimap(); }},
-                                    {"close-up", [](const std::filesystem::path &) { testCloseUp(); }},
-                                    {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
-                                    {"orders", [](const std::filesystem::path &) { testOrders(); }},
-                                    {"placing", [](const std::filesystem::path &) { testPlacing(); }},
-                                    {"chase", [](const std::filesystem::path &) { testChase(); }},
-                                    {"specials", [](const std::filesystem::path &) { testSpecials(); }},
-                                    {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
-                                    {"boarding", [](const std::filesystem::path &) { testBoardingAndRepair(); }},
-                                    {"avoidance", [](const std::filesystem::path &) { testAvoidance(); }},
-                                    {"climb", [](const std::filesystem::path &) { testClimb(); }},
-                                    {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
-                                    {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
-                                    {"combat", [](const std::filesystem::path &) { testCombat(); }},
-                                    {"settled", [](const std::filesystem::path &) { testSettled(); }},
-                                    {"plan", [](const std::filesystem::path &) { testPlan(); }},
-                                    {"build list", [](const std::filesystem::path &) { testBuildList(); }},
-                                    {"stances", [](const std::filesystem::path &) { testStances(); }},
-                                    {"strategy", [](const std::filesystem::path &) { testStrategy(); }},
-                                });
+    kSuite("storm3d.unit.play",
+           {
+               {"keys", [](const std::filesystem::path &) { testKeys(); }},
+               {"moves", [](const std::filesystem::path &) { testMoves(); }},
+               {"start", [](const std::filesystem::path &) { testStart(); }},
+               {"layout", [](const std::filesystem::path &) { testLayout(); }},
+               {"counters", [](const std::filesystem::path &) { testCounters(); }},
+               {"selection", [](const std::filesystem::path &) { testSelection(); }},
+               {"display", [](const std::filesystem::path &) { testDisplay(); }},
+               {"box", [](const std::filesystem::path &) { testBox(); }},
+               {"group orders", [](const std::filesystem::path &) { testGroupOrders(); }},
+               {"movement", [](const std::filesystem::path &) { testMovement(); }},
+               {"point on", [](const std::filesystem::path &) { testPointOn(); }},
+               {"send group", [](const std::filesystem::path &) { testSendGroup(); }},
+               {"crew", [](const std::filesystem::path &) { testCrew(); }},
+               {"minimap", [](const std::filesystem::path &) { testMinimap(); }},
+               {"close-up", [](const std::filesystem::path &) { testCloseUp(); }},
+               {"build menu", [](const std::filesystem::path &) { testBuildMenu(); }},
+               {"orders", [](const std::filesystem::path &) { testOrders(); }},
+               {"placing", [](const std::filesystem::path &) { testPlacing(); }},
+               {"chase", [](const std::filesystem::path &) { testChase(); }},
+               {"specials", [](const std::filesystem::path &) { testSpecials(); }},
+               {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
+               {"boarding", [](const std::filesystem::path &) { testBoardingAndRepair(); }},
+               {"script signatures", [](const std::filesystem::path &) { testScriptSignatures(); }},
+               {"avoidance", [](const std::filesystem::path &) { testAvoidance(); }},
+               {"climb", [](const std::filesystem::path &) { testClimb(); }},
+               {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},
+               {"freighter", [](const std::filesystem::path &) { testFreighter(); }},
+               {"combat", [](const std::filesystem::path &) { testCombat(); }},
+               {"settled", [](const std::filesystem::path &) { testSettled(); }},
+               {"plan", [](const std::filesystem::path &) { testPlan(); }},
+               {"build list", [](const std::filesystem::path &) { testBuildList(); }},
+               {"stances", [](const std::filesystem::path &) { testStances(); }},
+               {"strategy", [](const std::filesystem::path &) { testStrategy(); }},
+           });

@@ -9,6 +9,7 @@ reluva_add_engine(storm3d
         storm3d.cpp
         game_files.cpp
         play/hud.cpp
+        play/mission_scripts.cpp
         play/mission_view.cpp
         play/movement.cpp
         play/combat.cpp
@@ -73,6 +74,7 @@ reluva_add_engine_tools(storm3d
         tools/images.cpp
         tools/maps.cpp
         tools/media.cpp
+        tools/missions.cpp
         tools/models.cpp
         tools/survey.cpp
         tools/text.cpp
