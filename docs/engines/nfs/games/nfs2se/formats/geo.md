@@ -144,7 +144,13 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   3dfx program moves them too (`NFS2SEA.EXE` 0x46c84a), and draws the
   race with a depth buffer (0x42e858: w-buffered, nearer or equal
   passing), where a face flush with its tyre's disc would come and go
-  with it pixel by pixel: the move is for that *(inferred)*. The front
+  with it pixel by pixel: the move is for that *(inferred)*. Seen so
+  (late November 2026): the 3dfx program on the host, a race at Proving
+  Grounds run twice alike but for the move (its branch at
+  `NFS2SEA.EXE` 0x46c890 made a jump), differs only on the rear wheels
+  of the cars ahead, a few pixels at a time (up to 8 in a frame, 43
+  frames of 1,181), never on the player's own car from behind, whose
+  rear faces are edge on. The front
   wheels turn with the steering (0x459f70) and the rear ones don't
   (0x45a080, only a jitter by speed).
   `MUSC` has no number: the game never loads it *(inferred)*.
@@ -196,7 +202,6 @@ The wheels' faces are moved out as the game's loader moves them.
 
 - What the header's first word meant to its maker.
 - Why only the rear wheels' faces are moved out, but the Indigo's: the
-  front ones lie as close to their tyres. Seen edge on from behind in the
-  chase view, the rear ones would show the depth buffer's fighting most
-  *(guessed)*; the 3dfx program drawn with and without the move would
-  show it.
+  front ones lie as close to their tyres. The rear ones of the cars
+  ahead are what the chase view shows most of, from behind and a little
+  to the side *(guessed)*.
