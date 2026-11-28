@@ -81,7 +81,9 @@ private:
     // The member under (x, y) on the screen: in the roster's icons, or a
     // place on the transporter.
     int rosterAt(int x, int y) const;
-    int placeAt(int x, int y) const;
+    int placeAt(int x, int y, uint64_t now);
+    // The frame the kth officer's figure shows at `now` (0x5e7870), -1 for none.
+    int figureFrame(int k, uint64_t now);
 
     // The officer whose details and inventory show: the one chosen in the
     // roster or on the transporter, or -1.
@@ -153,11 +155,11 @@ private:
     std::vector<StaticText> _transporterTexts;
     std::vector<RandomNumbers> _transporterNumbers; // its random-number nernies
     uint64_t _numbersLast = 0;
+    uint64_t _openedAt = 0; // when it was first drawn, its figures' clock's start
     std::map<std::string, ItemDefinition> _items;
     std::vector<std::string> _itemTypes;
     std::map<std::string, image::Image> _icons;
     image::Image _itemFrame;
-    image::Image _itemSelected;
     std::string _itemHover; // the inventory's item under the mouse
     // An item's description, over the screen (0x5e8d60).
     bool _describing = false;

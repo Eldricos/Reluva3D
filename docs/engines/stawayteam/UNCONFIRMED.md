@@ -57,9 +57,8 @@ None now.
 - **The score and saves:** the save screens' rows, time and game info
   ([systems/objectives.md](systems/objectives.md#open-questions),
   [systems/menus.md](systems/menus.md#open-questions)).
-- **The team selection:** the inventory's empty columns and lit items,
-  the figures' time from the game's start, where a place answers a
-  click, and the officer's name over the transporter's own text
+- **The team selection:** a figure's picture answering where it isn't
+  see-through, and the officer's name over the transporter's own text
   ([systems/team-selection.md](systems/team-selection.md#open-questions)).
 - **Which fields are objects.** The game knows it from each class's
   properties; Reluva takes a field for an object when a `{` line follows

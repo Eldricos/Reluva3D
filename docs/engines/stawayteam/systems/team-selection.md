@@ -110,9 +110,13 @@ said:
   the types' order (`0x5e6b80`, by their index: their files' names
   sorted ignoring case, `0x41fa91`), `Inventory Icon Size` and `Inventory Icon Spacing`
   apart from `Inventory Strip Pos`; in a column its items from the strip
-  upward, each in the middle of `Roster Window/Item Frame` (`Selected Icon
-  Background` under the mouse *(inferred)*), an empty column a dark square
-  (`0x423040`), as many as there are, without scrolling (Rules.txt's
+  upward (`0x423040`), each over a black square of the icon's size and
+  in the middle of `Roster Window/Item Frame` (`0x423120`); the column's
+  `Selected Icon Background` goes only under its own chosen item
+  (`0x42330c`), which only the game's inventory sets (`0x423da0`), so
+  here none, and the mouse lights nothing. An empty column is the
+  icon's size filled with (10,10,40) at alpha 128 (`0x423059`), blended
+  as the fill does ([menus.md](menus.md)). As many as there are, without scrolling (Rules.txt's
   `Inventory Previous` and `Next Button Pos` are 0,0 and read by
   nothing). Only items with `Display In Inventory`, and only those the
   officer has as the game's found items have it: not found left out,
@@ -177,7 +181,12 @@ back to the main menu. In a build with developer keys, the engine's
 mission. The items are read by `loadItems` and `loadItemTypes`
 (`game/team.cpp`), the officers' inventories and the mission's items as
 had by `resolveInventories` and `heldAs`. The figures' time is the
-game's from its start, where the program's is the screen's *(inferred)*. The
+screen's own, from 0 as it's first drawn, as the program's starts as
+the screen's made (`0x5e6c65`) and goes on with its updates
+(`0x5e6e70`). A place answers a click or the mouse where its officer's
+figure, body or head as drawn then, isn't see-through (`0x5e71b0`, the
+pictures' own test, slot `0xc8`, taken as their pixels'); an empty
+place doesn't. The
 transporter's random numbers roll as the briefing's
 ([briefing.md](briefing.md#the-screen)).
 
@@ -206,6 +215,5 @@ transporter's random numbers roll as the briefing's
 
 - **The officer's name over the transporter** falls on the shuttle's
   "Incursion Shuttle Ready" text where `Rules.txt` places it.
-- **The items' lists and inventory:** the empty column's look, and an
-  item lit under the mouse. Reluva's choices are noted in the code.
-- **Where a place answers a click:** Reluva takes about the figure.
+- **A picture's own test:** whether slot `0xc8` takes a pixel as there
+  by its colour key, as Reluva takes it.

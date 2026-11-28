@@ -5,6 +5,7 @@
 
 #include "engines/stawayteam/formats/binary_object.h"
 #include "engines/stawayteam/formats/rds_script.h"
+#include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/layout.h"
 #include "engines/stawayteam/ui/main_menu.h"
 #include "engines/stawayteam/ui/widgets.h"
@@ -137,7 +138,6 @@ TeamSelectionScreen::TeamSelectionScreen(const Archive &data, const TextObject &
     _items = loadItems(data);
     _itemTypes = loadItemTypes(data);
     _itemFrame = screenPicture(data, "Roster Window/Item Frame");
-    _itemSelected = screenPicture(data, "Roster Window/Selected Icon Background");
     _descriptionBackground = screenPicture(data, "Team Selection/Inventory Description Background");
     _descriptionIconBackground = screenPicture(data, "Team Selection/Inventory Description Icon Background");
     {
@@ -231,19 +231,47 @@ int TeamSelectionScreen::rosterAt(int x, int y) const {
     return -1;
 }
 
-int TeamSelectionScreen::placeAt(int x, int y) const {
+int TeamSelectionScreen::figureFrame(int k, uint64_t now) {
+    // At the head's rate plus 2k / n less 0.1 a second for the kth of n, so
+    // they don't move as one (0x5e7870), by the screen's own clock, from 0
+    // as it's made and moved on as it's updated (0x5e6c65, 0x5e6e70).
+    if (!_openedAt)
+        _openedAt = now;
+    const Pictures &p = pictures(_team[size_t(k)]);
+    const Animation &rate = p.figure.perDirection() > 0 ? p.figure : p.body;
+    const int count = rate.perDirection();
+    if (count <= 0)
+        return -1;
+    const double speed = double(rate.fps) + 2.0 * k / double(_team.size()) - 0.1;
+    return int(std::lrint(speed * double(now - _openedAt) / 1000.0) % count);
+}
+
+int TeamSelectionScreen::placeAt(int x, int y, uint64_t now) {
     int tx = 0;
     int ty = 0;
     int mx = 0;
     int my = 0;
     readPoint(_def, "TeamDisplay Pos", tx, ty);
     readPoint(_def, "TeamSelectionMemberOffset Pos", mx, my);
-    // A place answers within its marker's reach, about it (inferred).
-    const int limit = std::min(_mission.maxMembers, int(_places.size()));
+    // An officer on the team answers where their figure's body or head, as
+    // it's drawn now, shows (0x5e71b0: the pictures' own test, slot 0xc8,
+    // taken as not see-through); an empty place doesn't.
+    const auto shows = [&](const Animation::Picture *pic, int px, int py) {
+        if (!pic)
+            return false;
+        const int u = x - (px - pic->originX);
+        const int v = y - (py - pic->originY);
+        return u >= 0 && v >= 0 && u < pic->image.w && v < pic->image.h && pic->image.pixel(u, v)[3] != 0;
+    };
+    const int limit = std::min({_mission.maxMembers, int(_places.size()), int(_team.size())});
     for (int k = 0; k < limit; ++k) {
+        const int frame = figureFrame(k, now);
+        if (frame < 0)
+            continue;
+        const Pictures &p = pictures(_team[size_t(k)]);
         const int px = tx + _places[size_t(k)].first + mx;
         const int py = ty + _places[size_t(k)].second + my;
-        if (std::abs(x - px) <= 14 && y >= py - 40 && y <= py + 24)
+        if (shows(p.body.frame(frame, 0), px, py) || shows(p.figure.frame(frame, 0), px, py))
             return k;
     }
     return -1;
@@ -269,7 +297,7 @@ TeamSelectionScreen::Choice TeamSelectionScreen::handleEvent(const Event &ev, au
     }
     if (ev.type == EventType::kMouseMove) {
         _rosterHover = rosterAt(ev.mouseX, ev.mouseY);
-        _placeHover = placeAt(ev.mouseX, ev.mouseY);
+        _placeHover = placeAt(ev.mouseX, ev.mouseY, now);
         const ItemDefinition *item = _inventoryShown ? inventoryItemAt(ev.mouseX, ev.mouseY) : nullptr;
         _itemHover = item ? item->name : std::string();
     }
@@ -283,7 +311,7 @@ TeamSelectionScreen::Choice TeamSelectionScreen::handleEvent(const Event &ev, au
         if (const int member = rosterAt(ev.mouseX, ev.mouseY); member >= 0) {
             _rosterChosen = member;
             _placeChosen = -1;
-        } else if (const int place = placeAt(ev.mouseX, ev.mouseY); place >= 0) {
+        } else if (const int place = placeAt(ev.mouseX, ev.mouseY, now); place >= 0) {
             _placeChosen = place;
             _rosterChosen = -1;
         } else if (const ItemDefinition *item = _inventoryShown ? inventoryItemAt(ev.mouseX, ev.mouseY) : nullptr) {
@@ -511,31 +539,35 @@ void TeamSelectionScreen::drawInventory(Surface &screen) {
     image::blit(screen, _inventoryBackground, px, py);
     const int gap = _def ? int(_def->integer("Inventory Icon Spacing").value_or(0)) : 0;
     const auto columns = inventoryColumns();
-    // A column a type, its items from the strip upward, each in its frame;
-    // an empty column a dark square (0x423040, inferred for the square's
-    // look).
+    // A column a type, its items from the strip upward (0x423040): each
+    // over a black square of the icon's size, in the middle of its Item
+    // Frame (0x423120); `Selected Icon Background` is only under a
+    // column's own chosen item, which this screen never sets (0x42330c,
+    // set in the game's inventory, 0x423da0). An empty column the icon's
+    // size of (10,10,40) at alpha 128 (0x423059), blended as the fill does.
+    const auto fill = [&](int x0, int y0, const uint8_t(&rgb)[3], int alpha) {
+        for (int y = std::max(0, y0); y < std::min(screen.h, y0 + ih); ++y)
+            for (int x = std::max(0, x0); x < std::min(screen.w, x0 + iw); ++x) {
+                uint8_t *p = screen.row(y) + x * 4;
+                if (alpha >= 255)
+                    std::copy(rgb, rgb + 3, p);
+                else
+                    blend16(p, rgb, alpha);
+            }
+    };
+    static constexpr uint8_t kEmptyColumn[3] = {10, 10, 40};
+    static constexpr uint8_t kBehindItem[3] = {0, 0, 0};
     for (size_t c = 0; c < columns.size(); ++c) {
         const int cx = px + sx + int(c) * (iw + gap);
         if (columns[c].empty()) {
-            for (int y = 0; y < ih; ++y) {
-                if (py + sy + y < 0 || py + sy + y >= screen.h)
-                    continue;
-                for (int x = 0; x < iw; ++x) {
-                    if (cx + x < 0 || cx + x >= screen.w)
-                        continue;
-                    uint8_t *p = screen.row(py + sy + y) + (cx + x) * 4;
-                    p[0] = uint8_t((p[0] + 10) / 2);
-                    p[1] = uint8_t((p[1] + 10) / 2);
-                    p[2] = uint8_t((p[2] + 40) / 2);
-                }
-            }
+            fill(cx, py + sy, kEmptyColumn, 128);
             continue;
         }
         for (size_t r = 0; r < columns[c].size(); ++r) {
             const ItemDefinition *item = columns[c][r];
             const int cy = py + sy - int(r) * (ih + gap);
-            const image::Image &frame = item->name == _itemHover ? _itemSelected : _itemFrame;
-            image::blit(screen, frame, cx + (iw - frame.w) / 2, cy + (ih - frame.h) / 2);
+            fill(cx, cy, kBehindItem, 255);
+            image::blit(screen, _itemFrame, cx + (iw - _itemFrame.w) / 2, cy + (ih - _itemFrame.h) / 2);
             const image::Image &icon = itemIcon(item->iconImage);
             image::blit(screen, icon, cx + (iw - icon.w) / 2, cy + (ih - icon.h) / 2);
         }
@@ -743,16 +775,11 @@ void TeamSelectionScreen::drawTransporter(Surface &screen, uint64_t now) {
         const int py = ty + _places[size_t(k)].second + my;
         if (k == _placeChosen)
             blitBy(screen, _marker.at(now), px + sx, py + sy);
-        // The body, the head over it, a frame of each together: at the
-        // head's rate plus 2k / n less 0.1 a second for the kth of n, so
-        // they don't move as one (0x5e7870).
-        const Pictures &p = pictures(_team[size_t(k)]);
-        const Animation &rate = p.figure.perDirection() > 0 ? p.figure : p.body;
-        const int count = rate.perDirection();
-        if (count <= 0)
+        // The body, the head over it, a frame of each together.
+        const int frame = figureFrame(k, now);
+        if (frame < 0)
             continue;
-        const double speed = double(rate.fps) + 2.0 * k / double(_team.size()) - 0.1;
-        const int frame = int(std::lrint(speed * double(now) / 1000.0) % count);
+        const Pictures &p = pictures(_team[size_t(k)]);
         blitBy(screen, p.body.frame(frame, 0), px, py);
         blitBy(screen, p.figure.frame(frame, 0), px, py);
     }
