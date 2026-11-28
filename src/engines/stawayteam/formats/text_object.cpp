@@ -5,8 +5,9 @@
 // LF skipped (0x5dfc60, its set at 0x64ab20), a line starting '}' ending
 // the object, one without '=' skipped, key and value split at the first
 // '='. The game knows from each class's properties which fields hold
-// objects; Reluva, knowing no classes yet, takes a field for an object when
-// a '{' line follows, which is the same on all of the game's files.
+// objects (0x40db31); Reluva takes a field for an object when a '{' line
+// follows, which agrees with those properties on every field of the game's
+// files (tools/stawayteam-re/stat_text_kinds.py).
 
 #include "engines/stawayteam/formats/text_object.h"
 

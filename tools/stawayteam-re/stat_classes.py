@@ -497,6 +497,47 @@ def inline_classes_from_text(ex, data_path):
     return found
 
 
+# The classes of the objects held in place that no text file names, read
+# from their owners' constructors (the object each builds at the property's
+# place) or, for an array's items, from the array's registration.
+INLINE_FROM_CODE = {
+    ('CBorgAI', 'Dead Bodies'): 'CDeadBodyInfo',  # its items' registration, 0x433b44
+    ('CGuardPosAI', 'Idle Behavior'): 'CEntityBehaviorIdle',  # 0x4a4290
+    ('CGuardPosAI', 'Move To Behavior'): 'CEntityBehaviorMoveToPos',  # 0x449240
+    ('CLayer', 'Save Data'): 'CLayerSaveData',  # 0x4edc00
+    ('CPlayerMoveToPos', 'Move/Move Behavior'): 'CEntityBehaviorMoveToPos',  # 0x53acf0
+    ('CSkeletonAI', 'Target/Target Type'): 'CEntityBehaviorStateSetClosestTarget',  # 0x5655de
+    ('CStandStillAttackAI', 'Shoot/Shoot Behavior'): 'CShootEntityBehavior',  # 0x43f810
+    ('CStandStillAttackAI', 'Turn/Turn Behavior'): 'CPointWeaponAtTargetEntityBehavior',  # 0x43fda0
+    ('CStarTrekNetSaveData', 'Selected List'): 'CCurrentSelectList',  # 0x5b33bc
+    ('CStarTrekSaveData', 'Info String'): 'CSlowText',  # 0x568d40
+    ('CStarTrekSaveData', 'Noise Manager'): 'CNoiseManager',  # 0x5193e0
+    ('CStarTrekSaveData', 'Move List'): 'CCurrentMoveList',  # 0x5b531f
+    ('CStarTrekSaveData', 'Temporary Entity Manager'): 'CTemporaryEntityManager',  # 0x5ed3c0
+}
+
+
+def inline_classes_from_code(ex):
+    """Set the classes INLINE_FROM_CODE gives, checking each one's size."""
+    by_name = {c['name']: g for g, c in ex.classes.items()}
+    found = 0
+    for g, c in ex.classes.items():
+        for p in c['props']:
+            target = p
+            if p['kind'] == 'array' and (p.get('element') or {}).get('kind') == 'inline':
+                target = p['element']
+            name = INLINE_FROM_CODE.get((c['name'], p['name']))
+            if target['kind'] != 'inline' or not name or target.get('class') is not None:
+                continue
+            cls = by_name[name]
+            if target.get('size') not in (None, ex.classes[cls]['size']):
+                raise SystemExit('%s.%s: %s is %s bytes, not %s'
+                                 % (c['name'], p['name'], name, ex.classes[cls]['size'], target['size']))
+            target['class'] = cls
+            found += 1
+    return found
+
+
 def kind_text(ex, p):
     text = p['kind'] or 'unknown'
     if p.get('class') is not None:
@@ -523,14 +564,16 @@ def main():
     ex.find_properties()
     ex.find_own_writers()
     from_text = inline_classes_from_text(ex, a.data) if a.data else 0
+    from_code = inline_classes_from_code(ex)
     out = sys.stdout if a.output == '-' else open(a.output, 'w', newline='\n')
     props = sum(len(c['props']) for c in ex.classes.values())
     out.write('# Star Trek: Away Team: classes and their properties, read from Star Trek.exe by\n'
               '# tools/stawayteam-re/stat_classes.py: %d classes, %d properties (%d copies of\n'
               '# registrations left out, %d not placed). Inherited properties come first and\n'
               '# are not repeated. %d inline objects\' classes are from the text files in\n'
-              '# DATA.dat. See docs/engines/stawayteam/research/binary-objects.md.\n'
-              % (len(ex.classes), props, ex.copies, ex.unplaced, from_text))
+              '# DATA.dat, %d from their owners\' code. See\n'
+              '# docs/engines/stawayteam/research/binary-objects.md.\n'
+              % (len(ex.classes), props, ex.copies, ex.unplaced, from_text, from_code))
     for g in sorted(ex.classes, key=lambda g: ex.classes[g]['name'].lower()):
         c = ex.classes[g]
         parent = ex.classes[c['parent']]['name'] if c['parent'] in ex.classes else '-'

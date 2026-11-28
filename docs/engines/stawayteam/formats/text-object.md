@@ -90,10 +90,12 @@ In `Star Trek.exe`: `0x40d9f0` reads an object, `0x40d8c0` writes one.
 - **Each line then:** one starting `}` ends the object (`0x40dab6`); one
   without `=` is skipped (`0x40dabe`, through `strchr` at `0x6077f0`).
 - **Keys:** each is looked for among the object's own properties
-  (`0x40cae0`: a list of names, searched from the last one found). Which
-  properties hold objects is the property's own, so a field is an object
-  because its class says so, not because of the lines after it
-  *(inferred)*.
+  (`0x40cae0`: a list of names, searched from the last one found), and
+  the property found reads the value itself (its slot `0x24`,
+  `0x40db31`): one holding objects reads the lines after it as one
+  (objects held in place, `0x40e508`, through `0x40d9c0` to `0x40d9f0`).
+  So a field is an object because its class says so, not because of the
+  lines after it; one whose object is empty has no lines at all.
 - **Other markings the code knows:** values holding `::` (checked at
   `0x40db36`) and numbers written `%s=0x%08X` (`0x6362b0`). Neither is in
   any of the game's files.
@@ -116,8 +118,12 @@ In `Star Trek.exe`: `0x40d9f0` reads an object, `0x40d8c0` writes one.
   object, the object. `TextObject` finds a field by key, reads one as a
   number, and gives an array's items without its count. Lines are read as
   the game reads them, but for objects: Reluva takes a field for an
-  object when a `{` line follows, as it knows no classes' properties
-  yet. On the game's files that's the same.
+  object when a `{` line follows. On the game's files that's the same:
+  of their 1,838,132 fields with a value and a class property, every one
+  the game's property table makes an object, and no other, has a `{`
+  after it (`tools/stawayteam-re/stat_text_kinds.py`); 464,914 more are
+  empty, and 52,468 are keys of classes that read their text themselves.
+  A file edited by hand could still tell the two apart.
 - **Writing:** `writeTextObject` writes as the game does: the game's
   files come back byte for byte, but for the 17 without a line end at
   their end.

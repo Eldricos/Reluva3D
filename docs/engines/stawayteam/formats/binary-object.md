@@ -64,9 +64,15 @@ key in text; neither is in binary, where there are no keys.
 An object held in place doesn't name its class, nor does the program's
 registration of it: its owner's constructor makes it. The game's text
 files name it (`BehaviorStack=CEntityBehaviorStack`), the same for each
-class and key, and that's where the table has it from, for 55 of the
-79. The other 24, in no text file, are told by their version, and by
-their size where versions are shared; none is in the game's binary files.
+class and key, and that's where the table has it from, for 67 of the
+80. The other 13, in no text file, are read from the program: the class
+whose constructor its owner's builds at the property's place (a
+`CGuardPosAI`'s `Idle Behavior` a `CEntityBehaviorIdle`, `0x4a4290`; a
+`CStarTrekSaveData`'s `Noise Manager` a `CNoiseManager`, `0x5193e0`), or
+for an array's items the class its registration names (`CBorgAI`'s
+`Dead Bodies`, `CDeadBodyInfo`, `0x433b44`), each the property's size
+(`tools/stawayteam-re/stat_classes.py`'s `INLINE_FROM_CODE`). None of
+those 13 is in the game's binary files.
 
 An array's items could each have a name before them (`0x40f920`), but
 none of the game's arrays does: each one's list of names is null.

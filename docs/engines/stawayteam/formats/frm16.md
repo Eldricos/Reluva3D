@@ -77,8 +77,12 @@ never overlap: 898,430 pixels are block 2's, none of them also block
 0's. Block 1 has a byte for each colour of block 2, in the same order,
 row by row: one for each pixel that follows a `01` code, one for the
 pixels of a `00` code together. Its rows' starts are in its own table.
-The byte is the pixel's alpha, 255 opaque *(inferred: the pictures look
-right so)*. All 297 frames with block 2 have block 1, and the other way
+The byte is the pixel's alpha: drawing a run (`0x44ff94`), the game
+takes its byte and its colour and moves each pixel behind toward the
+colour by it, in 16 bits, a quarter of the byte 64ths of the way in
+green and half that 32nds in red and blue, rounded down (`0x45e140`,
+from the table at `0x639c88`, one routine for each run length): 255 is
+all but opaque (63 64ths, 31 32nds), 0 leaves what's behind. All 297 frames with block 2 have block 1, and the other way
 round.
 
 ### A file that isn't one

@@ -47,6 +47,18 @@ None yet.
   as bound, but its sticks do nothing
   ([systems/menus.md](systems/menus.md)).
 
+- **Objects in text files** are told by a `{` line after their field,
+  not by the field's class as the original does. The same on every
+  field of the game's files; a file edited by hand, say with an object
+  field left without its `{`, could be read differently
+  ([formats/text-object.md](formats/text-object.md#in-reluva)).
+
+- **Blended pixels** of the game's pictures are mixed with what's behind
+  them in 8 bits a channel by their alpha, where the original mixes in
+  its 16-bit colours, by steps of a 64th or a 32nd rounded down, 255
+  falling just short of opaque: a step of colour at most
+  ([formats/frm16.md](formats/frm16.md#blended-pixels)).
+
 ## Additions outside the game
 
 <!-- What Reluva adds around the game: viewers, tools, settings. -->

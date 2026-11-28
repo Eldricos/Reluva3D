@@ -202,6 +202,16 @@ songs, checked with `ffprobe` and stb_vorbis (v1.22):
 - libvorbis 1.3.7 decodes all 27 as FFmpeg does, but for 5 files where
   it gives 128 samples more at the end
   ([Ogg Vorbis](../../../common/audio/vorbis.md#sources-and-checks)).
+  Over all 1,484 of the game's sounds, 158 come out 128 samples longer
+  with libvorbis than with FFmpeg, and 26 some 900 to 1,000 shorter. The
+  game's own `vorbis.dll` (libVorbis I 20010225) gives what libvorbis
+  1.3.7 does, every one: its `vorbis_synthesis_blockin` (`0x10001ed0` in
+  the DLL) cuts a partial last frame where the packet ending the stream
+  has a granule position short of the samples decoded (`0x1000223d`),
+  and the start only at the second audio packet (`0x10002250`), and on
+  these files those rules and 1.3.7's give the same length
+  (`tools/stawayteam-re/stat_vorbis_trim.py`, its 1.3.7 count checked
+  against libvorbis decoding all 1,484).
 
 ### Movies
 

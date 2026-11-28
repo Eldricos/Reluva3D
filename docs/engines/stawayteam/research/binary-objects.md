@@ -95,8 +95,12 @@ A string is a 4-byte length, then its bytes, with nothing after them
   `0x548d50`) doesn't: its owner's constructor makes it. Its size is in
   the arguments, but several classes have the same version and size. The
   text files name it, though (`BehaviorStack=CEntityBehaviorStack`), the
-  same for each class and key under a class and its subclasses: 55 of the
-  79, which `stat_classes.py --data` writes into the schema.
+  same for each class and key under a class and its subclasses: 67 of the
+  80, which `stat_classes.py --data` writes into the schema (it once
+  found only 55, taking a file's first fields for an array's). The other
+  13 were read from their owners' constructors, or for an array's items
+  its registration, and are listed in `stat_classes.py`
+  (`INLINE_FROM_CODE`), which checks each against the property's size.
 - **Arrays' lists of names** are all null: the registrations pass `ebx`
   or `edi`, zeroed at their functions' start (found once the register's
   value was followed back that far).

@@ -81,7 +81,7 @@ def inline_classes(texts):
             continue
         stack = [lines[0]]
         pending = None
-        for l in lines[1:]:
+        for l in lines[2:]:
             if l == '{':
                 stack.append(pending or 'Array')
                 pending = None

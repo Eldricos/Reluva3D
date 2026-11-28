@@ -29,7 +29,9 @@ file from memory through vorbisfile's callbacks.
   of October 2000 and January 2001, compared with FFmpeg's decoder: the
   same rate and channels, the samples' total level the same within one
   part in a million, and the same length but for 5 files, where
-  libvorbis gives 128 samples more at the end.
+  libvorbis gives 128 samples more at the end. The game's own decoder
+  (libVorbis I of February 2001) gives libvorbis's lengths
+  ([file survey](../../engines/stawayteam/research/file-survey.md#sound)).
 - **Confidence:** published unless marked
   (docs/DOCUMENTATION_STANDARD.md).
 

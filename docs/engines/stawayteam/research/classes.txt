@@ -1,8 +1,9 @@
 # Star Trek: Away Team: classes and their properties, read from Star Trek.exe by
 # tools/stawayteam-re/stat_classes.py: 553 classes, 2084 properties (710 copies of
 # registrations left out, 2 not placed). Inherited properties come first and
-# are not repeated. 55 inline objects' classes are from the text files in
-# DATA.dat. See docs/engines/stawayteam/research/binary-objects.md.
+# are not repeated. 67 inline objects' classes are from the text files in
+# DATA.dat, 13 from their owners' code. See
+# docs/engines/stawayteam/research/binary-objects.md.
 class CAction version=1.0 parent=- own-data=- size=8 global=0x65158c
 class CActionAI version=616635.0 parent=CLayerPartAI own-data=- size=32 global=0x7714f8
   "Action" object
@@ -165,7 +166,7 @@ class CBorgAI version=31445564.0 parent=CSkeletonBaseAI own-data=- size=248 glob
   "State/Weapon Dist Sqrd" float
   "State/Transitions" object
   "State/Debug" bool
-  "Dead Bodies" array element=inline size=12
+  "Dead Bodies" array element=inline class=CDeadBodyInfo size=12
   "Debug/State To Change To" choice
   "Debug/Need To Change State" bool
   "Debug/AI Paused" bool
@@ -870,8 +871,8 @@ class CGroupSelectionList version=48.0 parent=- own-data=- size=20 global=0xb8a5
 class CGuardPosAI version=31443916.0 parent=CPatrolBaseAI own-data=- size=200 global=0xb8a330
   "Avg Time Between Turns" float
   "Turn Invariance" float
-  "Idle Behavior" inline size=36
-  "Move To Behavior" inline size=120
+  "Idle Behavior" inline class=CEntityBehaviorIdle size=36
+  "Move To Behavior" inline class=CEntityBehaviorMoveToPos size=120
   "Debug/Going Home" bool
   "Debug/Next Try To Move" float
   "Debug/Time Since Last Turn" float
@@ -999,7 +1000,7 @@ class CLandscapeAI version=616965.0 parent=CLayerPartAI own-data=- size=60 globa
   "Do Not Modify If GreaterThan" int
   "Do Not Modify If Less Than" int
 class CLayer version=135351.0 parent=COffsetClippedProxyFrame own-data=- size=296 global=0x720790
-  "Save Data" inline size=244
+  "Save Data" inline class=CLayerSaveData size=244
 class CLayerCustomSaveData version=1.0 parent=- own-data=- size=4 global=0x72077c
 class CLayerHolder version=1.0 parent=- own-data=0x4f4630 size=20 global=0x721104
 class CLayerPart version=915.0 parent=- own-data=- size=84 global=0x721158
@@ -1027,7 +1028,7 @@ class CLayerSaveData version=1086.0 parent=- own-data=0x4ed960 size=244 global=0
   "Custom Map Properties" object
   "Width" int
   "Height" int
-  "Action Queue" inline size=24
+  "Action Queue" inline class=CActionQueue size=24
   "Has Begin Been Called" bool
   "Map Description" name
   "First Fire Action" object
@@ -1042,11 +1043,11 @@ class CLayerSaveData version=1086.0 parent=- own-data=0x4ed960 size=244 global=0
   "Ambient Sounds" array element=object
   "Shake Time" float
   "Max Shake Time" float
-  "Pixels To Shake" inline size=32
+  "Pixels To Shake" inline class=CLengthEnvelope size=32
   "Last Shake Delta" fpoint
   "Active Paths" object
   "Path Data" object
-  "Monitor" inline size=20
+  "Monitor" inline class=CUpdateMonitorList size=20
 class CLengthEnvelope version=16831.0 parent=CEnvelope own-data=- size=32 global=0x71e32c
 class CLightningLayerPart version=2385043.0 parent=CSimpleLayerPart own-data=- size=156 global=0x721198
   "Position/Z" float
@@ -1086,15 +1087,15 @@ class CMissionDescription version=1270.0 parent=- own-data=- size=244 global=0x7
   "Map Name" string
   "Briefing/Briefing Movie" choice
   "Briefing/Loop movie" bool
-  "Briefing/Script" inline size=24
-  "Debrief/Debrief Script" inline size=24
+  "Briefing/Script" inline class=CBriefingScript size=24
+  "Debrief/Debrief Script" inline class=CBriefingScript size=24
   "Start Team/Max Members To Start" int
   "Start Team/Override selected team" bool
   "Start Team/Who Should Start" array element=choice
   "Need/Items" array element=choice
   "Temporary/Temp Items" array element=choice
   "Recommend/Recommended Items" array element=choice
-  "Objectives/Objective" inline size=28
+  "Objectives/Objective" inline class=CMissionObjectiveManager size=28
   "Available in Net Game" bool
   "Net Lobby Script" choice
   "Net Lobby Text" choice
@@ -1358,7 +1359,7 @@ class CPlayerControlAI version=616591.0 parent=CLayerPartAI own-data=- size=40 g
 class CPlayerListHolder version=48.0 parent=- own-data=- size=20 global=0x721100
   "Player" array element=ref
 class CPlayerMoveToPos version=392.0 parent=CEntityBehavior own-data=- size=152 global=0x76f400
-  "Move/Move Behavior" inline size=120
+  "Move/Move Behavior" inline class=CEntityBehaviorMoveToPos size=120
   "Time to check move" float
   "Move/Idle Behavior" object
   "MoveToPos" fpoint
@@ -1764,7 +1765,7 @@ class CSkeletonAI version=31444672.0 parent=CSkeletonBaseAI own-data=- size=176 
   "Patrol/Patrol End Action" object
   "Patrol/Respond to calls for reinforcements" bool
   "Target/Target shooter if hit" bool
-  "Target/Target Type" inline size=28
+  "Target/Target Type" inline class=CEntityBehaviorStateSetClosestTarget size=28
   "Debug/Has Seen Target" bool
   "Pursue/Max dist from home" float
   "Pursue/Pursue AI" object
@@ -1808,8 +1809,8 @@ class CStandardMissionObjective version=16926.0 parent=CMissionObjective own-dat
   "Objective Script" choice
   "Objective Line" choice
 class CStandStillAttackAI version=31443638.0 parent=CAttackAI own-data=- size=44 global=0xb8a328
-  "Shoot/Shoot Behavior" inline size=12
-  "Turn/Turn Behavior" inline size=8
+  "Shoot/Shoot Behavior" inline class=CShootEntityBehavior size=12
+  "Turn/Turn Behavior" inline class=CPointWeaponAtTargetEntityBehavior size=8
 class CStartingInventoryDefinition version=100.0 parent=CListDefinitionItem own-data=- size=20 global=0x71dac0
   "Starting Inventory/Starting Inventory" array element=object
 class CStarTrekAction version=52.0 parent=CAction own-data=- size=8 global=0xb8a388
@@ -2117,7 +2118,7 @@ class CStarTrekInventoryItemDefinition version=105501.0 parent=CInventoryItemDef
   "Item Range" float
   "Process/Can Use On Self" bool
   "Process/Only Execute If Hovering" bool
-  "Process/Process" inline size=56
+  "Process/Process" inline class=CProcess size=56
   "Entity Hovering Cursor" choice
   "Show Obscured Cursor" bool
   "Need LOS" bool
@@ -2229,7 +2230,7 @@ class CStarTrekNetLobbyMenu version=3765.0 parent=CStarTrekMenuDefinition own-da
   "Buttons/SendChatButton Press Sound" choice
   "Buttons/SendChatButton Hover Sound" choice
 class CStarTrekNetSaveData version=236.0 parent=- own-data=- size=60 global=0xb8a57c
-  "Selected List" inline size=24
+  "Selected List" inline class=CCurrentSelectList size=24
   "Selection Group" array element=object
   "Cur Alert" ref
   "Vision State" int
@@ -2271,16 +2272,16 @@ class CStarTrekRemoteMineInventoryItem version=974422528.0 parent=CStarTrekProje
 class CStarTrekRemoteWeaponInventoryItem version=974422528.0 parent=CStarTrekProjectileWeaponInventoryItem own-data=- size=52 global=0xb8b010
 class CStarTrekRules version=21868.0 parent=CRules own-data=- size=88 global=0xb8b04c
   "First Map" choice
-  "Banter/Banter" inline size=20
+  "Banter/Banter" inline class=CBanterManager size=20
   "First Hit Action" object
 class CStarTrekSaveData version=1083.0 parent=- own-data=- size=292 global=0xb8a580
   "Current Team" array element=ref
   "Roster" array element=object
-  "Info String" inline size=24
+  "Info String" inline class=CSlowText size=24
   "Info Icon" int
   "Info Time" float
   "Tricorder String" string
-  "Noise Manager" inline size=8
+  "Noise Manager" inline class=CNoiseManager size=8
   "Listening State" bool
   "Mission Time" float
   "Current Mission" choice
@@ -2291,8 +2292,8 @@ class CStarTrekSaveData version=1083.0 parent=- own-data=- size=292 global=0xb8a
   "Initial Team/Initial Team" array element=int
   "Current Team/Current Team Member" array element=int
   "Net Player Info" objects class=CStarTrekNetSaveData
-  "Move List" inline size=20
-  "Temporary Entity Manager" inline size=20
+  "Move List" inline class=CCurrentMoveList size=20
+  "Temporary Entity Manager" inline class=CTemporaryEntityManager size=20
   "Debug/Game Script" object
   "Banter Used" array element=bool
   "Simulation Time" double
@@ -2594,10 +2595,10 @@ class CWaitAI version=616728.0 parent=CLayerPartAI own-data=- size=40 global=0x7
   "Behavior to run" object
 class CWarpEffect version=52.0 parent=CRenderEffect own-data=- size=12 global=0xb8b548
 class CWaterWarpEffect version=236.0 parent=- own-data=- size=2136 global=0xb8b6a4
-  "V1 Wave" inline size=532
-  "V2 Wave" inline size=532
-  "H1 Wave" inline size=532
-  "H2 Wave" inline size=532
+  "V1 Wave" inline class=CWaterWaveFormData size=532
+  "V2 Wave" inline class=CWaterWaveFormData size=532
+  "H1 Wave" inline class=CWaterWaveFormData size=532
+  "H2 Wave" inline class=CWaterWaveFormData size=532
   "Show Grid" bool
 class CWaterWarpEffectFrame version=12178.0 parent=CWaterWarpEffect own-data=- size=2156 global=0xb8b6a8
   "Render Type" choice
