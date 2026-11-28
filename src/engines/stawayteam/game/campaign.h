@@ -51,6 +51,7 @@ struct SaveGame {
     std::string name;
     int64_t savedAt = 0;
     std::string missionName;
+    float missionTime = 0.0f; // seconds into the mission as it was saved
     Campaign campaign;
     std::vector<uint8_t> state; // the maps as they stand (Reluva's own); empty: from the mission's start
     image::Image picture;

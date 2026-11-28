@@ -439,8 +439,10 @@ void MainMenu::openSaveScreen(SaveGameScreen::Mode mode) {
     char name[160];
     std::snprintf(name, sizeof name, "Mission %02d: %s", _mission.number, _mission.name.c_str());
     save.name = name;
-    save.missionName = name;
+    save.missionName = _mission.name;
     save.campaign = _missionStart;
+    if (_mapScreen)
+        save.missionTime = _mapScreen->missionTime();
     if (_mapScreen && mode == SaveGameScreen::Mode::kSave) {
         StateIo state;
         if (gameState(state)) {

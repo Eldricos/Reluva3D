@@ -563,6 +563,25 @@ Game/Background`:
   `0x5c7c25`, `0x5c7c97`). The load screen reads the chosen save's (`0x502626` to
   `0x502675`), and both draw it at `Image Pos` (464, 76; `0x5021f3` to
   `0x50220d`).
+- **The list** (the toolkit's tree list, `0x402d90`): a row a save, its
+  name, and at its right its `Mission Time` as hours, minutes and
+  seconds of two figures, in columns as wide as the widest of "55", "22"
+  and "00" with `:` between, starting 3 widths of "22", 2 of `:` and 4
+  in from the row's right, less the scroll bar's (`0x554530`,
+  `0x554631`, `0x5c4700`); a time below 0 isn't drawn. The chosen row
+  lies on a bar of the toolkit's selection colour, (77, 62, 53) opaque
+  (`0x40857b`), from a frame's width (the font's baseline over 5) and 1
+  in at the left to as far from the right, less the scroll bar, a row
+  high (`0x4029a0`). No picture is drawn for it: `Load Game/Select
+  Overlay` is in the data, but no name of it is in the program.
+- **The times:** at `Time Pos` the mission time, `HH.MM.SS`, a day and
+  more wrapped back into the last day (`0x5546b0`): saving, the game's
+  as it stands (`CStarTrekSaveData`'s `Mission Time`, `0x554fee`);
+  loading, the chosen save's (`0x502620`). Loading, at `GameInfo Pos`
+  three lines, each the font's height and 1 under the last (`0x5022fc`):
+  "Mission: " and the mission's name, "Time: " and the mission time,
+  "Total Game Time: " and the description's `Total Time` (`0x5026ac` to
+  `0x50288a`), the words looked up in the game's strings (`0x503400`).
 - **Their words:** "NO SAVE GAMES" with none (`0x5017a1`), and "Are you
   sure you want to delete this game?" (`0x5017b5`).
 - **The files:** `Save Games` (`0x501a4a`), each a `.sav`
@@ -640,17 +659,18 @@ Game/Background`:
   ([objectives.md](objectives.md#in-reluva)).
 
 - **Saved games:** `SaveGameScreen` (`ui/save_menu.cpp`), the screens as
-  above, the list's rows a line of the menu's font each, the chosen one
-  over `Load Game/Select Overlay` *(inferred)*. Saving offers the
-  mission's name, typed on or replaced by one chosen, and saves with
+  above: the list's rows a line of the menu's font each, the font's
+  height and 2 apart *(inferred)*, with their mission times and the
+  chosen one's bar, and the times and lines as the program draws them,
+  the total being the missions done and this one's time. Saving offers
+  the mission's name, typed on or replaced by one chosen, and saves with
   SAVE GAME or Enter; loading, LOAD GAME or Enter; DELETE GAME asks
-  first. Its time is the missions' total, hours and minutes saving,
-  with seconds loading; loading, the chosen one's mission and score at
-  GameInfo Pos *(inferred)*. Their random-number nernies roll as the
+  first. Their random-number nernies roll as the
   briefing's do ([briefing.md](briefing.md#the-screen)). Saves are Reluva's own
   (`game/campaign.cpp`), `.sav` files of text in `Save Games` where
   Reluva keeps the game's files: the mission, as it began, its score,
-  time and difficulty, and the items found. Beside each, the game as it
+  time and difficulty, the items found, and the mission's name and the
+  time into it. Beside each, the game as it
   stands (`.state`) and the map's picture (`.png`, shrunk as the
   game's, nearest pixel *(inferred)*), shown at Image Pos; DELETE GAME
   deletes all three. The state (`game/state_io.cpp`, `ui/map_state.cpp`,
@@ -690,5 +710,5 @@ Game/Background`:
 - **The sound window's focus:** its first child that takes it, its
   children being labels, toggles and sliders made in turn
   (`0x56ea8b` on). Reluva keeps Enter for CONTINUE there.
-- **Saved games:** how the save screens' rows, time and game info are
-  drawn, and the original's save files, for Reluva to read them.
+- **Saved games:** the original's save files, for Reluva to read them:
+  none has been looked at.

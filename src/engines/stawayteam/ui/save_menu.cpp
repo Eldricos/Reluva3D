@@ -7,6 +7,7 @@
 #include "engines/stawayteam/ui/main_menu.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -22,6 +23,24 @@ const char *const kDeleteQuestion = "Are you sure you want to delete this game?"
 enum Which { kAction, kDelete, kExit };
 // The longest name typed (inferred).
 constexpr size_t kMostName = 40;
+// The toolkit's colour for a list's chosen row (0x40857b).
+constexpr uint8_t kChosenRow[3] = {77, 62, 53};
+
+// Seconds as hours, minutes and seconds of two figures each, a day and
+// more wrapped back into the last day (0x554780, 0x5c4700).
+std::array<int, 3> clockOf(float seconds) {
+    int s = std::max(0, int(seconds));
+    if (s > 86400)
+        s -= 86400 * ((s - 1) / 86400);
+    return {s / 3600, s / 60 % 60, s % 60};
+}
+
+std::string clockText(float seconds) {
+    const auto [h, m, s] = clockOf(seconds);
+    char text[16];
+    std::snprintf(text, sizeof text, "%02d.%02d.%02d", h, m, s);
+    return text;
+}
 
 } // namespace
 
@@ -46,7 +65,6 @@ SaveGameScreen::SaveGameScreen(const Archive &data, const TextObject &rules, Mod
     }
     const std::string screen = mode == Mode::kSave ? "Save Game" : "Load Game";
     _background = screenPicture(data, screen + "/Background");
-    _overlay = screenPicture(data, "Load Game/Select Overlay");
     _texts = readStaticTexts(data, _def);
     _numbers = readRandomNumbers(data, _def, 1);
     // Its Menu Font, the list's and the name's (inferred).
@@ -189,22 +207,46 @@ void SaveGameScreen::draw(Surface &screen, uint64_t now) {
     _buttons.draw(screen);
     if (!_font.loaded())
         return;
-    // The list: each save's name, the one chosen over the select overlay;
-    // with none, NO SAVE GAMES (inferred for where).
+    // The list (0x402d90): each save's name, the one chosen on a bar of
+    // the toolkit's colour a frame's width and a pixel in from each side
+    // (0x4029a0), and its mission time at the row's right in columns of
+    // two figures as wide as the widest of "55", "22" and "00", with ':'
+    // between, 3 widths of "22", 2 of ':' and 4 in from its right
+    // (0x554530, 0x5c4700); with none, NO SAVE GAMES (inferred for where).
     int lx = 0;
     int ly = 0;
+    int lw = 0;
+    int lh = 0;
     readPoint(_def, "List Pos", lx, ly);
+    readPoint(_def, "List Size", lw, lh);
     const int rowH = _font.height() + 2;
+    const int border = _font.baseline() / 5;
     if (_saves.empty())
         _font.draw(screen, lx, ly, kNoSaves);
+    const int figures = std::max({_font.width("55"), _font.width("22"), _font.width("00")});
+    const int colon = _font.width(":");
     for (size_t i = 0; i < _saves.size(); ++i) {
         const int y = ly + int(i) * rowH;
         if (int(i) == _selected)
-            image::blit(screen, _overlay, lx - 2, y - 1);
-        _font.draw(screen, lx, y, _saves[i].second.name);
+            for (int py = std::max(0, y); py < std::min(screen.h, y + rowH); ++py)
+                for (int px = std::max(0, lx + border + 1); px < std::min(screen.w, lx + lw - border - 1); ++px)
+                    std::copy(kChosenRow, kChosenRow + 3, screen.row(py) + px * 4);
+        const SaveGame &save = _saves[i].second;
+        _font.draw(screen, lx + border + 1, y, save.name);
+        int x = lx + lw - 3 * _font.width("22") - 2 * colon - 4;
+        const std::array<int, 3> clock = clockOf(save.missionTime);
+        for (size_t k = 0; k < 3; ++k) {
+            char two[8];
+            std::snprintf(two, sizeof two, "%02d", clock[k]);
+            _font.draw(screen, x, y, two);
+            x += figures;
+            if (k < 2) {
+                _font.draw(screen, x, y, ":");
+                x += colon;
+            }
+        }
     }
-    // The name being typed, saving; the one chosen's, loading (its Static);
-    // and its time, the missions' total (inferred, as the debriefing's).
+    // The name being typed, saving; the one chosen's, loading (its Static).
     int sx = 0;
     int sy = 0;
     readPoint(_def, _mode == Mode::kSave ? "Edit Pos" : "Static Pos", sx, sy);
@@ -223,25 +265,24 @@ void SaveGameScreen::draw(Surface &screen, uint64_t now) {
         image::blit(screen, shown->picture, ix, iy);
     }
     if (shown) {
+        // At Time Pos its mission time, hours, minutes and seconds: the
+        // game's as it stands, saving (0x554fee), the chosen one's,
+        // loading (0x502620).
         int tx = 0;
         int ty = 0;
         readPoint(_def, "Time Pos", tx, ty);
-        const int total = int(shown->campaign.time);
-        char time[32];
-        // Saving, its field fits hours and minutes alone (Time Size 33).
-        if (_mode == Mode::kSave)
-            std::snprintf(time, sizeof time, "%d:%02d", total / 3600, total / 60 % 60);
-        else
-            std::snprintf(time, sizeof time, "%02d:%02d:%02d", total / 3600, total / 60 % 60, total % 60);
-        _font.draw(screen, tx, ty, time);
-        int gx = 0;
-        int gy = 0;
-        readPoint(_def, "GameInfo Pos", gx, gy);
+        _font.draw(screen, tx, ty, clockText(shown->missionTime));
+        // Loading, at GameInfo Pos its mission, mission time and the
+        // game's whole time, each line the font's height and 1 under the
+        // last (0x5026ac, 0x5022fc).
         if (_mode == Mode::kLoad) {
-            char score[32];
-            std::snprintf(score, sizeof score, "%d", shown->campaign.score);
-            _font.draw(screen, gx, gy, shown->missionName);
-            _font.draw(screen, gx, gy + rowH, score);
+            int gx = 0;
+            int gy = 0;
+            readPoint(_def, "GameInfo Pos", gx, gy);
+            const std::string lines[] = {"Mission: " + shown->missionName, "Time: " + clockText(shown->missionTime),
+                                         "Total Game Time: " + clockText(shown->campaign.time + shown->missionTime)};
+            for (size_t k = 0; k < 3; ++k)
+                _font.draw(screen, gx, gy + int(k) * (_font.height() + 1), lines[k]);
         }
     }
     if (_confirm)

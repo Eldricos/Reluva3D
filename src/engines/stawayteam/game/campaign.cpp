@@ -51,6 +51,7 @@ Error writeSaveGame(const std::filesystem::path &path, const SaveGame &save) {
     out << "mission=" << save.campaign.mission << "\n";
     out << "score=" << save.campaign.score << "\n";
     out << "time=" << save.campaign.time << "\n";
+    out << "mission time=" << save.missionTime << "\n";
     out << "difficulty=" << save.campaign.difficulty << "\n";
     for (const std::string &item : save.campaign.discovered)
         out << "discovered=" << item << "\n";
@@ -118,6 +119,8 @@ Error readSaveGame(const std::filesystem::path &path, SaveGame &out, bool withSt
             out.campaign.score = std::atoi(value.c_str());
         else if (key == "time")
             out.campaign.time = float(std::atof(value.c_str()));
+        else if (key == "mission time")
+            out.missionTime = float(std::atof(value.c_str()));
         else if (key == "difficulty")
             out.campaign.difficulty = std::atoi(value.c_str());
         else if (key == "discovered")

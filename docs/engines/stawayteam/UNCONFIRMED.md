@@ -52,9 +52,8 @@ None now.
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The beams:** their way, toward the one shot as high on them as the
   muzzle ([systems/maps.md](systems/maps.md#open-questions)).
-- **The score and saves:** the save screens' rows, time and game info
-  ([systems/objectives.md](systems/objectives.md#open-questions),
-  [systems/menus.md](systems/menus.md#open-questions)).
+- **The saves' list:** its rows the font's height and 2 apart
+  ([systems/menus.md](systems/menus.md#open-questions)).
 - **The team selection:** a figure's picture answering where it isn't
   see-through, and the officer's name over the transporter's own text
   ([systems/team-selection.md](systems/team-selection.md#open-questions)).

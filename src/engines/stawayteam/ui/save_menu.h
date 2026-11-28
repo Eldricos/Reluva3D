@@ -66,7 +66,6 @@ private:
     SaveGame _toSave;
     SaveGame _chosen;
     image::Image _background;
-    image::Image _overlay; // the chosen row's
     std::vector<StaticText> _texts;
     std::vector<RandomNumbers> _numbers; // its random-number nernies
     uint64_t _last = 0;

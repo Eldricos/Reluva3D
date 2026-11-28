@@ -724,7 +724,8 @@ void testCampaign(const std::filesystem::path &tmp) {
     SaveGame save;
     save.name = "Before the outpost";
     save.savedAt = 1000;
-    save.missionName = "Mission 01: Klingon Outpost";
+    save.missionName = "Klingon Outpost";
+    save.missionTime = 3725.5f;
     save.campaign = campaign;
     save.campaign.mission = 2;
     save.campaign.toDescribe = {"Super Rifle"};
@@ -733,7 +734,9 @@ void testCampaign(const std::filesystem::path &tmp) {
     SaveGame back;
     CHECK(!readSaveGame(folder / "a.sav", back));
     CHECK(back.name == save.name && back.savedAt == 1000 && back.campaign.mission == 2 && back.campaign.score == 300 &&
-          back.campaign.discovered == save.campaign.discovered && back.campaign.toDescribe == save.campaign.toDescribe);
+          back.campaign.discovered == save.campaign.discovered &&
+          back.campaign.toDescribe == save.campaign.toDescribe && back.missionTime == 3725.5f &&
+          back.missionName == "Klingon Outpost");
     save.name = "Later";
     save.savedAt = 2000;
     CHECK(!writeSaveGame(folder / "b.sav", save));
