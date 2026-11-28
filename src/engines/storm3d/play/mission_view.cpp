@@ -2934,6 +2934,7 @@ void MissionView::draw(uint64_t millis) {
     if (_overlay.w != 640)
         _overlay.create(640, 480, PixelFormat::kRGBA32);
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
+    drawBridgeMovie(millis, false);
     // Bars as the original draws them (0x4977a6): the unit under the
     // pointer's, and once the pointer has rested half a second on a
     // player's units, all of theirs, fading in over the next half second
@@ -3083,35 +3084,46 @@ void MissionView::drawBridge(uint64_t millis, const MapScene::Camera &view) {
         _scene.drawInset(view, double(millis) / 1000, kRange, screen[0], screen[1], screen[2], screen[3]);
     // The movie, by its clock, counted through its plays; its frame under
     // the picture, showing through the screen.
-    if (_bridgeMovie && _bridgeMoviePlaying) {
-        _bridgeMovie->update(millis);
-        if (_bridgeMoviePasses > 0 && _bridgeMovie->shown() >= _bridgeMovie->frames() * _bridgeMoviePasses)
-            stopBridgeMovie();
-    }
     if (_overlay.w != 640)
         _overlay.create(640, 480, PixelFormat::kRGBA32);
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
-    if (_bridgeMovie && (_bridgeMoviePlaying || _bridgeOnScreen) && !_bridgeMovie->rgba().empty()) {
-        const int w = _bridgeMovie->width();
-        const int h = _bridgeMovie->height();
-        for (int y = 0; y < screen[3]; ++y)
-            for (int x = 0; x < screen[2]; ++x) {
-                const int sx = x * w / screen[2];
-                const int sy = y * h / screen[3];
-                const int px = screen[0] + x;
-                const int py = screen[1] + y;
-                if (px < 0 || py < 0 || px >= 640 || py >= 480)
-                    continue;
-                const uint8_t *from = &_bridgeMovie->rgba()[(size_t(sy) * size_t(w) + size_t(sx)) * 4];
-                uint8_t *to = _overlay.row(py) + size_t(px) * 4;
-                std::copy(from, from + 3, to);
-                to[3] = 255;
-            }
-    }
+    // Its frame under the picture, showing through the screen; the last
+    // one held there once it's done.
+    drawBridgeMovie(millis, _bridgeOnScreen);
     _hud.drawBridge(_overlay, bridgePrefix(), double(millis) / 1000 - _bridgeLightsFrom);
     // The titles and fade over the bridge (priorities 9 and 1).
     drawCutScene(false);
     _renderer->endFrame(&_overlay);
+}
+
+void MissionView::drawBridgeMovie(uint64_t millis, bool held) {
+    // By its clock, counted through its plays, closed at the end of its
+    // last (0x47a410); drawn wherever it is while it's open, in the
+    // rectangle it was given, even over play once its cut scene is
+    // skipped without stopping it.
+    if (!_bridgeMovie)
+        return;
+    if (_bridgeMoviePlaying) {
+        _bridgeMovie->update(millis);
+        if (_bridgeMoviePasses > 0 && _bridgeMovie->shown() >= _bridgeMovie->frames() * _bridgeMoviePasses)
+            stopBridgeMovie();
+    }
+    if ((!_bridgeMoviePlaying && !held) || _bridgeMovie->rgba().empty())
+        return;
+    const std::array<int, 4> &r = _bridgeMovieRect;
+    const int w = _bridgeMovie->width();
+    const int h = _bridgeMovie->height();
+    for (int y = 0; y < r[3]; ++y)
+        for (int x = 0; x < r[2]; ++x) {
+            const int px = r[0] + x;
+            const int py = r[1] + y;
+            if (px < 0 || py < 0 || px >= _overlay.w || py >= _overlay.h)
+                continue;
+            const uint8_t *from = &_bridgeMovie->rgba()[(size_t(y * h / r[3]) * size_t(w) + size_t(x * w / r[2])) * 4];
+            uint8_t *to = _overlay.row(py) + size_t(px) * 4;
+            std::copy(from, from + 3, to);
+            to[3] = 255;
+        }
 }
 
 } // namespace reluva::storm3d

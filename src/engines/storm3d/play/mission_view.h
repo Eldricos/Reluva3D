@@ -580,7 +580,9 @@ private:
     std::string bridgePrefix() const;
     void stopBridgeMovie();
     void drawBridge(uint64_t millis, const MapScene::Camera &view);
-    Cineractive _cine; // the scripts' cut scene
+    std::array<int, 4> _bridgeMovieRect{};            // where it plays: the view screen when it began (0x47a5f0)
+    void drawBridgeMovie(uint64_t millis, bool held); // its frame, if it's open, or held
+    Cineractive _cine;                                // the scripts' cut scene
     bool _gridShown = true;
     std::map<size_t, float>
         _warpSpeeds; // the definitions' warp speeds of those SetWarpSpeed changed              // GridVisible, the same the player's grid key toggles (0x616c20)

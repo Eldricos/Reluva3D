@@ -241,9 +241,12 @@ for what they take from Armada.exe.
 
   - **the bridge** as above, its world view through `MapScene`'s inset.
 
-  Not done yet: saving and loading a mission, a bridge movie still
-  playing after its cut scene is skipped (the original draws it over play
-  until it ends), the
+  - **a bridge movie** still playing after its cut scene is skipped
+    without `StopMovie`, as Federation 1's skip does, is drawn over play
+    in its view screen's place until it ends, under the interface, as the
+    original's player draws an open movie in every mode (0x47a410).
+
+  Not done yet: saving and loading a mission, the
   minimap's messages, the shots along a heading, and the AI files other
   missions load.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run

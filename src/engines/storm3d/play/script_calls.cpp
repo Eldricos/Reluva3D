@@ -468,6 +468,7 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         _bridgeMovie = std::move(movie);
         _bridgeMoviePlaying = true;
         _bridgeMoviePasses = args.integer(1);
+        _bridgeMovieRect = bridgeScreen();
         if (_mixer && sound)
             _bridgeMovieSound =
                 _mixer->play(sound, audio::SoundType::kSpeech, audio::kMaxVolume, 0, _bridgeMoviePasses <= 0);
