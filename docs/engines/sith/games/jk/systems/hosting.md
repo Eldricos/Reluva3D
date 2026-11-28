@@ -540,9 +540,10 @@ Windows does when it fails, and dialog boxes are made but not drawn
     which without it Mysteries of the Sith leaves out.
 
     Reluva's *Level select* setting puts `-devMode` after the command
-    line (`sith::gameCommandLine`), once, for either game. Through the
-    launcher, a level chosen this way started in both: the third of each
-    episode, `03katarn.jkl` and `s1l3_astcore.jkl`.
+    line (`sith::gameCommandLine`), once, for either game. In `reluva`,
+    from a new player, a level chosen this way started in both: the
+    third of each episode, `03katarn.jkl` and `s1l3_astcore.jkl`, each
+    with its autosave.
 
 On the real Windows of the time Direct3D always had its software
 devices, DirectPlay was installed with DirectX, and 8-bit modes were
