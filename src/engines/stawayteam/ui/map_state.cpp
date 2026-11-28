@@ -62,6 +62,7 @@ void stateOf(StateIo &s, MapPart &p) {
     s.io(p.collideable);
     s.io(p.triesToCollide);
     s.io(p.fullHeight);
+    s.io(p.halfHeight);
     s.io(p.settled);
     s.io(p.inventory);
     s.io(p.stuns);

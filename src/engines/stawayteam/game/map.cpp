@@ -168,6 +168,7 @@ MapPart readPart(const std::string &className, const TextObject &o) {
     part.collideable = o.integer("Collideable").value_or(1) != 0;
     part.triesToCollide = o.integer("Tries To Collide").value_or(0) != 0;
     part.fullHeight = o.integer("Full Height").value_or(1) != 0;
+    part.halfHeight = o.integer("Half Height").value_or(0) != 0;
     part.settled = int(o.integer("Updates Since Relocate").value_or(0));
     if (const TextObject *inventory = o.object("Inventory"))
         if (const TextObject *list = inventory->object("Inventory List"))

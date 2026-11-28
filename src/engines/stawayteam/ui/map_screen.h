@@ -1028,6 +1028,9 @@ private:
     void placeInGrid();
     std::array<int, 4> gridCells(const std::string &model, float x, float y, int lift);
     std::array<int, 4> triggerCells(const Trigger &t) const;
+    // The grid's cells an area of the map covers, the map's edges holding
+    // them.
+    std::array<int, 4> areaCells(float x0, float y0, float x1, float y1) const;
     // Where the grid's search of `area` finds `who`: the row and column of
     // the first cell of both, then when they came into it; the least
     // first.
@@ -1072,6 +1075,7 @@ private:
     struct Wall {
         size_t part;
         bool full; // standing Full Height, so blocking sight
+        bool half; // Half Height: cutting an enemy's drawn sight, as full height does
         std::vector<std::pair<float, float>> points;
         // Its bounds.
         float x0;

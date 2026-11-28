@@ -222,6 +222,10 @@ std::array<int, 4> MapScreen::triggerCells(const Trigger &t) const {
             y1 = std::max(y1, y);
         }
     }
+    return areaCells(x0, y0, x1, y1);
+}
+
+std::array<int, 4> MapScreen::areaCells(float x0, float y0, float x1, float y1) const {
     const auto cell = [](float v, int edge) { return std::clamp(int(v), 0, std::max(0, edge)) >> 6; };
     return {cell(x0, _map.width), cell(y0, _map.height), cell(x1, _map.width), cell(y1, _map.height)};
 }

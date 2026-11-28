@@ -39,38 +39,45 @@ void MapScreen::cancelOrders() {
 
 void MapScreen::pressVision() {
     // Off, choosing an enemy, showing its sight, and round (the button's
-    // states, 0x51a600). Shown with none chosen, the one in the view
-    // nearest its middle (inferred).
+    // states, 0x51a600, sent as the player's Vision State, 0x5b6bc0).
+    // Showing keeps the one watched before, if any (0x5b6bfc).
     _vision = (_vision + 1) % 3;
-    if (_vision == 2 && (_visionEnemy < 0 || !_enemies[size_t(_visionEnemy)].alive())) {
-        _visionEnemy = -1;
-        float best = 1e9f;
-        for (size_t i = 0; i < _enemies.size(); ++i) {
-            const Enemy &e = _enemies[i];
-            const float d = std::hypot(e.x - _cameraX, e.y - _cameraY);
-            if (e.alive() && shown(e.part) && d < best) {
-                best = d;
-                _visionEnemy = int(i);
-            }
-        }
-    }
 }
 
 void MapScreen::cycleVision() {
-    // The next enemy alive in the view, from the one shown (inferred).
-    const auto inView = [&](const Enemy &e) {
-        return e.alive() && shown(e.part) && std::abs(e.x - _cameraX) <= float(shownW()) / 2.0f &&
-               std::abs(e.y - _cameraY) <= float(shownH()) / 2.0f;
-    };
-    const int n = int(_enemies.size());
-    for (int k = 1; k <= n; ++k) {
-        const int i = ((_visionEnemy < 0 ? -1 : _visionEnemy) + k) % n;
-        if (inView(_enemies[size_t(i)])) {
-            _visionEnemy = i;
-            _vision = 2;
-            return;
-        }
+    // The parts in the view (the grid's search of it, Visible and Active,
+    // 0x5b6cfc) with a character's AI, one with an enemy's only of the
+    // Enemy category (0x5b6d5c); of them the next after the one watched,
+    // round to the first, or the first if it's none of them (0x5b6e1b).
+    // Shown; with none, the sight's off (0x5b6e94).
+    const float halfW = float(shownW()) / 2.0f;
+    const float halfH = float(shownH()) / 2.0f;
+    const std::array<int, 4> area = areaCells(_cameraX - halfW, _cameraY - halfH, _cameraX + halfW, _cameraY + halfH);
+    std::vector<int> found;
+    for (size_t i = 0; i < _enemies.size(); ++i) {
+        const Enemy &e = _enemies[i];
+        const MapPart &p = _map.parts[e.part];
+        if (!shown(e.part) || !inCategory(p.category.empty() ? "Enemy" : p.category, "Enemy"))
+            continue;
+        const auto it = _gridPlaces.find(kEnemyInstigator - int(i));
+        if (it == _gridPlaces.end())
+            continue;
+        const std::array<int, 4> &c = it->second.cells;
+        if (c[0] > area[2] || c[2] < area[0] || c[1] > area[3] || c[3] < area[1])
+            continue;
+        found.push_back(int(i));
     }
+    std::stable_sort(found.begin(), found.end(), [&](int a, int b) {
+        return foundAt(kEnemyInstigator - a, area) < foundAt(kEnemyInstigator - b, area);
+    });
+    if (found.empty()) {
+        _visionEnemy = -1;
+        _vision = 0;
+        return;
+    }
+    const auto at = std::find(found.begin(), found.end(), _visionEnemy);
+    _visionEnemy = at == found.end() || at + 1 == found.end() ? found.front() : *(at + 1);
+    _vision = 2;
 }
 
 void MapScreen::drawVision(Surface &view, int left, int top) const {
@@ -80,9 +87,10 @@ void MapScreen::drawVision(Surface &view, int left, int top) const {
     // states answer no (0x401030). The cone's cut into segments, Angle
     // Per Segment (40) of them to a turn, one more than fit (0x49d088), and
     // drawn in white lines (0x49e3b6), each point's height on the view
-    // scaled by the map's Y to X ratio (0x616fbc). Each ray stops where
-    // sight's blocked (inferred: the program sweeps the walls' edges into
-    // its segments, 0x49cef0).
+    // scaled by the map's Y to X ratio (0x616fbc). Each ray stops at the
+    // first edge it meets of the outlines of what's Visible, Active and
+    // Collideable and Half or Full Height (the cone's search, 0x49d5a9;
+    // their edges swept into its segments, 0x49cef0).
     if (_vision != 2 || _visionEnemy < 0)
         return;
     const Enemy &e = _enemies[size_t(_visionEnemy)];
@@ -101,14 +109,25 @@ void MapScreen::drawVision(Surface &view, int left, int top) const {
     const auto end = [&](float angle) {
         const float dx = -std::cos(angle) * reach;
         const float dy = std::sin(angle) * reach;
-        float seen = 0.0f;
-        float blind = 1.0f;
-        if (clearSight(e.x, e.y, e.x + dx, e.y + dy)) {
-            seen = 1.0f;
-        } else {
-            for (int k = 0; k < 12; ++k) {
-                const float t = (seen + blind) / 2.0f;
-                (clearSight(e.x, e.y, e.x + dx * t, e.y + dy * t) ? seen : blind) = t;
+        float seen = 1.0f;
+        for (const Wall &w : _walls) {
+            const PartState &state = _partStates[w.part];
+            if ((!w.full && !w.half) || !state.visible || !state.active || state.deleted || !state.collideable)
+                continue;
+            const size_t n = w.points.size();
+            for (size_t k = 0; k < n; ++k) {
+                const auto [ax, ay] = w.points[k];
+                const auto [bx, by] = w.points[(k + 1) % n];
+                // Where the ray meets this edge, as a part of the ray.
+                const float ex = bx - ax;
+                const float ey = by - ay;
+                const float den = dx * ey - dy * ex;
+                if (den == 0.0f)
+                    continue;
+                const float t = ((ax - e.x) * ey - (ay - e.y) * ex) / den;
+                const float u = ((ax - e.x) * dy - (ay - e.y) * dx) / den;
+                if (t >= 0.0f && t < seen && u >= 0.0f && u <= 1.0f)
+                    seen = t;
             }
         }
         return std::pair<float, float>{e.x + dx * seen - float(left), e.y + dy * seen * kYToX - float(top)};

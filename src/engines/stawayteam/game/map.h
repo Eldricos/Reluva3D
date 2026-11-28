@@ -45,6 +45,7 @@ struct MapPart {
     bool collideable = true;
     bool triesToCollide = false;                  // its moves stopped by what collides (Tries To Collide)
     bool fullHeight = true;                       // tall enough to hide what's behind it (inferred)
+    bool halfHeight = false;                      // its Half Height: cutting an enemy's drawn sight too
     int settled = 0;                              // updates since it was put there (Updates Since Relocate)
     std::vector<std::string> inventory;           // its items' definitions (Inventory's Definition Index)
     bool stuns = false;                           // an item of its set to stun (its Weapon Setting)

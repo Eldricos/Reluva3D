@@ -104,7 +104,7 @@ void MapScreen::setupCombat() {
         const ModelInfo &info = modelInfo(p.model);
         if (info.footprint.size() < 3)
             continue;
-        Wall w{i, p.fullHeight, {}, 1e9f, 1e9f, -1e9f, -1e9f};
+        Wall w{i, p.fullHeight, p.halfHeight, {}, 1e9f, 1e9f, -1e9f, -1e9f};
         for (const auto &[x, y] : info.footprint) {
             w.points.emplace_back(p.x + x, p.y + y);
             w.x0 = std::min(w.x0, p.x + x);

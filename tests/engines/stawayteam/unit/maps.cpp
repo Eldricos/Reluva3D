@@ -1943,17 +1943,20 @@ void testInterface() {
     const float y = a.y;
     screen.update(3000);
     CHECK(a.path.empty() && a.y == y);
-    // The vision button: choosing, then showing the guard's sight, the one
-    // nearest the view's middle; then off.
+    // The vision button: choosing, then showing, nobody watched yet
+    // (0x5b6bfc); Cycle Vision Cones then watches the guard, the only
+    // one in the view (0x5b6c90); then off.
     CHECK(screen.visionState() == 0);
     screen.pressVision();
     CHECK(screen.visionState() == 1 && screen.visionEnemy() == -1);
     screen.pressVision();
+    CHECK(screen.visionState() == 2 && screen.visionEnemy() == -1);
+    screen.moveCamera(300.0f, 300.0f);
+    screen.cycleVision();
     CHECK(screen.visionState() == 2 && screen.visionEnemy() == 0);
     // Its sight's outlined in white (0x49e3b6); behind it nothing's drawn.
     Surface shown;
     shown.create(640, 480, PixelFormat::kRGBA32);
-    screen.moveCamera(300.0f, 300.0f);
     screen.draw(shown, 3000);
     screen.pressVision();
     CHECK(screen.visionState() == 0);

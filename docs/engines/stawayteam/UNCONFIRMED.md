@@ -55,9 +55,8 @@ None now.
 - **Items:** the counts for -1, the keys matched to items by name, and
   the items' panels' layout
   ([systems/items.md](systems/items.md#open-questions)).
-- **The interface's buttons:** which enemy's sight is shown, and its
-  rays cut where sight's blocked
-  ([systems/maps.md](systems/maps.md#open-questions)).
+- **The interface's buttons:** the enemies themselves not cutting the
+  sight drawn ([systems/maps.md](systems/maps.md#open-questions)).
 - **The gadgets:** an enemy shooting a hologram down by its hit points,
   and what's put down running its model's AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).

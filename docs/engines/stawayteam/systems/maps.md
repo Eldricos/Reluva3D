@@ -1193,12 +1193,17 @@ still given, till it's pressed again *(inferred)*. CANCEL ORDERS or
 Backspace drops the chosen officers' walking, attacking, items' tasks
 and processes. The vision button goes off, choosing, showing: a
 click on an enemy while choosing shows its sight, or pressed on to
-showing, the enemy nearest the view's middle *(inferred)*; Cycle Vision
-Cones (Tab) the next enemy in the view *(inferred)*. Its sight is drawn
-as the program's: white lines round the cone, 40 segments to a turn,
-flattened, nothing while it's Inactive or stunned; each ray stops where
-sight's blocked rather than the program's sweep of the walls' edges
-*(inferred)*.
+showing, the one watched before, if any (`0x5b6bfc`); a click on a part
+without a character's AI while choosing does nothing (`0x5bfc71`).
+Cycle Vision Cones (Tab, `0x5b6c90`) takes the parts in the view the
+grid's search finds, Visible and Active, with a character's AI, one with
+an enemy's only of the Enemy category; watches the next after the one
+watched, round to the first, or the first if it's none of them; with
+none in the view, the sight goes off. Its sight is drawn as the
+program's: white lines round the cone, 40 segments to a turn,
+flattened, nothing while it's Inactive or stunned; each ray stops at the
+first edge it meets of the outlines of what's Visible, Active,
+Collideable and Half or Full Height (`0x49d5a9`, `0x49cef0`).
 The options button, or Esc, opens the escape menu, holding the game
 still, as the program counts it on its holds (`0x5ba9f9`): CONFIGURE the
 settings over the map, RESTART MISSION and END GAME as asked, RESUME or
@@ -1629,9 +1634,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.
-- **The buttons:** how the enemy whose sight is shown is chosen (the
-  command `0x482940` the view's mouse sends), and the sweep of the
-  walls' edges into the cone's segments (`0x49cef0`, `0x49d280`).
+- **The buttons:** what key, if any, cycles the sight's enemy backwards
+  (`0x5b6c90` can); the characters among what cuts the cone, Reluva
+  taking only the parts with outlines that aren't enemies.
 - **Processes:** a process that doesn't `Allow Multiple Members` is
   held by its officer in the game's list (`0x5b8150`); what another
   officer sent to it then does isn't traced, and Reluva doesn't hold it.
