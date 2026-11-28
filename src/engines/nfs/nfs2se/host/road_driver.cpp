@@ -349,15 +349,26 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     const float angle = std::atan2(dx * fixed(car + kRight) + dz * fixed(car + kRight + 8),
                                    dx * fixed(car + kForward) + dz * fixed(car + kForward + 8));
 
-    // As fast as the computer cars are told to go at each point, the
+    // As fast as the computer cars are told to go at each point: the
     // slowest over the next few (the controls reach the car a few frames
-    // late); the road's own bends, if there's no such table.
+    // late), and farther on, as far as it could take to stop, each with
+    // the braking there's room for before it. The computer cars, moved
+    // rather than driven, change speed at once: on the Outback's point
+    // 1455 their speed falls from over 102 m/s to 33 within 23 points, and
+    // read only a few points ahead the car came to it at 95 and spun. The
+    // road's own bends, if there's no such table.
     float wanted = kTopSpeed;
     if (const uint32_t pace = c.read32(kPace)) {
-        for (uint32_t k = 0; k <= kPaceAhead; ++k) {
+        float along = 0;
+        const float seen = v * v / (2 * kBraking) + 30.0f;
+        for (uint32_t k = 0; (k <= kPaceAhead || along < seen) && k < n; ++k) {
             const uint32_t at = pace + 2 * (((slice + k) % n) / 2);
-            if (c.valid(at, 1))
-                wanted = std::min(wanted, float(c.read8(at)));
+            if (c.valid(at, 1)) {
+                const float speed = float(c.read8(at));
+                wanted = std::min(wanted, k <= kPaceAhead ? speed : std::sqrt(speed * speed + 2 * kBraking * along));
+            }
+            if (k >= kPaceAhead)
+                along += distance(point(slice + k), point(slice + k + 1));
         }
     } else {
         // Each bend's speed by its curve (the turn of the road over about

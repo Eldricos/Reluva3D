@@ -66,7 +66,11 @@ safe.
   from its middle's places.
 - **How fast:** the computer cars' speed at the road's point, the
   slowest of the next five (its controls reach the car a few frames
-  late), at most 102 m/s, the McLaren F1's 228 mph. The game knows its
+  late), and farther on, as far as it could take to stop, each with the
+  braking (9 m/s²) there's room for before it: moved rather than driven,
+  the computer cars change speed at once, and on the Outback's point
+  1455 their speed falls from over 102 m/s to 23 within 23 points; read
+  only five points ahead, it came to it at 95 and spun, at most 102 m/s, the McLaren F1's 228 mph. The game knows its
   bends better than our guess did: each bend's speed by its curve over
   about 15 m, `sqrt(grip / curve)`, and the braking (9 m/s²) there's
   room for before it, now used only where there's no table. Taking the
@@ -229,10 +233,13 @@ Pacific Spirit (steadier), and 175 to 191 s on Mystic Peaks (1st).
   round 250 the road's left edge moves from 6 to 17 units out and back,
   its middle with it, and the line.
 - The knockout, against the game's quickest cars: out in the second
-  round in the latest run (8th of 8 on the Outback, its second lap 110 s
-  against 93 s in a single race), after a crash 4.6 m into a pass at
-  90 to 100 m/s (point 1462), and slow through the split road's
-  stretches (points 1663 to 1770, 37 to 52 m/s); in the two before, the
-  third.
+  round on the Outback in the two latest runs (8th of 8, its second lap
+  110 to 114 s against 93 s in a single race). In the first it spun at
+  95 m/s where the computer cars slow for the foot of a long climb
+  (point 1430, a grade of about a quarter for 300 m), the speed table
+  then read only a few points ahead; braking for it in time since, it
+  takes the climb at their speed, 23 m/s, and then needs some 14 s to
+  be back at 80 m/s, where they're at full speed at once. Driving won't
+  make that up.
 - The computer cars' slots across the road (`[0x4c2b0c]`): zero at
   every point of the tables the single races loaded, so not taken.
