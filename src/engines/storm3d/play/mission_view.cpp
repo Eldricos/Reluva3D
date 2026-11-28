@@ -1672,6 +1672,30 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     }
     if (Error err = play(renderer, parsed, units, cover, start, millis, parsed.techTree))
         return err;
+    // A campaign's every other player, 2 to 8, is the computer's, not
+    // thinking till a script turns it on, with no personality but every
+    // priority 0 and no build list; its counters the map's (0x430360,
+    // 0x418c20, 0x446640). Its stance is never weighed (0x43081c).
+    for (int other = 2; other <= 8; ++other) {
+        if (other == slot)
+            continue;
+        Computer c;
+        c.slot = other;
+        for (const MapScene::StartUnit &u : units)
+            if (u.slot == other) {
+                Odf def;
+                if (!def.load(u.odf + ".odf", loaderOf(_files.files())))
+                    c.race = Combat::raceFileOf(def.string("race"));
+                break;
+            }
+        c.personality = Strategy::bare();
+        if (size_t(other) < parsed.players.size()) {
+            const BznMap::PlayerStart &saved = parsed.players[size_t(other)];
+            c.bank = {int(saved.dilithium), int(saved.crew), 0, saved.officerLimit};
+        }
+        _computers.push_back(c);
+        _teamsOff.insert(other);
+    }
     if (team >= 0)
         _scene.build(parsed, units, "", _scene.sightsOf(parsed, {}, team), cover);
     for (const BznMap::Path &p : parsed.paths)

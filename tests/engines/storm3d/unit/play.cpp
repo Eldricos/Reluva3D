@@ -691,6 +691,21 @@ void testBuildList() {
     CHECK(!ComputerPlayer::nextOf(list, {{"fbase", 1}, {"fconst", 1}, {"fmining", 2}, {"ffreight", 2}}));
 }
 
+// A mission's personality file changes only what it has: over a campaign's
+// bare player, the rest stays 0.
+void testPersonalityOver() {
+    using reluva::storm3d::Strategy;
+    const reluva::storm3d::ConfigFile::Loader loader = [](std::string_view name, std::string &text) {
+        if (name != "kling5at.aip")
+            return reluva::Error::fail("not found");
+        text = "int attack_troops_priority = 700;\nint exploration_priority = 20;\n";
+        return reluva::Error::success();
+    };
+    const Strategy::Personality p = Strategy::personalityOf("kling5at.aip", loader, Strategy::bare());
+    CHECK(p.attackTroops == 700 && p.exploration == 20 && p.perimeter == 0 && p.defendBuildings == 0);
+    CHECK(Strategy::personalityOf("kling5at.aip", loader).perimeter == Strategy::Personality{}.perimeter);
+}
+
 // A Medium or Hard computer's stance: by its units' hull against the
 // average of the players', each loading its personality and its race's
 // list. The skirmish's start (6,000 + 700 + 700 each) is even: normal.
@@ -1039,6 +1054,7 @@ static const reluva::test::Suite
            {
                {"keys", [](const std::filesystem::path &) { testKeys(); }},
                {"moves", [](const std::filesystem::path &) { testMoves(); }},
+               {"personality over", [](const std::filesystem::path &) { testPersonalityOver(); }},
                {"start", [](const std::filesystem::path &) { testStart(); }},
                {"layout", [](const std::filesystem::path &) { testLayout(); }},
                {"counters", [](const std::filesystem::path &) { testCounters(); }},

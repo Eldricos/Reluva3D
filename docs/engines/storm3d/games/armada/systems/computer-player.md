@@ -137,6 +137,24 @@ The positions were placed back in the world from its models in the
 draws, relative to its starbase (where its spiral of starting units
 puts it), so a camera a little off didn't move them.
 
+### In a campaign
+
+*(from the code)*: a campaign's game makes its slots 2 to 8 medium
+computers, whatever the map holds (0x43f725), and the AI manager sets
+each computer-run but not thinking (0x430360, 0x418c20). Unlike a
+skirmish's, none gets a race's personality or lists (0x4313ca): each
+starts with every priority 0, no build list and a think period of 100
+(0x41a920), its counters the map's records (0x446640). It thinks only
+once a script turns it on: `AI_Team_Load_AIP`, `EnableTeam` or
+`EnableAllAITeams`. `AI_Team_Load_AIP` lays the file over what the
+player has, each key it holds and its build list if it has one
+(0x41c580, 0x41a770): the missions' files (`kling5at.aip`, `rom2o.aip`,
+`dominion.aip`) hold the priorities, the forces' least sizes and a
+build list of their own, and a script swaps them to change a side's
+posture *(inferred)*. A campaign's stances are never weighed
+(0x43081c). Units a script has taken (`SetSpecialForcesFlag`) are left
+out of the AI's hands (0x4109f0).
+
 ## In Reluva
 
 - **The list** (`ComputerPlayer`): read through the configuration reader;
@@ -148,6 +166,11 @@ puts it), so a camera a little off didn't move them.
   it orders from a builder of its with nothing on order, if it can pay;
   a station it gives to an idle construction ship, which flies there and
   pays as it starts, as the player's.
+- **A campaign's** other players are computer players as above, off
+  till a script turns them on, with every priority 0 and no list till
+  a file is laid over them; their stance isn't weighed. The forces'
+  least sizes the files hold aren't used yet, nor the pacing of their
+  special weapons (5 seconds, times the campaign's difficulty).
 - **Where a station goes:** by its bases, as the original's, above
   (`ComputerPlayer::siteNear`, `MissionView::siteFor`): a spot fits
   where the footprints' rule allows a station ([building.md](building.md)),

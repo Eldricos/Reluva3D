@@ -31,8 +31,17 @@ public:
         double distanceFromEnemy = 10;  // distance_from_enemy_priority_modifier
         double distanceFromGoal = -0.5; // distance_from_goal_match_modifier
     };
-    /** A personality from its file; the defaults where it says nothing. */
+    /**
+     * A personality from its file, over `base` where it says nothing: the
+     * defaults, or a computer player's own, as a mission's file only
+     * changes what it has (0x41a770).
+     */
+    static Personality personalityOf(const std::string &file, const ConfigFile::Loader &loader,
+                                     const Personality &base);
+    /** The same over the defaults. */
     static Personality personalityOf(const std::string &file, const ConfigFile::Loader &loader);
+    /** A campaign's computer player's before any file: every priority 0 (0x41a920). */
+    static Personality bare() { return {0, 0, 0, 0, 0, 0, 0, 0}; }
 
     /** The strategic map's cell, 400 across (strategic_AI_config.txt's goal_map_resolution). */
     static constexpr float kCell = 400;

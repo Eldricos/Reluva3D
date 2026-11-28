@@ -11,7 +11,12 @@
 namespace reluva::storm3d {
 
 Strategy::Personality Strategy::personalityOf(const std::string &file, const ConfigFile::Loader &loader) {
-    Personality p;
+    return personalityOf(file, loader, Personality{});
+}
+
+Strategy::Personality Strategy::personalityOf(const std::string &file, const ConfigFile::Loader &loader,
+                                              const Personality &base) {
+    Personality p = base;
     ConfigFile config;
     if (config.load(file, loader))
         return p;

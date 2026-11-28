@@ -163,10 +163,13 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
             const int slot = _missionScripts->teamOf(args.word(0)).value_or(args.integer(0));
             _teamsOff.erase(slot);
             if (Computer *c = computerOf(slot)) {
-                std::string file = text::toLower(args.text(1));
-                // Its settings over the team's, as the race's own are (0x41a770).
-                const Strategy::Personality p = Strategy::personalityOf(file, aiLoader());
-                c->personality = p;
+                // What the file has over what the player had, its build list
+                // if it has one (0x41c580, 0x41a770).
+                const std::string file = text::toLower(args.text(1));
+                c->personality = Strategy::personalityOf(file, aiLoader(), c->personality);
+                std::vector<ComputerPlayer::Element> list = ComputerPlayer::buildListOf(file, aiLoader());
+                if (!list.empty())
+                    c->list = std::move(list);
             }
         }
         return 0u;
