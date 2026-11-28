@@ -735,8 +735,17 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
         _scene.setBackground(args.text(0));
         return 0u;
     }
-    if (name == "AddTransporterEffect" || name == "RemoveBillboardEffect" || name == "StartCredits" ||
-        name == "EndCredits")
+    if (name == "AddTransporterEffect" || name == "RemoveBillboardEffect") {
+        // The transporter's glow over it till taken off (0x4380f0, 0x438130).
+        if (auto unit = unitOfHandle(args.integer(0))) {
+            if (name == "AddTransporterEffect")
+                _billboards.insert(*unit);
+            else
+                _billboards.erase(*unit);
+        }
+        return 0u;
+    }
+    if (name == "StartCredits" || name == "EndCredits")
         return 0u; // drawn only: not made yet
     return std::nullopt;
 }

@@ -2078,26 +2078,28 @@ void MissionView::drawEffects(double now) {
         _scene.drawEffect(m.special.model, m.at, now);
 }
 
+void MissionView::makeShotMesh() {
+    if (!_renderer || _shotMesh)
+        return;
+    std::vector<gfx::Vertex> corners(4);
+    const float xs[4] = {-1, 0, 0, -1};
+    const float ys[4] = {-1, -1, 1, 1};
+    const float us[4] = {0, 1, 1, 0};
+    const float vs[4] = {0, 0, 1, 1};
+    for (size_t i = 0; i < 4; ++i) {
+        corners[i] = gfx::Vertex{};
+        corners[i].pos[0] = xs[i], corners[i].pos[1] = ys[i];
+        corners[i].uv[0] = us[i], corners[i].uv[1] = vs[i];
+        std::fill(std::begin(corners[i].color), std::end(corners[i].color), uint8_t(255));
+    }
+    if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _shotMesh))
+        _shotMesh = 0;
+}
+
 void MissionView::drawShots(const MapScene::Camera &view) {
     if (!_renderer || _shots.empty())
         return;
-    if (!_shotMesh) {
-        // A strip along +x, from -1 at its tail to 0 at its head, a unit
-        // either side along +y.
-        std::vector<gfx::Vertex> corners(4);
-        const float xs[4] = {-1, 0, 0, -1};
-        const float ys[4] = {-1, -1, 1, 1};
-        const float us[4] = {0, 1, 1, 0};
-        const float vs[4] = {0, 0, 1, 1};
-        for (size_t i = 0; i < 4; ++i) {
-            corners[i] = gfx::Vertex{};
-            corners[i].pos[0] = xs[i], corners[i].pos[1] = ys[i];
-            corners[i].uv[0] = us[i], corners[i].uv[1] = vs[i];
-            std::fill(std::begin(corners[i].color), std::end(corners[i].color), uint8_t(255));
-        }
-        if (_renderer->createMesh(corners, {0, 1, 2, 0, 2, 3}, _shotMesh))
-            _shotMesh = 0;
-    }
+    makeShotMesh();
     if (!_shotMesh)
         return;
     // The ordnance's Length and Radius: the starbase's pulses' 50 and 8.
@@ -2151,6 +2153,82 @@ void MissionView::drawShots(const MapScene::Camera &view) {
         const std::array<float, 4> &r = look->second.second;
         call.preRow0 = {r[2] - r[0], 0, r[0]};
         call.preRow1 = {0, r[3] - r[1], r[1]};
+        call.state.cull = gfx::Cull::kNone;
+        call.state.src = gfx::Blend::kOne;
+        call.state.dst = gfx::Blend::kOne;
+        call.state.depthWrite = false;
+        _renderer->draw(call);
+    }
+}
+
+void MissionView::drawBillboards(const MapScene::Camera &view, double now) {
+    if (!_renderer)
+        return;
+    std::set<size_t> on = _billboards;
+    for (const auto &[from, to] : _transportTo)
+        on.insert({from, to});
+    if (on.empty())
+        return;
+    // Its texture, as a shot's; a 4 x 4 sheet of 32 frames a second, round
+    // and round (weapon.spr's @anim=tex4x4: 16 over 0.5 seconds).
+    auto look = _shotLooks.find("xtransport");
+    if (look == _shotLooks.end()) {
+        gfx::TextureId texture = 0;
+        std::array<float, 4> rect{0, 0, 1, 1};
+        if (const SpriteTable::Sprite *s = _hud.findSprite("xtransport")) {
+            image::Image picture;
+            std::vector<uint8_t> data;
+            if (!_files.read("Textures/RGB/" + s->texture + ".tga", data) && !image::decode(data, picture) &&
+                picture.w > 0) {
+                gfx::TextureParams params;
+                params.clamp = true;
+                if (_renderer->createTexture(picture.w, picture.h, picture.rgba.data(), params, texture))
+                    texture = 0;
+                rect = {float(s->u / picture.w), float(s->v / picture.h), float((s->u + s->w) / picture.w),
+                        float((s->v + s->h) / picture.h)};
+            }
+        }
+        look = _shotLooks.emplace("xtransport", std::pair{texture, rect}).first;
+    }
+    makeShotMesh();
+    if (!look->second.first || !_shotMesh)
+        return;
+    const int frame = int(std::fmod(now, 0.5) / 0.5 * 16) % 16;
+    const std::array<float, 4> &cell = look->second.second;
+    const float cw = cell[2] - cell[0];
+    const float ch = cell[3] - cell[1];
+    const float u0 = cell[0] + float(frame % 4) * cw;
+    const float v0 = cell[1] + float(frame / 4) * ch;
+    // The camera's right and up, for a square facing it.
+    const gfx::Vec3 &f = view.forward;
+    const gfx::Vec3 &up = view.up;
+    gfx::Vec3 right{up[1] * f[2] - up[2] * f[1], up[2] * f[0] - up[0] * f[2], up[0] * f[1] - up[1] * f[0]};
+    const float rl = std::max(1e-3f, std::hypot(right[0], right[1], right[2]));
+    for (float &c : right)
+        c /= rl;
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    for (size_t unit : on) {
+        if (unit >= units.size() || _dead[unit] || !_scene.shown(unit))
+            continue;
+        // Its radius each side, moved that far towards the camera (0x5829c0).
+        const float r = units[unit].radius();
+        gfx::Vec3 centre = units[unit].middle();
+        gfx::Vec3 toEye{view.eye[0] - centre[0], view.eye[1] - centre[1], view.eye[2] - centre[2]};
+        const float el = std::max(1e-3f, std::hypot(toEye[0], toEye[1], toEye[2]));
+        for (size_t k = 0; k < 3; ++k)
+            centre[k] += toEye[k] / el * r;
+        gfx::DrawCall call;
+        call.mesh = _shotMesh;
+        call.indexCount = 6;
+        call.model = gfx::identity();
+        for (size_t k = 0; k < 3; ++k) {
+            call.model[k] = right[k] * 2 * r;
+            call.model[4 + k] = up[k] * r;
+            call.model[12 + k] = centre[k] + right[k] * r;
+        }
+        call.texture = look->second.first;
+        call.preRow0 = {cw, 0, u0};
+        call.preRow1 = {0, ch, v0};
         call.state.cull = gfx::Cull::kNone;
         call.state.src = gfx::Blend::kOne;
         call.state.dst = gfx::Blend::kOne;
@@ -2328,6 +2406,7 @@ void MissionView::stop() {
     _explodedAt.clear();
     _conduits.clear();
     _alerts.clear();
+    _billboards.clear();
     _jumps.clear();
     _scriptPasses = 0;
     _cannotDie.clear();
@@ -3038,6 +3117,7 @@ void MissionView::draw(uint64_t millis) {
         _renderer->draw(ring);
     }
     drawShots(view);
+    drawBillboards(view, double(millis) / 1000);
     drawEffects(double(millis) / 1000);
     drawPlacement(view);
     // A cut scene hides the interface (input mode 2): its fade alone over

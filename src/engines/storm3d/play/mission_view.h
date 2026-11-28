@@ -778,7 +778,12 @@ private:
     std::optional<size_t> addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
                                   const MapScene::Unit &owner);
     void makeCells();
+    void makeShotMesh(); // a strip along +x, from -1 at its tail to 0 at its head, a unit either side
     void drawShots(const MapScene::Camera &view);
+    // The transporter's glow (xtransport) over a unit: one a script put
+    // on it, or one sending or taking a boarding party (0x469be0, 0x463630).
+    std::set<size_t> _billboards;
+    void drawBillboards(const MapScene::Camera &view, double now);
     void drawEffects(double now); // the shields' glows and the explosions, at the game's seconds
     gfx::MeshId _shotMesh = 0;
     // By sprite: its texture, and its rectangle in it (u0, v0, u1, v1).

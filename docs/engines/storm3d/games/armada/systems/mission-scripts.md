@@ -347,6 +347,13 @@ for what they take from Armada.exe.
     at most once a second on ships and each 0.05 seconds on stations
     (0x426092, 0x446210); the computer's own attack order (`AI_Attack`)
     isn't counted;
+  - **the transporter's glow:** `AddTransporterEffect` puts
+    `xtransport` over the unit till `RemoveBillboardEffect` takes it off:
+    `weapon.spr`'s 4 × 4 sheet, 32 frames a second round and round,
+    added on, a square facing the camera its radius each side, moved its
+    radius towards the camera (0x469be0, 0x5829c0) *(from the code)*.
+    A unit sending a boarding party, and the one it's sending to, show it
+    too while the transport lasts (0x463630);
   - **alert levels:** `SetRedAlert`, `SetYellowAlert` and
     `SetGreenAlert` set the unit's ([combat.md](combat.md));
   - **transwarp gates:** `GetTranswarpExitWormhole(gate)` gives the far
@@ -376,7 +383,7 @@ for what they take from Armada.exe.
   Not done yet: saving and loading a mission; the tracking shot
   (`CineractiveShotTrackLeft`, unused by the missions);
   `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish AI's script
-  borrowed by Romulan 1); the credits; the transporter's glow.
+  borrowed by Romulan 1); the credits.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make
