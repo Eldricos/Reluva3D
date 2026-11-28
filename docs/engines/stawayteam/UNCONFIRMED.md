@@ -22,9 +22,6 @@ None now.
 - **The Psychic Rack:** the enemy chosen in Slovaak's place, and
   waiting where it stands while what it's to shoot is out of range or
   sight ([systems/items.md](systems/items.md#in-reluva)).
-- **Warps:** the team shown fading in as they beam in, though their
-  warp's behaviour would leave them unseen, and the noise's blend even
-  in its amount ([systems/items.md](systems/items.md#in-reluva)).
 - **The remote mine's going:** at once on DETONATE, its Activate not
   shown, its model having no AI to play it
   ([systems/items.md](systems/items.md#in-reluva)).

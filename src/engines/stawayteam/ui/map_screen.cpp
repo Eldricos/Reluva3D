@@ -996,10 +996,11 @@ void MapScreen::drawOfficer(Surface &view, const Officer &o, int left, int top, 
     }
     const int x = int(std::lround(o.x)) - left;
     const int y = int(std::lround(o.y)) - top;
-    // Beaming in: fading in, the transporter's sparkle over them through
-    // the warp (inferred).
+    // Beaming, as the parts do; once it's done they're left as it ended.
     const float warped = _warpTime > 0.0f ? 1.0f - _warpLeft / _warpTime : 1.0f;
-    const int opacity = int(std::lround(255.0f * std::clamp(warped, 0.0f, 1.0f) * o.opacity));
+    const float shown =
+        _warpTime > 0.0f ? stawayteam::warpShown(_warpTime - _warpLeft, _warpTime, _warpFadeIn, _warpIn) : 1.0f;
+    const int opacity = int(std::lround(255.0f * shown * o.opacity));
     // Under the warp's noise, as the parts beamed (0x563f80).
     const std::string effect = _warpLeft > 0.0f ? _warpEffect : std::string();
     const float amount = warpAmount(_warpTime - _warpLeft, _warpTime, _warpFadeIn);

@@ -105,7 +105,8 @@ void testGround() {
 void testWarp() {
     // A 2 by 1 figure, a red pixel and a see-through one, its origin at its
     // right; a 2 by 2 noise of blue and green. All the way, its red is the
-    // noise's from the origin, the see-through left; half way, between.
+    // noise's from the origin, the see-through left; half way, between,
+    // in 16-bit colour: red 15 of 31, green 31 of 63.
     Animation::Picture figure;
     figure.image.w = 2;
     figure.image.h = 1;
@@ -118,10 +119,14 @@ void testWarp() {
     const Animation::Picture all = warped(figure, noise, 1.0f);
     CHECK(all.image.pixel(0, 0)[1] == 255 && all.image.pixel(0, 0)[0] == 0 && all.image.pixel(1, 0)[3] == 0);
     const Animation::Picture half = warped(figure, noise, 0.5f);
-    CHECK(half.image.pixel(0, 0)[0] == 128 && half.image.pixel(0, 0)[1] == 128);
+    CHECK(half.image.pixel(0, 0)[0] == 123 && half.image.pixel(0, 0)[1] == 125);
     // Fade In holds it a quarter of the time, then it goes evenly to none.
     CHECK(warpAmount(0.4f, 2.0f, true) == 1.0f && warpAmount(1.25f, 2.0f, true) == 0.5f);
     CHECK(warpAmount(1.0f, 2.0f, false) == 0.5f && warpAmount(3.0f, 2.0f, false) == 0.0f);
+    // With Fade In it's shown coming in with Warp In, going out without.
+    CHECK(warpShown(0.4f, 2.0f, true, true) == 0.0f && warpShown(1.25f, 2.0f, true, true) == 0.5f);
+    CHECK(warpShown(2.0f, 2.0f, true, true) == 1.0f && warpShown(2.0f, 2.0f, true, false) == 0.0f);
+    CHECK(warpShown(0.4f, 2.0f, true, false) == 1.0f && warpShown(1.0f, 2.0f, false, false) == 1.0f);
 }
 
 void testWalkFrames() {

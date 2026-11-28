@@ -127,4 +127,12 @@ Animation::Picture warped(const Animation::Picture &p, const image::Image &noise
  */
 float warpAmount(float seconds, float time, bool fadeIn);
 
+/**
+ * How much of a part's shown after `seconds` of a warp of `time`: with
+ * Fade In, coming in with Warp In, going out without, held a quarter of
+ * the time first, and left all there or gone once it's done; all of it
+ * without Fade In (0x583a00, 0x583ad0).
+ */
+float warpShown(float seconds, float time, bool fadeIn, bool warpIn);
+
 } // namespace reluva::stawayteam

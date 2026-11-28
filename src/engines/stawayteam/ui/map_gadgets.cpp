@@ -371,10 +371,11 @@ bool MapScreen::runGadgetAction(const TextObject *action, int instigator, int tr
             for (size_t part : parts)
                 if (std::none_of(_warping.begin(), _warping.end(), [&](const Warp &w) { return w.part == part; })) {
                     const TextObject *overlay = behavior->object("Warp Overlay Effect");
-                    _warping.push_back(
-                        {part, time, time, readText(overlay, "Overlay Effect"), int(number(overlay, "Overlay YOffset")),
-                         std::max(1, int(number(behavior, "Num Rotations", 4.0f))),
-                         readText(behavior->object("Warp Effect"), "Warp Effect"), flag(behavior, "Fade In")});
+                    _warping.push_back({part, time, time, readText(overlay, "Overlay Effect"),
+                                        int(number(overlay, "Overlay YOffset")),
+                                        std::max(1, int(number(behavior, "Num Rotations", 4.0f))),
+                                        readText(behavior->object("Warp Effect"), "Warp Effect"),
+                                        flag(behavior, "Fade In"), flag(behavior, "Warp In")});
                 }
         }
     } else if (kind == "COpenDoorAction" || kind == "CCloseDoorAction") {
@@ -459,11 +460,9 @@ void MapScreen::runDeathBehaviors(size_t part, int instigator) {
 }
 
 float MapScreen::warpShown(size_t part) const {
-    // With Fade In, as much of it's shown as the warp has left to go
-    // (0x583a83); else all of it.
     for (const Warp &w : _warping)
         if (w.part == part)
-            return w.fadeIn ? warpAmount(w.time - w.left, w.time, true) : 1.0f;
+            return stawayteam::warpShown(w.time - w.left, w.time, w.fadeIn, w.warpIn);
     return 1.0f;
 }
 

@@ -754,14 +754,15 @@ void MapScreen::runAction(const TextObject *action, int instigator, int trigger)
         const bool succeeded = checkAction(action->object("Try Action"), instigator, trigger);
         runAction(action->object(succeeded ? "Succeed Action" : "Fail Action"), instigator, trigger);
     } else if (kind == "CAddEffectToTeam") {
-        // The team beams in: the warp's sound, and them fading in under the
-        // transporter's sparkle over its Warp Time (inferred for how it's
-        // drawn).
+        // The team's warp: its sound, and the transporter's sparkle over
+        // them through its Warp Time; with Warp In they beam in, without it
+        // out, fading only with Fade In (0x583a00).
         const TextObject *behavior = action->object("Warp Behavior");
         _warpTime = behavior ? float(behavior->number("Warp Time").value_or(1.75)) : 1.75f;
         _warpLeft = _warpTime;
         _warpEffect = behavior ? readText(behavior->object("Warp Effect"), "Warp Effect") : std::string();
         _warpFadeIn = behavior && behavior->number("Fade In").value_or(0.0) != 0.0;
+        _warpIn = behavior && behavior->number("Warp In").value_or(0.0) != 0.0;
         _teamShown = true;
         if (_mixer)
             if (auto sound = gameSound(_data, readText(action, "Warp Sound")))

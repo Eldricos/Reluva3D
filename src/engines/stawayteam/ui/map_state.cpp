@@ -335,6 +335,7 @@ void MapScreen::state(StateIo &s) {
     s.io(_warpTime);
     s.io(_warpEffect);
     s.io(_warpFadeIn);
+    s.io(_warpIn);
     s.io(_dialogText);
     s.io(_dialogSpeaker);
     s.io(_dialogLeft);
@@ -433,6 +434,7 @@ void MapScreen::state(StateIo &s) {
         s.io(w.rotations);
         s.io(w.effect);
         s.io(w.fadeIn);
+        s.io(w.warpIn);
     });
     s.list(_noises, [&](Noise &n) {
         for (float *f : {&n.x, &n.y, &n.radius, &n.age, &n.left})

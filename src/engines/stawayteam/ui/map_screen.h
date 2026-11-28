@@ -1056,6 +1056,7 @@ private:
     float _warpTime = 0.0f;
     std::string _warpEffect; // its Warp Effect's noise sequence
     bool _warpFadeIn = false;
+    bool _warpIn = false; // Warp In: they fade in, rather than out
     // A picture under a warp of noise sequence `effect` gone `amount` (0-1)
     // of the way to it; the picture itself without one.
     const Animation::Picture *underWarp(const Animation::Picture *p, const std::string &effect, float amount);
@@ -1178,7 +1179,8 @@ private:
         int overlayY = 0;    // and how far up it's raised: its Overlay YOffset
         int rotations = 4;   // the overlay's frames as so many directions: Num Rotations
         std::string effect;  // its Warp Effect's noise sequence
-        bool fadeIn = false; // Fade In: held a quarter of the time, and fading out
+        bool fadeIn = false; // Fade In: held a quarter of the time, then fading
+        bool warpIn = false; // Warp In: fading in rather than out
     };
     std::vector<Warp> _warping;
     // How much of a part's still there as it's beamed away (0-1).

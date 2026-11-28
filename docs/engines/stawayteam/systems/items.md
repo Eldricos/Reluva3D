@@ -518,24 +518,30 @@ The warp's behaviour (`CStarTrekWarpEffectBehavior`, `0x583a00`; its
 for the first quarter (0.25 at `0x617400`), and over the rest a part p
 goes from 0 to 1. The `Warp Effect`'s amount is 1 − p; with Fade In the
 figure's shown amount (its `+0xd0`, the cloak's too) is 1 − p, or p
-with Warp In, and 0, or 1, once it's done. Every warp in the maps has
-Warp In 0, the team's beaming in as well as the enemies' beaming out.
+with Warp In, and 0, or 1, once it's done (`0x583ad0`). Without Fade In
+it's left as it is. The team's beaming in (`CAddEffectToTeam`) has Warp
+In and Fade In in every map, so they fade in; their beaming out (with
+`Transporter Beaming Out.ogg`, in the missions' own files and in maps of
+Missions 6, 12, 15 and 17) has Warp In 0, so they fade out and stay
+unseen till another warp.
 
 The `Warp Effect` (`CSimpleWarpEffect`, `0x563f80`) names a sequence of
 21 frames of 64 by 64 noise (`Transporter Effect`, `Transporter Klingon
 Effect`, `Transporter Romulan Effect`, `Borg Trans Effect`), each with a
 frame rate of 0. So the frame is the amount's share of the 20 after the
-first, rounded (`0x564bbf`). Each pixel the figure shows is moved the
-amount of the way to the noise's pixel, which is laid from the figure's
-origin over and over, in each 16-bit channel (`0x564d45`). At 1 the
-figure is all noise in its own shape (`0x564ee0`).
+first, rounded (`0x564bbf`). Below 1, the amount times 255, rounded,
+picks one of 256 tables of 256 steps (`0x56412d`), table b's step i
+being b·i/255 rounded down, made at the start (`0x44c0d7`); its last
+step, b, is all that's used. In the figure's 16-bit colour (5 bits of
+red, 6 of green, 5 of blue), each pixel it shows goes, from its own
+colour toward the noise's, b/4 (rounded down) 64ths of the way in
+green, and half that (rounded down) 32nds in red and blue, each rounded
+down, and its lowest bit is set (`0x564d45`). The noise is laid from the
+figure's origin over and over (`0x564c07`). At 1 the figure is all noise
+in its own shape (`0x564ee0`).
 
-Reluva draws the noise so, on the parts beamed away and on the team
-beaming in. The parts are shown as the behaviour says. The team fades in
-over the warp *(inferred: by the behaviour they'd end unseen, so
-something else, not found, shows them)*. The blend is even in the
-amount *(inferred: the program's steps come from a table it makes as it
-runs)*.
+Reluva draws the noise so, on the parts beamed away and on the team,
+with the parts and the team shown as the behaviour says.
 
 The EM pulse's sparks over what it holds are its entity's particle
 system ([particles.md](particles.md)).

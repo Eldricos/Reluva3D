@@ -222,11 +222,23 @@ Animation::Picture warped(const Animation::Picture &p, const image::Image &noise
     Animation::Picture out = p;
     if (noise.w <= 0 || noise.h <= 0)
         return out;
-    // In the program a 16-bit colour, each channel moved by a table's step
-    // of 64 (0x564d45); here straight by the amount (inferred: the table's
-    // made as it runs). The noise is placed from the picture's origin
-    // (0x564c07).
-    const float k = std::clamp(amount, 0.0f, 1.0f);
+    // In 16-bit colour (0x564d45): the amount's 255ths, a quarter of them,
+    // are 64ths of the way green goes, and half that 32nds of red and
+    // blue, rounded down; from 1 it's all noise (0x564ee0). The noise is
+    // laid from the picture's origin (0x564c07).
+    const int all = std::clamp(int(std::lround(amount * 255.0f)), 0, 255);
+    const int green = all >> 2;
+    const int redBlue = green >> 1;
+    if (amount < 1.0f && green == 0)
+        return out;
+    const auto step = [](int from, int to, int bits, int share, int of) {
+        const int a = from >> (8 - bits);
+        const int b = to >> (8 - bits);
+        const int d = b - a;
+        // Rounded down, as the program's shifts do.
+        const int v = a + (d * share >= 0 ? d * share / of : -((-d * share + of - 1) / of));
+        return uint8_t((v << (8 - bits)) | (v >> (2 * bits - 8)));
+    };
     for (int y = 0; y < out.image.h; ++y)
         for (int x = 0; x < out.image.w; ++x) {
             uint8_t *c = out.image.pixel(x, y);
@@ -235,8 +247,13 @@ Animation::Picture warped(const Animation::Picture &p, const image::Image &noise
             const int u = ((x - p.originX) % noise.w + noise.w) % noise.w;
             const int v = ((y - p.originY) % noise.h + noise.h) % noise.h;
             const uint8_t *n = noise.pixel(u, v);
-            for (int i = 0; i < 3; ++i)
-                c[i] = uint8_t(std::lround(float(c[i]) + (float(n[i]) - float(c[i])) * k));
+            if (amount >= 1.0f) {
+                std::copy(n, n + 3, c);
+                continue;
+            }
+            c[0] = step(c[0], n[0], 5, redBlue, 32);
+            c[1] = step(c[1], n[1], 6, green, 64);
+            c[2] = step(c[2], n[2], 5, redBlue, 32);
         }
     return out;
 }
@@ -247,6 +264,15 @@ float warpAmount(float seconds, float time, bool fadeIn) {
     if (time <= start || seconds <= start)
         return 1.0f;
     return 1.0f - std::min(1.0f, (seconds - start) / (time - start));
+}
+
+float warpShown(float seconds, float time, bool fadeIn, bool warpIn) {
+    if (!fadeIn)
+        return 1.0f;
+    if (seconds >= time)
+        return warpIn ? 1.0f : 0.0f;
+    const float amount = warpAmount(seconds, time, true);
+    return warpIn ? 1.0f - amount : amount;
 }
 
 } // namespace reluva::stawayteam
