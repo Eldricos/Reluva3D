@@ -22,7 +22,7 @@ namespace reluva::nfs::nfs2se {
 struct AnimationScript {
     /** Where the camera or object is at one moment. */
     struct Key {
-        Point offset{}; // from the car or the object, 16.16
+        Point offset{}; // from the car or the object, in the files' unit
         // A quaternion x, y, z, w, 0x4000 being 1 (0x4580d0). A camera's is
         // turned a quarter round x as it's used (0x42da42).
         std::array<int16_t, 4> rotation{};

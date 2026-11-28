@@ -13,9 +13,9 @@
 namespace reluva::nfs::nfs2se {
 
 /**
- * What the game runs while it can't be played yet: what Reluva found of it
- * (its folders, programs, music, movies, tracks and car models), and that
- * it can't play it yet. Esc goes back.
+ * What Reluva found of the game (its folders, programs, music, movies,
+ * tracks and car models), shown in place of the Play page when neither of
+ * its programs is found. Esc goes back.
  */
 class StatusPage : public Page {
 public:

@@ -126,8 +126,8 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     };
     // Off the road where it passes near itself (Pacific Spirit's points 278
     // and 372, some 70 m apart), the game's road point for the car jumps
-    // between the two as it moves; aimed at each by turns, it backed off
-    // and on for half a minute. A jump of more than 30 points to one it's
+    // between the two as it moves, and aiming at each by turns would back
+    // it off and on for as long. A jump of more than 30 points to one it's
     // far from is taken as that: it keeps the last.
     {
         const uint32_t q = point(slice);
@@ -137,11 +137,6 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
             slice = _slice;
         _slice = slice;
     }
-    // The middle of the road at a point, from its distances to the edges
-    // (col.md, The virtual road), or of its right side where it splits, and
-    // right of it as asked: the points
-    // themselves jog sideways where the edges change (TR00's 1190, 4.5 m),
-    // the road's middle doesn't.
     struct Flat {
         float x;
         float z;
@@ -151,8 +146,8 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // middle of the drivable slots on its right, as the game's drivers keep
     // to their side (0x43a9a0); bit 7 the first right of the point, 6 the
     // next, 8 the first left. But a car already well inside those on the
-    // left keeps to them: put there passing, it pressed against the
-    // Outback's median at its point 1670, steering for the other side.
+    // left keeps to them: steering for the other side would press it
+    // against the median between (the Outback's, round its point 1670).
     auto splitSide = [&](uint32_t q, float &centre) {
         const uint32_t mask = c.read16(q + 24);
         const uint32_t low = mask & (0u - mask);
@@ -208,7 +203,7 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // gap in the word at 24, where something stands in the road: Mystic
     // Peaks' at its points 1797 and 1806), to the middle of the nearest
     // slot that stays drivable: at its edge, half a car and a little off,
-    // it still caught them. The slots their widths at the point.
+    // a car still catches them. The slots their widths at the point.
     auto clear = [&](uint32_t q, float off) {
         const uint32_t i = (q - points) / 36;
         uint32_t mask = 0xffff;
@@ -249,6 +244,11 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
                 shift = stop.shift;
         return shift;
     };
+    // The line driven at a point: the middle of the road, from its
+    // distances to the edges (col.md, The virtual road), or of its right
+    // side where it splits, right of it as asked, and off what stands in
+    // it. The points themselves jog sideways where the edges change (TR00's
+    // 1190, 4.5 m); the road's middle doesn't.
     auto line = [&](uint32_t q) {
         float centre = 0;
         if (!splitSide(q, centre))
@@ -261,7 +261,7 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // and held 1.5 s after it's no longer ahead, so as not to turn back
     // into it alongside; with room on neither side, behind it at its
     // speed. Aimed past it at one point instead, as far as the road's
-    // edges, it swerved into Pacific Spirit's car park.
+    // edges, it would swerve into verges and car parks (Pacific Spirit's).
     float follow = kTopSpeed;
     {
         const uint32_t q = point(slice);
@@ -333,8 +333,7 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
 
     // Aim at the road a little ahead, farther the faster (the points are 2
     // to 5 m apart), but not past where it has turned 30°: aimed round a
-    // hairpin, it cut across the inside into the wall (Pacific Spirit's
-    // point 281).
+    // hairpin, it would cut across the inside into the wall.
     const float lookahead = std::clamp(10.0f + v * 0.6f, 10.0f, 48.0f);
     uint32_t j = slice;
     for (float along = 0; along < lookahead && j < slice + n; ++j) {
@@ -354,9 +353,9 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // late), and farther on, as far as it could take to stop, each with
     // the braking there's room for before it. The computer cars, moved
     // rather than driven, change speed at once: on the Outback's point
-    // 1455 their speed falls from over 102 m/s to 33 within 23 points, and
-    // read only a few points ahead the car came to it at 95 and spun. The
-    // road's own bends, if there's no such table.
+    // 1455 their speed falls from over 102 m/s to 23 within 23 points,
+    // more than a car can brake in. The road's own bends, if there's no
+    // such table.
     float wanted = kTopSpeed;
     if (const uint32_t pace = c.read32(kPace)) {
         float along = 0;
@@ -411,8 +410,8 @@ void RoadDriver::drive(GameHost &host, uint32_t car) {
     // fast to turn as the road does: the computer cars, which can't skid,
     // take some bends faster than a car can (Mystic Peaks' at its points
     // 120 and 250, into the outside wall at 63 and 30 m/s). Slowed till it
-    // turns. Not at once: the aim jumps now and then, and slowed for each
-    // jump the laps took longer.
+    // turns. Not at once: the aim jumps now and then, and slowing for each
+    // jump costs more than it saves.
     if (std::fabs(angle) > 0.45f && v > 15.0f) {
         if (!_lockSince)
             _lockSince = now;

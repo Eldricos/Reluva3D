@@ -571,7 +571,7 @@ void testHostWindows(const stdfs::path &tmp) {
 
 // A renderer is told from the game's other DLLs by its exports: NFS III's
 // softtria.dll decorates THRASH's names, so matching only the plain ones
-// lost its renderer.
+// would miss its renderer.
 void testThrashDetection() {
     auto dll = [](std::initializer_list<const char *> names) {
         PeImage image;

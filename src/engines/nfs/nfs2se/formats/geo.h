@@ -44,7 +44,7 @@ struct CarModel {
     };
     /** One of the 32 parts: a piece of the model, at a level of detail. */
     struct Part {
-        Point position{};            // in the model, 16.16
+        Point position{};            // in the model, in the files' unit
         std::vector<Point> vertices; // from `position`
         std::vector<Polygon> polygons;
     };

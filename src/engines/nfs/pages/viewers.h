@@ -375,7 +375,8 @@ private:
 /**
  * Every page for `game`, in Tab order, those with nothing to show left
  * out: the game's own (NFS III's Info, Play, Tracks and Cars pages; NFS
- * II SE's Status page), then those for files every game has. The mixer
+ * II SE's Status or Play page, Tracks and Cars pages), then those for files
+ * every game has, then NFS II SE's Movies page. The mixer
  * plays the pages' sounds; null without audio output. The game
  * writes under `saveFolder`. `settings` are the game's section of
  * reluva.ini, for the Play page (makePlayPage) and texturefilter (point:

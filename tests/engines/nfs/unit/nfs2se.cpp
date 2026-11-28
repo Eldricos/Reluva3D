@@ -266,7 +266,6 @@ void testAnimationScript() {
     CHECK(nfs2se::parseAnimationScript(extra, a)); // not a whole key
 }
 
-// carhsvt.txt's colours, and a car's greens painted with them.
 // The 3dfx program's fog by track and road point, and its sky's ring colours.
 void testGlideSky() {
     // Track 0: table 0 throughout, its colour a grey over a stretch.
@@ -362,6 +361,7 @@ void testPaintTable() {
     CHECK(nfs2se::readPaintTable(exe, table));
 }
 
+// carhsvt.txt's colours, and a car's greens painted with them.
 void testPaint() {
     std::vector<nfs2se::PaintColour> colours;
     CHECK(!nfs2se::parsePaintColours("/* Color 0 */\n0,0,210,80\n/* Color 1 */\n0,255,200,64\n", colours));
@@ -383,8 +383,8 @@ void testPaint() {
     CHECK(nfs2se::repaint(200, 50, 50, red) == (std::array<uint8_t, 3>{200, 50, 50}));
 }
 
-// A picture's corners on a quad's vertices, as the program turns them: 0
-// bottom left, 1 bottom right, 2 top right, 3 top left.
+// A picture's corners on a quad's vertices, as the program turns them
+// (numbered as col.h's pictureCorners says).
 void testPictureCorners() {
     using C = std::array<uint8_t, 4>;
     CHECK(nfs2se::pictureCorners(0x01) == (C{1, 0, 3, 2})); // top right first

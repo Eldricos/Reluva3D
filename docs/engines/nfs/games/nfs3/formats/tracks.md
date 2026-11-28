@@ -438,7 +438,7 @@ written only if the car had moved onto slice 260 by itself.
 
 `trackFolders` (`src/engines/nfs/folders.cpp`) finds the `trkNNN`
 folders, and the Tracks page names each by its number, read as hex
-(`kTrackNames`, `src/engines/nfs/nfs3/pages/track_viewer.cpp`). The Tracks
+(`kTrackNames`, `src/engines/nfs/nfs3/pages/track_page.cpp`). The Tracks
 page's computer cars take the speed limits from `trackSectionSpeed`
 (`src/engines/nfs/nfs3/formats/frd.cpp`).
 

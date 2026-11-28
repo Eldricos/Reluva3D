@@ -30,10 +30,11 @@ class RoadDriver {
 public:
     /** When it drives, and where on the road. */
     struct Options {
-        uint64_t fromMs = 0;   // the game's clock
-        uint64_t toMs = ~0ull; //
-        float right = 0;       // metres right of the road's points (negative: left)
-        float grip = 1.0f;     // times the grip it takes the bends with (14 m/s²), if the track has no speeds
+        // When it drives, by the game's clock (milliseconds).
+        uint64_t fromMs = 0;
+        uint64_t toMs = ~0ull;
+        float right = 0;   // metres right of the road's points (negative: left)
+        float grip = 1.0f; // times the grip it takes the bends with (14 m/s²), if the track has no speeds
     };
 
     /**

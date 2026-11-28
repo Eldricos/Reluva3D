@@ -35,9 +35,9 @@ void appendUtf8(std::string &out, uint32_t cp) {
     }
 }
 
-// NFS II SE's front-end layout: 12-byte records (the font's size, three
-// bytes not worked out, x and y as u16s, the string's u32 offset), then
-// the strings. The first string starts where the records end.
+// NFS II SE's front-end layout: 12-byte records (the font's size, its
+// colour, picked colour and style: text_table.h; x and y as u16s; the
+// string's u32 offset), then the strings. The first string starts where the records end.
 bool parsePlacedTable(const std::vector<uint8_t> &data, TextTable &out) {
     if (data.size() < 12)
         return false;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/nfs3/pages/car_viewer.h"
+#include "engines/nfs/nfs3/pages/car_page.h"
 
 #include "graphics/font.h"
 #include "common/fs.h"

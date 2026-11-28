@@ -59,8 +59,8 @@ reluva_add_engine_viewers(nfs
     SOURCES
         pages/viewer.cpp
         pages/viewers.cpp
-        nfs3/pages/car_viewer.cpp
-        nfs3/pages/track_viewer.cpp
+        nfs3/pages/car_page.cpp
+        nfs3/pages/track_page.cpp
         nfs2se/pages/car_page.cpp
         nfs2se/pages/movie_page.cpp
         nfs2se/pages/track_page.cpp

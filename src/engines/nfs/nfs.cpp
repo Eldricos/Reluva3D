@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Need for Speed engine: Need for Speed III: Hot Pursuit, and Need for
-// Speed II SE being added (docs/engines/nfs/README.md).
+// Need for Speed engine: Need for Speed III: Hot Pursuit and Need for
+// Speed II SE (docs/engines/nfs/README.md).
 //
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, public format documentation, or documented

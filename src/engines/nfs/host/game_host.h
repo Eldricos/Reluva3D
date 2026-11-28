@@ -41,11 +41,12 @@ namespace reluva::nfs {
 bool isThrashRenderer(const PeImage &image);
 
 /**
- * The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs/games/nfs3/PLAN.md,
- * Phase 4): a Windows process whose C: is the install folder and D: the
- * CD, with the system's functions it calls stood in for. Its own renderer
- * (THRASH) and sound (iSND) DLLs run too, on DirectDraw and DirectSound
- * stood in for.
+ * A game's retail program (Options::program: NFS III's nfs3.exe, NFS II
+ * SE's nfs2sen.exe or nfs2sea.exe) run in the x86 interpreter
+ * (docs/engines/nfs/games/nfs3/PLAN.md, Phase 4): a Windows process whose
+ * C: is the install folder and D: the CD, with the system's functions it
+ * calls stood in for. NFS III's renderer (THRASH) and sound (iSND) DLLs
+ * run too, on DirectDraw and DirectSound stood in for.
  */
 class GameHost {
 public:
@@ -99,7 +100,7 @@ public:
         // With instructionsPerMs, the bytes a file read takes a millisecond
         // to, as a disk would (0: no time). NFS II SE checks its race timer
         // has ticked after loading the race (0x45cee0), and quits if not:
-        // with reads taking no time, now and then it hadn't.
+        // with reads taking no time, now and then it hasn't.
         uint32_t diskBytesPerMs = 0;
         // The processor's clock the time stamp counter reports, in MHz, by
         // the game's clock. The game sets its detail defaults from it on a

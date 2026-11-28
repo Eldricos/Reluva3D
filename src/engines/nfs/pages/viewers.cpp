@@ -8,8 +8,8 @@
 #include "engines/nfs/nfs2se/pages/movie_page.h"
 #include "engines/nfs/nfs2se/pages/track_page.h"
 #include "engines/nfs/nfs2se/status_page.h"
-#include "engines/nfs/nfs3/pages/car_viewer.h"
-#include "engines/nfs/nfs3/pages/track_viewer.h"
+#include "engines/nfs/nfs3/pages/car_page.h"
+#include "engines/nfs/nfs3/pages/track_page.h"
 
 #include "engines/nfs/ui/play_page.h"
 

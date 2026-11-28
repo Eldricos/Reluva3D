@@ -6,8 +6,6 @@
 #include "common/types.h"
 
 #include <cstdint>
-#include <array>
-#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>

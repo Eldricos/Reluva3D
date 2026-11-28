@@ -81,7 +81,7 @@ void StatusPage::draw(Surface &s) {
     line("Tracks", std::to_string(_tracks.size()) + ": " + join(_tracks), kTextColor);
     line("Car models", std::to_string(_cars.size()) + ": " + join(_cars), kTextColor);
     y += font::kLineHeight;
-    line("", "Reluva can't play Need for Speed II SE yet.", kWarnColor);
+    line("", "Neither nfs2sen.exe nor nfs2sea.exe was found, so the game can't be played.", kWarnColor);
     text(s, kMargin, s.h - font::kLineHeight - 4, "Esc: back", kLabelColor);
 }
 
