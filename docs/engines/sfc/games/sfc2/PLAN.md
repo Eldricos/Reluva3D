@@ -144,9 +144,10 @@ on their pages in `formats/` and `systems/`.
     [TESTING.md](TESTING.md): the test reads every retail file, decodes
     the opening movie, runs the program to its CD key dialog and imports
     the game from its CDs, against records
-    ([TESTING.md](TESTING.md#the-game-files-test)). The playthrough waits
-    on a campaign that goes on past a loaded save; of the tutorials,
-    all six are passed.
+    ([TESTING.md](TESTING.md#the-game-files-test)). The playthrough is
+    recorded: all six tutorials passed, and a campaign played nine
+    missions on, into its story, whose missions want their own orders
+    followed ([TESTING.md](TESTING.md#a-playthrough-by-hand)).
 
 ## Decisions
 

@@ -430,6 +430,40 @@ repair cost, trade-in value (172 and 114) and TRADE IN, and the supplies
 to buy (ADMIN shuttles and the like). The list goes on past its ten
 rows; clicking its lowest rows scrolled it *(seen, not traced)*.
 
+The campaign played on, a mission a run from each auto-save, the battles
+as Convoy Escort's (the keypad's * following the target as well): Convoy
+Escort, offered again and again, won twice more (950 prestige). From 800
+prestige the campaign's story begins, as its `.mct` gives
+(`TriggerMission="Uni_1Peace"`, `TriggerPrestige=800`): at 650 only
+Convoy Escort was offered, at 950 Peace In Our Times, with FORFEIT beside
+ACCEPT. Its orders: carry a diplomat to Organia under a flag of truce,
+get within transporter range of the planet and beam the diplomat down,
+fire on no one unless provoked. Firing at the nearest target brought the
+ship's loss within 2 minutes 28 ("Devastating Defeat. You couldn't even
+deliver a diplomat to a planet", -75). T cycles the targets (two
+frigates, a light cruiser, then Organia); the planet followed (the
+keypad's *) at full speed, the ship flew into it; orbited (the keypad's
+.), it circled at a range of 11 to 12, too far to beam down; followed at
+three presses of S, it came close enough: the transporter panel (N), the
+diplomat's icon under BEAM OUT (50,427) and ENERGIZE (62,380): "Our
+diplomat has arrived safely". Then "Three new ships have arrived in
+system by unknown means", and the Organians speak; still following the
+planet, the ship was destroyed at it, no enemy having fired *(inferred)*,
+and the mission ended as a "Defeat: You
+were ordered to resist the enemy... giving into a demand", +75 prestige.
+Stopped (the keypad's 0) or put in orbit and fighting the three, the
+frigate was lost in about a minute ("Devastating Defeat", -75). A ship
+lost, the player is given a new frigate (the USS Kursk, then Richmond and
+Delta). The story goes on in its order whatever the outcome: after a
+Convoy Escort won, Promises to Keep (`Uni_2Promises`: medicine for a
+plague colony through a minefield the ISC laid, staying inside a
+freighter's field; the ship lost to the mines within a minute, also
+following the freighter), then Nor Iron Bars A Cage (`Uni_3IronCage`:
+prisoners to be taken from ISC freighters; lost); then Convoy Escort
+again, a draw and a "Victory" (1,550 prestige, stardate 2290). The map
+redrawn after a load took longer as the campaign went on: the hex click
+had to wait 2,000 frames more by the sixth mission.
+
 Another empire's campaign, Klingon vs the ISC (the fifth on New
 Campaign's list): the Klingon map and interface in red, the IKV Fury, a
 frigate, and Monster and Patrol offered. Monster, played as Convoy

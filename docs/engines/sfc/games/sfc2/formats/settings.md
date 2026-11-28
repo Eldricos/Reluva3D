@@ -13,9 +13,10 @@ The game's settings are text in one syntax:
   the ships' names by empire (`Assets/CommonSettings/ShipNames.gf`).
 - **`.mct`**, one a campaign (`Assets/Scripts/Campaigns/`): its name and
   description as New Campaign shows them, its three eras' maps
-  (`EarlyMapName` and the like), its difficulty and era, the mission
-  that ends it and the prestige for it (`TriggerMission`,
-  `TriggerPrestige`), and its missions' scripts by number (`[Missions]`).
+  (`EarlyMapName` and the like), its difficulty and era, the first
+  mission of its story and the prestige that brings it on
+  (`TriggerMission`, `TriggerPrestige`: Peace In Our Times was offered
+  from 800, [hosting.md](../systems/hosting.md#its-missions)), and its missions' scripts by number (`[Missions]`).
 - **A campaign map's header** ([mvm.md](mvm.md)).
 
 ## Layout

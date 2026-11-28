@@ -66,25 +66,111 @@ does: by putting it beside the running game.
 
 ## A playthrough by hand
 
-So far, to its CD key dialog: start the game from the launcher; after
-its "Loading..." the title screen and the dialog show, the pointer
-following the mouse with no box around it. Click the text box, type
-(capitals with Shift, and `-`), click ENTER: a wrong key gets the
-game's "ERROR! ... incorrect" message; the copy's own key closes the
-dialog, the full title screen shows, its menu music starts, and its
-main menu shows; Single Player opens Tutorials, Skirmish and Campaign;
-Skirmish, then PLAY GAME, starts "Hostile Skirmish": S to speed up, Y
-to select the Klingon, R for red alert, Z to fire once it's in range.
-Tutorials, then START on a course: Captain Wells' orders, spoken; T on
-the first, a container targeted, brings the next.
-Started again, it asks for no key. Ctrl+F5, and Return
-to launcher, stop it. Headless, the same with `reluva-tool sfc host <game folder>
--click 600 395 370 -type 620 <key> -click 700 395 405 -shot 900 out.png`.
+Each item says what to do and what should happen. How each was played
+headless, and what was seen, is in
+[systems/hosting.md](systems/hosting.md) (and the patch's in
+[systems/patching.md](systems/patching.md)); when, in [Last
+checked](#last-checked). When something differs from the original,
+note the release, the screen or mission, and what each does.
+
+### Getting the game in
+
+1. *Import Game...* with the first CD, *Add other disc...* with the
+   second: English retail 1.0, 3,356 files.
+2. The same with *Add patch...* and `sfc2patch20022036.exe`: 2.0.3.6.
+3. *Add Game...* with an install made on Windows: recognised as its
+   release.
+
+### Starting
+
+1. Start it: the opening movie, which a key or click skips, then
+   "Loading..." and the title screen with its CD key dialog. A wrong key
+   gets "ERROR! ... incorrect"; the copy's own key (typed with Shift for
+   capitals, and `-`) closes the dialog, the music starts and the main
+   menu shows. Started again, it asks for no key.
+2. Ctrl+F5 or closing the window asks before stopping it; Return to
+   launcher.
+
+### The main menu's screens
+
+1. Film Room: after a mission, its recordings (`Auto1.rec`...); PLAY
+   replays one to its end.
+2. Credits roll and return; Hot Keys lists the keys by group; the Vessel
+   Library shows each empire's ships.
+
+### Single player
+
+1. **Tutorials:** the six courses, each passed by following its orders
+   (Command 190 and 290, Science 310, Weapons 380, Weapons Advanced
+   480, Command 590): "You have passed course..." on the debriefing.
+2. **Skirmish:** PLAY GAME's "Hostile Skirmish", or an Advanced Custom
+   Skirmish against one frigate; S to speed up, R red alert, the
+   backquote or Y to target an enemy, the keypad's * to follow it, Z to
+   fire: "You are the winner!"
+3. **Campaign:** NEW GAME, Federation vs ISC at CAPTAIN; the
+   introduction, then the Dynaverse map. A hex clicked moves the ship;
+   MISSIONS lists what's offered; ACCEPT, READY, the mission, its
+   debriefing and DONE. The campaign played so far:
+
+   | # | Mission | Outcome | Prestige after |
+   |---|---|---|---|
+   | 1 | Convoy Escort | Astounding Victory | 350 |
+   | 2 | Convoy Escort | Astounding Victory | 650 |
+   | 3 | Convoy Escort | Astounding Victory | 950 |
+   | 4 | Peace In Our Times (`Uni_1Peace`, the first story mission, offered from 800) | Defeat: the diplomat beamed down, the ship lost after | 1,025 |
+   | 5 | Convoy Escort | Astounding Victory | 1,325 |
+   | 6 | Promises to Keep (`Uni_2Promises`) | Devastating Defeat: the ship lost in the minefield | 1,250 |
+   | 7 | Nor Iron Bars A Cage (`Uni_3IronCage`) | Devastating Defeat | 1,175 |
+   | 8 | Convoy Escort | Draw | 1,325 |
+   | 9 | Convoy Escort | Victory | 1,550 |
+
+   A ship lost, the next mission starts in a new frigate. The story
+   missions came in their order whatever the outcome; winning them needs
+   their own orders followed (Peace In Our Times: target the planet
+   with T, approach it slowly, beam the diplomat down from the
+   transporters (N); then resist the three ships that come).
+4. **Saving and loading:** the auto-save after each mission, listed by
+   the Campaign Selector and loaded with LOAD GAME, the campaign going on
+   from it; SAVED GAMES on the map, a save by name made and deleted.
+5. **The map's other screens:** SHIPYARD at a base (a ship bought),
+   SUPPLY and MEDALS.
+
+### Multiplayer
+
+1. Two copies on a network (or on one machine): Multiplayer, TCP/IP;
+   one HOSTs and ANNOUNCEs, the other CONNECTs and JOINs from Select
+   Game; chat in the lobby; ships chosen, READY, START: the same mission
+   in both, played to "You are the winner!" and "Defeat!".
+2. The host leaving mid-game: the other copy takes the session over.
+3. IPX: the search runs. Dynaverse II's LOG IN: "Failed to locate the
+   directory servers" ([systems/online.md](systems/online.md));
+   MPlayer's starts its site and ends the game.
+
+### The 2.0.3.6 patch
+
+1. The patched game to its main menu; its Sulu skirmishes, a skirmish
+   at ADMIRAL, a campaign's Scan mission, multiplayer between two
+   patched copies; a 1.0 campaign's save loaded.
+
+### Headless
+
+`reluva-tool sfc host <game folder> -save <folder> -fixed-clock` with
+`-click`, `-type`, `-key` and `-shot` at frames, as the runs in
+[systems/hosting.md](systems/hosting.md) give them: the same input plays
+the same way each time. The CD key dialog: `-click 600 395 370 -type
+620 <key> -click 700 395 405 -shot 900 out.png`. The campaign above was
+played a mission a run, each from the last's auto-save: Single Player
+(240,232), Campaign (620,190), the save (150,177), LOAD GAME (262,445),
+a hex beside the ship, MISSIONS (53,277), ACCEPT (544,203), READY
+(598,501); in the battle the game's speed raised (`]`), red alert, full
+speed, and every 60 frames the backquote, the keypad's * and Z; DONE
+(653,490) once the debriefing shows.
 
 ## Last checked
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 28 November 2026 | English retail 1.0 | Linux | A campaign played on through eight more missions, headless with `-fixed-clock`, each run from the last's auto-save, from the first win's: Convoy Escort won twice (950 prestige), then the first story mission, Peace In Our Times (the diplomat beamed down to Organia, then "Defeat"), Convoy Escort won, Promises to Keep and Nor Iron Bars A Cage lost, Convoy Escort drawn and won (1,550). The game-files test, all six steps the same |
 | 27 November 2026 | English retail 1.0 and 2.0.3.6 | Linux | Every import stood in for: 1.0's last 9 and the 60 more 2.0.3.6 imports, the program loaded with none left; the game-files test the same |
 | 27 November 2026 | English retail 1.0 | Linux | The maps' values in a campaign: the hexes of new and played campaigns' databases compared with the Middle map's cells (economic, strength and impedence copied as base and current economic, victory and speed points); each empire's economic sum the news's total; strength dropped in 28 and 47 hexes after missions |
 | 27 November 2026 | English retail 1.0 and 2.0.3.6 | Linux | `sprites.q3`'s objects: every group's children (3,681 groups, 35,260 children in 1.0) and every button and picture's three image lists (6,792) read; the Film Room drawn from them and compared with the game's own screen, 96.3% of its pixels the same; the data viewer's Screens, Settings and Maps pages shown on a virtual X display; the game-files test's formats step re-recorded |
