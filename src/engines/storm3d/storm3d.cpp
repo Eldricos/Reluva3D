@@ -553,6 +553,8 @@ public:
                         return err;
                     }
                     missionOn = true;
+                    // The mission's own music instead of the shell's.
+                    stopSound(_music);
                 }
                 _sys.delayMillis(kFrameMs);
                 continue;

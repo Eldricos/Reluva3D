@@ -543,6 +543,18 @@ private:
     std::map<std::string, std::string> _filesByName; // the install's files by their own names, as the game's index
     audio::Mixer *_mixer = nullptr;
     void drawCutScene();
+    std::string pathByName(const std::string &name); // a file by its own name, wherever it is
+    // The music in play (JukeBox, 0x6bb1d0): the player's race's tracks at
+    // random, never the same twice running.
+    std::vector<std::string> _tracks;
+    audio::SoundHandle _track = audio::kNoSound;
+    int _lastTrack = -1;
+    bool _jukebox = false; // playing, a track after each
+    int _jukeboxUpdates = 0;
+    uint32_t _trackRoll = 0x2545f491u;
+    void playMusic();
+    void stopMusic();
+    void runMusic();
     Cineractive _cine; // the scripts' cut scene
     bool _gridShown = true;
     std::map<size_t, float>

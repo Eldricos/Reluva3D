@@ -350,10 +350,15 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         return 0u;
     }
     if (name == "CineractiveStart" || name == "CineractiveEnd") {
+        // The music stops for a cut scene, another track after (0x4eba80, 0x4ed0b9).
         if (name == "CineractiveStart") {
+            if (!_cine.on())
+                stopMusic();
             _cine.start();
             return 0u;
         }
+        if (_cine.on())
+            playMusic();
         // Its end puts every unit's speeds back to its definition's (0x4ed020).
         if (_cine.on())
             for (const auto &[unit, speed] : _warpSpeeds)
@@ -480,19 +485,13 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
     if (name == "AudioMessage") {
         // Found by its name wherever it is, as the game's file index finds
         // it; played once at the voice volume, done when it ends.
-        if (_filesByName.empty())
-            for (const std::string &path : _files.list()) {
-                const size_t slash = path.find_last_of('/');
-                _filesByName.emplace(text::toLower(slash == std::string::npos ? path : path.substr(slash + 1)), path);
-            }
         const int id = _nextVoice++;
         VoiceMessage voice;
         voice.until = double(_last) / 1000;
-        auto found = _filesByName.find(text::toLower(args.text(0)));
+        const std::string path = pathByName(args.text(0));
         auto sound = std::make_shared<audio::Sound>();
         std::vector<uint8_t> data;
-        if (found != _filesByName.end() && !_files.read(found->second, data) && !audio::decodeWav(data, *sound) &&
-            sound->rate > 0) {
+        if (!path.empty() && !_files.read(path, data) && !audio::decodeWav(data, *sound) && sound->rate > 0) {
             voice.until += double(sound->frames()) / sound->rate;
             if (_mixer)
                 voice.handle = _mixer->play(sound, audio::SoundType::kSpeech);
@@ -512,6 +511,52 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         return 0u;
     }
     return std::nullopt;
+}
+
+std::string MissionView::pathByName(const std::string &name) {
+    if (_filesByName.empty())
+        for (const std::string &path : _files.list()) {
+            const size_t slash = path.find_last_of('/');
+            _filesByName.emplace(text::toLower(slash == std::string::npos ? path : path.substr(slash + 1)), path);
+        }
+    auto found = _filesByName.find(text::toLower(name));
+    return found == _filesByName.end() ? std::string() : found->second;
+}
+
+void MissionView::playMusic() {
+    // A track at random, not the one just played if there are two or more
+    // (0x5a9340), at the music volume; another when it ends.
+    stopMusic();
+    _jukebox = true;
+    if (_tracks.empty() || !_mixer)
+        return;
+    int pick = 0;
+    do {
+        _trackRoll = _trackRoll * 1664525u + 1013904223u;
+        pick = int((_trackRoll >> 8) % uint32_t(_tracks.size()));
+    } while (_tracks.size() > 1 && pick == _lastTrack);
+    _lastTrack = pick;
+    auto sound = std::make_shared<audio::Sound>();
+    std::vector<uint8_t> data;
+    const std::string path = pathByName(_tracks[size_t(pick)]);
+    if (!path.empty() && !_files.read(path, data) && !audio::decodeWav(data, *sound))
+        _track = _mixer->play(sound, audio::SoundType::kMusic);
+}
+
+void MissionView::stopMusic() {
+    if (_mixer && _track != audio::kNoSound)
+        _mixer->stop(_track);
+    _track = audio::kNoSound;
+    _jukebox = false;
+}
+
+void MissionView::runMusic() {
+    // On by itself at its third update, unless a cut scene is on
+    // (0x5a9310); then a track after each.
+    if (_jukeboxUpdates < 3 && ++_jukeboxUpdates == 3 && !_cine.on())
+        playMusic();
+    if (_jukebox && _mixer && _track != audio::kNoSound && !_mixer->isPlaying(_track))
+        playMusic();
 }
 
 void MissionView::drawCutScene() {

@@ -1626,7 +1626,9 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     }
     Player me;
     me.slot = slot;
-    me.race = hudRaceOf(text::toLower(parsed.race));
+    me.race = Combat::raceFileOf(parsed.race);
+    if (me.race.empty())
+        me.race = "fed";
     me.human = true;
     _players = {me};
     // No shroud yet: what the original's casts in a campaign isn't known.
@@ -1817,6 +1819,11 @@ Error MissionView::play(gfx::Renderer3D *renderer, const BznMap &parsed, const s
         myUnits.push_back(u.odf);
     if (_hud.load(_files, hudRaceOf(myRace)))
         _hud = Hud{};
+    // The race's music: its track0, track1... until one's missing (0x441ff0).
+    Odf raceFile;
+    if (!raceFile.load(myRace + ".odf", loaderOf(_files.files())))
+        for (int i = 0; !raceFile.string("track" + std::to_string(i)).empty(); ++i)
+            _tracks.push_back(raceFile.string("track" + std::to_string(i)));
     _resources = resourcesOf(start, myUnits, _files.files());
     _crewCarry = 0;
     // The computer players, each with its race's build list and its own
@@ -2217,6 +2224,10 @@ void MissionView::stop() {
     _nextOverlayText = 0;
     _objectives.clear();
     _objectivesShown = false;
+    stopMusic();
+    _tracks.clear();
+    _lastTrack = -1;
+    _jukeboxUpdates = 0;
     _cine = Cineractive{};
     _gridShown = true;
     _warpSpeeds.clear();
@@ -2747,6 +2758,7 @@ void MissionView::draw(uint64_t millis) {
     for (Computer &c : _computers)
         c.bank.crew = grownCrew(c.bank.crew, c.crewCarry, starbasesOf(c.slot), seconds);
     runScripts(seconds);
+    runMusic();
     think(seconds);
     build(seconds);
     engage();

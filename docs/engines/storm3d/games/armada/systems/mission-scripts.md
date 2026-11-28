@@ -197,7 +197,12 @@ for what they take from Armada.exe.
     voices timed by their length, so a run without sound finishes them
     when the original would; clicks on the box go to it alone.
 
-  Not done yet: the music in play, the game menu's restate button, the
+  - **the music in play** as above, the race's tracks from its file
+    (`fed.odf`'s `mfed300.wav`, `mfed115.wav`, `mfed100.wav`), on at the
+    third frame unless a cut scene is; the shell's music stops as the
+    mission starts.
+
+  Not done yet: the game menu's restate button, the
   bridge, the
   minimap's messages, the shots along a heading, and the AI files other
   missions load.
