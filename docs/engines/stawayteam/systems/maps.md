@@ -661,8 +661,15 @@ The other triggers:
 - **Colliding** (`CollideTriggerAI`, 47): its `Action` as one of those it
   answers to runs into the part, its movement meeting the part's outline
   (`Triggered By Players`, `Enemies`, `Anything`, `Projectiles`; the
-  part's AIs told of the collision, slot `0x7c`, `0x412c40`). The first
-  time, or once `Disallow Retrigger` seconds have passed since it last
+  part's AIs told of the collision, slot `0x7c`, `0x412c40`). A move
+  tells of it only when it's stopped: one that `Tries To Collide`, or a
+  thrown thing, swept along its step, the nearest part in the way that
+  doesn't let it through is told, and the mover too (`0x4effe0`,
+  `0x4ef720`, the part's slot `0xf0`, `0x494a60`); what lets it through
+  is told otherwise, which this AI passes over (`0x412c4b`). The
+  planner's sweeps tell nothing. So it acts on every step that's
+  stopped, and the team, whose moves don't collide, never sets one off
+  walking. The first time, or once `Disallow Retrigger` seconds have passed since it last
   ran (`Last Trigger Time`); within them, its `Action for Failed
   Retrigger`, which is empty in all 33 that have one. 41 of the 47 are
   on collideable polygons, force fields' edges; 3 on Romulan guards.
@@ -1393,11 +1400,12 @@ officer's field.
 The triggers (`ui/map_triggers.cpp`): the anything-touching, team,
 collide and pass-through ones as above *(inferred)*. A thrown thing in a
 touching trigger Triggered By Anything is one in it as a character is.
-A collide trigger goes as one it answers to comes into the part's
-footprint or polygon, or 20 pixels about it, rather than as their
-movement meets its outline *(inferred)*, and not again within Disallow
-Retrigger; a thrown thing sets off a collide or pass-through
-one by its polygon only. An energy weapon's shot is a bolt flying from
+A collide trigger goes as the program's: on every step of an enemy that
+Tries To Collide that it stops, and every turn it gives a thrown thing,
+with Triggered By Enemies or Anything, the stopped one its instigator; a
+part's outline first found is the one told *(inferred: the program
+tells the nearest)*. A thrown thing sets off a pass-through one by
+its polygon only. An energy weapon's shot is a bolt flying from
 the shooter at 1500 pixels a second, as the program's: a touching
 trigger Triggered By Projectiles the stretch it flew crosses runs its
 Enter and Exit Actions, once, the shooter their instigator *(inferred:

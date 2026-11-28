@@ -163,7 +163,7 @@ bool MapScreen::clearSight(float x0, float y0, float x1, float y1) const {
     return true;
 }
 
-bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy) const {
+bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy, size_t *struck) const {
     // Anything active and collideable stops it, seen or not, whatever
     // either's height: its move asks along the ground for all that's Active
     // and Collideable, not Visible nor Half or Full Height (0x4effe0,
@@ -208,8 +208,11 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         for (size_t k = 0; k < w.points.size(); ++k) {
             const auto [ax, ay] = w.points[k];
             const auto [bx, by] = w.points[(k + 1) % w.points.size()];
-            if (off(ax, ay, bx, by))
+            if (off(ax, ay, bx, by)) {
+                if (struck)
+                    *struck = w.part;
                 return false;
+            }
         }
     }
     for (size_t i : _bouncers) {
@@ -217,8 +220,11 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         if (!blocks(i) || inside(pts, x0, y0))
             continue;
         for (size_t k = 0; k + 1 < pts.size(); ++k)
-            if (off(pts[k].first, pts[k].second, pts[k + 1].first, pts[k + 1].second))
+            if (off(pts[k].first, pts[k].second, pts[k + 1].first, pts[k + 1].second)) {
+                if (struck)
+                    *struck = i;
                 return false;
+            }
     }
     return true;
 }

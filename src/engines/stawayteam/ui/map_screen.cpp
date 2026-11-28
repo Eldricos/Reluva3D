@@ -683,20 +683,25 @@ void MapScreen::drawLine(Surface &view, float x0, float y0, float x1, float y1, 
     }
 }
 
-bool MapScreen::blockedAt(size_t part, float x, float y) const {
+bool MapScreen::blockedAt(size_t part, float x, float y, size_t *struck) const {
     const std::vector<std::pair<float, float>> &shape = modelInfo(_map.parts[part].model).footprint;
     if (shape.size() < 3)
         return false;
-    return shapeBlockedAt(shape, part, x, y);
+    return shapeBlockedAt(shape, part, x, y, struck);
 }
 
-bool MapScreen::shapeBlockedAt(const std::vector<std::pair<float, float>> &shape, size_t ignore, float x,
-                               float y) const {
+bool MapScreen::shapeBlockedAt(const std::vector<std::pair<float, float>> &shape, size_t ignore, float x, float y,
+                               size_t *struck) const {
+    const auto met = [&](size_t part) {
+        if (struck)
+            *struck = part;
+        return true;
+    };
     if (shape.size() < 3) {
         for (const Wall &w : _walls) {
             const PartState &state = _partStates[w.part];
             if (w.part != ignore && state.active && !state.deleted && state.collideable && inside(w.points, x, y))
-                return true;
+                return met(w.part);
         }
         return false;
     }
@@ -718,7 +723,7 @@ bool MapScreen::shapeBlockedAt(const std::vector<std::pair<float, float>> &shape
             w.y1 < y0 || w.y0 > y1)
             continue;
         if (meet(outline, w.points))
-            return true;
+            return met(w.part);
     }
     return false;
 }

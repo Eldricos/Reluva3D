@@ -54,8 +54,8 @@ None now.
 - **The interface's buttons:** the enemies themselves not cutting the
   sight drawn ([systems/maps.md](systems/maps.md#open-questions)).
 - **The triggers:** a thrown thing found after the characters in a
-  touching trigger, and a collide trigger going as one comes into the
-  part's shape rather than as their movement meets it
+  touching trigger, and the part told of a stopped move the first found
+  rather than the nearest
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **Joining:** a character joining the team losing its other AIs, and
   on the mission's other maps as away

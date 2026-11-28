@@ -470,17 +470,23 @@ public:
     /**
      * Whether part `part`'s outline (its model's Bounds Poly) at (x, y)
      * meets a part that collides: a wall, a closed door; not a character.
+     *
+     * @param struck where given, set to the part met.
      */
-    bool blockedAt(size_t part, float x, float y) const;
+    bool blockedAt(size_t part, float x, float y, size_t *struck = nullptr) const;
     /** As blockedAt, for `shape` at (x, y), any part but `ignore`; a shape of under 3 points as a point. */
-    bool shapeBlockedAt(const std::vector<std::pair<float, float>> &shape, size_t ignore, float x, float y) const;
+    bool shapeBlockedAt(const std::vector<std::pair<float, float>> &shape, size_t ignore, float x, float y,
+                        size_t *struck = nullptr) const;
     // Where officer `officer` puts down a mine of `model` sent to (x, y)
     // (map_items.cpp).
     std::pair<float, float> placeFor(size_t officer, const std::string &model, float x, float y);
     // A thrown thing going from (x0, y0) to (x1, y1) on the ground: false if
     // a wall or a collideable polygon's in the way, its velocity turned off
-    // it (map_combat.cpp).
-    bool throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy) const;
+    // it, and `struck`, where given, set to its part (map_combat.cpp).
+    bool throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy, size_t *struck = nullptr) const;
+    // A move by `instigator` stopped by part `part`: its collide triggers
+    // act (map_triggers.cpp).
+    void collided(size_t part, int instigator);
 
     /** A noise the team has made, heard by the enemies about it (0x5194e0). */
     struct Noise {
@@ -999,7 +1005,7 @@ private:
         bool occupied = false;
         int occupant = -1;
         float repeatIn = 0.0f;
-        std::vector<bool> touchingEnemies; // a collide trigger's: each enemy who's about
+        std::vector<bool> touchingEnemies; // a pass-through trigger's: each one who's about
         // An anything-touching trigger's: something in it, and its action
         // waiting out its delay, for whom.
         bool anything = false;

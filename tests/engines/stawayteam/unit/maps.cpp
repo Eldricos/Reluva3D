@@ -3159,8 +3159,9 @@ void testDoors() {
     screen.order(300.0f, 600.0f);
     run(10000);
     CHECK(screen.partState(part("Door")).collideable);
-    // She bumped into the crate on the way; the walker's not on its wire.
-    CHECK(screen.partState(part("Bumped")).active && !screen.partState(part("Tripped")).active);
+    // She went by the crate, but the team never collides, so it's not
+    // set off; the walker's not on its wire.
+    CHECK(!screen.partState(part("Bumped")).active && !screen.partState(part("Tripped")).active);
     // The walker sent onto the wire sets it off.
     TextObject send;
     CHECK(!readTextObject("CSendInvestigateHereMessageAction\n{\nTarget=Walker\n}\n", send));
@@ -3217,7 +3218,9 @@ void testStopAnimation() {
 
 void testTriesToCollide() {
     // Two guards sent past a crate each: the one that Tries To Collide
-    // stops against it, the other walks through.
+    // stops against it, setting off its collide trigger, then, stopped
+    // again within its Disallow Retrigger, its Action for Failed Retrigger;
+    // the other walks through, setting off nothing.
     const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
     const auto guard = [](const std::string &name, int y, int tries) {
         return "Level Part=CEntityWalking\n{\nName=" + name +
@@ -3230,10 +3233,19 @@ void testTriesToCollide() {
         return "Level Part=CEntityBase\n{\nName=" + name + "\n" + model + "Position X=" + std::to_string(x) +
                "\nPosition Y=" + std::to_string(y) + "\n}\n";
     };
+    const auto bumped = [](const std::string &name) {
+        return "Model=Props/Box\nActivity=Array\n{\nItem Count=1\nActivity=CollideTriggerAI\n{\n"
+               "Triggered By Enemies=1\nDisallow Retrigger=100\nAction=CActivateAction\n{\nTarget Name=" +
+               name + "\n}\nAction for Failed Retrigger=CActivateAction\n{\nTarget Name=" + name + " Again\n}\n}\n}\n";
+    };
+    const auto off = [](const std::string &name) {
+        return "Level Part=CEntityBase\n{\nName=" + name + "\nActive=0\n}\n";
+    };
     const std::string zax =
         "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,300.000000\nTree List=CSortList2D\n{\n" +
-        guard("Careful", 300, 1) + guard("Ghost", 600, 0) + at("Crate", "Model=Props/Box\n", 300, 300) +
-        at("Crate 2", "Model=Props/Box\n", 300, 600) + at("Spot", "", 500, 300) + at("Spot 2", "", 500, 600) + "}\n}\n";
+        guard("Careful", 300, 1) + guard("Ghost", 600, 0) + at("Crate", bumped("Bumped"), 300, 300) +
+        at("Crate 2", bumped("Passed"), 300, 600) + at("Spot", "", 500, 300) + at("Spot 2", "", 500, 600) +
+        off("Bumped") + off("Bumped Again") + off("Passed") + off("Passed Again") + "}\n}\n";
     MemoryArchive data;
     data.files["Levels/Test.zax"] = bytesOf(zax);
     data.files["Cache/Models/Characters/Guard.mdl16"] =
@@ -3260,6 +3272,8 @@ void testTriesToCollide() {
     const auto &enemies = screen.enemies();
     CHECK(enemies[0].x < 276.0f && enemies[0].x > 200.0f);
     CHECK(enemies[1].x > 400.0f);
+    CHECK(screen.partState(6).active && screen.partState(7).active);
+    CHECK(!screen.partState(8).active && !screen.partState(9).active);
 }
 
 void testCompany() {

@@ -504,14 +504,18 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
         }
         return true;
     }
-    if (kind == "CollideTriggerAI" || kind == "CPassThroughTriggerAI") {
-        // One it answers to walking into the part (its footprint, or its
-        // polygon), or, passing through, crossing it: its Action, once per
-        // coming in, not again within Disallow Retrigger seconds (inferred).
-        // With Triggered By Anything, a thrown thing too, the instigator
-        // (Mission 01's and 08's grenade bouncers); not by Triggered By
-        // Projectiles, which asks for a CShotAI (0x562f1e), as a touching
-        // trigger's does.
+    if (kind == "CollideTriggerAI") {
+        // It acts only as a move's stopped by its part (collided).
+        t.countdown = std::max(0.0f, t.countdown - seconds);
+        return true;
+    }
+    if (kind == "CPassThroughTriggerAI") {
+        // One it answers to crossing the part (its footprint, or its
+        // polygon): its Action, once per coming in, not again within
+        // Disallow Retrigger seconds (inferred). With Triggered By Anything,
+        // a thrown thing too, the instigator (Mission 01's and 08's grenade
+        // bouncers); not by Triggered By Projectiles, which asks for a
+        // CShotAI (0x562f1e), as a touching trigger's does.
         t.countdown = std::max(0.0f, t.countdown - seconds);
         const bool players = flag(ai, "Triggered By Players") || flag(ai, "Triggered By Anything");
         const bool enemies = flag(ai, "Triggered By Enemies") || flag(ai, "Triggered By Anything");
@@ -565,6 +569,36 @@ bool MapScreen::updateOtherTrigger(Trigger &t, float seconds) {
         return true;
     }
     return false;
+}
+
+void MapScreen::collided(size_t part, int instigator) {
+    // A mover that Tries To Collide stopped by the part, or a thrown thing
+    // turned by it, is told to the part's AIs (0x4ef720, 0x494a60). A
+    // collide trigger answering to it (0x417f10) acts on every such stop:
+    // its Action, unless it did within Disallow Retrigger seconds, for
+    // anyone, when it's its Action for Failed Retrigger instead (0x412c40).
+    // The team never Tries To Collide, so never sets one off.
+    const bool thrown = instigator <= kThrownInstigator;
+    const bool enemy = !thrown && instigator <= kEnemyInstigator;
+    if (!thrown && !enemy)
+        return;
+    // By index: an action may give the map more triggers.
+    for (size_t i = 0; i < _triggers.size(); ++i) {
+        Trigger &t = _triggers[i];
+        if (t.part != part || t.done || t.ai->className != "CollideTriggerAI")
+            continue;
+        const TextObject *ai = t.ai;
+        if (!flag(ai, "Triggered By Anything") && !(enemy && flag(ai, "Triggered By Enemies")))
+            continue;
+        if (t.countdown > 0.0f) {
+            runAction(ai->object("Action for Failed Retrigger"), instigator, int(part));
+            continue;
+        }
+        t.countdown = number(ai, "Disallow Retrigger");
+        if (flag(ai, "Trigger Only Once"))
+            t.done = true;
+        runAction(ai->object("Action"), instigator, int(part));
+    }
 }
 
 void MapScreen::giveAI(size_t part, const TextObject *ai) {

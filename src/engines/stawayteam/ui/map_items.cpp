@@ -492,13 +492,16 @@ void MapScreen::updateItems(float seconds) {
             continue;
         const ModelInfo &info = modelInfo(t.model);
         // A wall or collideable polygon in the way turns it, with its
-        // bounce's sound (inferred).
-        if (throwPasses(t.x, t.y, t.x + t.vx * seconds, t.y + t.vy * seconds, t.vx, t.vy)) {
+        // bounce's sound (inferred), and is told (0x4ef720).
+        size_t struck = SIZE_MAX;
+        if (throwPasses(t.x, t.y, t.x + t.vx * seconds, t.y + t.vy * seconds, t.vx, t.vy, &struck)) {
             t.x += t.vx * seconds;
             t.y += t.vy * seconds;
-        } else if (_mixer) {
-            if (auto sound = gameSound(_data, t.item->bounceSound))
-                _mixer->play(sound, audio::SoundType::kEffects);
+        } else {
+            collided(struck, kThrownInstigator - t.id);
+            if (_mixer)
+                if (auto sound = gameSound(_data, t.item->bounceSound))
+                    _mixer->play(sound, audio::SoundType::kEffects);
         }
         t.vz -= t.gravity * seconds;
         t.z += t.vz * seconds;
