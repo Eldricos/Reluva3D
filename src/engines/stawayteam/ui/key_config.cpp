@@ -20,7 +20,8 @@ constexpr uint64_t kChangeMs = 10000;                                           
 // A category's title is 24 above its first action (0x4ea66b); each action
 // row is the font's baseline and 6 high (0x4e97ee), 2 apart (0x4ea7b3), as
 // wide as 33 X's (0x4e9817), its name 3 in from its right and down
-// (0x5efef0); what it's bound to just after it, 2 in.
+// (0x5efef0); what it's bound to just after it. The title and what an
+// action's bound to are labels with borders 2 wide (0x4ea588, 0x4e9a34).
 constexpr int kTitleGap = 0x18;
 constexpr std::array<int, 14> kReserved = {0x15b, 0x15c, 0x3b, 0x42, 0x43, 0x44, 0x57,
                                            0x58,  0x2,   0x3,  0x4,  0x5,  0x6,  0x7};

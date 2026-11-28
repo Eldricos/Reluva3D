@@ -29,11 +29,6 @@ None now.
   the chosen game's and mission's font, the host starting on the first
   mission, the countdown stopped by another mission or a player leaving
   ([systems/network.md](systems/network.md#open-questions)).
-- **The menus:** the credits' underlines blended by their alpha, the
-  slider's texture tiled, a click giving a slider the focus, the
-  keyboard screen's borders, voiceovers' and movies' volume following
-  the effects'
-  ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the `Trans` and `Warped` polygons not on the ground kept
   under the models; the middle mouse button, a line without a
   voice-over's time; the

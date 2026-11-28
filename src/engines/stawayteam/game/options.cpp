@@ -119,7 +119,9 @@ void GameOptions::applySound(audio::Mixer &mixer) const {
     const double effects = effectsMute ? kEffectsVolumeMuted : effectsVolume;
     mixer.setTypeVolume(audio::SoundType::kMusic, int(std::lround(master * music * audio::kMaxVolume)));
     mixer.setTypeVolume(audio::SoundType::kEffects, int(std::lround(master * effects * audio::kMaxVolume)));
-    mixer.setTypeVolume(audio::SoundType::kSpeech, int(std::lround(master * effects * audio::kMaxVolume)));
+    // The voice-overs are streams no one sets a volume on, only the music
+    // player setting its own (0x5dea70, from 0x4d5674): the master alone.
+    mixer.setTypeVolume(audio::SoundType::kSpeech, int(std::lround(master * audio::kMaxVolume)));
     // MONO makes the sound device's output one channel (0x56c080, at 22050
     // a second in 16 bits, 0x56cb90). Sounds Mixing Channels is kept on
     // the device (0x504400) and nothing found reads it.

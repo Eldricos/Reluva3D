@@ -163,7 +163,12 @@ The roll (`0x4873f0` reads it, `0x487530` draws it):
   - `+Role`: a role, with a line under it in green (0,150,0).
   - The lines under them fade with them another way: their colours take
     the brightness's level, 0 to 255, as their alpha (`0x4876f8`,
-    `0x48777c`), so they're part see-through toward the edges.
+    `0x48777c`), so they're part see-through toward the edges. The
+    rectangle's fill (`0x4b6b10`, a surface's slot `0x64`) puts a colour
+    of alpha 255 as it is, and moves each 16-bit pixel toward any other
+    by its alpha: a quarter of it 64ths of the way in green, half that
+    32nds in red and blue, rounded down (`0x4b6e3f`), as the warp's noise
+    is blended ([items.md](items.md)).
 - **Stopping:** nothing is drawn once the first line it would draw is
   the last line or past it (`0x4875d5`), as the last goes up past the
   top; a roll of one line never shows.
@@ -475,7 +480,10 @@ with them not being traced, and the bindings stay under "NO JOYSTICK".
   (`0x4ea623`); 24 under it, an action a row (`0x4e97c0`), text buttons in
   Trek Small as wide as 33 X's (132) and the baseline and 6 high (14), 2
   apart, the name 3 in from the right; what it's bound to just after the
-  row (`0x4e99e0`).
+  row (`0x4e99e0`). The title and the bound keys are labels with
+  borders 2 wide (`0x4ea588`, `0x4e9a34`), the text inside them. Its
+  list of changes takes each at its end (`0x4eaa07`, a list that grows at
+  its end, `0x48c3a0`).
 - **Binding:** a click on an action makes it wait for a key, checked
   (`0x4e9c30`). While it waits (`0x484060`, reading the keys as they're
   down): Esc gives up, the binding as it was (`0x48417e`); Delete takes
@@ -518,6 +526,7 @@ with them not being traced, and the bindings stay under "NO JOYSTICK".
   `Interface/Window Texture` (`0x40b670`, the picture the toolkit loads at
   `0x408330`) from the texture's corner at the thumb's top left (the
   drawing's source starts at 0,0, `0x4e4d84`) and framed raised. The
+  texture's 256 by 256, bigger than any thumb, so none runs past it. The
   thumb's left is the width less the
   thumb's, times the value / 99, rounded. Held down with the mouse, the
   value follows it, the thumb's middle under it, kept to one less than
@@ -602,8 +611,12 @@ Game/Background`:
   above and kept with the others; CONTINUE (Enter, Esc) closes it. On
   Reluva's mixer the master volume and the music's or the effects'
   multiply, as gains (a hundredth of a decibel each), into its music and
-  effects volumes; speech, the movies' and voiceovers', go with the
-  effects. Voiceovers turn the briefing's voice-overs and movie sound
+  effects volumes; speech, the movies' and voiceovers', has the master
+  alone, as the game's voice-over streams are given no volume of their
+  own (only the music player sets one, `0x5dea70` from `0x4d5674`) and
+  it never calls Bink's volume. A child pressed by the mouse takes its
+  window's focus, as the toolkit gives it (`0x408d70`, `0x408dd3`).
+  Voiceovers turn the briefing's voice-overs and movie sound
   on and off ([briefing.md](briefing.md)); MONO folds the mix to one
   channel, as the game opens its sound device with one (`0x56c080`,
   22050 a second in 16 bits, `0x56cb90`). The mixing channels are kept
@@ -674,23 +687,8 @@ Game/Background`:
 
 ## Open questions
 
-- **The keyboard screen:** the borders' widths of its texts. Reluva's
-  choices are noted in the code. Its list of changes takes each at its
-  end (`0x4eaa07`, a list that grows at its end, `0x48c3a0`); EXIT is its
-  default and cancel button, with the focus (`0x4ea923`).
-- **A click's focus:** whether a click gives a child the focus. Reluva
-  gives it to a slider clicked.
 - **The sound window's focus:** its first child that takes it, its
   children being labels, toggles and sliders made in turn
   (`0x56ea8b` on). Reluva keeps Enter for CONTINUE there.
-- **Speech's volume:** whether voiceovers and the movies follow the
-  effects' scale. Every sound the game plays has its volume scaled by it
-  (`0x56afa0`), but voice-overs are streamed as the music is
-  (`0x48bd8e`), and the movies' sound is Bink's own. Reluva has them
-  follow it.
-- **A slider's thumb texture:** whether the drawing tiles it where the
-  thumb is bigger. Reluva does.
-- **The credits' underlines:** how the line drawing uses its colour's
-  alpha. Reluva blends them over the roll by it.
 - **Saved games:** how the save screens' rows, time and game info are
   drawn, and the original's save files, for Reluva to read them.

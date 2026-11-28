@@ -3,6 +3,7 @@
 
 #include "engines/stawayteam/ui/credits.h"
 
+#include "engines/stawayteam/ui/animation.h"
 #include "engines/stawayteam/ui/layout.h"
 
 #include <algorithm>
@@ -65,8 +66,12 @@ void fillRow(Surface &area, int left, int right, int y, const uint8_t (&rgb)[3],
         return;
     for (int x = std::max(0, left); x < std::min(right, area.w); ++x) {
         uint8_t *p = area.row(y) + x * 4;
-        for (int c = 0; c < 3; ++c)
-            p[c] = uint8_t((rgb[c] * alpha + p[c] * (255 - alpha) + 127) / 255);
+        // Filled with the colour at its full alpha, else blended in 16 bits
+        // by it (0x4b6c67).
+        if (alpha >= 255)
+            std::copy(rgb, rgb + 3, p);
+        else
+            blend16(p, rgb, alpha);
         p[3] = 255;
     }
 }

@@ -119,13 +119,22 @@ SettingsWindow::Choice SettingsWindow::handleEvent(const Event &ev, audio::Mixer
         if (_continue.press(mixer))
             return Choice::kContinue;
     }
-    // A slider clicked takes the focus.
-    if (ev.type == EventType::kMouseDown)
+    // A child pressed by the mouse takes the focus (0x408dd3).
+    if (ev.type == EventType::kMouseDown) {
+        const int mx = ev.mouseX - _x;
+        const int my = ev.mouseY - _y;
         for (size_t i = 0; i < _sliders.size(); ++i)
-            if (const int mx = ev.mouseX - _x, my = ev.mouseY - _y; mx >= _sliders[i].x() && my >= _sliders[i].y() &&
-                                                                    mx < _sliders[i].x() + _sliders[i].width() &&
-                                                                    my < _sliders[i].y() + _sliders[i].height())
+            if (mx >= _sliders[i].x() && my >= _sliders[i].y() && mx < _sliders[i].x() + _sliders[i].width() &&
+                my < _sliders[i].y() + _sliders[i].height())
                 _focus = 2 + int(i);
+        const std::pair<int, const PictureButton *> buttons[] = {
+            {0, &_keyboard}, {1, &_sound}, {kContinueFocus, &_continue}, {7, &_reset}, {8, &_difficulty}};
+        for (const auto &[child, button] : buttons)
+            if (button->contains(mx, my))
+                _focus = child;
+        if (_pause.contains(mx, my))
+            _focus = 5;
+    }
     for (size_t i = 0; i < _sliders.size(); ++i)
         _sliders[i].setFocused(_focus == 2 + int(i));
     const auto entered = [&](int child, PictureButton &button) {

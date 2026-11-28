@@ -121,6 +121,13 @@ void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float br
 Animation::Picture warped(const Animation::Picture &p, const image::Image &noise, float amount);
 
 /**
+ * Moves an RGB pixel toward `toward` by `alpha` (0-255) as the program's
+ * 16-bit blends do: in 5, 6 and 5 bits, green by alpha / 4 64ths and red
+ * and blue by half that 32nds, each rounded down.
+ */
+void blend16(uint8_t *pixel, const uint8_t *toward, int alpha);
+
+/**
  * How far a warp's gone to its effect after `seconds` of `time`: all of it
  * at first, held a quarter of the time with Fade In, then less and less
  * to none (0x583a00).

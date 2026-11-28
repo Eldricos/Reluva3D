@@ -65,6 +65,11 @@ EscapeWindow::Choice EscapeWindow::handleEvent(const Event &ev, audio::Mixer *mi
         return Choice::kResume;
     _focus =
         size_t(moveFocus(ev, int(_focus), int(_buttons.size()), [&](int i) { return _buttons[size_t(i)].enabled(); }));
+    // One pressed by the mouse takes the focus (0x408dd3).
+    if (ev.type == EventType::kMouseDown)
+        for (size_t i = 0; i < _buttons.size(); ++i)
+            if (_buttons[i].enabled() && _buttons[i].contains(ev.mouseX - _x, ev.mouseY - _y))
+                _focus = i;
     for (size_t i = 0; i < _buttons.size(); ++i) {
         const bool entered = i == _focus && isEnter(ev) && _buttons[i].press(mixer);
         if (!entered && !_buttons[i].handleEvent(ev, _x, _y, mixer))

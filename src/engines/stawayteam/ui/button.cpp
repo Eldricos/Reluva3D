@@ -183,8 +183,12 @@ int ButtonGroup::handleEvent(const Event &ev, audio::Mixer *mixer) {
         _hover = buttonAt(ev.mouseX, ev.mouseY);
         break;
     case EventType::kMouseDown:
-        if (ev.button == MouseButton::kLeft)
+        if (ev.button == MouseButton::kLeft) {
             _pressed = _hover = buttonAt(ev.mouseX, ev.mouseY);
+            // Pressed by the mouse, it takes the focus (0x408dd3).
+            if (_focus >= 0 && _pressed >= 0 && _buttons[size_t(_pressed)].enabled())
+                _focus = _pressed;
+        }
         break;
     case EventType::kMouseUp:
         if (ev.button == MouseButton::kLeft) {

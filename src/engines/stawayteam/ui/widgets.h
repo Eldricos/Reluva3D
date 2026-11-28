@@ -67,6 +67,8 @@ public:
     int y() const { return _y; }
     int width() const { return _picture.w; }
     int height() const { return _picture.h; }
+    /** Whether (x, y), on its window, is on it. */
+    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + width() && y < _y + height(); }
     const std::string &label() const { return _label; }
     /** The sound played when it's clicked (the toolkit's `Button Action`). */
     void setSound(std::shared_ptr<audio::Sound> sound) { _sound = std::move(sound); }
@@ -89,8 +91,6 @@ public:
     void draw(Surface &screen, int originX, int originY, uint64_t now);
 
 private:
-    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + width() && y < _y + height(); }
-
     image::Image _picture;
     std::string _label;
     char _shortcut = 0;
@@ -124,6 +124,8 @@ public:
     /** Its size: the box, the label, and 1 between them (0x4e8b72). */
     int width() const;
     int height() const;
+    /** Whether (x, y), on its window, is on it. */
+    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + width() && y < _y + height(); }
     const std::string &label() const { return _label; }
     bool checked() const { return _checked; }
     void setChecked(bool checked) { _checked = checked; }
@@ -133,8 +135,6 @@ public:
     void draw(Surface &screen, int originX, int originY) const;
 
 private:
-    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + width() && y < _y + height(); }
-
     image::Image _normal;
     image::Image _press;
     std::string _label;
@@ -273,6 +273,8 @@ public:
     int y() const { return _y; }
     int width() const;
     int height() const;
+    /** Whether (x, y), on its window, is on it. */
+    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + width() && y < _y + height(); }
     const std::string &label() const { return _label; }
     bool checked() const { return _checked; }
     void setChecked(bool checked) { _checked = checked; }
@@ -283,7 +285,6 @@ public:
 
 private:
     int box() const;
-    bool contains(int x, int y) const { return x >= _x && y >= _y && x < _x + width() && y < _y + height(); }
 
     std::string _label;
     char _shortcut = 0;

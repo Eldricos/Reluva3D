@@ -218,27 +218,33 @@ void blitBy(Surface &screen, const Animation::Picture *p, int x, int y, float br
     image::blit(screen, part, left + from, y - p->originY, opacity);
 }
 
+void blend16(uint8_t *pixel, const uint8_t *toward, int alpha) {
+    // A quarter of the alpha is 64ths of the way green goes, half that 32nds
+    // of red and blue, each rounded down (0x4b6e3f, 0x564d45).
+    const int green = std::clamp(alpha, 0, 255) >> 2;
+    const int redBlue = green >> 1;
+    const auto step = [](int from, int to, int bits, int share, int of) {
+        const int a = from >> (8 - bits);
+        const int b = to >> (8 - bits);
+        const int d = (b - a) * share;
+        const int v = a + (d >= 0 ? d / of : -((-d + of - 1) / of));
+        return uint8_t((v << (8 - bits)) | (v >> (2 * bits - 8)));
+    };
+    pixel[0] = step(pixel[0], toward[0], 5, redBlue, 32);
+    pixel[1] = step(pixel[1], toward[1], 6, green, 64);
+    pixel[2] = step(pixel[2], toward[2], 5, redBlue, 32);
+}
+
 Animation::Picture warped(const Animation::Picture &p, const image::Image &noise, float amount) {
     Animation::Picture out = p;
     if (noise.w <= 0 || noise.h <= 0)
         return out;
-    // In 16-bit colour (0x564d45): the amount's 255ths, a quarter of them,
-    // are 64ths of the way green goes, and half that 32nds of red and
-    // blue, rounded down; from 1 it's all noise (0x564ee0). The noise is
-    // laid from the picture's origin (0x564c07).
+    // Blended in 16 bits by the amount's 255ths (0x564d45); from 1 it's all
+    // noise (0x564ee0). The noise is laid from the picture's origin
+    // (0x564c07).
     const int all = std::clamp(int(std::lround(amount * 255.0f)), 0, 255);
-    const int green = all >> 2;
-    const int redBlue = green >> 1;
-    if (amount < 1.0f && green == 0)
+    if (amount < 1.0f && (all >> 2) == 0)
         return out;
-    const auto step = [](int from, int to, int bits, int share, int of) {
-        const int a = from >> (8 - bits);
-        const int b = to >> (8 - bits);
-        const int d = b - a;
-        // Rounded down, as the program's shifts do.
-        const int v = a + (d * share >= 0 ? d * share / of : -((-d * share + of - 1) / of));
-        return uint8_t((v << (8 - bits)) | (v >> (2 * bits - 8)));
-    };
     for (int y = 0; y < out.image.h; ++y)
         for (int x = 0; x < out.image.w; ++x) {
             uint8_t *c = out.image.pixel(x, y);
@@ -251,9 +257,7 @@ Animation::Picture warped(const Animation::Picture &p, const image::Image &noise
                 std::copy(n, n + 3, c);
                 continue;
             }
-            c[0] = step(c[0], n[0], 5, redBlue, 32);
-            c[1] = step(c[1], n[1], 6, green, 64);
-            c[2] = step(c[2], n[2], 5, redBlue, 32);
+            blend16(c, n, all);
         }
     return out;
 }

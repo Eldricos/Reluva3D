@@ -74,6 +74,18 @@ std::optional<std::optional<Difficulty>> DifficultyWindow::handleEvent(const Eve
         return std::optional<Difficulty>();
     const int count = 2 + int(_toggles.size());
     _focus = moveFocus(ev, _focus, count, [](int) { return true; }, _focus < 2);
+    // One pressed by the mouse takes the focus (0x408dd3).
+    if (ev.type == EventType::kMouseDown) {
+        const int mx = ev.mouseX - _x;
+        const int my = ev.mouseY - _y;
+        if (_cancel.contains(mx, my))
+            _focus = 0;
+        if (_start.contains(mx, my))
+            _focus = 1;
+        for (size_t i = 0; i < _toggles.size(); ++i)
+            if (_toggles[i].contains(mx, my))
+                _focus = 2 + int(i);
+    }
     const bool enter = isEnter(ev);
     if (enter && _focus == 0 && _cancel.press(mixer))
         return std::optional<Difficulty>();
