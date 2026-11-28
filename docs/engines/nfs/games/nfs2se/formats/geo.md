@@ -1,6 +1,6 @@
 # Need for Speed II SE: car models (`.geo`)
 
-> **Status:** decoded · **Code:** `src/engines/nfs/nfs2se/formats/geo.cpp` · **Checked on:** all 53 models on the US CD · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs2se/formats/geo.cpp` · **Checked on:** all 53 models on the US CD · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 
@@ -49,12 +49,14 @@ the car's `.qfs`. The loader sets byte 1 to 0 and puts the polygon's
 first entry in its table of texture corners in bytes 2-3 (0x461f55,
 0x461f6a); 25 of the files hold their maker's leftovers there.
 
-- **The parts.** The 16 racing cars have parts 0 to 19, the detailed
-  model; every model has part 21, and the others (traffic, the other
-  vehicles and things) only parts among 20 to 25. In the F355, 12 to 19
-  are its four wheels in pairs (their positions ±0.85 across and 1.19
-  forward, 1.48 back); 21 is the whole car at medium detail, 24 and 25 at
-  low. OpenNFS names the same order: 0-19 high, 20-22 medium, 23-25 low,
+- **The parts.** 16 models have parts among 0 to 19, the detailed
+  model: the 15 racing cars, which the program numbers 0 to 14 (its
+  table at 0x4c3df4), and `MUSC`. `MUSC` has no number: the game never
+  loads it *(inferred)*. Every model has part 21, and the others
+  (traffic, the other vehicles and things) only parts among 20 to 25.
+  In the F355, 12 to 19 are its four wheels in pairs (their positions
+  ±0.85 across and 1.19 forward, 1.48 back); 21 is the whole car at
+  medium detail, 24 and 25 at low. OpenNFS names the same order: 0-19 high, 20-22 medium, 23-25 low,
   26-31 reserved *(published)*.
 - **Flags**, from the code that sets up and draws the polygons
   (0x461d80, 0x46da60) and counted over the 4,182 polygons:
@@ -82,18 +84,17 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   0x461f1c), the same. The 3dfx program alike (`NFS2SEA.EXE` 0x4756b3,
   0x4756cb). Seen on the F355: its side panels' pictures have the wheel
   arches cut into them at one end, and so laid each arch is over its
-  wheel. (The Cars page had them the other way across, its arches at
-  the panels' wrong ends, until late November 2026: the beer crate it
-  was judged by reads backwards on one side either way.)
+  wheel. The beer crate reads backwards on one side either
+  way, so it can't tell which way across the pictures go.
 - **The paint.** Every entry of the car's palette with red and blue under
   0x56 and green from 0x80 is the paint's: the program recolours it as it
   sets up the car's palette (0x444f80), its shade from the green
   (0 to 127 above 0x80): black rising to the chosen colour, then toward
   white for the highlights, by a threshold of each colour's. The colours
   are a table in the program (0x4c3634, 16 bytes each, 88 of them before
-  an all-zero one), three values each (hue, saturation and value, by how
-  they're turned into RGB: 0x444af8 *(inferred)*) and the threshold,
-  looked up by number (0x4451c0). Each racing car has a run of them, a
+  an all-zero one), three values each and the threshold, looked up by
+  number (0x4451c0). The three are hue, saturation and value, by how
+  they're turned into RGB (0x444af8) *(inferred)*. Each racing car has a run of them, a
   first and a count in a table of 2 bytes a car by its number
   (0x4c1d20): the front end's car colour goes round the run, Left and
   Right a colour at a time (0x4106cd, 0x41087b), and keeps each car's
@@ -121,18 +122,18 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
     | else | 0, still |
 
     Then: an axle whose wheels spin (the engine more than 1,250 rpm
-    over them, in gear 4 or below: 0x4556e4) shows 3; one whose wheels
-    are locked (a hard brake or the handbrake: 0x454d5f, 0x45343c)
-    shows 0 *(inferred)*; and a car that has finished, under 2 m/s,
-    shows 0 on both.
+    over them, in gear 4 or below: 0x4556e4) shows 3, and a car that
+    has finished, under 2 m/s, shows 0 on both. An axle whose wheels are
+    locked (a hard brake or the handbrake: 0x454d5f, 0x45343c) shows 0
+    *(inferred)*.
 - **The wheels' faces moved out** (0x459e0c): as a model loads, the first
   polygon of the rear wheels' parts (16 and 18) moves 5/256 outward
-  (0x45a750, 0x45a7b0) in all 15 racing cars (the program's model numbers
-  0 to 14, its table at 0x4c3df4), and of the front wheels' (12 and 14)
-  in the Ford Indigo's (`IDGO`) only. The faces sit on the tyres' outer
-  edges in the files; moved, they aren't lost against them when drawn
-  *(inferred)*: on the Cars page, the F355's rear faces unmoved are half
-  hidden by the tyres, and moved they show whole. The Indigo's wheels
+  (0x45a750, 0x45a7b0) in all 15 numbered racing cars, and of the front
+  wheels' (12 and 14) in the Ford Indigo's (`IDGO`) only. The faces sit
+  on the tyres' outer edges in the files. On the Cars page, the F355's
+  rear faces unmoved are half hidden by the tyres, and moved they show
+  whole: moved, they aren't lost against the tyres when drawn
+  *(inferred)*. The Indigo's wheels
   alone have a see-through disc (`n005`) the size of the face 3/256
   inside it, front and rear; moved, the two are 8/256 apart, which is
   why its front faces are moved too *(inferred)*. Every other car's
@@ -153,7 +154,6 @@ first entry in its table of texture corners in bytes 2-3 (0x461f55,
   rear faces are edge on. The front
   wheels turn with the steering (0x459f70) and the rear ones don't
   (0x45a080, only a jitter by speed).
-  `MUSC` has no number: the game never loads it *(inferred)*.
 - **The colours' files.** `GameData/CarModel/pc/CARHSVT.TXT` holds the
   table's first 24 colours, the same four numbers each, as commented text.
   `DELTA.SJH` beside it, 5,568 bytes, is 29 cars × 24 colours × two

@@ -1,6 +1,6 @@
 # Need for Speed II SE: tracks (`.trk`)
 
-> **Status:** decoded · **Code:** `src/engines/nfs/nfs2se/formats/trk.cpp` · **Checked on:** all 8 tracks on the US CD · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs2se/formats/trk.cpp` · **Checked on:** all 8 tracks on the US CD · **Confidence:** layout confirmed; behaviour from the code unless marked
 
 ## Overview
 
@@ -25,7 +25,7 @@ like a metre, as the cars' sizes do ([geo.md](geo.md)) *(inferred)*.
 | 8 | u32 | the largest superblock's size |
 | 12 | u32 | the largest block's size |
 | 16 | u32 | the most that a block's neighbourhood (extrablock 4) adds up to |
-| 20 | u32 | 19,800 to 38,800 more than 16; neither program reads it, nor 16 (the header is kept at 0x4ffeac, these two never read): another buffer's size *(guessed)* |
+| 20 | u32 | 19,800 to 38,800 more than 16; neither program reads it, nor 16 (the header is kept at 0x4ffeac, these two never read): another buffer's size *(inferred)* |
 | 24 | u32 | number of superblocks |
 | 28 | u32 | number of blocks |
 | 32 | 4 × superblocks | each superblock's offset in the file |
@@ -41,7 +41,7 @@ to 0x4601f0), their messages naming a stream reader (`stmrd.c`, its
 memory tagged `StmChunkF`, `StmCenter`, `StmMetaI`); the 3dfx program
 alike (its copy at 0x542f90). The word at 20 is 1.15 to 1.26 times the
 one at 16, about the size of the largest run of 40 to 43 blocks: one
-more of a streaming loader's buffers *(inferred)*, by a rule not found.
+more of a streaming loader's buffers, by a rule not found *(inferred)*.
 
 ### Superblocks
 
@@ -112,7 +112,7 @@ Each: a u32 size, a u16 id, a u16 record count, the records. Seen:
 | 7, 18, 19 | 1,047, 591, 26 | placements of meshes (below) |
 | 8 | 1,275 | meshes (below) |
 | 9 | 862 | painted lines on the road (below) |
-| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4 (`TR04` one, `TR05` five, `TR08` ten); neither program reads it beyond keeping where it is (0x435a8a): effects' places, by what's there *(inferred)*: `TR08`'s 1s on the axes of its chimneys (`BOIL`), a little below their tops, its 2s by its flames (`SFL1`, `MFL1`, `LFL1`), `TR05`'s by its waterfalls; smoke, fire and spray for another version. `TR04`'s 4 is 18 units over its rope bridge's deck and 10 right of the road, above the river in the gorge, within 0.3 units of the track's one placed sound, a loop of rushing water that `TR05` places by its waterfalls' 1s (its bank's sample the same): spray or mist over the river *(guessed)* |
+| 10 | 13 | 16 bytes: a 16.16 point, 8 to 68 units off the road, and a u32 of 1, 2 or 4 (`TR04` one, `TR05` five, `TR08` ten); neither program reads it beyond keeping where it is (0x435a8a). `TR08`'s 1s are on the axes of its chimneys (`BOIL`), a little below their tops, its 2s by its flames (`SFL1`, `MFL1`, `LFL1`), `TR05`'s by its waterfalls: effects' places, smoke, fire and spray for another version *(inferred)*. `TR04`'s 4 is 18 units over its rope bridge's deck and 10 right of the road, above the river in the gorge, within 0.3 units of the track's one placed sound, a loop of rushing water that `TR05` places by its waterfalls' 1s (its bank's sample the same): spray or mist over the river *(guessed)* |
 | 11 | 383 | obstacles (below) |
 | 13 | all | 12 bytes: two s16 vectors about 32,767 long (5,322 of the 5,338 checked) |
 | 17 | 17 | sounds (below) |
@@ -124,15 +124,14 @@ block to draw (0x435910).
   the block (14,222, as the `.col` has): u16, the first of the high
   level's first-group quads across the road there; u8, how many (the
   rows cover the group in order, in all 1,780 blocks); u8, 2 to 6, the
-  music's section for that stretch, looked up ahead of the car by its
-  speed (0x436440) and handed to the music player *(inferred)*; two u16
-  road points, of a stretch of the road running beside this one on the
+  music's section for that stretch; two u16 road points, of a stretch of the road running beside this one on the
   left and on the right, `0xFFFF` for none (81 of the 14,222 have one,
   never both, each with its partner pointing back: `TR03`, `TR05`, and
   `TR08`'s hairpin). A car keeps the row it's on (0x4378f0); one off its
   row is put on the nearer of these roads, if there's one (0x437270),
   so a car leaving the road where another runs alongside is taken up by
-  that one.
+  that one. The program looks the music's section up ahead of the car by
+  its speed (0x436440) and hands it to the music player *(inferred)*.
 - **Painted lines** (9), 4 bytes: a vertex of the block, a road point
   (from the block's first), the line's type, and a quad of the high
   level. Each two records make a quad, from the vertex and the vertex
@@ -231,13 +230,12 @@ them; `TR00`, `TR02` and `TR08` place none.
   2026): every size, offset and count consistent, every polygon's
   vertices inside its level, the first vertices against the next
   block's; then the reader on all 8; the unit tests (`nfs.unit.nfs2se`).
-- **The fields worked out later** (November 2026) from `nfs2sen.exe`'s
-  loading and drawing code, and `NFS2SEA.EXE`'s, disassembled and read;
-  the two programs' track code is the same but for the 3dfx drawing (the
-  shades, the lines' shading): the 3dfx program reads no field the
-  software one doesn't, each checked over the
-  8 tracks as given above; the pictures' way round against the hosted
-  game's frames.
+- **The other fields** come from `nfs2sen.exe`'s loading and drawing
+  code, and `NFS2SEA.EXE`'s, disassembled and read (November 2026), each
+  checked over the 8 tracks by the same scripts; the two programs' track
+  code is the same but for the 3dfx drawing (the shades, the lines'
+  shading): the 3dfx program reads no field the software one doesn't.
+  The pictures' way round was checked against the hosted game's frames.
 
 ## Open questions
 

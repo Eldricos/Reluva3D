@@ -13,8 +13,8 @@ The same folder's `demo.0`, `demo.1` and `demo.2` aren't movies: the
 three are the same 124,344 bytes, a recorded race in the layout of the
 game's replays (its settings, "Player1" at 0xA8, the controls frame by
 frame from 0x5B4), 4 bytes longer than what the program writes
-(`replay.rpy`, 0x45b440): from an earlier build. Neither program opens
-them: the only "demo" either has is `demoav`, with `%s%d.dct`
+(`replay.rpy`, 0x45b440), so from an earlier build *(inferred)*.
+Neither program opens them: the only "demo" either has is `demoav`, with `%s%d.dct`
 (0x40d972), the attract mode playing `demoav0.dct` to `demoav2.dct` in
 turn after 25 s at the main menu without a key: more than 3,200 ticks
 of its clock (0x40d951), which runs at 128 a second (0x47212c); the
@@ -32,10 +32,17 @@ pictures, one to a chunk:
 |---|---|---|
 | 0 | 4 | `mTCD` |
 | 4 | u32 | The chunk's size, these 16 bytes included |
-| 8 | u32 | 0 in every chunk; the players don't read it |
+| 8 | u32 | 0 in every chunk; nothing reads it |
 | 12 | u16 | The picture's width |
 | 14 | u16 | Its height |
 | 16 | | One MDEC frame ([mdec.md](../../../../../common/video/mdec.md)) |
+
+The players of both programs (`nfs2sen.exe` 0x422e60; `NFS2SEA.EXE`'s
+the same) keep the chunks tagged `mTCD`, take the size at 4 and the
+picture's size at 12 and 14 (0x422f1e), and decode from 16 (0x423270).
+Nothing reads the word at 8: the hosted game played a copy of
+`titleav.dct` with it set to other values in all 1,761 chunks, and every
+frame came out the same.
 
 Every frame stands alone. The first comes after `SCHl`, the second after
 `SCCl`, then one after each sound block but the last few. There's no
@@ -52,13 +59,6 @@ by the music's reader, which passes over the `mTCD` chunks.
 The data viewer's Movies page (`src/engines/nfs/nfs2se/pages/movie_page.cpp`)
 plays them with their sound, which keeps the time, as NFS III's page
 plays its `.mad` movies.
-
-The players of both programs (`nfs2sen.exe` 0x422e60; `NFS2SEA.EXE`'s
-the same) keep the chunks tagged `mTCD`, take the size at 4 and the
-picture's size at 12 and 14 (0x422f1e), and decode from 16 (0x423270).
-Nothing reads the word at 8: the hosted game played a copy of
-`titleav.dct` with it set to other values in all 1,761 chunks, and every
-frame came out the same.
 
 ## Sources and checks
 
