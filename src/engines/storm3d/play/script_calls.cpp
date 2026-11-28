@@ -200,8 +200,11 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
             // *(guessed)*, as SearchAndDestroy.
             return moreScriptCalls("SearchAndDestroy", args);
         }
-        if (auto target = unitOfHandle(args.integer(1)))
+        if (auto target = unitOfHandle(args.integer(1))) {
             _targets[*unit] = int(*target);
+            if (name == "Attack")
+                noteAttack(*unit, *target);
+        }
         return 0u;
     }
     if (name == "SetPosition") {

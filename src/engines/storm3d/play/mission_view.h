@@ -29,6 +29,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -559,12 +560,21 @@ private:
     // neutral, 2 ally; enemies where none's been set.
     std::map<std::pair<int, int>, int> _relations;
     bool hostile(int slot, int other) const; // the lower of the two stances is enemy
-    std::map<size_t, int> _perceived;        // the player a unit looks like it's of (SetPerceivedTeam)
-    std::map<size_t, double> _hitAt;         // game seconds it was last hit by another player's
-    std::map<size_t, std::string> _patrols;  // a unit's path, flown round and round (Patrol)
-    std::set<int> _teamsOff;                 // computer players whose AI is off (DisableTeam)
-    uint64_t _scriptPasses = 0;              // the rule engine's passes, for the strengths' every 200th
-    bool _paused = false;                    // the world held still, the scripts running on (PauseSimulation)
+    // A player's count of attacks on its units by each player it doesn't
+    // take for an enemy, ships' and stations' apart, and when each was last
+    // counted (0x446210, 0x446260).
+    struct AllyAttacks {
+        int count = 0;
+        double last = -1e9;
+    };
+    std::map<std::tuple<int, int, bool>, AllyAttacks> _allyAttacks; // by victim, attacker, a station
+    void noteAttack(size_t attacker, size_t target);
+    std::map<size_t, int> _perceived;       // the player a unit looks like it's of (SetPerceivedTeam)
+    std::map<size_t, double> _hitAt;        // game seconds it was last hit by another player's
+    std::map<size_t, std::string> _patrols; // a unit's path, flown round and round (Patrol)
+    std::set<int> _teamsOff;                // computer players whose AI is off (DisableTeam)
+    uint64_t _scriptPasses = 0;             // the rule engine's passes, for the strengths' every 200th
+    bool _paused = false;                   // the world held still, the scripts running on (PauseSimulation)
     void runPatrols();
     std::optional<uint32_t> moreScriptCalls(const std::string &name, const MissionScripts::Arguments &args);
     std::set<size_t> _cannotDie;                        // CraftCannotDie

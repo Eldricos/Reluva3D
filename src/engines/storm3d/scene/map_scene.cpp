@@ -531,7 +531,11 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
     makeGrid();
     if (!_seen.empty())
         makeCover();
-    std::string background = _map.background;
+    setBackground(_map.background);
+}
+
+void MapScene::setBackground(const std::string &model) {
+    std::string background = model;
     if (text::hasSuffixIgnoreCase(background, ".sod"))
         background.resize(background.size() - 4);
     _background = background.empty() ? nullptr : _meshes.model(background);

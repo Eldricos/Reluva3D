@@ -40,6 +40,25 @@ bool MissionView::hostile(int slot, int other) const {
     return std::min(stance(slot, other), stance(other, slot)) == 0;
 }
 
+void MissionView::noteAttack(size_t attacker, size_t target) {
+    // An attack order on one of a player's units by a player it doesn't
+    // take for an enemy, at most once a second on ships and each 0.05 on
+    // stations (0x426092).
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    const int victim = units[target].slot;
+    const int by = units[attacker].slot;
+    auto stance = _relations.find({victim, by});
+    if (victim == by || stance == _relations.end() || stance->second == 0)
+        return;
+    const bool station = !_moves[target];
+    AllyAttacks &a = _allyAttacks[{victim, by, station}];
+    const double now = double(_last) / 1000;
+    if (now - a.last < (station ? 0.05 : 1.0))
+        return;
+    a.last = now;
+    ++a.count;
+}
+
 void MissionView::runPatrols() {
     // Round its path again each time it's at the end *(inferred)*.
     for (auto it = _patrols.begin(); it != _patrols.end();) {
@@ -176,8 +195,10 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
         _relations[{args.integer(0), args.integer(1)}] = args.integer(2);
         return 0u;
     }
-    if (name == "GetAllyShipAttacks" || name == "GetAllyStationAttacks")
-        return 0u; // an ally's attacks on the player aren't counted yet
+    if (name == "GetAllyShipAttacks" || name == "GetAllyStationAttacks") {
+        auto it = _allyAttacks.find({args.integer(0), args.integer(1), name == "GetAllyStationAttacks"});
+        return it == _allyAttacks.end() ? 0u : uint32_t(it->second.count);
+    }
 
     // Owners.
     if (name == "GetRealTeam") {
@@ -668,8 +689,13 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
             _wormholes[*hole].team = args.integer(1);
         return 0u;
     }
-    if (name == "AddTransporterEffect" || name == "RemoveBillboardEffect" ||
-        name == "Starfield_Load_Background_Geometry" || name == "StartCredits" || name == "EndCredits")
+    if (name == "Starfield_Load_Background_Geometry") {
+        // The sky's model swapped for the one named (0x5a9700).
+        _scene.setBackground(args.text(0));
+        return 0u;
+    }
+    if (name == "AddTransporterEffect" || name == "RemoveBillboardEffect" || name == "StartCredits" ||
+        name == "EndCredits")
         return 0u; // drawn only: not made yet
     return std::nullopt;
 }

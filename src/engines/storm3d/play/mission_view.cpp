@@ -2271,6 +2271,7 @@ void MissionView::stop() {
     _patrols.clear();
     _teamsOff.clear();
     _paused = false;
+    _allyAttacks.clear();
     _scriptPasses = 0;
     _cannotDie.clear();
     _missionEnd.reset();
@@ -2496,6 +2497,7 @@ bool MissionView::attack(int target) {
     for (int i : obeying(_selection))
         if (i != target && size_t(i) < _targets.size() && !_weapons[size_t(i)].empty()) {
             _targets[size_t(i)] = target;
+            noteAttack(size_t(i), size_t(target));
             any = true;
         }
     return any;

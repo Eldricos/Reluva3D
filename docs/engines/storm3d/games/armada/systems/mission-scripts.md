@@ -341,12 +341,21 @@ for what they take from Armada.exe.
     `strength_team_1` to `8`, each player's units' most shields added up
     every 200th pass, from 0.
 
+  - **an ally's attacks:** `GetAllyShipAttacks(p, q)` and
+    `GetAllyStationAttacks` count the attack orders player q gave on
+    player p's ships, or stations, while p doesn't take q for an enemy,
+    at most once a second on ships and each 0.05 seconds on stations
+    (0x426092, 0x446210); the computer's own attack order (`AI_Attack`)
+    isn't counted;
+  - **the sky:** `Starfield_Load_Background_Geometry` swaps the model
+    drawn behind everything (`MbgBorg.sod`, `Mbgomega.sod`), as Borg 1's
+    scenes move from one system to another.
+
   Not done yet: saving and loading a mission; the shots along a
   heading; `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish
-  AI's script borrowed by Romulan 1); an ally's attacks counted
-  (`GetAllyShipAttacks`); the transwarp gates' wormholes; the credits;
-  the transporter's glow; the sky changed; the alert levels and the
-  people aboard handed over of themselves.
+  AI's script borrowed by Romulan 1); the transwarp gates' wormholes;
+  the credits; the transporter's glow; the alert levels and the people
+  aboard handed over of themselves.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make

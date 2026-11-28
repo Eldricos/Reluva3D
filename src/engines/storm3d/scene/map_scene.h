@@ -244,6 +244,8 @@ public:
     void hideUnit(size_t unit);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
     void moveUnit(size_t unit, const gfx::Vec3 &at, float heading);
+    /** Draws another sky model behind everything (`MbgBorg.sod`): a mission gone to another system. */
+    void setBackground(const std::string &model);
     /** Puts one of the map's own objects (by its place in the map) somewhere else: a script's nebulae. */
     void moveObject(size_t object, const gfx::Vec3 &at);
     /** Draws a unit at `scale` times its model's size: a wormhole opening. */
