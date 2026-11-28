@@ -16,7 +16,15 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Bugs fixed
 
-None yet.
+None yet. The original's own bugs are kept, as `JKM.EXE` runs unchanged
+but where Reluva reaches into it; one known:
+
+- **`makeitwork` typed without a number stops the game.** The cheat
+  reads its number without checking one was typed, as `takemeto` does,
+  so the program reads from address 0 and stops, as it would on
+  Windows. With a number it works. Left as it is for now; a check of a
+  few bytes, as for the program's other changes, would fix it
+  ([README.md](README.md#its-cheats)).
 
 ## Not yet as the original
 
