@@ -11,6 +11,7 @@ files):
 | Suite | What it checks |
 |---|---|
 | `sfc.unit.detection` | The engine is registered; an empty folder isn't a game; the game's files with other contents are an unknown release, whatever their names' case |
+| `sfc.unit.battle` | A battle laid out in memory as the game keeps it: the player, a neutral and an enemy read with their sides, targets and range; the pilot's first inputs (red alert, speed, the nearest enemy, a turn toward it, the shield facing it, no shot off its bow); no battle, no input |
 | `sfc.unit.formats` | sprites.q3's images (16- and 8-bit, each kind of run, a name from the objects) and a run past a row's end; a .bft font, measured and drawn; a .mod model, and a triangle with a material that isn't there; a tab table with quotes and comments; a string table with continuation lines and a heading; the objects' records found past a body that isn't read; a settings file (comments, quotes, sections by path, a quote not closed, errors); a campaign map built in the test, and one cut short |
 
 ### The basic engine test

@@ -13,8 +13,10 @@ reluva_add_engine(sfc
         formats/sprite_archive.cpp
         formats/text_tables.cpp
         formats/settings.cpp
+        host/battle.cpp
         host/game_process.cpp
         host/patcher.cpp
+        host/pilot.cpp
         host/player.cpp
         host/system.cpp)
 
@@ -46,11 +48,12 @@ reluva_add_engine_tools(sfc
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/sfc)
 reluva_add_engine_tests(sfc
     SOURCES
+        ${tests}/unit/battle.cpp
         ${tests}/unit/detection.cpp
         ${tests}/unit/formats.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.detection unit.formats engine)
+        unit.battle unit.detection unit.formats engine)
 
 # Its engine test with the game's own files (see docs/DEVELOPMENT.md,
 # Engine tests, and tests/engines/sfc/gamedata.cmake).

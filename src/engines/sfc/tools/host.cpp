@@ -10,7 +10,9 @@
 #include "common/pe.h"
 #include "devtools/tool.h"
 #include "emulation/x86/disasm.h"
+#include "engines/sfc/host/battle.h"
 #include "engines/sfc/host/game_process.h"
+#include "engines/sfc/host/pilot.h"
 #include "engines/sfc/host/patcher.h"
 #include "common/stream.h"
 #include "audio/sound.h"
@@ -122,7 +124,7 @@ int cmdHost(int argc, char **argv) {
             "[-frame out.png] [-quiet] [-save folder] [-calls address] [-watch address]... "
             "[-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] [-writes address]... "
             "[-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] [-key frame name[+name]]... [-down frame name] [-up frame name] "
-            "[-net] [-netlog]\n");
+            "[-net] [-netlog] [-survey frame]... [-pilot frame]\n");
         return 2;
     }
     uint64_t limit = 2000000000ull;
@@ -131,7 +133,9 @@ int cmdHost(int argc, char **argv) {
     bool quiet = false;
     std::filesystem::path saveFolder; // where what the program writes goes
     uint32_t callsFrom = 0;
-    std::vector<uint32_t> watch; // addresses at which to show the registers and the stack
+    std::vector<uint32_t> watch;   // addresses at which to show the registers and the stack
+    std::vector<uint64_t> surveys; // -survey: frames at which to list the battle's objects
+    uint64_t pilotFrom = 0;        // -pilot: the frame from which the pilot flies in battles
     std::vector<Step> steps;
     std::vector<std::pair<uint32_t, uint32_t>> writes; // addresses whose changes are shown, and their last value
     // With -newcode, the program's code first run between two frames: a
@@ -165,6 +169,10 @@ int cmdHost(int argc, char **argv) {
             saveFolder = argv[++a];
         else if (arg == "-calls" && a + 1 < argc)
             callsFrom = uint32_t(std::strtoul(argv[++a], nullptr, 0));
+        else if (arg == "-pilot" && a + 1 < argc)
+            pilotFrom = std::strtoull(argv[++a], nullptr, 0);
+        else if (arg == "-survey" && a + 1 < argc)
+            surveys.push_back(std::strtoull(argv[++a], nullptr, 0));
         else if (arg == "-watch" && a + 1 < argc)
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
         else if (arg == "-writes" && a + 1 < argc)
@@ -351,6 +359,8 @@ int cmdHost(int argc, char **argv) {
     RateMark rateStart;
     std::stable_sort(steps.begin(), steps.end(), [](const Step &a, const Step &b) { return a.frame < b.frame; });
     size_t nextStep = 0;
+    sfc::Pilot pilot(cpu);
+    std::optional<sfc::Pilot::Action> pilotHeld; // what the pilot pressed last frame, released this one
     game.directX().presented = [&](const x86::DirectX::Frame &f) {
         if (frames == 0)
             std::printf("first frame: %dx%d after %llu instructions\n", f.width, f.height,
@@ -375,6 +385,41 @@ int cmdHost(int argc, char **argv) {
                 writeFrame(f, s.path);
                 std::printf("frame %llu written to %s\n", static_cast<unsigned long long>(frames), s.path.c_str());
                 break;
+            }
+        }
+        if (pilotFrom && frames >= pilotFrom) {
+            uint32_t vk = 0;
+            uint32_t scan = 0;
+            if (pilotHeld) {
+                if (!pilotHeld->key)
+                    process.mouseButton(0, false);
+                else if (x86::windowsKey(pilotHeld->key, vk, scan))
+                    process.key(vk, scan, false);
+            }
+            pilotHeld = pilot.step(frames);
+            if (pilotHeld) {
+                if (!pilotHeld->key) {
+                    process.mouseMoveTo(pilotHeld->x, pilotHeld->y);
+                    process.mouseButton(0, true);
+                } else if (x86::windowsKey(pilotHeld->key, vk, scan)) {
+                    process.key(vk, scan, true);
+                }
+            }
+            if (!pilot.note().empty())
+                std::printf("frame %llu %s\n", static_cast<unsigned long long>(frames), pilot.note().c_str());
+        }
+        if (std::find(surveys.begin(), surveys.end(), frames) != surveys.end()) {
+            // Each object's number, place and first 1 KB, to tell its
+            // fields apart from one survey to the next.
+            const sfc::Battle battle(cpu);
+            std::printf("survey at frame %llu: player %d\n", static_cast<unsigned long long>(frames),
+                        battle.playerId());
+            for (const sfc::Battle::Object &o : battle.objects()) {
+                std::printf("object %d at %08x: kind %08x flags %08x at %.2f %.2f %.2f, slot %d relation %d\n ", o.id,
+                            o.address, o.kind, o.flags, double(o.x), double(o.y), double(o.z), o.slot, o.relation);
+                for (uint32_t k = 0; k < 0x100; ++k)
+                    std::printf(" %08x", cpu.read32(o.address + 4 * k));
+                std::printf("\n");
             }
         }
         if (rateTo && (frames == rateFrom || frames == rateTo)) {
@@ -689,7 +734,7 @@ const Commands
                    "[-watch address]... [-type frame text] [-click frame x y] [-shot frame out.png]... [-sound folder] "
                    "[-writes address]... [-newcode from to] [-profile from to] [-rate from to] [-fixed-clock] "
                    "[-key frame name]... "
-                   "[-net] [-netlog]",
+                   "[-net] [-netlog] [-survey frame]... [-pilot frame]",
                    "run StarFleet2.exe in the x86 emulator, headless, and say how far it gets; keys and clicks "
                    "given at frames it shows",
                    cmdHost},
