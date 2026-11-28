@@ -17,8 +17,10 @@ camera moves.
 
 Run past the mission panel's O.K. under the emulator, "Premonitions"
 loads, then opens on a cut scene: the Enterprise and its escorts flying
-past the planet, to `sounds\music\Mfed25.wav`. About 44 seconds of the
-program's clock later, play begins: the map from the overview camera
+past the planet, to `sounds\music\Mfed25.wav`, then Picard's log
+over a pan round the Enterprise. About 74 seconds of the program's
+clock later (44 before the emulator's DirectSound gave position
+notifications, when every voice ended at once), play begins: the map from the overview camera
 over the mission's `Camera_1` path, 450 above the plane, with the
 objectives over it, the interface along the bottom, and the dilithium,
 crew and officers at the top right.

@@ -270,8 +270,15 @@ for what they take from Armada.exe.
   `engine-shot` starting "Premonitions" from the single-player screen:
   the opening's calls in order, the ships flown to and then put at
   their `...START` paths as in the original's first frame of play, the
-  title "'PREMONITIONS'" and the Dominion patrols sent off, at 22 seconds;
-  the dilithium 6,000, as the script sets it.
+  title "'PREMONITIONS'" and the Dominion patrols sent off; the
+  dilithium 6,000, as the script sets it. The opening runs as long as the
+  original's, about 57 seconds of the script's clock: Picard's log
+  (`F1PIC1.wav`, 26.8 seconds) over the pan round the Enterprise, which
+  the rule ending it waits on, then the fade, the zoom-out and play;
+  frame for frame the same shots at the same moments as the original's
+  run with DirectSound's position notifications. Before those were made
+  in the emulator, the original's voices all ended at once and its
+  opening ran 27 seconds.
 
 ## Open questions
 
