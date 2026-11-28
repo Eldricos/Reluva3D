@@ -1495,7 +1495,7 @@ static void testDirectSoundNotify() {
         CHECK(ok);
         return r;
     };
-    auto kernel = [&](const char *name, std::vector<uint32_t> args) {
+    auto kernel = [&](const char *name, const std::vector<uint32_t> &args) {
         CHECK(!cpu.call(process.provided("KERNEL32.dll", name), args, r));
         return r;
     };
