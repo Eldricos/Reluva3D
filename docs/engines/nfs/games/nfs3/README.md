@@ -1,8 +1,9 @@
 # Need for Speed III: Hot Pursuit
 
-Game id `nfs3`, on the [Need for Speed engine](../../README.md); its code
-is in `src/engines/nfs/` (the game's own executable run in the x86
-emulator in `host/`).
+Game id `nfs3`, on the [Need for Speed engine](../../README.md); its own
+code is in `src/engines/nfs/nfs3/`, and what it shares with the engine's
+other games in `src/engines/nfs/` (the game's own executable run in the
+x86 emulator in `host/`).
 
 ## Releases
 
@@ -62,7 +63,9 @@ accelerator and brake axes if they aren't found.
 
 Its network play (Connect Players,
 Network (TCP)) uses the machine's network, other players joining on TCP port 1030
-(`network=off` leaves it out); Network (IPX) works on the local network too.
+(`network=off` leaves it out); Network (IPX) works on the local network too, and
+`broadcast=<host>` (addresses or host names, by commas) sends its searches to
+machines outside it, such as over a VPN.
 `serial=listen:2300` on one machine and `serial=host:2300` on the other make
 Serial a link between them, and `modem=listen:2400` / `modem=host:2400` do the
 same for Modem (Answer and Dial). `positionalupdates=on` has network races use the
@@ -117,7 +120,7 @@ naming something of the machine's (`cdpath`, `serial`, `modem`,
 | Page | What's in it |
 |---|---|
 | This page | Where it stands, how to use it |
-| [formats/](formats/) | The game's own files, a page each: [viv.md](formats/viv.md), [refpack.md](formats/refpack.md), [fsh.md](formats/fsh.md), [text.md](formats/text.md), [ffn.md](formats/ffn.md), [fce.md](formats/fce.md), [frd.md](formats/frd.md), [col.md](formats/col.md), [hrz.md](formats/hrz.md), [tracks.md](formats/tracks.md), [bnk.md](formats/bnk.md), [mus.md](formats/mus.md), [mad.md](formats/mad.md), [3ddata.md](formats/3ddata.md) |
+| [formats/](formats/) | The game's own files, a page each: [fce.md](formats/fce.md), [frd.md](formats/frd.md), [col.md](formats/col.md), [hrz.md](formats/hrz.md), [tracks.md](formats/tracks.md), [mad.md](formats/mad.md), [3ddata.md](formats/3ddata.md); those it shares with NFS II SE are the engine's ([../../formats/](../../formats/)): [viv.md](../../formats/viv.md), [refpack.md](../../formats/refpack.md), [fsh.md](../../formats/fsh.md), [text.md](../../formats/text.md), [ffn.md](../../formats/ffn.md), [bnk.md](../../formats/bnk.md), [mus.md](../../formats/mus.md) |
 | [systems/](systems/) | How the game behaves, a page per part: [threads.md](systems/threads.md) (threads and the timer), [physics.md](systems/physics.md) (car handling), [net.md](systems/net.md) (network play), [thrash.md](systems/thrash.md) (the renderer interface) |
 | [research/](research/README.md) | Working notes |
 | [PLAN.md](PLAN.md) | The plan, its phases (with the hosted game's progress in detail) and decisions |
@@ -140,4 +143,4 @@ with its host threads and drives, and the Glide stand-in
 - **Virtual road:** the track's road as a line of points with their
   lanes and walls, in the `.col` files ([formats/col.md](formats/col.md)).
 - **Pathfinder map:** a `.map` choosing the next music section as the race
-  goes ([formats/mus.md](formats/mus.md)).
+  goes ([mus.md](../../formats/mus.md)).

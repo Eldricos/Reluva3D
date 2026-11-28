@@ -1,6 +1,6 @@
 # Need for Speed III: THRASH, the renderer interface
 
-> **Status:** partial · **Code:** `src/engines/nfs/host/thrash_native.cpp`, `thrash.cpp`, `src/engines/nfs/render/thrash_gpu.cpp` · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/nfs/nfs3/host/thrash_native.cpp`, `thrash.cpp`, `src/engines/nfs/nfs3/render/thrash_gpu.cpp` · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -671,7 +671,7 @@ instructions, 3,829 frames) and the code:
 ## In Reluva
 
 Partly implemented. Native drawing is in
-`src/engines/nfs/host/thrash_native.cpp`; `reluva-tool nfs host -native`
+`src/engines/nfs/nfs3/host/thrash_native.cpp`; `reluva-tool nfs host -native`
 uses it. The renderer DLL still keeps its own books (textures, windows,
 page flips). Native drawing takes over only its triangles, quads, lines
 and points.
@@ -721,7 +721,7 @@ waits are spent elsewhere.
 ### On the GPU
 
 With a GPU, the Play page draws THRASH's frames with it
-(`src/engines/nfs/render/thrash_gpu.cpp`). `GameHost` (with `gpuThrash`)
+(`src/engines/nfs/nfs3/render/thrash_gpu.cpp`). `GameHost` (with `gpuThrash`)
 records each frame's drawing as a list, and the page draws the lists.
 
 - **Triangles.** Each triangle gets its three vertices of its own, so

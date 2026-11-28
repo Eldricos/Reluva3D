@@ -23,9 +23,9 @@
 #include "audio/sound.h"
 #include "common/headless_system.h"
 #include "engines/nfs/formats/bnk.h"
-#include "engines/nfs/formats/frd.h"
+#include "engines/nfs/nfs3/formats/frd.h"
 #include "engines/nfs/formats/fsh.h"
-#include "engines/nfs/formats/mad.h"
+#include "engines/nfs/nfs3/formats/mad.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/formats/viv.h"
 #include "engines/nfs/game_files.h"
@@ -44,6 +44,7 @@
 
 using namespace reluva;
 using namespace reluva::nfs;
+using namespace reluva::nfs::nfs3;
 using namespace reluva::nfs::testing;
 using test::Hash;
 
@@ -349,9 +350,118 @@ void engineTest(const stdfs::path &tmp) {
     }
 }
 
+// NFS II SE's movie (dct.md): two 16x16 frames with no sound, each one
+// macroblock of DC terms alone: Cr 40, Cb -40, the luma blocks 64, 0, -64
+// and 0 (a reddish picture in four shades).
+Bytes nfs2seMovie() {
+    Bytes dct;
+    for (int i = 0; i < 2; ++i) {
+        dct.insert(dct.end(), {'m', 'T', 'C', 'D'});
+        put32(dct, 16 + 18);
+        put32(dct, 0);
+        put16(dct, 16);
+        put16(dct, 16);
+        for (unsigned w : {5u, 0x3800u, 1u, 2u, 0xa2fu, 0x6210u, 0x2002u, 0xf020u, 0x200u})
+            put16(dct, w);
+    }
+    return dct;
+}
+
+// NFS II SE: found as the launcher finds it, its folders and files, and
+// the viewer's pages. Its program is a stand-in, not a program, so the
+// game says it can't start it; without the CD's copy, it says where to
+// put one.
+void nfs2seTest(const stdfs::path &tmp) {
+    test::Record rec;
+    const MetaEngine *engine = findEngine("nfs");
+    const MetaViewer *viewer = findViewer("nfs");
+    if (!engine || !viewer)
+        return test::fail("nfs or its viewer isn't registered");
+    const stdfs::path install = tmp / "Need For Speed II SE";
+    makeNfs2seInstall(install);
+    makeNfs2seCd(tmp / "NFS2SE-CD");
+    write(install / "GameData/Audio/SFX/sound.bnk", soundBank());
+    write(tmp / "NFS2SE-CD/FEDATA/PC/MOVIES/CALAAV.DCT", nfs2seMovie());
+    // The front end's strings, with their places (text.md).
+    Bytes text;
+    for (const auto &[x, offset] : {std::pair{168, 24}, std::pair{620, 29}}) {
+        text.insert(text.end(), {18, 2, 2, 1});
+        put16(text, unsigned(x));
+        put16(text, 126);
+        put32(text, uint32_t(offset));
+    }
+    putText(text, "game", 5);
+    putText(text, "RACE", 5);
+    write(install / "FeData/pc/text/TEXT.ENG", text);
+    // The HUD's palette, and a pause screen's picture without one, which
+    // the Textures page shows in it (fsh.md).
+    Bytes palette;
+    putShapeHeader(palette, 0x2a, 0, 2, 1, 0, 0, 0, 0);
+    palette.insert(palette.end(), {0, 0, 0, 255, 0, 200, 255, 255});
+    write(install / "GameData/DashHud/pc/HUD.FSH", makeShapeBank({{"!pal", palette}}));
+    Bytes pause;
+    putShapeHeader(pause, 0x7b, 0, 4, 2, 0, 0, 0, 0);
+    pause.insert(pause.end(), {0, 1, 1, 0, 1, 0, 0, 1});
+    write(install / "GameData/Pause/PAUSEEN.QFS", makeShapeBank({{"head", pause}}));
+
+    auto found = engine->detect(install);
+    rec.add("detect.install", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
+    found = engine->detect(tmp / "NFS2SE-CD");
+    rec.add("detect.cd", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
+    const GameFolders folders = findFolders(install, {}, "nfs2sen.exe");
+    rec.add("folders.cd", folders.cd.empty() ? "(none)" : folders.cd.lexically_relative(tmp).generic_string());
+
+    // Played from the test's folder, the install named relative to it, so
+    // the Status page, which shows the folders, draws the same everywhere.
+    struct InFolder {
+        stdfs::path was = stdfs::current_path();
+        explicit InFolder(const stdfs::path &dir) { stdfs::current_path(dir); }
+        ~InFolder() { stdfs::current_path(was); }
+    } inTmp(tmp);
+    GameTarget target{"nfs2se", "nfs", "nfs2se", "Need for Speed II SE", "Need For Speed II SE", tmp / "saves", {}};
+
+    // The viewer: each page in turn, then back to the launcher.
+    PlayingSystem sys;
+    uint64_t at = 200;
+    for (int page = 0; page < 8; ++page) {
+        sys.inputs.push_back({at += 50, keyDown(key::kDown)});
+        sys.inputs.push_back({at += 200, keyDown(key::kTab)});
+    }
+    sys.inputs.push_back({at + 200, Event{EventType::kReturnToLauncher}});
+    const Error err = viewer->create(sys, target)->run();
+    rec.add("viewer.result", err ? "error: " + err.message : std::string("ok"));
+    std::string titles;
+    for (const std::string &t : sys.titles)
+        if (titles.find(t) == std::string::npos)
+            titles += (titles.empty() ? "" : " / ") + t;
+    rec.add("viewer.titles", titles);
+    for (const auto &[title, hash] : sys.screens)
+        rec.add("viewer.screens " + title, std::to_string(sys.shown[title]) + " " + hash.hex());
+
+    // The game: its Play page, which can't start the stand-in.
+    PlayingSystem player;
+    player.inputs.push_back({200, keyDown(key::kTab)});
+    player.inputs.push_back({400, keyDown(key::kEscape)});
+    const Error gameErr = engine->create(player, target)->run();
+    rec.add("game.result", gameErr ? "error: " + gameErr.message : std::string("ok"));
+    for (const auto &[title, hash] : player.screens)
+        rec.add("game.screens " + title, std::to_string(player.shown[title]) + " " + hash.hex());
+
+    // Without the CD's copy, the game says where its tracks are.
+    stdfs::create_directories(tmp / "put away");
+    stdfs::rename(tmp / "NFS2SE-CD", tmp / "put away/NFS2SE-CD");
+    PlayingSystem noCd;
+    const Error noCdErr = engine->create(noCd, target)->run();
+    rec.add("game.without cd", noCdErr ? "error: " + noCdErr.message : std::string("ok"));
+
+    rec.check(RELUVA_SOURCE_DIR "/tests/engines/nfs/data/engine-record-nfs2se.txt", "nfs.engine",
+              "tests/engines/nfs/engine.cpp");
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("nfs.engine",
                                         {
                                             {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                            {"nfs2se", [](const std::filesystem::path &tmp) { nfs2seTest(tmp); }},
                                         });

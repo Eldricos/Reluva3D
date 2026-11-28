@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Need for Speed III's unit tests: finding the game and its CD, the folders and
-// file listings, and the game's files by kind.
+// The Need for Speed engine's unit tests of finding its games: each game and
+// its CD, the folders and file listings, and the game's files by kind.
 //
 //   reluva-tests nfs.unit.detection
 
+#include "engines/registry.h"
 #include "tests/engines/nfs/fixtures.h"
 
 using namespace reluva::nfs::testing;
@@ -146,12 +147,148 @@ void testGameFiles(const stdfs::path &tmp) {
     CHECK(files.read(missing, data));
 }
 
+void testNfs2seDetection(const stdfs::path &tmp) {
+    const stdfs::path install = tmp / "detect/Need For Speed II SE";
+    makeNfs2seInstall(install);
+    const stdfs::path cd = tmp / "detect/NFS2SE-CD";
+    makeNfs2seCd(cd);
+
+    // Not the known release's files: only the fallback table knows them.
+    CHECK(detectFromTable("nfs", detectionTable(), install).empty());
+    auto found = detectFromTable("nfs", fallbackTable(), install);
+    CHECK(found.size() == 1);
+    if (!found.empty())
+        CHECK(found[0].gameId == "nfs2se");
+
+    // The CD has both programs, so both of the game's entries match it,
+    // but the engine finds one game there.
+    CHECK(detectFromTable("nfs", fallbackTable(), cd).size() == 2);
+    const MetaEngine *engine = findEngine("nfs");
+    CHECK(engine != nullptr);
+    if (engine) {
+        found = engine->detect(cd);
+        CHECK(found.size() == 1);
+        if (!found.empty())
+            CHECK(found[0].gameId == "nfs2se");
+    }
+
+    // An install with only the program for 3dfx cards is the game too.
+    touch(tmp / "detect/3dfx/nfs2sea.exe");
+    touch(tmp / "detect/3dfx/GameData/Sim/CarData/cardata.viv");
+    CHECK(detectFromTable("nfs", fallbackTable(), tmp / "detect/3dfx").size() == 1);
+
+    // Without the cars' data it isn't.
+    touch(tmp / "detect/program-only/nfs2sen.exe");
+    CHECK(detectFromTable("nfs", fallbackTable(), tmp / "detect/program-only").empty());
+
+    const GameInfo *game = findGame("nfs2se");
+    CHECK(game != nullptr);
+    if (game) {
+        CHECK(game->game == Game::kNfs2Se);
+        CHECK(std::string(game->executable) == "nfs2sen.exe");
+    }
+}
+
+void testNfs2seFolders(const stdfs::path &tmp) {
+    const stdfs::path root = tmp / "folders";
+    const stdfs::path install = root / "Need For Speed II SE";
+    makeNfs2seInstall(install);
+    const GameInfo &game = *findGame("nfs2se");
+
+    // The tracks are on the CD: without one, the game's files aren't all
+    // there, and the error says where to put the CD's.
+    GameFolders f = findFolders(install, {}, game.executable);
+    CHECK(f.cd.empty());
+    Error err = checkFolders(game, f);
+    CHECK(err);
+    CHECK(err.message.find("cdpath") != std::string::npos);
+
+    // A copy of the CD beside the install, found by its program and music.
+    makeNfs2seCd(root / "NFS2SE-CD");
+    f = findFolders(install, {}, game.executable);
+    CHECK(f.cd == root / "NFS2SE-CD");
+    CHECK(!checkFolders(game, f));
+
+    // A CD's copy without tracks: the error names both folders.
+    const stdfs::path bare = root / "Bare-CD";
+    touch(bare / "GAMEDATA/AUDIO/PC/HIMROCK.MUS");
+    f = findFolders(install, {{"cdpath", bare.string()}}, game.executable);
+    CHECK(f.cd == bare);
+    err = checkFolders(game, f);
+    CHECK(err);
+    CHECK(err.message.find("No tracks") != std::string::npos);
+
+    // NFS III's check is its own: NFS II SE's folders aren't NFS III's.
+    CHECK(checkFolders(*findGame("nfs3"), findFolders(install, {}, game.executable)));
+}
+
+void testNfs2seListings(const stdfs::path &tmp) {
+    const stdfs::path install = tmp / "listings/install";
+    const stdfs::path cd = tmp / "listings/cd";
+    makeNfs2seInstall(install);
+    makeNfs2seCd(cd);
+    GameFolders folders;
+    folders.install = install;
+    folders.cd = cd;
+
+    // A track copied into the install as well as on the CD counts once.
+    touch(install / "GameData/Tracks/se/tr00.trk");
+    CHECK(nfs2se::tracks(folders) == (std::vector<std::string>{"tr00", "TR02"}));
+
+    // The models in the cars' data, sorted, without the other files.
+    CHECK(nfs2se::carModels(folders) == (std::vector<std::string>{"BMW5", "f355"}));
+    GameFolders noCars;
+    noCars.install = tmp / "listings/empty";
+    CHECK(nfs2se::carModels(noCars).empty());
+
+    // The software program from the install, the 3dfx one from the CD.
+    const nfs2se::Programs programs = nfs2se::programs(folders);
+    CHECK(programs.software == install / "nfs2sen.exe");
+    CHECK(programs.glide == cd / "NFS2SEA.EXE");
+    CHECK(nfs2se::programs(noCars).software.empty());
+    // What plays: the software program, or with renderer=glide the 3dfx one;
+    // the other when only it is there, nothing when neither is.
+    CHECK(nfs2se::playProgram(folders, false) == install / "nfs2sen.exe");
+    CHECK(nfs2se::playProgram(folders, true) == cd / "NFS2SEA.EXE");
+    GameFolders installOnly = folders;
+    installOnly.cd.clear();
+    CHECK(nfs2se::playProgram(installOnly, true) == install / "nfs2sen.exe");
+    CHECK(nfs2se::playProgram(noCars, false).empty());
+
+    CHECK(filesWithExtension(cd, "GameData/Audio/pc", ".mus").size() == 1);
+    CHECK(filesWithExtension(cd, "FeData/pc/movies", ".dct").size() == 1);
+
+    // The string tables: the front end's and the race messages'.
+    touch(install / "GameData/DashHud/pc/TEXTSIM.ENG");
+    // The race's palette: the loose hud.fsh's entry, not the HUD
+    // archive's empty one.
+    Bytes palette;
+    putShapeHeader(palette, 0x2a, 0, 1, 1, 0, 0, 0, 0);
+    palette.insert(palette.end(), {0x30, 0x20, 0x10, 0xff});
+    const Bytes hud = makeShapeBank({{"!pal", palette}});
+    const Bytes archive = makeViv({{"hud.fsh", ""}});
+    touch(install / "GameData/DashHud/pc/HUDDATA.VIV", std::string(archive.begin(), archive.end()));
+    touch(install / "GameData/DashHud/pc/HUD.FSH", std::string(hud.begin(), hud.end()));
+    GameFiles files;
+    files.scan(folders);
+    std::vector<std::string> tables;
+    for (const FileRef &f : files.textTables())
+        tables.push_back(f.name);
+    CHECK(tables == (std::vector<std::string>{"FeData/pc/text/TEXT.ENG", "GameData/DashHud/pc/TEXTSIM.ENG"}));
+    CHECK(nfs2se::racePalette(files) == (std::vector<uint8_t>{0x10, 0x20, 0x30, 0xff}));
+    files.scan(noCars);
+    CHECK(nfs2se::racePalette(files).empty());
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("nfs.unit.detection",
-                                        {
-                                            {"detection", [](const stdfs::path &tmp) { testDetection(tmp); }},
-                                            {"folders", [](const stdfs::path &tmp) { testFolders(tmp); }},
-                                            {"listings", [](const stdfs::path &tmp) { testListings(tmp); }},
-                                            {"game files", [](const stdfs::path &tmp) { testGameFiles(tmp); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("nfs.unit.detection", {
+                                     {"detection", [](const stdfs::path &tmp) { testDetection(tmp); }},
+                                     {"folders", [](const stdfs::path &tmp) { testFolders(tmp); }},
+                                     {"listings", [](const stdfs::path &tmp) { testListings(tmp); }},
+                                     {"game files", [](const stdfs::path &tmp) { testGameFiles(tmp); }},
+                                     {"nfs2se detection", [](const stdfs::path &tmp) { testNfs2seDetection(tmp); }},
+                                     {"nfs2se folders", [](const stdfs::path &tmp) { testNfs2seFolders(tmp); }},
+                                     {"nfs2se listings", [](const stdfs::path &tmp) { testNfs2seListings(tmp); }},
+                                 });

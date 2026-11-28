@@ -13,15 +13,21 @@
 #include "emulation/x86/pokes.h"
 #include "engines/nfs/formats/bnk.h"
 #include "engines/nfs/formats/col.h"
-#include "engines/nfs/formats/fce.h"
+#include "engines/nfs/nfs2se/formats/col.h"
+#include "engines/nfs/nfs2se/formats/dct.h"
+#include "engines/nfs/nfs2se/formats/can.h"
+#include "engines/nfs/nfs2se/formats/geo.h"
+#include "engines/nfs/nfs2se/formats/hrz.h"
+#include "engines/nfs/nfs2se/formats/trk.h"
+#include "engines/nfs/nfs3/formats/fce.h"
 #include "engines/nfs/formats/ffn.h"
-#include "engines/nfs/formats/frd.h"
+#include "engines/nfs/nfs3/formats/frd.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/formats/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/host/game_host.h"
-#include "engines/nfs/formats/hrz.h"
-#include "engines/nfs/formats/mad.h"
+#include "engines/nfs/nfs3/formats/hrz.h"
+#include "engines/nfs/nfs3/formats/mad.h"
 #include "engines/nfs/formats/mus.h"
 #include "engines/nfs/formats/refpack.h"
 #include "engines/nfs/formats/text_table.h"
@@ -282,6 +288,21 @@ int cmdNfsSurvey(int argc, char **argv) {
     Count movies;
     Count frames;
     Count movieAudio;
+    // Kinds only NFS II SE has, reported when there are any.
+    Count compressed;                     // .qda: EA Huffman, unpacked
+    Count raceText;                       // textsim.*: the race's messages
+    Count nfs2Tracks;                     // .trk
+    Count nfs2Collisions;                 // NFS II's .col (10-byte textures)
+    Count nfs2Skies;                      // NFS II's .hrz
+    Count nfs2Lights;                     // .lgt
+    Count nfs2Scripts;                    // .can
+    Count nfs2Models;                     // .geo
+    Count nfs2Movies;                     // .dct
+    Count nfs2Frames;                     // their frames (MDEC)
+    Count nfs2MovieAudio;                 // their sound
+    Count lentPalette;                    // 4- and 8-bit pictures with no palette, which the game lends one
+    int empty = 0;                        // empty picture banks (NFS II SE's huddata.viv has three)
+    int placeholders = 0;                 // the installer's stand-ins for files the game writes (NFS II SE's temp.mus)
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char &c : s)
@@ -302,6 +323,76 @@ int cmdNfsSurvey(int argc, char **argv) {
     auto check = [&](const std::string &name, std::vector<uint8_t> data, const std::string &what) {
         const std::string ext = lower(stdfs::path(name).extension().string());
         const std::string stem = lower(stdfs::path(name).stem().string());
+        if (data.empty() && (ext == ".fsh" || ext == ".qfs")) {
+            ++empty;
+            if (verbose)
+                std::printf("empty %s\n", what.c_str());
+            return;
+        }
+        // "THIS IS A DUMMY FILE. ... USED FOR FILES CREATED BY THE GAME AT RUN TIME."
+        static constexpr char kPlaceholder[] = "THIS IS A DUMMY FILE.";
+        // NFS II SE's TmpTrk holds the installer's stand-ins for the track
+        // and music the game copies there to play. Its folder by either
+        // separator: Windows' paths have backslashes.
+        std::string path = lower(what);
+        std::replace(path.begin(), path.end(), '\\', '/');
+        if ((data.size() >= sizeof kPlaceholder - 1 &&
+             std::memcmp(data.data(), kPlaceholder, sizeof kPlaceholder - 1) == 0) ||
+            path.find("tmptrk/") != std::string::npos) {
+            ++placeholders;
+            if (verbose)
+                std::printf("placeholder %s\n", what.c_str());
+            return;
+        }
+        if (ext == ".trk") {
+            reluva::nfs::nfs2se::Track track;
+            const Error e = reluva::nfs::nfs2se::parseTrack(data, track);
+            report(nfs2Tracks, what, e);
+            if (!e)
+                for (const auto &b : track.blocks) {
+                    nfs2Tracks.add(&b.vertices[0], b.vertices.size() * sizeof b.vertices[0]);
+                    nfs2Tracks.add(int32_t(b.levels[2].first.size()));
+                }
+            return;
+        }
+        if (ext == ".dct") {
+            reluva::nfs::nfs2se::DctMovie movie;
+            const Error err = movie.open(std::move(data));
+            report(nfs2Movies, what, err);
+            reluva::mdec::Decoder decoder;
+            for (size_t i = 0; !err && i < movie.frames().size(); ++i) {
+                const Error e = movie.decodeFrame(decoder, i);
+                report(nfs2Frames, what + ":" + std::to_string(i), e);
+                if (!e && hashes)
+                    for (int plane = 0; plane < 3; ++plane)
+                        nfs2Frames.add(decoder.plane(plane));
+            }
+            if (!err && movie.hasAudio()) {
+                reluva::audio::Sound sound;
+                const Error e = movie.decodeAudio(sound);
+                report(nfs2MovieAudio, what, e);
+                if (!e)
+                    nfs2MovieAudio.add(sound.samples);
+            }
+            return;
+        }
+        if (ext == ".geo") {
+            reluva::nfs::nfs2se::CarModel model;
+            const Error e = reluva::nfs::nfs2se::parseCarModel(data, model);
+            report(nfs2Models, what, e);
+            if (!e)
+                for (const auto &part : model.parts)
+                    for (const auto &v : part.vertices)
+                        nfs2Models.add(&v, sizeof v);
+            return;
+        }
+        if (ext == ".qda") {
+            const Error err = reluva::nfs::unpackIfRefPack(data);
+            report(compressed, what, err);
+            if (!err)
+                compressed.add(data);
+            return;
+        }
         if (ext == ".fsh" || ext == ".qfs") {
             if (reluva::nfs::isOtherEaCompression(data)) {
                 unsupported.push_back(what);
@@ -311,6 +402,12 @@ int cmdNfsSurvey(int argc, char **argv) {
             const Error err = reluva::nfs::parseShapeBank(std::move(data), bank);
             report(banks, what, err);
             for (const auto &shape : bank.shapes) {
+                if ((shape.type == reluva::nfs::kShape8Bit || shape.type == reluva::nfs::kShape4Bit) &&
+                    shape.palette.empty()) {
+                    report(lentPalette, what + ":" + shape.name, Error::success());
+                    lentPalette.add(shape.pixels);
+                    continue;
+                }
                 reluva::image::Image img;
                 const Error e = reluva::nfs::decodeShape(shape, img);
                 report(pictures, what + ":" + shape.name, e);
@@ -324,15 +421,15 @@ int cmdNfsSurvey(int argc, char **argv) {
             report(fonts, what, reluva::nfs::parseFont(data, font));
             fonts.add(data);
         } else if (ext == ".fce") {
-            reluva::nfs::Model model;
-            const Error e = reluva::nfs::parseModel(data, model);
+            reluva::nfs::nfs3::Model model;
+            const Error e = reluva::nfs::nfs3::parseModel(data, model);
             report(models, what, e);
             if (!e)
                 for (const auto &v : model.vertices)
                     models.add(&v, sizeof v);
         } else if (ext == ".frd") {
-            reluva::nfs::Track track;
-            const Error e = reluva::nfs::parseTrack(data, track);
+            reluva::nfs::nfs3::Track track;
+            const Error e = reluva::nfs::nfs3::parseTrack(data, track);
             report(tracks, what, e);
             if (!e)
                 for (const auto &b : track.blocks) {
@@ -340,6 +437,13 @@ int cmdNfsSurvey(int argc, char **argv) {
                     tracks.add(b.colours);
                     tracks.add(int32_t(b.polygons.size()));
                 }
+        } else if (ext == ".col" && reluva::nfs::nfs2se::isNfs2Collision(data)) {
+            reluva::nfs::nfs2se::Collision collision;
+            const Error e = reluva::nfs::nfs2se::parseCollision(data, collision);
+            report(nfs2Collisions, what, e);
+            if (!e)
+                for (const auto &r : collision.road)
+                    nfs2Collisions.add(&r.position, sizeof r.position);
         } else if (ext == ".col") {
             reluva::nfs::TrackCollision collision;
             const Error e = reluva::nfs::parseCollision(data, collision);
@@ -387,10 +491,10 @@ int cmdNfsSurvey(int argc, char **argv) {
             report(maps, what, err);
         } else if (ext == ".mad") {
             // Every frame decoded, and the audio.
-            reluva::nfs::MadMovie movie;
+            reluva::nfs::nfs3::MadMovie movie;
             const Error err = movie.open(std::move(data));
             report(movies, what, err);
-            reluva::nfs::MadDecoder decoder;
+            reluva::nfs::nfs3::MadDecoder decoder;
             for (size_t i = 0; !err && i < movie.frames().size(); ++i) {
                 const Error e = movie.decodeFrame(decoder, i);
                 report(frames, what + ":" + std::to_string(i), e);
@@ -408,15 +512,42 @@ int cmdNfsSurvey(int argc, char **argv) {
                     movieAudio.add(sound.samples);
             }
         } else if (ext == ".hrz") {
-            reluva::nfs::Horizon horizon;
-            report(horizons, what, reluva::nfs::parseHorizon(std::string(data.begin(), data.end()), horizon));
-        } else if (stem == "text") {
+            // NFS III's, else NFS II SE's, which have other values.
+            const std::string text(data.begin(), data.end());
+            reluva::nfs::nfs3::Horizon horizon;
+            reluva::nfs::nfs2se::Sky sky;
+            if (reluva::nfs::nfs3::parseHorizon(text, horizon) && !reluva::nfs::nfs2se::parseSky(text, sky)) {
+                report(nfs2Skies, what, Error::success());
+                nfs2Skies.add(int32_t(sky.kind)), nfs2Skies.add(int32_t(sky.radius));
+            } else {
+                report(horizons, what, reluva::nfs::nfs3::parseHorizon(text, horizon));
+            }
+        } else if (ext == ".can") {
+            reluva::nfs::nfs2se::AnimationScript script;
+            const Error e = reluva::nfs::nfs2se::parseAnimationScript(data, script);
+            report(nfs2Scripts, what, e);
+            if (!e)
+                for (const auto &k : script.keys)
+                    nfs2Scripts.add(&k, sizeof k);
+        } else if (ext == ".lgt") {
+            reluva::nfs::nfs2se::Lights lights;
+            const Error e = reluva::nfs::nfs2se::parseLights(std::string(data.begin(), data.end()), lights);
+            report(nfs2Lights, what, e);
+            if (!e)
+                nfs2Lights.add(lights.palette.data(), sizeof lights.palette);
+        } else if (stem == "text" || stem == "textsim") {
+            Count &count = stem == "text" ? tables : raceText;
             reluva::nfs::TextTable table;
             const Error e = reluva::nfs::parseTextTable(data, table);
-            report(tables, what, e);
+            report(count, what, e);
             if (!e)
                 for (const auto &t : table.strings)
-                    tables.add(t.c_str(), t.size() + 1);
+                    count.add(t.c_str(), t.size() + 1);
+            for (const auto &p : table.places) {
+                count.add(int32_t(p.fontSize)), count.add(int32_t(p.x)), count.add(int32_t(p.y));
+                const uint8_t look[] = {p.colour, p.pickedColour, p.style};
+                count.add(look, sizeof look);
+            }
         }
     };
 
@@ -444,7 +575,9 @@ int cmdNfsSurvey(int argc, char **argv) {
                     }
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
                        ext == ".col" || ext == ".hrz" || ext == ".bnk" || ext == ".mus" || ext == ".map" ||
-                       ext == ".lin" || ext == ".mad" || lower(path.stem().string()) == "text") {
+                       ext == ".lin" || ext == ".mad" || ext == ".qda" || ext == ".trk" || ext == ".lgt" ||
+                       ext == ".can" || ext == ".geo" || ext == ".dct" || lower(path.stem().string()) == "text" ||
+                       lower(path.stem().string()) == "textsim") {
                 std::vector<uint8_t> data;
                 if (!readFile(path, data)) {
                     report(banks, path.string(), Error::fail("can't read it"));
@@ -470,7 +603,28 @@ int cmdNfsSurvey(int argc, char **argv) {
             std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
-    // Known and documented (docs/engines/nfs/games/nfs3/formats/refpack.md), so not failures.
+    // NFS II SE's kinds, only when there are any, so that NFS III's report
+    // stays as its game-files test records it.
+    const std::pair<const Count *, const char *> extra[] = {
+        {&compressed, ".qda files"},  {&lentPalette, "lent a palette"}, {&raceText, "textsim tables"},
+        {&nfs2Tracks, ".trk tracks"}, {&nfs2Collisions, "NFS II .col"}, {&nfs2Skies, "NFS II .hrz"},
+        {&nfs2Lights, ".lgt lights"}, {&nfs2Scripts, ".can scripts"},   {&nfs2Models, ".geo models"},
+        {&nfs2Movies, ".dct movies"}, {&nfs2Frames, ".dct frames"},     {&nfs2MovieAudio, ".dct audio"}};
+    for (const auto &[count, name] : extra) {
+        if (count->ok + count->failed == 0)
+            continue;
+        if (hashes)
+            std::printf("%-16s %6d read, %d failed, checksum %016llx\n", name, count->ok, count->failed,
+                        (unsigned long long)count->hash);
+        else
+            std::printf("%-16s %6d read, %d failed\n", name, count->ok, count->failed);
+        failed += count->failed;
+    }
+    if (empty)
+        std::printf("%d empty picture banks, left out\n", empty);
+    if (placeholders)
+        std::printf("%d placeholders for files the game writes, left out\n", placeholders);
+    // Known and documented (docs/engines/nfs/formats/refpack.md), so not failures.
     if (!unsupported.empty()) {
         std::printf("%zu files in a compression scheme not read yet:\n", unsupported.size());
         for (const auto &u : unsupported)
@@ -487,8 +641,8 @@ int cmdFceInfo(int argc, char **argv) {
     std::vector<uint8_t> data;
     if (Error err = load(argv[2], argc > 3 ? argv[3] : nullptr, data))
         return fail(err);
-    reluva::nfs::Model model;
-    if (Error err = reluva::nfs::parseModel(data, model))
+    reluva::nfs::nfs3::Model model;
+    if (Error err = reluva::nfs::nfs3::parseModel(data, model))
         return fail(err);
     std::printf("%zu vertices, %zu triangles, half size %.3f %.3f %.3f\n", model.vertices.size(),
                 model.triangles.size(), model.halfSize[0], model.halfSize[1], model.halfSize[2]);
@@ -536,8 +690,8 @@ int cmdFceObj(int argc, char **argv) {
     std::vector<uint8_t> data;
     if (Error err = load(argv[2], inViv ? argv[3] : nullptr, data))
         return fail(err);
-    reluva::nfs::Model model;
-    if (Error err = reluva::nfs::parseModel(data, model))
+    reluva::nfs::nfs3::Model model;
+    if (Error err = reluva::nfs::nfs3::parseModel(data, model))
         return fail(err);
     std::ofstream out(argv[inViv ? 4 : 3]);
     out << "# " << argv[2] << (inViv ? std::string(" ") + argv[3] : "") << "\n";
@@ -569,6 +723,105 @@ int cmdFceObj(int argc, char **argv) {
     return 0;
 }
 
+// NFS II SE's track as a Wavefront OBJ: every block's ground at a level,
+// then the blocks' placed meshes, points as the file has them (x, height, y).
+int cmdTrkObj(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool nfs trk-obj <file.trk> <out.obj> [level 0-2]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], nullptr, data))
+        return fail(err);
+    reluva::nfs::nfs2se::Track track;
+    if (Error err = reluva::nfs::nfs2se::parseTrack(data, track))
+        return fail(err);
+    const int level = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 2;
+    std::ofstream out(argv[3]);
+    out << "# " << argv[2] << ", level " << level << "\n";
+    size_t base = 1;
+    auto quad = [&](const reluva::nfs::nfs2se::Quad &q) {
+        out << "f";
+        for (int k = 0; k < 4; ++k)
+            out << ' ' << base + q.vertices[size_t(k)];
+        out << "\n";
+    };
+    for (size_t b = 0; b < track.blocks.size(); ++b) {
+        const auto &block = track.blocks[b];
+        out << "g block" << b << "\n";
+        for (const auto &v : block.vertices)
+            out << "v " << v[0] << ' ' << v[1] << ' ' << v[2] << "\n";
+        for (const auto &q : block.levels[size_t(level)].first)
+            quad(q);
+        for (const auto &q : block.levels[size_t(level)].second)
+            quad(q);
+        base += block.vertices.size();
+        for (const auto &placed : block.placements) {
+            if (placed.type == 3)
+                continue; // animated: placed by its keys
+            const auto &mesh = block.meshes[placed.mesh];
+            out << "g block" << b << "_object\n";
+            for (const auto &v : mesh.vertices)
+                out << "v " << v[0] + placed.position[0] << ' ' << v[1] + placed.position[1] << ' '
+                    << v[2] + placed.position[2] << "\n";
+            for (const auto &q : mesh.quads)
+                quad(q);
+            base += mesh.vertices.size();
+        }
+    }
+    if (!out) {
+        std::fprintf(stderr, "can't write %s\n", argv[3]);
+        return 1;
+    }
+    return 0;
+}
+
+// NFS II SE's car model as a Wavefront OBJ, a group per part that has any:
+// every part, or a level's (high 0-19, medium 20-22, low 23-25).
+int cmdGeoObj(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool nfs geo-obj <file.geo | file.viv name> <out.obj> [-level 0-2]\n");
+        return 2;
+    }
+    int level = -1; // all
+    if (argc > 5 && std::strcmp(argv[argc - 2], "-level") == 0) {
+        level = std::clamp(std::atoi(argv[argc - 1]), 0, 2);
+        argc -= 2;
+    }
+    const bool inViv = argc > 4;
+    std::vector<uint8_t> data;
+    if (Error err = load(argv[2], inViv ? argv[3] : nullptr, data))
+        return fail(err);
+    reluva::nfs::nfs2se::CarModel model;
+    if (Error err = reluva::nfs::nfs2se::parseCarModel(data, model))
+        return fail(err);
+    std::ofstream out(argv[inViv ? 4 : 3]);
+    out << "# " << argv[2] << (inViv ? std::string(" ") + argv[3] : "") << "\n";
+    size_t base = 1;
+    for (size_t i = 0; i < model.parts.size(); ++i) {
+        const auto &part = model.parts[i];
+        constexpr size_t kLevelStart[] = {0, 20, 23, 26};
+        if (part.vertices.empty() || (level >= 0 && (i < kLevelStart[2 - level] || i >= kLevelStart[3 - level])))
+            continue;
+        out << "g part" << i << "\n";
+        for (const auto &v : part.vertices)
+            out << "v " << v[0] + part.position[0] << ' ' << v[1] + part.position[1] << ' ' << v[2] + part.position[2]
+                << "\n";
+        for (const auto &p : part.polygons) {
+            out << "f";
+            for (uint8_t v : p.vertices)
+                out << ' ' << base + v;
+            out << "\n";
+        }
+        base += part.vertices.size();
+    }
+    if (!out) {
+        std::fprintf(stderr, "can't write %s\n", argv[inViv ? 4 : 3]);
+        return 1;
+    }
+    return 0;
+}
+
 int cmdFrdCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool nfs frd-check <file.frd>...\n");
@@ -577,8 +830,8 @@ int cmdFrdCheck(int argc, char **argv) {
     int failed = 0;
     for (int i = 2; i < argc; ++i) {
         std::vector<uint8_t> data;
-        reluva::nfs::Track track;
-        Error err = readFile(argv[i], data) ? reluva::nfs::parseTrack(data, track) : Error::fail("can't read it");
+        reluva::nfs::nfs3::Track track;
+        Error err = readFile(argv[i], data) ? reluva::nfs::nfs3::parseTrack(data, track) : Error::fail("can't read it");
         if (err) {
             std::printf("%s: FAILED: %s\n", argv[i], err.message.c_str());
             ++failed;
@@ -627,8 +880,8 @@ int cmdFrdObj(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::Track track;
-    if (Error err = reluva::nfs::parseTrack(data, track))
+    reluva::nfs::nfs3::Track track;
+    if (Error err = reluva::nfs::nfs3::parseTrack(data, track))
         return fail(err);
     const int detail = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 2;
     std::ofstream out(argv[3]);
@@ -639,8 +892,9 @@ int cmdFrdObj(int argc, char **argv) {
     // k with the texture's u, v k; written last to first, since with z
     // mirrored the game's front faces turn the other way (as the Tracks
     // page winds them), so OBJ's counter-clockwise front is the game's.
-    auto emit = [&](const std::vector<reluva::nfs::Track::Vec3> &verts, const reluva::nfs::Track::Vec3 &offset,
-                    const std::vector<reluva::nfs::Track::Polygon> &polys, const char *group, bool placed) {
+    auto emit = [&](const std::vector<reluva::nfs::nfs3::Track::Vec3> &verts,
+                    const reluva::nfs::nfs3::Track::Vec3 &offset,
+                    const std::vector<reluva::nfs::nfs3::Track::Polygon> &polys, const char *group, bool placed) {
         out << "g " << group << "\n";
         for (const auto &v : verts)
             out << "v " << v[0] + offset[0] << ' ' << v[1] + offset[1] << ' ' << -(v[2] + offset[2]) << "\n";
@@ -650,7 +904,7 @@ int cmdFrdObj(int argc, char **argv) {
                 out << "vt " << t.corners[2 * k] << ' ' << 1 - t.corners[2 * k + 1] << "\n";
             out << "f";
             for (int k = 3; k >= 0; --k)
-                out << ' ' << base + p.vertices[size_t(reluva::nfs::polygonSlot(k, placed))] << '/' << uv + k;
+                out << ' ' << base + p.vertices[size_t(reluva::nfs::nfs3::polygonSlot(k, placed))] << '/' << uv + k;
             out << "\n";
             uv += 4;
         }
@@ -658,7 +912,7 @@ int cmdFrdObj(int argc, char **argv) {
     };
     for (size_t i = 0; i < track.blocks.size(); ++i) {
         const auto &b = track.blocks[i];
-        std::vector<reluva::nfs::Track::Polygon> polys = b.polygons[2 * detail];
+        std::vector<reluva::nfs::nfs3::Track::Polygon> polys = b.polygons[2 * detail];
         for (const auto &layer : b.objectLayers)
             for (const auto &o : layer)
                 polys.insert(polys.end(), o.polygons.begin(), o.polygons.end());
@@ -877,7 +1131,7 @@ int cmdMadInfo(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::MadMovie movie;
+    reluva::nfs::nfs3::MadMovie movie;
     if (Error err = movie.open(std::move(data)))
         return fail(err);
     std::map<char, int> kinds;
@@ -893,7 +1147,7 @@ int cmdMadInfo(int argc, char **argv) {
                     h.rate, h.samples, double(h.samples) / h.rate);
     }
     // Every frame decodes?
-    reluva::nfs::MadDecoder decoder;
+    reluva::nfs::nfs3::MadDecoder decoder;
     for (size_t i = 0; i < movie.frames().size(); ++i)
         if (Error err = movie.decodeFrame(decoder, i)) {
             std::fprintf(stderr, "frame %zu: %s\n", i, err.message.c_str());
@@ -931,15 +1185,15 @@ int cmdMadFrames(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::MadMovie movie;
+    reluva::nfs::nfs3::MadMovie movie;
     if (Error err = movie.open(std::move(data)))
         return fail(err);
     const size_t first = argc > 4 ? size_t(std::atoi(argv[4])) : 0;
     const size_t count = argc > 5 ? size_t(std::atoi(argv[5])) : movie.frames().size();
     // Frames refer to those before, so decoding starts at the beginning.
-    reluva::nfs::MadDecoder decoder;
+    reluva::nfs::nfs3::MadDecoder decoder;
     if (game)
-        decoder.setArithmetic(reluva::nfs::MadDecoder::Arithmetic::kGame);
+        decoder.setArithmetic(reluva::nfs::nfs3::MadDecoder::Arithmetic::kGame);
     int written = 0;
     for (size_t i = 0; i < movie.frames().size() && i < first + count; ++i) {
         if (Error err = movie.decodeFrame(decoder, i))
@@ -948,7 +1202,7 @@ int cmdMadFrames(int argc, char **argv) {
             continue;
         reluva::Surface s;
         if (display)
-            decoder.toGameSurface(s, static_cast<reluva::nfs::MadDecoder::Display>(display));
+            decoder.toGameSurface(s, static_cast<reluva::nfs::nfs3::MadDecoder::Display>(display));
         else
             decoder.toSurface(s);
         reluva::image::Image img;
@@ -967,6 +1221,48 @@ int cmdMadFrames(int argc, char **argv) {
     return 0;
 }
 
+// NFS II SE's movie frames as TGA files: a range, and every nth of it.
+int cmdDctFrames(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool nfs dct-frames <file.dct> <output dir> [first] [count] [every]\n");
+        return 2;
+    }
+    std::vector<uint8_t> data;
+    if (!readFile(argv[2], data)) {
+        std::fprintf(stderr, "Can't read %s\n", argv[2]);
+        return 1;
+    }
+    reluva::nfs::nfs2se::DctMovie movie;
+    if (Error err = movie.open(std::move(data)))
+        return fail(err);
+    const size_t first = argc > 4 ? size_t(std::atoi(argv[4])) : 0;
+    const size_t count = argc > 5 ? size_t(std::atoi(argv[5])) : movie.frames().size();
+    const size_t every = argc > 6 ? std::max<size_t>(1, size_t(std::atoi(argv[6]))) : 1;
+    reluva::mdec::Decoder decoder;
+    int written = 0;
+    // Every frame stands alone: only those asked for are decoded.
+    for (size_t i = first; i < movie.frames().size() && i < first + count; i += every) {
+        if (Error err = movie.decodeFrame(decoder, i))
+            return fail(err);
+        reluva::Surface s;
+        decoder.toSurface(s);
+        reluva::image::Image img;
+        img.w = s.w;
+        img.h = s.h;
+        img.rgba = std::move(s.pixels);
+        char name[32];
+        std::snprintf(name, sizeof name, "%05zu.tga", i);
+        if (!writeFile(stdfs::path(argv[3]) / name, reluva::image::encodeTga(img))) {
+            std::fprintf(stderr, "can't write into %s\n", argv[3]);
+            return 1;
+        }
+        ++written;
+    }
+    std::printf("%d frames (%dx%d, %.2f a second) written to %s\n", written, movie.width(), movie.height(),
+                movie.framesPerSecond(), argv[3]);
+    return 0;
+}
+
 int cmdMadWav(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool nfs mad-wav <file.mad> <out.wav>\n");
@@ -977,7 +1273,7 @@ int cmdMadWav(int argc, char **argv) {
         std::fprintf(stderr, "Can't read %s\n", argv[2]);
         return 1;
     }
-    reluva::nfs::MadMovie movie;
+    reluva::nfs::nfs3::MadMovie movie;
     if (Error err = movie.open(std::move(data)))
         return fail(err);
     reluva::audio::Sound sound;
@@ -1010,6 +1306,10 @@ const reluva::tool::Commands kCommands(
         {"fce-obj", "<file.fce | file.viv name> <out.obj>", "a car model as a Wavefront OBJ", cmdFceObj},
         {"frd-check", "<file.frd>...", "read tracks' .frd files and report what they hold", cmdFrdCheck},
         {"frd-obj", "<file.frd> <out.obj> [detail 0-2]", "a track as a Wavefront OBJ, at a level of detail", cmdFrdObj},
+        {"trk-obj", "<file.trk> <out.obj> [level 0-2]", "an NFS II SE track as a Wavefront OBJ, at a level of detail",
+         cmdTrkObj},
+        {"geo-obj", "<file.geo | file.viv name> <out.obj> [-level 0-2]",
+         "an NFS II SE car model as a Wavefront OBJ, or one level of detail (2 the highest)", cmdGeoObj},
         {"bnk-info", "<file.bnk | file.viv name>", "a sound bank's sounds: format, rate, length, loop", cmdBnkInfo},
         {"bnk-wav", "<file.bnk | file.viv name> <output dir>", "a sound bank's sounds as WAV files", cmdBnkWav},
         {"mus-info", "<file.mus> [file.map | file.lin]", "a music stream's sections, with its map or linear order",
@@ -1018,6 +1318,8 @@ const reluva::tool::Commands kCommands(
         {"mad-info", "<file.mad>", "a movie's frames and sound", cmdMadInfo},
         {"mad-frames", "<file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]",
          "a movie's frames as TGA files", cmdMadFrames},
+        {"dct-frames", "<file.dct> <output dir> [first] [count] [every]", "an NFS II SE movie's frames as TGA files",
+         cmdDctFrames},
         {"mad-wav", "<file.mad> <out.wav>", "a movie's sound as a WAV file", cmdMadWav},
     });
 

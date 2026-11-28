@@ -8,12 +8,14 @@
 # docs/engines/nfs/games/nfs3/TESTING.md.
 #
 # The game's install comes from the environment variable named by GAME_ENV
-# (RELUVA_NFS3), with a copy of its CD's files beside it as NFS3-CD (as the
-# engine finds it). Without the variable the step is skipped.
+# (RELUVA_NFS3), with a copy of its CD's files in a folder beside it (as the
+# engine finds it: the one holding nfs3.exe and the music, any name, NFS3-CD
+# say). Without the variable the step is skipped.
 #
 # Each step runs reluva-tool on the game:
 #   release    what the game is (detect)
-#   survey     every file of the install and the CD by name, size and MD5,
+#   survey     the game's files in the install and on the CD (its data
+#              folders, Patch, the top's programs and DLLs) by name, size and MD5,
 #              as one checksum; and every file the engine reads, read and
 #              counted (nfs survey)
 #   formats    every archive, picture, string table, font, model, track,
@@ -36,11 +38,10 @@
 # RELUVA_GAMEDATA_RECORDS.
 
 include("${HELPERS}")
-gamedata_begin("the game's install, its CD's files beside it as NFS3-CD")
+gamedata_begin("the game's install, its CD's files in a folder beside it")
 
 # The CD's files: beside the install, as the engine looks for them.
-get_filename_component(parent "${game_dir}" DIRECTORY)
-find_folder(cd_dir "${parent}" "NFS3-CD")
+find_cd_beside(cd_dir "${game_dir}" "nfs3.exe" "GameData/Audio/pc" ".mus")
 
 # What the game is: the record's folder is named after the release.
 run_tool(detected detect "${game_dir}")
@@ -114,12 +115,24 @@ elseif(STEP STREQUAL "survey")
         list(SORT files)
         foreach(f IN LISTS files)
             file(RELATIVE_PATH rel "${root}" "${f}")
+            # The game's own files: its data folders, the CD's Voodoo3
+            # patch and the programs and DLLs at the top. Not the CD's
+            # set-up extras (redist, ad, setup, eDocs...), which a copy may
+            # leave out, nor files the game writes as it's played (replays,
+            # ghosts).
+            string(TOLOWER "${rel}" lower)
+            if(NOT (lower MATCHES "^(gamedata|fedata|patch)/" OR lower MATCHES "^[^/]+\\.(exe|dll)$"))
+                continue()
+            endif()
             file(SIZE "${f}" size)
             file(MD5 "${f}" md5)
             string(APPEND listing "${rel} ${size} ${md5}\n")
             math(EXPR count "${count} + 1")
         endforeach()
     endforeach()
+    # Left in the step's output folder, to compare with another copy's.
+    file(MAKE_DIRECTORY "${OUTPUT}/${STEP}")
+    file(WRITE "${OUTPUT}/${STEP}/files.txt" "${listing}")
     string(SHA256 sum "${listing}")
     string(SUBSTRING "${sum}" 0 16 sum)
     set(record "${record}files: ${sum} | ${count} files\n")

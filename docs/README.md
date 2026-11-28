@@ -37,8 +37,9 @@ Laid out as `src/common/` is, a page per component:
   [Smacker](common/video/smacker.md),
   [SMUSH](common/video/smush.md),
   [Cinepak](common/video/cinepak.md),
-  [AVI files](common/video/avi.md) and
-  [Intel Indeo 5](common/video/indeo5.md).
+  [AVI files](common/video/avi.md),
+  [Intel Indeo 5](common/video/indeo5.md) and
+  [MDEC frames](common/video/mdec.md).
 - **[dcl.md](common/dcl.md):** PKWARE DCL ("implode") compression.
 - **[wise.md](common/wise.md):** Wise installers, taken apart without
   running them.

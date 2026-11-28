@@ -1,6 +1,6 @@
 # Need for Speed III: `.frd` track geometry
 
-> **Status:** decoded · **Code:** `src/engines/nfs/formats/frd.cpp` · **Checked on:** all 9 tracks · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs3/formats/frd.cpp` · **Checked on:** all 9 tracks · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -351,7 +351,7 @@ slices, then puts `+0x10` back (`0x41f018`).
 The byte
 at 3 is the music zone, 4-9: the game
 sends it to the Pathfinder map as an event when the car nears a slice
-where it changes ([mus.md](mus.md), The events the game sends).
+where it changes ([mus.md](../../../formats/mus.md), The events the game sends).
 
 The Tracks page shows each light as the game's two quads facing the
 camera (`lightQuads`), in its type's colour and size and blinking as the
@@ -3222,7 +3222,7 @@ each frame from their corners as placed.
 
 ## In Reluva
 
-Read as `Track` (`src/engines/nfs/formats/frd.cpp`). All 9 retail tracks
+Read as `Track` (`src/engines/nfs/nfs3/formats/frd.cpp`). All 9 retail tracks
 read completely, with every byte accounted for (`reluva-tool nfs frd-check`),
 and draw correctly on the Tracks page.
 
@@ -3237,9 +3237,11 @@ and draw correctly on the Tracks page.
 
 October 2026, with survey scripts over the nine tracks:
 
-- **Starting point.** The overall order (track blocks, then polygons,
-  then objects, then textures) and several field names follow the NFS
-  modding community's descriptions of NFS III's FRD, as T3ED used them.
+- **Order.** The overall order (track blocks, then polygons, then
+  objects, then textures) and each field were found on the data, as
+  below; the names are Reluva's own. A community description of the
+  format was the first guide; its terms forbid commercial use, so
+  nothing here rests on it ([PLAN.md](../PLAN.md#the-formats-sources-reviewed-done)).
 - **Track blocks.** Each field was found on the data:
   - the block count is one less than the blocks: block 0's neighbour list
     names block 119 of tr00's "119";
@@ -3254,7 +3256,7 @@ October 2026, with survey scripts over the nine tracks:
   - Checks on every block of every track:
     - each list's count matches its repeat;
     - each layer's total matches its objects' polygons;
-    - list 4's count equals the block's `nPolygons`, in all 1,592 blocks.
+    - list 4's count equals the block's polygon count, in all 1,592 blocks.
 - **Placed objects.** Type 3's key count is the short at +32: 17 keys of a
   spinning object on Hometown, after which the usual vertices and
   polygons follow.

@@ -14,7 +14,7 @@
 #include "engines/nfs/folders.h"
 #include "engines/nfs/host/force_effects.h"
 #include "emulation/x86/directx/sound3d.h"
-#include "engines/nfs/host/thrash_native.h"
+#include "engines/nfs/nfs3/host/thrash_native.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -32,16 +32,38 @@
 namespace reluva::nfs {
 
 /**
- * The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs/games/nfs3/PLAN.md,
- * Phase 4): a Windows process whose C: is the install folder and D: the
- * CD, with the system's functions it calls stood in for. Its own renderer
- * (THRASH) and sound (iSND) DLLs run too, on DirectDraw and DirectSound
- * stood in for.
+ * Whether a DLL the game loads is a THRASH renderer, by its exports: THRASH's
+ * functions, stdcall-decorated as the retail renderers export them
+ * (_THRASH_init@0, docs/engines/nfs/games/nfs3/systems/thrash.md) or
+ * undecorated. The sound DLL (eacsnd.dll) and NFS II SE's dsetup.dll
+ * (DirectX's set-up) aren't.
+ */
+bool isThrashRenderer(const PeImage &image);
+
+/**
+ * A game's retail program (Options::program: NFS III's nfs3.exe, NFS II
+ * SE's nfs2sen.exe or nfs2sea.exe) run in the x86 interpreter
+ * (docs/engines/nfs/games/nfs3/PLAN.md, Phase 4): a Windows process whose
+ * C: is the install folder and D: the CD, with the system's functions it
+ * calls stood in for. NFS III's renderer (THRASH) and sound (iSND) DLLs
+ * run too, on DirectDraw and DirectSound stood in for.
  */
 class GameHost {
 public:
     /** How the game is run: what it's told, what draws, what it can reach. */
     struct Options {
+        // The program, in the install folder: NFS III's, or NFS II SE's
+        // "nfs2sen.exe". What's NFS III's own is put in only where its code
+        // is found as expected.
+        std::string program = "nfs3.exe";
+        // The program's file, if not the install's: NFS II SE's CD has the
+        // 3dfx program (NFS2SEA.EXE), which an install made without a 3dfx
+        // card leaves there. It still runs as C:\<program>.
+        std::filesystem::path programFile;
+        // The volume label of both drives (C: and the CD's D:). NFS III's CD
+        // is labelled "NFS3"; NFS II SE's is given "NFS2SE", its real label
+        // not known (its UNCONFIRMED.md), and its program doesn't need it.
+        std::string driveLabel = "NFS3";
         std::string commandLine = "nfs3.exe";
         std::string renderer = "softtria.dll"; // the THRASH DLL, as the registry names it
         // The THRASH DLL the game is told it has, if not renderer: say a 3D
@@ -75,6 +97,11 @@ public:
         // (0: real time). Runs are then the same each time, for comparing
         // builds of the interpreter.
         uint32_t instructionsPerMs = 0;
+        // With instructionsPerMs, the bytes a file read takes a millisecond
+        // to, as a disk would (0: no time). NFS II SE checks its race timer
+        // has ticked after loading the race (0x45cee0), and quits if not:
+        // with reads taking no time, now and then it hasn't.
+        uint32_t diskBytesPerMs = 0;
         // The processor's clock the time stamp counter reports, in MHz, by
         // the game's clock. The game sets its detail defaults from it on a
         // first run, and its movies' display mode (mad.md: 1 under 133, 2
@@ -172,12 +199,12 @@ public:
     GameHost(GameFolders folders, Options options);
     ~GameHost();
 
-    /** Loads nfs3.exe and binds its imports. */
+    /** Loads the program and binds its imports. */
     Error load();
     /** Runs it until it ends the process or fails. */
     Error run(uint32_t &exitCode);
 
-    /** The interpreter, the Windows process it runs, and nfs3.exe's module in it (null until load()). */
+    /** The interpreter, the Windows process it runs, and the program's module in it (null until load()). */
     ///@{
     x86::Cpu &cpu() { return *_cpu; }
     x86::Win32Process &process() { return *_process; }
@@ -260,7 +287,7 @@ public:
      * With gpuThrash, called after each page flip with what THRASH drew
      * (DirectDraw's frames, the movies', still go to onFrame).
      */
-    std::function<void(ThrashFrame &&frame)> onThrashFrame;
+    std::function<void(nfs3::ThrashFrame &&frame)> onThrashFrame;
     /** With Options::glideCompare: the native drawing of each page flip. */
     std::function<void(const Surface &frame)> onCompareFrame;
 
@@ -270,6 +297,8 @@ public:
      * for a name not known.
      */
     bool queueKey(const std::string &name, bool down, uint64_t atMs = 0);
+    /** From any thread: logs each of the game's threads' state, at its next turn (Win32Process::describeThreads). */
+    void describeThreadsSoon() { _describeThreads = true; }
     /** The mouse moved by (dx, dy), or its first button pressed or let go, as queueKey. */
     ///@{
     void queueMouseMove(int dx, int dy, uint64_t atMs = 0);
@@ -416,7 +445,9 @@ private:
     Options _options;
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
-    std::atomic<uint64_t> _idleMs{0}; // Options::instructionsPerMs: the milliseconds every thread waited
+    std::atomic<uint64_t> _idleMs{
+        0};                  // Options::instructionsPerMs: the milliseconds every thread waited, and the disk took
+    uint64_t _diskBytes = 0; // read, and not yet a whole millisecond
     const x86::Win32Process::Module *_exe = nullptr;
     int _logged = 0;
 
@@ -425,8 +456,9 @@ private:
     std::map<uint32_t, std::deque<Message>> _queues; // by thread id
     uint32_t _nextWindow = 0x10020;
     int _cursorCount = 0;
-    uint8_t _keys[256] = {};   // DirectInput's state, by scan code (0x80 down)
-    uint8_t _vkDown[256] = {}; // by virtual-key code
+    uint32_t _keyboardHook = 0; // SetWindowsHookExA's WH_KEYBOARD procedure, if any
+    uint8_t _keys[256] = {};    // DirectInput's state, by scan code (0x80 down)
+    uint8_t _vkDown[256] = {};  // by virtual-key code
     struct KeyEvent {
         uint8_t vk = 0;
         uint8_t scan = 0;
@@ -436,6 +468,7 @@ private:
     };
     std::mutex _inputMutex;
     std::atomic<bool> _inputQueued{false}; // something in the pending queues below
+    std::atomic<bool> _describeThreads{false};
     std::deque<KeyEvent> _pendingKeys;
     std::deque<KeyEvent> _bufferedKeys; // for DirectInput's GetDeviceData
     // The mouse, as DirectInput reports it: buffered moves and buttons
@@ -496,6 +529,8 @@ private:
     uint32_t _mouseEvent = 0;
     uint32_t _inputSequence = 0;
     void applyInput();
+    bool inputOverdue(uint64_t lateMs); // some input due at least this long ago
+    uint32_t _mainThread = 0;           // the first to call a native function: the program's own
 
     // Native modules for LoadLibraryA: lower-case name -> handle, and each
     // handle's exports.
@@ -512,7 +547,7 @@ private:
     std::map<std::string, const x86::Win32Process::Module *> _gameDlls;
     uint32_t _thrashBase = 0;
     uint32_t wrapThrash(const std::string &name, uint32_t address);
-    std::unique_ptr<NativeThrash> _native;
+    std::unique_ptr<nfs3::NativeThrash> _native;
     uint32_t _thrashWindow = 2; // THRASH_window's choice: 1 the front buffer, 2 the back
     // Each window's buffer, as THRASH_lockwindow reports it: address, pitch,
     // width, height (the renderer draws there; a page flip shows it).
@@ -551,6 +586,12 @@ private:
     int _modeBits = 16;
     uint32_t newSurface(int width, int height, int bits, uint32_t caps);
     void present(const DdSurface &s);
+    // A flipping pair's front surface written through a lock (Unlock), shown
+    // once the writing stops, by the game's clock: its object, and when.
+    uint32_t _pendingFront = 0;
+    uint64_t _pendingFrontMs = 0;    // when it was last written
+    uint64_t _pendingFrontSince = 0; // when it was first written since it was last shown
+    void presentPendingFront();
     Surface _frame;
 
     // DirectSound's buffers: played in time, not heard yet.

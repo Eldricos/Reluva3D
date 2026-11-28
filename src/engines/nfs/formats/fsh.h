@@ -14,16 +14,18 @@ namespace reluva::nfs {
 
 /**
  * Shape record types: the first byte of each block
- * (docs/engines/nfs/games/nfs3/formats/fsh.md).
+ * (docs/engines/nfs/formats/fsh.md).
  */
 enum ShapeType : uint8_t {
+    kShape4Bit = 0x7a,      // palette indices, two to a byte (NFS II SE)
     kShape8Bit = 0x7b,      // palette indices
     kShape16Bit565 = 0x78,  // 5:6:5
     kShape16Bit1555 = 0x7e, // alpha bit, 5:5:5
     kShape24Bit = 0x7f,     // B, G, R
     kShape32Bit = 0x7d,     // B, G, R, A
-    kPalette24Bit = 0x24,
+    kPalette24Bit = 0x24,   // R, G, B (NFS II SE)
     kPalette16Bit1555 = 0x2d,
+    kPalette16Bit565 = 0x29, // NFS II SE
     kPalette32Bit = 0x2a,
     kShapeText = 0x6f,
     kGauges = 0x7c, // a cockpit's gauges (Cockpit)
@@ -42,7 +44,8 @@ struct Shape {
     int x = 0;
     int y = 0;
     std::vector<uint8_t> pixels;    // as stored: width * height pixels, rows top to bottom
-    std::vector<uint8_t> palette;   // for 8-bit shapes: RGBA per colour
+    std::vector<uint8_t> palette;   // for 4- and 8-bit shapes, and a palette entry: RGBA per colour
+    bool bankPalette = false;       // `palette` is the bank's palette entry's, not its own
     std::vector<std::string> texts; // attached text (render hints such as "<additive>")
     /** An attached block Reluva doesn't read into fields. */
     struct Block {
@@ -52,18 +55,27 @@ struct Shape {
     std::vector<Block> unknown; // attached blocks not understood yet
 };
 
-/** An .fsh file ("SHPI"): a directory of named shapes. */
+/**
+ * An .fsh file ("SHPI"): a directory of named shapes. An entry may be a
+ * palette alone (NFS II SE's "!pal" or "0000"): its type is the palette's,
+ * its width the number of colours, and it has no pixels.
+ */
 struct ShapeBank {
     std::string id; // the directory's id, "GIMX" in NFS III
     std::vector<Shape> shapes;
 };
 
-/** Reads an .fsh file, or a .qfs (RefPack- or EA Huffman-compressed .fsh). */
+/**
+ * Reads an .fsh file, or a .qfs (RefPack- or EA Huffman-compressed .fsh).
+ * A 4- or 8-bit picture without a palette of its own takes the bank's
+ * palette entry's, if it has one (bankPalette).
+ */
 Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out);
 
 /**
- * A shape as RGBA. 8-bit shapes without a palette fail; pixels whose index
- * is past the palette's end are clear.
+ * A shape as RGBA; a palette entry as a row of its colours. 4- and 8-bit
+ * shapes without a palette fail; pixels whose index is past the palette's
+ * end are clear.
  */
 Error decodeShape(const Shape &shape, image::Image &out);
 /**
@@ -138,6 +150,9 @@ float metresPerSecond(const Gauge &speedometer, float reading);
  * first to sixth.
  */
 constexpr const char *kGearPictures[] = {"geaR", "geaN", "gea1", "gea2", "gea3", "gea4", "gea5", "gea6"};
+
+/** Whether a shape type is a palette's (a block, or NFS II SE's palette entries). */
+bool isPaletteType(uint8_t type);
 
 /** "8-bit", "16-bit 1:5:5:5"... for messages and viewers; "unknown" for others. */
 const char *shapeTypeName(uint8_t type);

@@ -112,11 +112,11 @@ What was planned:
 What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Readers** for each format, checked against every retail file:
-  - [viv.md](formats/viv.md): archives, as an `Archive`;
-  - [refpack.md](formats/refpack.md): `.qfs` compression;
-  - [fsh.md](formats/fsh.md): pictures;
-  - [text.md](formats/text.md): the front end's string tables;
-  - [ffn.md](formats/ffn.md): fonts, drawn into RGBA surfaces.
+  - [viv.md](../../formats/viv.md): archives, as an `Archive`;
+  - [refpack.md](../../formats/refpack.md): `.qfs` compression;
+  - [fsh.md](../../formats/fsh.md): pictures;
+  - [text.md](../../formats/text.md): the front end's string tables;
+  - [ffn.md](../../formats/ffn.md): fonts, drawn into RGBA surfaces.
 - **`game_files.cpp`** indexes the install, then the CD's files the
   install lacks, and the contents of every `.viv`.
 - **Viewer pages** (`viewers.cpp`): Info, Textures, Strings (in the
@@ -134,7 +134,7 @@ banks (15,990 pictures), 16 text tables and 16 fonts, with no failures.
 The Summit's two 8-bit texture sets (`trk007/tr07?_8.qfs`), compressed
 with another EA scheme (`32 FB`, Huffman), were the exception until
 October 2026; they're read now, checked against the game's own routine
-(see [refpack.md](formats/refpack.md)).
+(see [refpack.md](../../formats/refpack.md)).
 
 What was planned:
 
@@ -327,7 +327,7 @@ What was built, with each format written up in [formats/](formats/) and [systems
 - **The Cockpits page** shows each car's `dash.qfs`: the dash, the
   steering wheel, the F355's gear indicator, and the speedometer and
   tachometer needles where the picture's `0x7C` block puts them
-  ([fsh.md](formats/fsh.md), Gauges), all drawn as the game
+  ([fsh.md](../../formats/fsh.md), Gauges), all drawn as the game
   draws them: the needles' angles, the wheel turning with the steering
   and the speed. They sweep or are set with the keys. A frame from the
   game in `reluva-tool nfs host` agrees with the page.
@@ -369,12 +369,12 @@ What was planned:
 What was built, with each format written up in [formats/](formats/) and [systems/](systems/):
 
 - **Decoders**, each checked on every retail file (`reluva-tool nfs survey`):
-  - [bnk.md](formats/bnk.md): sound banks. Their codecs are in
+  - [bnk.md](../../formats/bnk.md): sound banks. Their codecs are in
     `audio/ea_audio.cpp`:
     - EA-XA ADPCM;
     - EA's MicroTalk speech codec, bit-exact with a public-domain
       reference decoder on all 1,869 English speech sounds;
-  - [mus.md](formats/mus.md): the music streams, and the
+  - [mus.md](../../formats/mus.md): the music streams, and the
     Pathfinder maps that lead from segment to segment by an intensity;
   - [mad.md](formats/mad.md): the Madcow movies and their sound.
     All frames match FFmpeg's decode, apart from 21 high-quantiser frames
@@ -404,16 +404,16 @@ audio was checked as WAV files: spectrograms, and the comparisons above.
 Compared with footage of the original game (18 YouTube races, November
 2026): the decoded music segments are found in the clips, in the order
 the maps and the game's rules give (which stream each track plays, the
-zones, place, last lap, speed and pursuit: [mus.md](formats/mus.md),
+zones, place, last lap, speed and pursuit: [mus.md](../../formats/mus.md),
 Seen in footage). The sirens, the dispatcher's speech (whose bank is
 the track modulo 4) and the engine's pitch against the tach are in
-[bnk.md](formats/bnk.md), Seen in footage; the wall hits,
+[bnk.md](../../formats/bnk.md), Seen in footage; the wall hits,
 skids and moving objects' sounds couldn't be picked out.
 
 Not done yet:
 
 - (since done: the maps' events, parts and control value, as the game
-  uses them, [mus.md](formats/mus.md));
+  uses them, [mus.md](../../formats/mus.md));
 - the meanings of a few of the sound patches' parameters (bnk.md names
   the rest, and how an engine's pitch follows its revs).
 
@@ -593,7 +593,7 @@ Started. Done so far:
   instructions, so the clock of instructions moves: the recording
   parts from that of `-mmx` without `-voices` at the first sound (7.7
   s), the voices starting a little apart, as the MMX and float runs do
-  ([bnk.md](formats/bnk.md)); its level is 0.02 dB lower.
+  ([bnk.md](../../formats/bnk.md)); its level is 0.02 dB lower.
 
   Placement, surround and slow frames were checked on 200-second runs
   into a race (`reluva-tool nfs host -native -wav`):
@@ -707,7 +707,7 @@ Started. Done so far:
         swap that keeps the two nearest on their slots
         (`0x411047`-`0x411094`) starts from 0, 0 and then -1. The rows,
         their fades and the special sounds (-2, -3 on slot 19) are in
-        [bnk.md](formats/bnk.md) (The moving objects' sounds).
+        [bnk.md](../../formats/bnk.md) (The moving objects' sounds).
         Slots 18 and 19 are the `.frd` placed sounds (`0x41d210`).
         Both kinds of special play in runs where the computer drives
         the player's car (`sn-m1`, `sn-a1`; bnk.md). `-watchread ADDR`
@@ -731,7 +731,7 @@ Started. Done so far:
         +0x710 bit 0x10), the traffic (slots 0-3, 0x411cb0, +0x200 bit
         4) and the one-shots on slot 0x1f (wall hits, 0x416d90).
         The sirens are heard in footage of the original
-        ([bnk.md](formats/bnk.md), Seen in footage).
+        ([bnk.md](../../formats/bnk.md), Seen in footage).
       So the rear channel carries mostly the other cars' engines, as
       they fall behind; the player's own car is almost always in front.
     - Before `-wav` followed the game's clock, the recordings couldn't
@@ -1255,7 +1255,7 @@ Started. Done so far:
 - **MMX** (`reluva-tool nfs host -mmx`, November 2026). CPUID then reports MMX
   (`Cpu::reportMmx`; off by default, as on the Play page), and the
   game takes its MMX paths: the integer sound mixer, the MMX EA-XA
-  decoders and an 8-byte copy ([bnk.md](formats/bnk.md), Run on
+  decoders and an 8-byte copy ([bnk.md](../../formats/bnk.md), Run on
   the interpreter, lists them). The float mixers, which run natively,
   are then not used. On the race above (5 billion instructions,
   `-deterministic 50000`) the game ran without a fault and the same each
@@ -1500,9 +1500,13 @@ Started. Done so far:
 
 Still to do:
 
-- **Played by hand** on a real GPU with speakers, a pad and a wheel. So
-  far it's been checked on software Vulkan and virtual controllers,
-  driven by scripts.
+- **Played by hand** on a real GPU with speakers, and with a real
+  wheel. So far it's been checked mostly on software Vulkan and virtual
+  controllers, driven by scripts; a real gamepad was tried by the user
+  (November 2026: driving and force feedback worked; Phase 5B's
+  Force feedback), and the game-files test passed on Windows 10
+  ([TESTING.md](TESTING.md#last-checked)). How the forces feel on a real
+  wheel is untested.
 - **Network play, the rest.**
   - Real machines over a LAN and the internet: so far only two copies
     on one machine have played.
@@ -1624,6 +1628,32 @@ differently, and games adapted to the capabilities reported. So the
 stand-in's default shows what the game asked for, drawn on an idealised
 device, and the profiles are guesses at particular cards, not
 references.
+
+### The formats' sources reviewed (done)
+
+The project uses no source whose terms don't sit with the GPL (decided
+for NFS II SE in November 2026: [its plan](../nfs2se/PLAN.md#decisions)).
+Denis Auroux's NFS III notes, the FRD and COL structures in T3ED's help
+file (version 0.06, 1999), say: "It may not be used for commercial
+purposes. It is forbidden to distribute a modified version of this
+document." The same terms as his NFS II notes, so they're dropped as
+those were (November 2026):
+
+- **What rested on them.** They were the first guide to the FRD and COL
+  layouts and the COL block ids; every field had since been found on the
+  files, and the road's and objects' meanings in `nfs3.exe` (frd.md,
+  col.md). The one meaning they alone gave, a still object (COL type 1)
+  with a reference point, is dropped from the reader: no retail file has
+  one, and nothing read it.
+- **Names.** Of their structure and field names, Reluva used none in its
+  code but `leftWall` and `rightWall`, plain words for what `nfs3.exe`
+  does with them (`car_track_walls`), which stay; `xbid` in comments and
+  `nPolygons` in frd.md became plain words.
+- **FCE.** Its field order came first from a community description whose
+  terms couldn't be found; every offset was checked on the models and
+  the names are Reluva's own, so nothing rests on it.
+
+The format pages' sources sections and REVERSE_ENGINEERING.md say so.
 
 ### Merged into main (November 2026, done)
 
@@ -1791,28 +1821,29 @@ What isn't known yet; the items that matter to how Reluva behaves are also in [U
   sparks and smoke, the wheels' spray in the wet and the snow, and a
   snow-bank hit near the Summit's town, but no wall hit's sparks near
   the camera and no hit that can be placed on a code-3 slice.
-- Which renderer the footage's game used. The `Rain` clip shows no fog
-  where Hometown's weather sky asks for density 50 and the 3dfx path
-  (nfs host, the Tracks page) draws a heavy haze; the game sends fog
-  only to the 3dfx renderers, so the clips are probably from `d3da` or
-  a Glide renderer without table fog ([hrz.md](formats/hrz.md),
-  The weather against footage).
+- Which renderer the eighteen YouTube day and night clips' game used
+  ([hrz.md](formats/hrz.md), Against footage of the game): not known.
+  Settled for the `Rain`, `Snow` and `Night` clips: the user recorded
+  them through Direct3D (`d3da.dll`), in a virtual machine (the
+  Classics release's item in these questions), so the `Rain` clip's missing fog is d3da's,
+  as the game sends fog only to the 3dfx renderers (hrz.md, The weather
+  against footage).
 - How a real Pro Logic decoder of the time (with its surround delay
   and 7 kHz low-pass) would place the voices behind; only the matrix's
   sums are measured. The moving objects' sounds and their fades are
   heard in recordings with the engines and music muted, each against a
   twin run without that sound (`e3-ec-fade`, `e3-rr-m2`); with the
   engines and music on, Redrock's sound 8 adds about 1.4 dB over its
-  2 s, as much as the mix moves by itself (`e5-rr-m3`; [bnk.md](formats/bnk.md),
+  2 s, as much as the mix moves by itself (`e5-rr-m3`; [bnk.md](../../formats/bnk.md),
   The moving objects' sounds). By
   night or in the wet Hometown skips its objects' sounds (`0x41bc20`)
   and Summit plays into an empty voice. The music's rules (place bonus,
   one-racer tables, 8 laps, the rock or tech stream and a chosen tune,
   the zone pairs that count a lap) are checked in runs
-  ([mus.md](formats/mus.md), [tracks.md](formats/tracks.md));
+  ([mus.md](../../formats/mus.md), [tracks.md](formats/tracks.md));
   the backward pair (4, 5) counts on all six tracks that have it. The MMX
   mixer's 8-bit routines run only in `reluva-tool nfs mmx-check`: no retail sound
-  is 8-bit ([bnk.md](formats/bnk.md)).
+  is 8-bit ([bnk.md](../../formats/bnk.md)).
 - The car handling in full: the tyre model, steering and gear changes,
   landing, and the computer cars' simpler model. The race types, the
   network kinds, `carp.txt`'s place in memory, the engine and the car

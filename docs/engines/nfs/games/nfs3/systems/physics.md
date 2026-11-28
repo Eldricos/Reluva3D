@@ -1,6 +1,6 @@
 # Need for Speed III: car handling (`carp.txt` and the car tasks)
 
-> **Status:** partial · **Code:** `src/engines/nfs/pages/track_viewer.cpp` (the Tracks page's cars; the hosted game runs its own) · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/nfs/nfs3/pages/track_page.cpp` (the Tracks page's cars; the hosted game runs its own) · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -113,7 +113,7 @@ player, 1 two on one machine, **2 modem, 3 serial, 4 IPX, TCP or
 set-up (`0x473cd9`): with `oppnumber` (`0x6fd4d0`) Full Grid it is 8 −
 the humans (`0x6fd518`), with One 1, with None 0. The loop at
 `0x4c7c49` sends each one's u16 +8; the music's lap tables
-([mus.md](../formats/mus.md)) are the one-opponent case.
+([mus.md](../../../formats/mus.md)) are the one-opponent case.
 
 Tournament and Knockout (and network games) skip the set-up sliders
 and the assists below: everyone drives the car as its `carp.txt` says.
@@ -1919,7 +1919,7 @@ same volume.
 
 **What each kind says** (read from `0x40ab20`, `0x40a970`,
 `0x40aeb0` and the calls; the lines transcribed, November 2026, in
-[bnk.md](../formats/bnk.md), What the radio lines say). `0x40ab20(who, cop,
+[bnk.md](../../../formats/bnk.md), What the radio lines say). `0x40ab20(who, cop,
 kind)` picks the slot, the same numbers in the officer's and the
 dispatcher's banks where both speak: kinds 8, 9 and 10 the car's bank
 (officer 0x10, 0x11, 0x12 + the voice's 0/0x10/0x20, `0x40a580`;
@@ -2831,7 +2831,7 @@ there the game's own code runs.
 the single race's clicks with `-poke at=0x474ca0:0x6fd3b8:3`, a normal
 car, 2 laps, 6 computer cops, one computer racer; the player's car
 driven by the computer through its task slots, as in
-[bnk.md](../formats/bnk.md)'s object-sound runs; `-watch` at the state writes,
+[bnk.md](../../../formats/bnk.md)'s object-sound runs; `-watch` at the state writes,
 orders, radio calls, strip and stop addresses; the cars, the chase
 records `0x56e410` and the strips `0x7dd850` dumped each second).
 Race clock = run time − 48.9 s.
@@ -4086,8 +4086,8 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-l
 
 Not implemented in Reluva as a model of its own: the hosted game runs
 its own code. The Tracks page's cars
-(`src/engines/nfs/pages/track_viewer.cpp`) are driven by a model of the
-computer's cars in `src/engines/nfs/formats/frd.cpp` (`AiCar`,
+(`src/engines/nfs/nfs3/pages/track_page.cpp`) are driven by a model of the
+computer's cars in `src/engines/nfs/nfs3/formats/frd.cpp` (`AiCar`,
 `AiDriver`), made from this page; it still parts from the game's after
 about a minute ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
 

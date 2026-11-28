@@ -15,7 +15,7 @@ namespace reluva::nfs {
 
 /**
  * A sound's "PT" header: tagged values describing its audio, as
- * docs/engines/nfs/games/nfs3/formats/bnk.md describes. Values not given
+ * docs/engines/nfs/formats/bnk.md describes. Values not given
  * take the defaults.
  */
 struct SoundHeader {

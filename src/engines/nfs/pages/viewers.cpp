@@ -3,6 +3,14 @@
 
 #include "engines/nfs/pages/viewers.h"
 
+#include "engines/nfs/nfs2se/files.h"
+#include "engines/nfs/nfs2se/pages/car_page.h"
+#include "engines/nfs/nfs2se/pages/movie_page.h"
+#include "engines/nfs/nfs2se/pages/track_page.h"
+#include "engines/nfs/nfs2se/status_page.h"
+#include "engines/nfs/nfs3/pages/car_page.h"
+#include "engines/nfs/nfs3/pages/track_page.h"
+
 #include "engines/nfs/ui/play_page.h"
 
 #include <cstdlib>
@@ -72,7 +80,8 @@ void InfoPage::draw(Surface &s) {
     line("Cars", std::to_string(_cars.size()) + ": " + join(_cars), kTextColor);
 }
 
-TexturePage::TexturePage(const GameFiles &files) : _files(files) {
+TexturePage::TexturePage(const GameFiles &files, std::vector<uint8_t> lent, std::string lentFrom)
+    : _files(files), _lent(std::move(lent)), _lentFrom(std::move(lentFrom)) {
     _banks = files.withExtensions({".fsh", ".qfs"});
     if (!_banks.empty())
         load(0);
@@ -94,9 +103,23 @@ void TexturePage::load(int bank) {
 void TexturePage::decodeCurrent() {
     _image = {};
     _imageError.clear();
-    if (_shape < static_cast<int>(_loaded.shapes.size()))
-        if (Error err = decodeShape(_loaded.shapes[_shape], _image))
-            _imageError = err.message;
+    _shownLent = false;
+    if (_shape >= static_cast<int>(_loaded.shapes.size()))
+        return;
+    const Shape &shape = _loaded.shapes[_shape];
+    // The software game draws its pause screens in the race's palette, the
+    // four pictures with their own as well (fsh.md, NFS II SE's pause
+    // screens).
+    const bool pause = fs::toLower(_banks[size_t(_bank)].name).find("pause/") != std::string::npos;
+    if ((shape.type == kShape8Bit || shape.type == kShape4Bit) && (shape.palette.empty() || pause) && !_lent.empty()) {
+        Shape lent = shape;
+        lent.palette = _lent;
+        _shownLent = !decodeShape(lent, _image);
+        if (_shownLent)
+            return;
+    }
+    if (Error err = decodeShape(shape, _image))
+        _imageError = err.message;
 }
 
 void TexturePage::handleKey(uint32_t key, uint16_t) {
@@ -165,7 +188,9 @@ void TexturePage::draw(Surface &s) {
                        std::to_string(shape.centerY) + "  pos " + std::to_string(shape.x) + "," +
                        std::to_string(shape.y);
     if (!shape.palette.empty())
-        info += "  palette " + std::to_string(shape.palette.size() / 4);
+        info += "  palette " + std::to_string(shape.palette.size() / 4) + (shape.bankPalette ? " (the bank's)" : "");
+    else if (_shownLent)
+        info += "  palette lent by the game: " + _lentFrom + "'s";
     text(s, kMargin, y, info, kTextColor);
     y += font::kLineHeight;
     std::string extra;
@@ -417,13 +442,18 @@ void CockpitPage::draw(Surface &s) {
 
 StringPage::StringPage(const GameFiles &files) : _files(files) {
     _tables = files.textTables();
-    for (const FileRef &f : files.withExtensions({"arial10b.ffn"})) {
-        std::vector<uint8_t> data;
-        Font font;
-        if (!files.read(f, data) && !parseFont(data, font)) {
-            _font = std::move(font);
-            break;
+    // NFS III's small font, or else NFS II SE's.
+    for (const char *name : {"arial10b.ffn", "swiss13.ffn"}) {
+        for (const FileRef &f : files.withExtensions({name})) {
+            std::vector<uint8_t> data;
+            Font font;
+            if (!files.read(f, data) && !parseFont(data, font)) {
+                _font = std::move(font);
+                break;
+            }
         }
+        if (_font)
+            break;
     }
     // English first, if there is one.
     int start = 0;
@@ -515,7 +545,14 @@ void StringPage::draw(Surface &s) {
             }
             _font->draw(s, kTextX, y, shown, kTextColor);
         } else {
-            text(s, kTextX, y, cp1252ToUtf8(str), kTextColor);
+            // NFS II SE's front end's strings with their place and size.
+            const std::string where = i < static_cast<int>(_loaded.places.size())
+                                          ? std::to_string(_loaded.places[i].x) + "," +
+                                                std::to_string(_loaded.places[i].y) + " " +
+                                                std::to_string(_loaded.places[i].fontSize) + "  "
+                                          : std::string();
+            text(s, kTextX, y, where, kLabelColor);
+            text(s, kTextX + static_cast<int>(font::length(where)) * font::kAdvance, y, cp1252ToUtf8(str), kTextColor);
         }
     }
 }
@@ -614,25 +651,51 @@ void FontPage::draw(Surface &s) {
     }
 }
 
-std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFolders &folders, const GameFiles &files,
+std::vector<std::unique_ptr<Page>> makePages(const GameInfo &game, const GameFolders &folders, const GameFiles &files,
                                              audio::Mixer *mixer, const std::filesystem::path &saveFolder,
                                              const std::map<std::string, std::string> &settings) {
     std::vector<std::unique_ptr<Page>> pages;
-    pages.push_back(std::make_unique<InfoPage>(gameName, folders));
     const auto filter = settings.find("texturefilter");
     g_pagesPointSampled = filter != settings.end() && filter->second == "point";
-    auto play = makePlayPage(folders, saveFolder, mixer, settings);
-    play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
-    pages.push_back(std::move(play));
-    pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
-    pages.push_back(std::make_unique<CarPage>(files));
-    pages.push_back(std::make_unique<TexturePage>(files));
+    switch (game.game) {
+    case Game::kNfs3: {
+        pages.push_back(std::make_unique<InfoPage>(game.name, folders));
+        auto play = makePlayPage(folders, saveFolder, mixer, settings);
+        play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
+        pages.push_back(std::move(play));
+        pages.push_back(std::make_unique<nfs3::TrackPage>(files, folders, mixer));
+        pages.push_back(std::make_unique<nfs3::CarPage>(files));
+        break;
+    }
+    case Game::kNfs2Se:
+        pages.push_back(std::make_unique<nfs2se::StatusPage>(folders));
+        // The game: its 3dfx program with renderer=glide (nfs2se::playProgram).
+        const auto renderer = settings.find("renderer");
+        if (const auto program =
+                nfs2se::playProgram(folders, renderer != settings.end() && renderer->second == "glide");
+            !program.empty()) {
+            auto play = makePlayPage(folders, saveFolder, mixer, settings, program);
+            play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
+            pages.push_back(std::move(play));
+        }
+        pages.push_back(std::make_unique<nfs2se::TrackPage>(files, mixer));
+        pages.push_back(std::make_unique<nfs2se::CarPage>(files));
+        break;
+    }
+    // NFS II SE's pause screens have no palette: the game draws them in the
+    // race's, hud.fsh's (nfs2se::racePalette).
+    std::vector<uint8_t> lent;
+    if (game.game == Game::kNfs2Se)
+        lent = nfs2se::racePalette(files);
+    pages.push_back(std::make_unique<TexturePage>(files, std::move(lent), "hud.fsh"));
     pages.push_back(std::make_unique<CockpitPage>(files));
     pages.push_back(std::make_unique<StringPage>(files));
     pages.push_back(std::make_unique<FontPage>(files));
     pages.push_back(std::make_unique<SoundPage>(files, mixer));
     pages.push_back(std::make_unique<MusicPage>(files, mixer));
     pages.push_back(std::make_unique<MoviePage>(files, mixer));
+    if (game.game == Game::kNfs2Se)
+        pages.push_back(std::make_unique<nfs2se::MoviePage>(files, mixer));
     std::erase_if(pages, [](const std::unique_ptr<Page> &p) { return p->empty(); });
     return pages;
 }

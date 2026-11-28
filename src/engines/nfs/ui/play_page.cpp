@@ -3,6 +3,7 @@
 
 #include "engines/nfs/ui/play_page.h"
 
+#include "common/net.h"
 #include "graphics/glide/pipeline.h"
 #include "image/image.h"
 #include "engines/nfs/host/game_host.h"
@@ -148,7 +149,7 @@ void PlayPage::activate(System &sys) {
     // engine puts the framebuffer back when it's left). Whether the game
     // draws for it is decided once, when it starts.
     const bool starting = !_host && _result.empty(); // started once; a failed start stays reported
-    if ((starting || _gpu) && !_glide) {
+    if ((starting || _gpu) && !_glide && drawsThrash()) {
         gfx::Renderer3D *renderer = nullptr;
         if (!sys.init3D(640 * _renderScale, 480 * _renderScale, renderer) && renderer) {
             _gpu = _gpu || starting;
@@ -197,10 +198,24 @@ void PlayPage::passForces() {
 void PlayPage::start() {
     if (_host)
         return;
+    // NFS III's Voodoo 2 renderer on Glide if asked; NFS II SE's 3dfx
+    // program always, on the Voodoo Graphics it was made for unless
+    // another board is named; its software program never.
+    if (drawsGlide()) {
+        _glide = true;
+        if (_glideBoard.empty())
+            _glideBoard = "voodoo1";
+    } else if (!drawsThrash()) {
+        _glide = false;
+    }
     GameHost::Options options;
-    // The game plays its movies itself (its Madcow player runs in the
+    // The game plays its movies itself (its player runs in the
     // interpreter like the rest).
-    options.commandLine = "nfs3.exe";
+    options.program = _program;
+    options.programFile = _programFile;
+    options.commandLine = _program;
+    if (_program.starts_with("nfs2se"))
+        options.driveLabel = "NFS2SE";
     options.saveFolder = _saveFolder.empty() ? _folders.install / "reluva-save" : _saveFolder / "game";
     options.nativeThrash = true;
     options.pointSampled = !_smoothTextures;
@@ -240,10 +255,30 @@ void PlayPage::start() {
                 " on the Rush (one it could have had)");
     }
     options.gpuAndSoftware = _gpu && !_compareFolder.empty();
+    // A program without THRASH draws through DirectDraw: nothing to stand
+    // in for.
+    if (!drawsThrash()) {
+        options.nativeThrash = false;
+        options.presentedRenderer.clear();
+        options.gpuThrash = false;
+    }
     if (_network && _sys) {
         options.sockets = _sys->sockets();
         options.serial = _serial;
         options.modem = _modem;
+        for (size_t at = 0; at < _broadcast.size();) {
+            size_t end = _broadcast.find(',', at);
+            if (end == std::string::npos)
+                end = _broadcast.size();
+            const std::string host = _broadcast.substr(at, end - at);
+            net::Address address;
+            uint32_t ip = 0;
+            if (net::parseAddress(host, 0, address))
+                options.broadcastTo.push_back(address.ip);
+            else if (!host.empty() && _sys->resolveHost(host, ip))
+                options.broadcastTo.push_back(ip);
+            at = end + 1;
+        }
     }
     // A controller connected now is offered to the game as a joystick (it
     // looks for them once, as it starts).
@@ -281,7 +316,7 @@ void PlayPage::start() {
             _primaryShown = true;
         }
     };
-    _host->onThrashFrame = [this](ThrashFrame &&frame) {
+    _host->onThrashFrame = [this](nfs3::ThrashFrame &&frame) {
         std::lock_guard<std::mutex> lock(_mutex);
         // A flip copies its rectangle to the screen, leaving the rest: what
         // DirectDraw drew stays outside it until a flip covers everything.
@@ -429,7 +464,7 @@ void PlayPage::drawStatus(Surface &screen) {
         text(screen, kMargin, y, _result, kWarnColor);
         y += font::kLineHeight * 2;
     } else {
-        text(screen, kMargin, y, "Starting nfs3.exe...", kTextColor);
+        text(screen, kMargin, y, "Starting " + _program + "...", kTextColor);
         y += font::kLineHeight * 2;
     }
     for (const std::string &line : _lines) {
@@ -459,14 +494,21 @@ void PlayPage::reportSpeed(uint64_t nowMs) {
     const uint64_t ownRun = own - std::min(own, _statLastOwn);
     const uint64_t timerRun = timer - std::min(timer, _statLastTimer);
     auto share = [run](uint64_t n) { return run ? 100.0 * double(n) / double(run) : 0.0; };
-    std::printf("Play: the game made %.1f frames a second at %.1f million instructions a second (%.2f million a "
-                "frame: main thread %.0f%%, timer %.0f%%, others %.0f%%); %s drew %.1f a second (%.1f not needed, "
-                "%.1f dropped), shown %.1f times a second\n",
-                double(frames) / seconds, double(run) / seconds / 1e6,
-                frames ? double(run) / double(frames) / 1e6 : 0.0, share(ownRun), share(timerRun),
-                share(run - std::min(run, ownRun + timerRun)), _gpu ? "the GPU" : "software",
-                double(_statDrawn) / seconds, double(_statSkipped) / seconds, double(_statDropped) / seconds,
-                double(_statShown) / seconds);
+    if (!drawsThrash()) {
+        // Its frames are DirectDraw's: each update of the screen, which a
+        // frame may take several of (NFS II SE copies a race's in strips).
+        std::printf("Play: the screen updated %.1f times a second at %.1f million instructions a second\n",
+                    double(frames) / seconds, double(run) / seconds / 1e6);
+    } else {
+        std::printf("Play: the game made %.1f frames a second at %.1f million instructions a second (%.2f million a "
+                    "frame: main thread %.0f%%, timer %.0f%%, others %.0f%%); %s drew %.1f a second (%.1f not needed, "
+                    "%.1f dropped), shown %.1f times a second\n",
+                    double(frames) / seconds, double(run) / seconds / 1e6,
+                    frames ? double(run) / double(frames) / 1e6 : 0.0, share(ownRun), share(timerRun),
+                    share(run - std::min(run, ownRun + timerRun)), _gpu ? "the GPU" : "software",
+                    double(_statDrawn) / seconds, double(_statSkipped) / seconds, double(_statDropped) / seconds,
+                    double(_statShown) / seconds);
+    }
     std::fflush(stdout);
     _statFrom = nowMs;
     _statLastInstructions = instructions;
@@ -507,7 +549,7 @@ void PlayPage::update(uint64_t nowMs) {
     if (frames.empty() || !thrash) {
         for (const Pending &p : frames)
             _gpuDraw.updateTextures(p.frame);
-        _gpuDraw.draw(ThrashFrame{}, over);
+        _gpuDraw.draw(nfs3::ThrashFrame{}, over);
         return;
     }
     // A frame of many vertices draws the whole screen (a menu's, a race's):
@@ -524,7 +566,7 @@ void PlayPage::update(uint64_t nowMs) {
     _statSkipped += from;
     _statDrawn += frames.size();
     ++_statShown;
-    std::vector<const ThrashFrame *> list;
+    std::vector<const nfs3::ThrashFrame *> list;
     bool compare = false;
     for (const Pending &p : frames) {
         list.push_back(&p.frame);
@@ -558,7 +600,8 @@ void PlayPage::update(uint64_t nowMs) {
 }
 
 std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::filesystem::path &saveFolder,
-                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings) {
+                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings,
+                                       const std::filesystem::path &program) {
     auto setting = [&](const char *key) {
         auto it = settings.find(key);
         return it == settings.end() ? std::string() : it->second;
@@ -571,6 +614,15 @@ std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::fi
         setting("renderer") == "glide", setting("renderer") == "direct3d", setting("glide") == "software",
         setting("glidedll"), setting("glideboard"));
     play->setPositionalUpdates(setting("positionalupdates") == "on");
+    play->setBroadcast(setting("broadcast"));
+    if (!program.empty()) {
+        // By its name in lower case (the CD's is NFS2SEA.EXE); from where
+        // it is unless that's the install.
+        std::string name = program.filename().string();
+        for (char &ch : name)
+            ch = char(std::tolower(static_cast<unsigned char>(ch)));
+        play->setProgram(name, program.parent_path() == folders.install ? std::filesystem::path() : program);
+    }
     return play;
 }
 

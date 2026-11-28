@@ -424,6 +424,12 @@ public:
     /** The thread running, or null if none runs on a host thread. */
     Thread *currentThread() const { return _running; }
     /**
+     * Each thread's state, a line each: its id, priority, whether it runs,
+     * waits or is ready, the instructions run on it, and where it is. From
+     * the running thread, between instructions.
+     */
+    std::string describeThreads() const;
+    /**
      * From the running thread: waits until `ready` is true or `timeoutMs`
      * passes (0xffffffff: never), letting the others run.
      * @return False if it timed out, or if the process is ending (ending():
@@ -456,12 +462,19 @@ public:
     void signalEventWhen(uint32_t handle, std::function<bool()> condition);
     // Instructions between thread changes.
     uint32_t slice = 20000;
+    // Nonzero: the time every file gives (a FILETIME), rather than the
+    // host's, for runs that must be the same each time.
+    uint64_t fixedFileTime = 0;
     // Called at each thread change, on the thread that ran (for checks by
     // the clock, such as memory written at a moment).
     std::function<void(Cpu &cpu)> onSlice;
     // Called when every thread waits, instead of sleeping a millisecond: for
     // a clock that isn't the real one (it should move that clock on).
     std::function<void()> idleTick;
+    // Called with the bytes of a file read (ReadFile, or a view mapped), not
+    // a device's: for a clock that isn't the real one, to add the time a
+    // disk would have taken.
+    std::function<void(uint32_t bytes)> fileRead;
     // Called when a thread of the program calls Sleep or SleepEx, before it
     // sleeps: for the host's own deliveries to a thread that polls so
     // (TAPI's callbacks, say).
