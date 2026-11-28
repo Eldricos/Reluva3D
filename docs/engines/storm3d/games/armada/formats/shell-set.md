@@ -22,7 +22,7 @@ and comes back as one. The record's parts, in the order written:
 |---|---|
 | 5 | For each campaign, the last mission open, from 0 |
 | 5 | For each campaign, 1 if it's finished |
-| 3 | The program's own flags; the install's has 1 in the third |
+| 3 | The program's own flags; the install's has 1 in the third, which keeps the finale shut until the Borg campaign is finished *(from the code)* |
 | 1 | The campaign the player was on |
 | 1 | A campaign: the code sets it to 4 when it opens every mission |
 | 1 | 1 if two login names follow |

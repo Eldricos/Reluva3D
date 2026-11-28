@@ -67,8 +67,12 @@ race's campaign, 280 × 190, playing `animations\<race>01.bik` (`02`
 under the pointer, its emblem lit): the Federation at (0, 30), the
 Klingons at (360, 30), the Romulans at (0, 250), the Borg at (360,
 250). Their movies, matched against the frame, sit there to a
-correlation of 0.998 or more. `Omega01.bik` (80 × 220), the finale's, is
-read but not shown to a new player.
+correlation of 0.998 or more. The finale's is a strip between them,
+(280, 130), 80 × 220, playing `omega01.bik` (`omega02` under the
+pointer) *(from the code)*: not drawn at all, and doing nothing when
+clicked, while the third flag byte of `shell.set` is set, as a new
+player's is (0x540f57, 0x5411af); clicked once it's clear, it opens the
+same mission panel with the finale's missions.
 
 The campaigns open one after another, the races in that order, each
 when the one before it is finished, as the player's progress in
@@ -92,6 +96,11 @@ each, and the finale's). A new player has the first open: the
 Federation's is "Premonitions" (`fed1.bzn`). With three Klingon
 missions open, the panel opened with none of them chosen. The races'
 movies stop while the panel is up, the one chosen on its lit movie.
+
+A campaign's mission won (0x545e10, from 0x5467ea) opens the next, if
+it was the last open; past the campaign's last, it finishes the
+campaign, and the Borg's finished clears the finale's lock *(from the
+code)*. The program keeps the first campaign not finished beside them.
 
 ### The Options screen
 

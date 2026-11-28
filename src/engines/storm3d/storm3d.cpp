@@ -529,6 +529,15 @@ public:
                         }
                         gameMenuOn = true;
                     } else if (mission.ending() != MissionView::Ending::kNone) {
+                        // A campaign's mission won opens the next, kept in the
+                        // player's shell.set at once.
+                        if (skirmish.empty() && mission.ending() == MissionView::Ending::kWon) {
+                            _progress.won(size_t(single.campaign()), single.missionIndex(),
+                                          single.missionCount(single.campaign()));
+                            const std::vector<uint8_t> bytes = _progress.bytes();
+                            (void)player().write("shell.set", bytes);
+                            single.setProgress(_progress);
+                        }
                         if (Error err = openDebriefing()) {
                             stopAll();
                             return err;

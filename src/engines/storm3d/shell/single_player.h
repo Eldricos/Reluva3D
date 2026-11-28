@@ -38,8 +38,13 @@ public:
         const char *name; // as label.map's single_player section names its campaign ("federation")
         int x;
         int y;
+        int w = 280;
+        int h = 190;
     };
-    /** The four campaigns, in the order they open. */
+    /**
+     * The five campaigns, in the order they open: the four races', and the
+     * finale's strip between them (0x54069e).
+     */
     static const std::vector<Race> &races();
     /** The race whose panel is at a point; -1 if none. */
     static int raceAt(int x, int y);
@@ -68,6 +73,13 @@ public:
     SingleChoice release(int x, int y, uint64_t millis);
     /** The mission chosen to start: its map ("fed1.bzn"). */
     const std::string &mission() const { return _mission; }
+    /** The campaign and the mission in it last started from the panel. */
+    int campaign() const { return _campaign; }
+    int missionIndex() const { return _missionIndex; }
+    /** How many missions a campaign has. */
+    int missionCount(int campaign) const {
+        return campaign >= 0 && size_t(campaign) < _campaigns.size() ? int(_campaigns[size_t(campaign)].size()) : 0;
+    }
 
     void draw(Surface &screen, uint64_t millis);
 
@@ -103,6 +115,8 @@ private:
     int _panelRace = -1; // the mission panel's race; -1 while it's closed
     int _chosen = 0;     // the mission chosen in it; -1 for none
     std::string _mission;
+    int _campaign = 0;
+    int _missionIndex = 0;
 };
 
 } // namespace reluva::storm3d

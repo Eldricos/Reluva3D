@@ -44,20 +44,16 @@ constexpr size_t kCampaignLines = 6;
 const std::vector<SinglePlayerScreen::Race> &SinglePlayerScreen::races() {
     // Each panel 280 x 190, its movie matched against the game's frame.
     static const std::vector<Race> kRaces = {
-        {"Fed", "federation", 0, 30},
-        {"Kling", "klingon", 360, 30},
-        {"Rom", "romulan", 0, 250},
-        {"Borg", "borg", 360, 250},
+        {"Fed", "federation", 0, 30}, {"Kling", "klingon", 360, 30},          {"Rom", "romulan", 0, 250},
+        {"Borg", "borg", 360, 250},   {"omega", "finale", 280, 130, 80, 220},
     };
     return kRaces;
 }
 
 int SinglePlayerScreen::raceAt(int x, int y) {
-    constexpr int kWidth = 280;
-    constexpr int kHeight = 190;
     for (size_t i = 0; i < races().size(); ++i) {
         const Race &r = races()[i];
-        if (x >= r.x && y >= r.y && x < r.x + kWidth && y < r.y + kHeight)
+        if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h)
             return int(i);
     }
     return -1;
@@ -214,6 +210,8 @@ SingleChoice SinglePlayerScreen::release(int x, int y, uint64_t millis) {
         if (_chosen < 0)
             return SingleChoice::kNone;
         _mission = openMissions(_panelRace)[size_t(_chosen)];
+        _campaign = _panelRace;
+        _missionIndex = _chosen;
         _panelRace = -1;
         return SingleChoice::kStartMission;
     case Target::kCancel:
@@ -233,6 +231,9 @@ void SinglePlayerScreen::draw(Surface &screen, uint64_t millis) {
         // The race chosen keeps its lit movie, stopped, under the panel.
         const bool lit =
             (_hover.kind == Target::kRace && _hover.index == int(i) && open(int(i))) || (_panelRace == int(i));
+        // The finale's isn't drawn at all while it's shut (0x540f57).
+        if (i + 1 == races().size() && !open(int(i)))
+            continue;
         PanelMovie &movie = lit && _lit[i].isOpen() ? _lit[i] : _rest[i];
         // The races' movies stop while the mission panel is up.
         if (!movie.isOpen() || (_panelRace < 0 && !movie.update(millis)) || movie.rgba().empty())
@@ -243,12 +244,13 @@ void SinglePlayerScreen::draw(Surface &screen, uint64_t millis) {
     _previous.draw(screen, _hover.kind == Target::kPrevious, _pressed.kind == Target::kPrevious, false);
     _load.draw(screen, _hover.kind == Target::kLoad, _pressed.kind == Target::kLoad, false);
     // A race not open yet says the first campaign there is to finish.
-    if (_hover.kind == Target::kRace && !open(_hover.index) && _panelRace < 0) {
+    if (_hover.kind == Target::kRace && !open(_hover.index) && _hover.index + 1 < int(races().size()) &&
+        _panelRace < 0) {
         // The campaign to finish: the last of those open.
         const Race &r = races()[size_t(lastOpen())];
         const Race &under = races()[size_t(_hover.index)];
         const std::string tip = _text.text("single_player", std::string(r.name) + "_incomplete");
-        _font.drawCentred(screen, under.x, under.y, 280, 190, tip, kTooltipText, kTooltipColour);
+        _font.drawCentred(screen, under.x, under.y, under.w, under.h, tip, kTooltipText, kTooltipColour);
     }
     if (_panelRace < 0)
         return;

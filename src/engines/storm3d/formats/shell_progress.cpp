@@ -58,6 +58,22 @@ Error ShellProgress::parse(const std::vector<uint8_t> &file) {
     return Error::success();
 }
 
+void ShellProgress::won(size_t campaign, int mission, int missions) {
+    if (campaign >= kCampaigns || mission != lastMission[campaign])
+        return;
+    if (lastMission[campaign] + 1 < missions) {
+        ++lastMission[campaign];
+        return;
+    }
+    finished[campaign] = true;
+    if (finished[3])
+        flags[2] = 0;
+    // The first campaign not finished (0x545e39).
+    lastCampaign = 0;
+    while (lastCampaign < kCampaigns - 1 && finished[lastCampaign])
+        ++lastCampaign;
+}
+
 std::vector<uint8_t> ShellProgress::bytes() const {
     std::vector<uint8_t> d;
     d.insert(d.end(), lastMission.begin(), lastMission.end());

@@ -69,12 +69,13 @@ void testButtons() {
 // The single-player screen's races: each panel 280 x 190, as the game's
 // frame has them.
 void testRaces() {
-    CHECK(SinglePlayerScreen::races().size() == 4);
+    CHECK(SinglePlayerScreen::races().size() == 5);
     CHECK(SinglePlayerScreen::raceAt(130, 150) == 0);
     CHECK(SinglePlayerScreen::raceAt(600, 100) == 1);
     CHECK(SinglePlayerScreen::raceAt(10, 430) == 2);
     CHECK(SinglePlayerScreen::raceAt(600, 300) == 3);
-    CHECK(SinglePlayerScreen::raceAt(320, 240) == -1);
+    CHECK(SinglePlayerScreen::raceAt(320, 240) == 4); // the finale's strip
+    CHECK(SinglePlayerScreen::raceAt(320, 100) == -1);
     CHECK(SinglePlayerScreen::raceAt(100, 445) == -1);
 }
 

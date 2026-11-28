@@ -65,10 +65,28 @@ void testProgress() {
     CHECK(ShellProgress{}.parse(std::vector<uint8_t>(10, 0)));
 }
 
+// A mission won: the campaign's next opens, its last finishes it, and the
+// Borg's finished opens the finale.
+void testProgressWon() {
+    ShellProgress p;
+    CHECK(!p.open(4));
+    p.won(0, 0, 4);
+    CHECK(p.lastMission[0] == 1 && !p.finished[0]);
+    p.won(0, 0, 4); // one played again opens nothing
+    CHECK(p.lastMission[0] == 1);
+    p.lastMission[0] = 3;
+    p.won(0, 3, 4);
+    CHECK(p.finished[0] && p.open(1) && !p.open(4) && p.lastCampaign == 1);
+    p.lastMission[3] = 3;
+    p.won(3, 3, 4);
+    CHECK(p.finished[3] && p.open(4));
+}
+
 } // namespace
 
 static const reluva::test::Suite kSuite("storm3d.unit.player",
                                         {
                                             {"preferences", [](const std::filesystem::path &) { testPreferences(); }},
                                             {"progress", [](const std::filesystem::path &) { testProgress(); }},
+                                            {"progress won", [](const std::filesystem::path &) { testProgressWon(); }},
                                         });
