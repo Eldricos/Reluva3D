@@ -1004,6 +1004,12 @@ void MissionView::raise(const Site &site) {
     if (!_scene.addUnit(unit, 0))
         return;
     ++_tallies[from.slot].stationsCreated;
+    // Its officerGain on its player's limit, as the starting units' are
+    // counted (a skirmish's starbase's 20 over its 100).
+    Odf built;
+    if (!built.load(site.order.item + ".odf", loaderOf(_files.files())))
+        if (Hud::Resources *bank = bankOf(from.slot))
+            bank->maxOfficers += int(built.number("officerGain"));
     _moves.push_back(false);
     _physics.emplace_back();
     addFighter(site.order.item);

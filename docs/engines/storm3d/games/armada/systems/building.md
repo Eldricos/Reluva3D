@@ -114,7 +114,10 @@ first. Cancel takes off the last ordered and pays it back *(guessed)*.
 A ship that moves places a station instead: the station's model at the
 pointer with the cells (`takenCellsOf`, `siteCellsOf`; a click on a
 site that overlaps a taken cell does nothing, and nothing's written), then the ship flies to `standOffOf` the site, pays as it gets
-there, and the station is added when its `buildTime` has passed. Its
+there, and the station is added when its `buildTime` has passed, its
+`officerGain` added to its player's officers' limit, as a starting
+unit's is (the skirmish's starting starbase's 20 over the 100 chosen)
+*(inferred)*. Its
 cancel gives the site up, paid back if paid. The worker bees and the
 station's model coming bit by bit aren't drawn yet.
 
