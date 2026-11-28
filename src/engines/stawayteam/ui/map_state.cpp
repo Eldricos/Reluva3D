@@ -67,6 +67,7 @@ void stateOf(StateIo &s, MapPart &p) {
     s.io(p.stuns);
     s.io(p.destroyedAction);
     s.io(p.category);
+    s.io(p.teamMemberInfo);
     s.io(p.deathType);
     s.io(p.polygon);
     s.io(p.renderType);

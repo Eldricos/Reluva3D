@@ -436,9 +436,12 @@ the main menu?" (`0x5bb190`).
   Worf, Brexen Ijoula, Ivan Verov, and `$Trigger` 19 times) makes a
   character of the map one of the team (`0x57a9f0`): only a
   `CEntityStarTrekTeamMember` (4 in the maps), the same character, given
-  a `CPlayerAI` if it has none and put on the team (`0x5be8e0`);
-  `CRemoveFromTeamAction` (17) takes one off it. Data and Worf are in the
-  roster (`Character/Starting Roster`).
+  a `CPlayerAI` if it has none, made of the `Player` category and put on
+  the team (`0x5be8e0`); `CRemoveFromTeamAction` (17) takes one off it.
+  Its `Team Member Info` names its entry in the roster
+  (`Character/Starting Roster`): Data, Worf, Brexen Ijoula, Asunder... It keeps its
+  own model and items: the map's Data carries a Phaser Damage Increase,
+  where the roster's has a Phaser.
 - **Rescues:** a prisoner is a character with an enemy's AI whose `Valid
   Targets` are none (Mission 01's scientists). The map's actions rescue
   them: in Mission 01, Computer Systems on a panel lowers the force field
@@ -1351,10 +1354,13 @@ Walking, they go through one another, and onto one standing where
 they're sent.
 
 A character added to the team (`ui/map_mission.cpp`) becomes an officer
-where they stand: the roster's of their name, or one made of their part,
-its model their body *(inferred)*; their part's gone, its AI with it,
-and they're on the team bar, and on the mission's other maps as away
-from them *(inferred)*. Taken off the team (`0x57ada0`, `0x5bea30`),
+where they stand, standing for the same character: the roster's entry
+its Team Member Info names, with its own model as their body, its own
+items (the map's for it, else its model's), the hurt it's taken and its
+facing. Reluva makes an officer of it and takes its part away, its AI
+with it, where the program keeps the one character with its other AIs;
+they're on the team bar, and on the mission's other maps as away from
+them *(inferred)*. Taken off the team (`0x57ada0`, `0x5bea30`),
 they're taken off the team bar, those under them moving up
 (`0x5b7060`), and stay on the map, a part of it in their place: their name, body and head, where they stood
 and facing their way, with the AIs given them before (`$Instigator`

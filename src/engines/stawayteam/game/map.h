@@ -50,6 +50,7 @@ struct MapPart {
     bool stuns = false;                           // an item of its set to stun (its Weapon Setting)
     const TextObject *destroyedAction = nullptr;  // run as it's killed
     std::string category;                         // its Category: "Enemy", "Decoy,Player"...
+    std::string teamMemberInfo;                   // a team member's roster entry (Team Member Info)
     std::string deathType;                        // its Default Death Type: Death Behaviors/<it>
     std::vector<std::pair<float, float>> polygon; // its corners, the last the first again
     std::string renderType;                       // a polygon's: "Textured", "Black", "Shadow", "Warped"...

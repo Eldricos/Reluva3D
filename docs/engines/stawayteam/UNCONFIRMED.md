@@ -71,9 +71,8 @@ None now.
   touching trigger, and a collide trigger going as one comes into the
   part's shape rather than as their movement meets it
   ([systems/maps.md](systems/maps.md#open-questions)).
-- **Walking round and joining:** a character joining the team made a
-  new officer in its place rather than kept as the same one, and rescues
-  failing as their character's killed
+- **Joining:** a character joining the team losing its other AIs, and
+  on the mission's other maps as away
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The beams:** their way, toward the one shot as high on them as the
   muzzle ([systems/maps.md](systems/maps.md#open-questions)).

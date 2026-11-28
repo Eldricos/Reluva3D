@@ -184,6 +184,7 @@ MapPart readPart(const std::string &className, const TextObject &o) {
     part.renderType = text(o, "Render Type");
     part.destroyedAction = o.object("Destroyed Action");
     part.category = text(o, "Category");
+    part.teamMemberInfo = text(o, "Team Member Info");
     part.deathType = text(o, "Default Death Type");
     part.texture = text(o, "Static Texture");
     if (part.renderType == "Warped")

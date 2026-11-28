@@ -264,9 +264,10 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
         // A character joins the team where they stand (Data, Worf, a
         // rescued warrior): the program takes the same character, which
         // must be a CEntityStarTrekTeamMember, gives it a CPlayerAI if it
-        // has none and puts it on the team (0x57a9f0, 0x5be8e0). Here, the
-        // roster's officer of their name, else one made of their part, its
-        // model their body, in its place.
+        // has none, makes it of the Player category and puts it on the
+        // team (0x57a9f0, 0x5be8e0). Here, an officer in its place who is
+        // it: the roster's entry its Team Member Info names, with its own
+        // model, items and hurts, facing its way.
         const std::string name = readText(action, "Who To Add");
         std::vector<size_t> parts;
         const int who = whoNamed(name, instigator, trigger);
@@ -297,18 +298,30 @@ bool MapScreen::runTeamAction(const TextObject *action, int instigator, int trig
                 continue;
             TeamMember member;
             member.firstName = p.name;
-            member.bodyModel = p.model;
-            for (const TeamMember &m : _roster) {
-                const std::string full = lower(m.name());
-                const std::string mine = lower(p.name);
-                if (full == mine || lower(m.id) == mine || (!m.firstName.empty() && mine.ends_with(lower(m.firstName))))
+            for (const TeamMember &m : _roster)
+                if (lower(m.id) == lower(p.teamMemberInfo))
                     member = m;
-            }
+            member.bodyModel = p.model;
+            // Its own items: the map's for it, else its model's (as the
+            // enemies are given theirs).
+            const std::vector<std::string> &own = p.inventory.empty() ? modelInfo(p.model).inventory : p.inventory;
+            member.inventory.clear();
+            for (const std::string &item : own)
+                member.inventory.push_back({item, 0});
             float x = 0.0f;
             float y = 0.0f;
             placeOf(part, x, y);
             _partStates[part].deleted = true;
             const size_t officer = addMember(member, true, x, y);
+            // The hurt it's taken kept (its +0x88), and its facing.
+            Officer &joined = _officers[officer];
+            float angle = p.angle;
+            if (const auto e = _enemyOfPart.find(part); e != _enemyOfPart.end()) {
+                const Enemy &was = _enemies[e->second];
+                angle = was.angle;
+                joined.health = std::max(0.0f, joined.maxHealth - std::max(0.0f, was.maxHealth - was.health));
+            }
+            joined.direction = animation(p.model, "Idle").direction(angle);
             // Whose rescue or protection names them is theirs now.
             for (Objective &o : _progress->objectives)
                 if (o.officer < 0 && lower(o.who) == lower(p.name))

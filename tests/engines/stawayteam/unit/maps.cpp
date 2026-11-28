@@ -3322,9 +3322,16 @@ void testCompany() {
         "Mission Status=Incomplete\nWhoToRescue=Helper\n}\n}\n");
     act("CAddMissionObjectiveAction\n{\nObjective=CNeedItemMissionObjective\n{\nObjective Name=Keep\n"
         "Mission Status=Incomplete\nItem Needed=Phaser\n}\n}\n");
+    // Hurt by 30 before, it's still so after: the program keeps the same
+    // character, and its model (0x5be8e0).
+    ItemDefinition hit;
+    hit.weaponDamage = 30.0f;
+    screen.hurtEnemy(1, hit, -1, false);
     act("CAddToTeamAction\n{\nWho To Add=Helper\n}\n");
     CHECK(officers.size() == 3 && screen.team()[officers[2].member].name() == "Helper" && officers[2].x == 1200.0f &&
           screen.partState(enemies[1].part).deleted);
+    CHECK(officers[2].health == officers[2].maxHealth - 30.0f &&
+          screen.team()[officers[2].member].bodyModel == "Characters/Guard");
     CHECK(screen.objectives()[1].status == ObjectiveStatus::kComplete);
     screen.hurtEnemy(2, blast, -1, false);
     CHECK(screen.objectives()[2].status == ObjectiveStatus::kIncomplete);
