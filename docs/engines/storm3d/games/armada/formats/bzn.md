@@ -313,9 +313,11 @@ as the file says.
   glow, [spr.md](spr.md#emitters-and-sprite-nodes)), and the map's background model around the eye, behind
   everything, added up and unlit, as above (how the game places and
   turns the background isn't known). An
-  object's model is named for its definition, unless the definition says
-  `dont_load_SOD = 1`, and scaled by its `scaleSOD` *(inferred)*: the
-  traced mission loads `fente.SOD` for `fente`. One whose definition
+  object's model is its definition's `baseName`, the definition's own
+  name without one (0x466a83: `mprmgate`'s `Xprmgate`, `f6ente`'s
+  `fente`) *(from the code)*, none if it says `dont_load_SOD = 1`, and
+  scaled by its `scaleSOD` *(inferred)*: the traced mission loads
+  `fente.SOD` for `fente`. One whose definition
   says `hidden = 1`, which the program reads (0x466f3d), isn't drawn:
   the directional lights, whose model is an arrow the original's cut
   scenes don't show *(inferred)*. N goes from ship to ship,
