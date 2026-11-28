@@ -30,11 +30,11 @@ the cars' data is in both. The CD's 3dfx program, `NFS2SEA.EXE`, is in
   `nfs2sen.exe`, the software program, runs in the x86 emulator as NFS
   III's does: its movies, its front end with the keys and mouse, and
   races, about 39 frames a second on the machine measured
-  ([research/hosted-spike.md](research/hosted-spike.md)). With
+  ([systems/host.md](systems/host.md)). With
   `renderer=glide` the 3dfx program (`nfs2sea.exe`, the install's or
   the CD's) plays instead, on Reluva's Glide stand-in as a Voodoo
   Graphics. Two players race over the network (IPX), a serial link or a
-  modem, as in NFS III ([research/network-play.md](research/network-play.md)).
+  modem, as in NFS III ([systems/network.md](systems/network.md)).
   Without either program the game shows what was found of it
   (its folders, programs, music, movies, tracks and car models:
   `src/engines/nfs/nfs2se/status_page.cpp`).
@@ -91,8 +91,9 @@ Two players race each other (*game setup*, *game type*) over:
   share a network, a VPN, rather than a router between them.
 
 Each player gives a name of their own (two alike, connecting at the
-same moment, give up: [research/network-play.md](research/network-play.md),
-Who hosts a link). `network=off` leaves the network out. Play between two
+same moment, give up:
+[systems/network.md](systems/network.md#who-hosts-a-link)).
+`network=off` leaves the network out. Play between two
 machines hasn't been tried yet.
 
 ## This folder
@@ -101,7 +102,8 @@ machines hasn't been tried yet.
 |---|---|
 | This page | Where it stands, how to use it |
 | [formats/](formats/) | The game's own files: [trk.md](formats/trk.md) (tracks), [col.md](formats/col.md) (textures, objects, the virtual road), [hrz.md](formats/hrz.md) (skies and lights), [can.md](formats/can.md) (animation scripts), [geo.md](formats/geo.md) (car models), [dct.md](formats/dct.md) (movies) |
-| [research/](research/README.md) | Working notes: the first survey of the retail files and executables |
+| [systems/](systems/) | How the game behaves, a page per part: [host.md](systems/host.md) (the program on Reluva's host: start-up, pictures, keys, time), [network.md](systems/network.md) (network play) |
+| [research/](research/README.md) | Working notes: the first survey of the retail files and executables, the hosted program's first runs, network play, and the road driver |
 | [PLAN.md](PLAN.md) | The plan, its phases and decisions |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
