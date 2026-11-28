@@ -319,23 +319,31 @@ bool GameProcess::useDirect3D() {
     return true;
 }
 
-bool GameProcess::useWidescreen(int width) {
+bool GameProcess::useWidescreen(int width, bool direct3D) {
     if (width <= 640 || _widescreen)
         return false;
-    // The game sorts the modes it's offered by their bits a pixel, then
-    // width, then height (0x427b00), and keeps its choice as an index
-    // into that list.
-    const x86::DirectX::Mode wide{width, 480, 16};
+    const auto accel = _process->registryValue(_registryKey, "b3DAccel");
+    direct3D = direct3D || (accel && !accel->empty() && (*accel)[0] != 0);
+    // In 16-bit colour for Direct3D, in 8 for the game's own renderer;
+    // both offered, as a mode list of the time would have them.
     auto &modes = _directX->modes;
+    modes.push_back({width, 480, 8});
+    modes.push_back({width, 480, 16});
+    // The game sorts the modes by their bits a pixel, then width, then
+    // height (0x427b00), and keeps its choice as an index into that list.
+    const x86::DirectX::Mode wide{width, 480, direct3D ? 16 : 8};
     const auto before = std::count_if(modes.begin(), modes.end(), [&](const x86::DirectX::Mode &m) {
         return std::tie(m.bits, m.width, m.height) < std::tie(wide.bits, wide.width, wide.height);
     });
-    modes.push_back(wide);
     // The player's own display, kept for the sessions without widescreen,
     // where that index is another mode.
     for (const char *name : kDisplayValues)
         _keptValues.emplace_back(name, _process->registryValue(_registryKey, name));
-    setDirect3D(uint32_t(before));
+    _wideDirect3D = direct3D;
+    if (direct3D)
+        setDirect3D(uint32_t(before));
+    else
+        _process->setRegistryValue(_registryKey, "displayMode", kBinary, {uint8_t(before), uint8_t(before >> 8), 0, 0});
     // The view's size: its own in widescreen, the player's for 4:3 kept.
     _keptValues.emplace_back("viewSize", _process->registryValue(_registryKey, "viewSize"));
     auto wideSize = _process->registryValue(_registryKey, kWideViewSize);

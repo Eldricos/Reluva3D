@@ -29,6 +29,8 @@
 #            the view widened, and the frames' sizes (sith host -wide)
 #   wide1610 the same at 16:10 (768 by 480)
 #   wide219  the same at 21:9 (1120 by 480)
+#   widesw   the same at 16:9 drawn by the game's own renderer, in 8-bit
+#            colour; the others through Direct3D (-d3d)
 # The game runs on the machine's clock, so the host steps record only what
 # a run decides itself, cut off at a point it reaches on any machine fast
 # enough to play the game: the clicks come at set seconds.
@@ -81,11 +83,13 @@ elseif(STEP STREQUAL "start")
 elseif(STEP STREQUAL "level")
     record_host(level 75 "02narshadda\\.jkl" -skim -keys "${new_game}")
 elseif(STEP STREQUAL "wide")
-    record_wide(wide 854 45 "01narshadda\\.jkl" -skim -keys "${new_game}")
+    record_wide(wide 854 45 "01narshadda\\.jkl" -d3d -skim -keys "${new_game}")
 elseif(STEP STREQUAL "wide1610")
-    record_wide(wide1610 768 45 "01narshadda\\.jkl" -skim -keys "${new_game}")
+    record_wide(wide1610 768 45 "01narshadda\\.jkl" -d3d -skim -keys "${new_game}")
 elseif(STEP STREQUAL "wide219")
-    record_wide(wide219 1120 45 "01narshadda\\.jkl" -skim -keys "${new_game}")
+    record_wide(wide219 1120 45 "01narshadda\\.jkl" -d3d -skim -keys "${new_game}")
+elseif(STEP STREQUAL "widesw")
+    record_wide(widesw 854 45 "01narshadda\\.jkl" -skim -keys "${new_game}")
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")
 endif()

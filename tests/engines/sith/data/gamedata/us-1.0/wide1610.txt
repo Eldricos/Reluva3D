@@ -1,5 +1,5 @@
 wide1610: c98fd70dd3648104 | 5553 files opened
 wide1610.reached: cut scene 01-02a.smk
 wide1610.reached: cut scene 03-04a.smk
-widescreen: 768x480, the view widened: yes, the scope's sight kept its shape: no sight
+widescreen: 768x480 by Direct3D, the view widened: yes, the scope's sight kept its shape: no sight
 frame sizes: 640x480 768x480

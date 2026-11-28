@@ -62,9 +62,10 @@ endfunction()
 
 # Widescreen (sith host -wide): the game into its first level in a mode
 # `width` by 480 (854 for 16:9, 768 for 16:10, 1120 for 21:9), kept as
-# <name> as record_host would, with whether the view was widened and the
-# sizes of the frames shown: the menus' and cut scenes' 640 by 480, play's
-# the mode's.
+# <name> as record_host would, with what it was drawn by, whether the view
+# was widened and the sizes of the frames shown: the menus' and cut
+# scenes' 640 by 480, play's the mode's. Through Direct3D with -d3d among
+# the arguments, else by the game's own renderer.
 function(record_wide name width seconds until)
     record_host(${name} ${seconds} "${until}" -wide ${width} ${ARGN})
     string(REGEX MATCH "widescreen: [^\n]*" widened "${host_log}")

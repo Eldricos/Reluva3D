@@ -139,9 +139,11 @@ display slower than the rate shows no more than its own.
 *Widescreen* (off by default; 16:9, 16:10 or 21:9) plays the game on a
 wider screen at its 480 lines (854, 768 or 1120 pixels wide), seeing
 more at the sides and as much height as at 4:3. Its menus and cut
-scenes stay 640x480 in the middle, black beside them. It plays through
-the game's own 3D acceleration whatever *Setup* says, drawn in
-software or on the graphics card as *3D drawing* says; *Setup*'s
+scenes stay 640x480 in the middle, black beside them. With *3D
+drawing* on the graphics card it plays through the game's 3D
+acceleration (Direct3D); in software, by the game's own renderer, as it
+looked without a 3D card, or through Direct3D if *Setup*'s 3D
+acceleration is on. *Setup*'s
 display as it was before is what's kept for the sessions without
 ([systems/hosting.md](systems/hosting.md), step 24). The view's size
 (*Setup*'s *View size*, or `=` and `-` in play, the controls

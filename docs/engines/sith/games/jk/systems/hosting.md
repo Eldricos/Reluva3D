@@ -431,9 +431,12 @@ Windows does when it fails, and dialog boxes are made but not drawn
     text keep the size they have at 640 by 480, and the menus and cut
     scenes fill the screen's height, shown in the middle with black
     beside them, the pointer moved by as much; on the graphics card the
-    3D is drawn larger as at 4:3 (step 21). It plays through Direct3D,
-    *Setup*'s display values set for it as `useDirect3D` sets them,
-    `displayMode` the new mode's index; the values as they were before
+    3D is drawn larger as at 4:3 (step 21). Two modes are offered, in 8-
+    and 16-bit colour. With the 3D on the graphics card, or *Setup*'s 3D
+    acceleration on, it plays through Direct3D, *Setup*'s display values
+    set for it as `useDirect3D` sets them, `displayMode` the 16-bit
+    mode's index; otherwise by the game's own renderer, `displayMode` the
+    8-bit mode's. The values as they were before
     are what's saved to the registry file, since without the setting
     that index is another mode, or none.
 
@@ -488,12 +491,11 @@ Windows does when it fails, and dialog boxes are made but not drawn
     ship bind those actions: from 9, `-` twice and `=` once left 8
     *(confirmed)*.
 
-    The game's own software renderer, offered an 8-bit mode of 854 by
-    480 as well and chosen with *Setup*'s 3D acceleration off (a trial,
-    not an option), drew Nar Shaddaa across the whole screen with the
-    gauges in its corners, framed as through Direct3D *(confirmed)*: the
-    focal length's widening serves it too. It isn't offered: widescreen
-    plays through Direct3D.
+    The game's own renderer, in its 8-bit wide mode, draws each game's
+    first level across the whole screen with the gauges in its corners,
+    framed as through Direct3D, Mysteries of the Sith's scope's sight
+    its shape *(confirmed)*: the focal length's widening and the sight's
+    serve it too.
 25. **The console and `-devMode`** *(confirmed)*. The
     game has one command line for its console, its cheats and, in
     multiplayer, chat: T opens it in a level, and Enter (`0x408e50`)

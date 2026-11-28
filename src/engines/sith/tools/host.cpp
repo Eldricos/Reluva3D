@@ -210,7 +210,7 @@ int cmdHost(int argc, char **argv) {
         if (kept)
             kept(key, name);
     };
-    if (wideWidth && !game.useWidescreen(wideWidth))
+    if (wideWidth && !game.useWidescreen(wideWidth, direct3d))
         std::printf("-wide: wider than 640\n");
     if (direct3d)
         game.useDirect3D(); // Setup's 3D acceleration, on the primary display with Direct3D's HAL device
@@ -246,7 +246,8 @@ int cmdHost(int argc, char **argv) {
     for (const std::string &m : process.missingImports())
         std::printf("not stood in for: %s\n", m.c_str());
     if (wideWidth)
-        std::printf("widescreen: %dx480, the view widened: %s, the scope's sight kept its shape: %s\n", wideWidth,
+        std::printf("widescreen: %dx480 by %s, the view widened: %s, the scope's sight kept its shape: %s\n", wideWidth,
+                    game.wideDirect3D() ? "Direct3D" : "the game's renderer",
                     game.viewWidened() ? "yes" : "not this program", game.sightKept() ? "yes" : "no sight");
     if (everyFrame)
         std::printf("the world moved at every frame: %s\n", game.updateEveryFrame() ? "yes" : "not this program");

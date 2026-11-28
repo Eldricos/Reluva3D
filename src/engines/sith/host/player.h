@@ -73,8 +73,9 @@ public:
     }
     /**
      * Widescreen: the game played in a mode `width` by 480, its view
-     * widened to fill it (GameProcess::useWidescreen); 0 for none. Before
-     * start().
+     * widened to fill it (GameProcess::useWidescreen): through Direct3D
+     * when its scenes are kept (keepScenes) or Setup's 3D acceleration is
+     * on, else by the game's own renderer; 0 for none. Before start().
      */
     void setWidescreen(int width) { _wideWidth = width; }
     /** Starts the game's thread, which loads and runs the program; call once. */

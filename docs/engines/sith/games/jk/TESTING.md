@@ -53,6 +53,7 @@ the game, one step each:
 | `wide` | The same into Nar Shaddaa in widescreen, 16:9, 854 by 480 (`host -wide 854`, 45 seconds): the cut scenes reached and the files opened up to the level, as a checksum; that the view was widened; and the frames' sizes, the menus' 640 by 480 and play's 854 by 480 |
 | `wide1610` | The same at 16:10, 768 by 480 (`-wide 768`) |
 | `wide219` | The same at 21:9, 1120 by 480 (`-wide 1120`) |
+| `widesw` | The same at 16:9 drawn by the game's own renderer in 8-bit colour; the three above through Direct3D (`-d3d`) |
 
 The game runs on the machine's clock, not an instruction clock, so the
 hosted steps keep only what the run decides itself, up to a point any
@@ -148,6 +149,7 @@ graphics card:
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | *Widescreen* 16:9 with *3D drawing* in software through `reluva`, from a new player: the menus 4:3 in the middle, then the first level drawn by the game's own renderer across the window, both gauges in its corners. The `widesw` step made and passed again with the other widescreen steps |
 | November 2026 | US retail | Linux | *Setup*'s *Advanced Display Settings*, with `-devMode`: each choice tried into Nar Shaddaa ([systems/hosting.md](systems/hosting.md), step 25); the level drawn in all but *Vertex* geometry, which stops the game, and wireframe through Direct3D, which draws no world. The software renderer in an 8-bit mode of 854 by 480, a trial: the level drawn across it |
 | November 2026 | US retail | Linux | *Level select* through `reluva` on a virtual display: "(Debug)" on *Single Player*, opening *Choose Episode*; from a new player, *The Force Within*'s third level chosen through it by mouse clicks, *The Return Home to Sulon*, started and played, its autosave written (`_JKAUTO_03katarn.jks`). Off, no "(Debug)". `sith.unit.detection`'s *command line* test |
 | November 2026 | US retail | Linux | The console and `-devMode`: `version` and `coords` typed after T in Nar Shaddaa printed the build's date and the player's place; `help` and `fly` weren't recognised, with `-devMode` or without. With `-devMode`, "(Debug)" on *Single Player* listed the episodes, the multiplayer ones too, and *The Force Within*'s levels to choose from |

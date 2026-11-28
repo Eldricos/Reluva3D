@@ -69,20 +69,24 @@ public:
      */
     bool useDirect3D();
     /**
-     * Widescreen: offers the game a mode `width` by 480 in 16-bit colour
-     * and has it play there through Direct3D (as useDirect3D, the mode
-     * that one), its view seeing as much height as at 4:3 and more at the
-     * sides, where the program is a US release's
-     * (docs/engines/sith/games/jk/systems/hosting.md, step 24). The menus
+     * Widescreen: offers the game modes `width` by 480 and has it play in
+     * one, its view seeing as much height as at 4:3 and more at the sides,
+     * where the program is a US release's
+     * (docs/engines/sith/games/jk/systems/hosting.md, step 24): through
+     * Direct3D in 16-bit colour (as useDirect3D, the mode that one) if
+     * `direct3D` or Setup's 3D acceleration is on, else by the game's own
+     * renderer in 8-bit colour. The menus
      * and cut scenes stay 640 by 480. The view's size is widescreen's own:
      * 9, the whole screen, until the player changes it; Mysteries of the
      * Sith's scope sight keeps its shape; the registry file
      * keeps the player's display and view size for 4:3. Before load().
      * @return False, changing nothing, if `width` isn't wider than 640.
      */
-    bool useWidescreen(int width);
+    bool useWidescreen(int width, bool direct3D);
     /** Whether load() widened the view for widescreen: the program is a US release's. */
     bool viewWidened() const { return _viewWidened; }
+    /** Whether widescreen plays through Direct3D, rather than the game's own renderer (useWidescreen). */
+    bool wideDirect3D() const { return _wideDirect3D; }
     /** Whether load() kept the scope's sight as tall as it's wide in widescreen: Mysteries of the Sith's US release. */
     bool sightKept() const { return _sightKept; }
     /**
@@ -141,6 +145,7 @@ private:
     int _cdInDrive = 0;
     bool _widescreen = false;
     bool _viewWidened = false;
+    bool _wideDirect3D = false;
     bool _sightKept = false;
     void hookCdCheck();
     void hookFocalLength();

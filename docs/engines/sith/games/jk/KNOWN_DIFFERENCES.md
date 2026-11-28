@@ -63,8 +63,9 @@ None yet.
 - **Widescreen:** the *Widescreen* setting has the game play on a 16:9,
   16:10 or 21:9 screen, seeing more at the sides, by offering it a mode
   it never had and changing its focal length as it runs
-  ([systems/hosting.md](systems/hosting.md), step 24). It plays through
-  Direct3D whatever *Setup* says; the menus and cut scenes stay 4:3.
+  ([systems/hosting.md](systems/hosting.md), step 24). On the graphics
+  card it plays through Direct3D whatever *Setup* says; the menus and
+  cut scenes stay 4:3.
   Every level of both games has been skimmed this way at 16:9, the
   first level in each of the three shapes.
 - **Frame rate:** by default the game shows at most 60 frames a second,

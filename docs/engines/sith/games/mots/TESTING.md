@@ -38,6 +38,7 @@ The engine's, `sith.engine`, on Jedi Knight's files.
 | `wide` | The same into the first level in widescreen, 16:9, 854 by 480 (`-wide 854`, 50 seconds): the files opened up to it, that the view was widened, and the frames' sizes, 640 by 480 and 854 by 480 |
 | `wide1610` | The same at 16:10, 768 by 480 (`-wide 768`) |
 | `wide219` | The same at 21:9, 1120 by 480 (`-wide 1120`) |
+| `widesw` | The same at 16:9 drawn by the game's own renderer in 8-bit colour; the three above through Direct3D (`-d3d`) |
 
 Like Jedi Knight's, the host steps record only what a run decides
 itself: past the level a step stops at, neither the levels and cut
@@ -70,6 +71,7 @@ after four seconds.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | *Widescreen* 16:9 with *3D drawing* in software through `reluva`, from a new player: the menus 4:3 in the middle, then the first level drawn by the game's own renderer across the window, both gauges in its corners. The `widesw` step made and passed again with the other widescreen steps |
 | November 2026 | US retail | Linux | The cheats left: `freebird` (*Fly mode on*), `morelife` (*Heal*), `cartograph` (*All Map*) typed in the first level; `youarehere 0 0 0` moved Mara outside it, `quickzap 1` back to its start after walking; `makeitwork 1` and `40` ran, the game going on |
 | November 2026 | US retail | Linux | *Level select* through `reluva`: *Cutscenes* on the main menu, "(Debug)" on *Single Player*, opening *Choose Episode* with the game's four episodes; from a new player, the third level chosen through it by mouse clicks, *Asteroid Core*, started with its opening scene and played, its autosave written (`_JKAUTO_s1l3_astcore.jks`). Off, neither button |
 | November 2026 | US retail | Linux | The scope's sight in widescreen: at 16:10, 16:9 and 21:9 (`-wide 768`, `854`, `1120`, the scope up through `diediedie` and `3` twice) 126 by 30 pixels in the screen's middle, as at 4:3; before, 167 by 30 at 16:9. The `wide` steps record the sight kept |

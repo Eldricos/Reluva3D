@@ -321,8 +321,9 @@ public:
         widescreen.key = "widescreen";
         widescreen.label = "Widescreen";
         widescreen.tooltip = "The game played on a wider screen, seeing more at the sides, as tall as it is at 4:3; "
-                             "its menus and cut scenes stay 4:3 in the middle. Uses the game's 3D acceleration "
-                             "(Direct3D), whatever its Setup says.";
+                             "its menus and cut scenes stay 4:3 in the middle. On the graphics card it plays through "
+                             "Direct3D; in software, by the game's own renderer, or through Direct3D if its Setup's "
+                             "3D acceleration is on.";
         widescreen.choices = {{"off", "Off (4:3)"}, {"16:9", "16:9"}, {"16:10", "16:10"}, {"21:9", "21:9"}};
         GameOption levels;
         levels.key = "levelselect";

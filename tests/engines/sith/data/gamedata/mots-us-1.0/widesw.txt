@@ -1,0 +1,4 @@
+widesw: bf4a2465bf4254b8 | 6721 files opened
+widesw.reached: cut scene jkmintro.san
+widescreen: 854x480 by the game's renderer, the view widened: yes, the scope's sight kept its shape: yes
+frame sizes: 640x480 854x480
