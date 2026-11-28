@@ -197,9 +197,11 @@ the maps' own processes for each `Process Type`.
 
 The chosen item's `Info Renderer` is drawn on the info bar at Rules.txt's
 `Info Renderer Pos` (127, 34): its `Background Sequence`, and what its
-kind shows. Its sequences' places are added to a point the info bar
-gives it (`0x534b52`; Reluva takes the panel's middle: `Phaser Indicator
-Pos` 0, -8; `Indicator Position` -55, 0), its pictures' and words' are
+kind shows (its slot `0x60`, `0x534a70`, called by the info bar after
+drawing its own, `0x4dea7c`). Its sequences' places are added to the
+point the info bar gives it, its `Info Renderer Pos` (`0x4deb03`,
+`0x534b52`: `Phaser Indicator Pos` 0, -8; `Indicator Position` -55, 0
+from there), its pictures' and words' are
 on the info bar with nothing added (`0x534d61`), which puts them on it
 (the phaser's `Stun Pos` 155, 39; the band's `Button Pos` 116, 13). A `CGenericInfoRenderer` its
 `Text` in `Text Size` at `Text Pos`. The phaser's `CPhaserInfoRenderer`: its `Phaser Power Indicator
@@ -580,6 +582,3 @@ system ([particles.md](particles.md)).
 - **Gadgets:** how an enemy's shot reaches a hologram (Reluva hurts it
   as the shot's fired), how the player orders an enemy taken over, and
   how its own mind comes back.
-- **The panels:** where each part of an item's panel is drawn, and
-  whether it's over the minimap: the point the info bar hands the
-  panel's draw (its slot `0x64`, `0x534a70`) isn't traced.

@@ -339,8 +339,8 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
         }
         drawMarks(screen, left, top, now);
     }
-    // The chosen item's panel at Info Renderer Pos on it, over the minimap
-    // (inferred).
+    // The chosen item's panel at Info Renderer Pos on it, drawn after the
+    // bar's own (0x4dea7c, 0x4deb03).
     int rx = 0;
     int ry = 0;
     readPoint(_custom, "Info Renderer Pos", rx, ry);
@@ -655,17 +655,16 @@ const Font &GameHud::panelFont(const std::string &name) {
 
 void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
     // The chosen item's Info Renderer: its Background Sequence, and what
-    // its kind shows on it (inferred for where each is drawn within it,
-    // from its fields).
+    // its kind shows on it (0x534a70).
     const ItemDefinition *item = chosenItem();
     if (!item || !item->infoRenderer)
         return;
     const TextObject *panel = item->infoRenderer.get();
     blitBy(screen, sequence(readText(panel, "Background Sequence")).at(now), x, y);
-    // Its sequences are placed from its middle (its Phaser Indicator Pos,
-    // 0,-8); its pictures and words from the info bar's corner, as Info
-    // Renderer Pos is (inferred: so they fall on it, the phaser's Stun Pos
-    // 155,39 and Range Pos 45,46 among them).
+    // Its sequences are placed from the point the info bar hands it, its
+    // Info Renderer Pos (0x4deb03, 0x534b52: the Phaser Indicator Pos 0,-8
+    // from there); its pictures and words from the info bar's corner, with
+    // nothing added (0x534d61).
     const auto at = [&](const char *key, int &px, int &py) {
         px = 0;
         py = 0;
@@ -673,7 +672,7 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         px += _barX;
         py += _barY;
     };
-    const auto fromMiddle = [&](const char *key, int &px, int &py) {
+    const auto fromPoint = [&](const char *key, int &px, int &py) {
         px = 0;
         py = 0;
         readPoint(panel, key, px, py);
@@ -701,7 +700,7 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         // Offset (0x534c80); and its STUN or KILL as it's set, in their
         // fonts, on the toolkit's toggle, and OVERLOAD likewise, for an
         // item that can overload (0x534ed1).
-        fromMiddle("Phaser Indicator Pos", px, py);
+        fromPoint("Phaser Indicator Pos", px, py);
         if (const Animation::Picture *power =
                 sequence(readText(panel, "Phaser Power Indicator Sequence")).frame(0, 0)) {
             const int left = px - power->originX;
@@ -783,7 +782,7 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         // cut to as much as is left (Clip Foreground As Charge Indicator),
         // and as a percentage; its button, on or off, with its words
         // (inferred for where each is drawn, and the percentage's form).
-        fromMiddle("Indicator Position", px, py);
+        fromPoint("Indicator Position", px, py);
         blitBy(screen, sequence(readText(panel, "Background Indicator Sequence")).frame(0, 0), px, py);
         if (const Animation::Picture *fore = sequence(readText(panel, "Foreground Indicator Sequence")).frame(0, 0)) {
             Animation::Picture cut = *fore;
@@ -824,7 +823,7 @@ void GameHud::drawItemPanel(Surface &screen, int x, int y, uint64_t now) {
         const Animation &meter = sequence(readText(panel, "Meter Sequence"));
         const int frames = std::max(1, meter.perDirection());
         const int frame = int(std::lround(std::clamp(_energy, 0.0f, 100.0f) / 100.0f * float(frames - 1)));
-        fromMiddle("Indicator Position", px, py);
+        fromPoint("Indicator Position", px, py);
         blitBy(screen, meter.frame(frame, 0), px, py);
         at("Percent Pos", px, py);
         if (window.loaded())

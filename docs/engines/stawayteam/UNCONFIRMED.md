@@ -52,7 +52,7 @@ None now.
   about ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** the debriefing's lines typed only once their panel's
   in ([systems/objectives.md](systems/objectives.md#open-questions)).
-- **Items:** the counts for -1, and the items' panels' layout
+- **Items:** the counts for -1
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** the enemies themselves not cutting the
   sight drawn ([systems/maps.md](systems/maps.md#open-questions)).
@@ -60,8 +60,6 @@ None now.
   rather than as it meets it, and what's put down running its model's
   AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).
-- **The item panels' layout:** sequences placed from the panel's middle
-  ([systems/items.md](systems/items.md#an-items-panel)).
 - **The triggers:** a thrown thing found after the characters in a
   touching trigger, and a collide trigger going as one comes into the
   part's shape rather than as their movement meets it
