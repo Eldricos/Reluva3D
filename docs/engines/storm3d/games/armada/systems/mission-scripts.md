@@ -67,6 +67,36 @@ for what they take from Armada.exe.
   `isCineractiveCancel`, are set after each pass, for the next: done
   once the shot's moves are, and each `CineractiveShot` puts done back
   to 0 (0x4ecec0) *(from the code)*.
+- **The cut scenes** ("cineractives"), from the program's camera
+  manager (0x661588) *(from the code)*:
+  - `CineractiveStart` takes the input (mode 2): the interface is
+    hidden, but for the fade; the world runs on at real speed, whatever
+    the game speed; the music stops. `CineractiveEnd` gives it back and
+    puts every unit's speeds back to its definition's.
+  - Four controllers: the eye, what it looks at, and an offset to each.
+    Each is a fixed point, a unit followed (its origin and heading, each
+    frame, without lag), or a curve along a path: a Hermite curve through
+    every point, each segment a second at speed 1 whatever its length,
+    stopping at the last point (0x4ee520). An offset's path starts at its
+    second point and is less its first, a pivot; with its flag, it's
+    turned into the eye's own axes (0x4ed930).
+  - The camera each frame: the eye plus its offset, looking at the
+    target plus its offset; it never rolls, up from the world's (0x5534f0);
+    the field of view is play's. A shot cuts at once, and during a cut
+    scene puts both offsets back to none, so a script sets the offset
+    after it.
+  - The shots by their arguments: two units, the eye following the first
+    looking at the second; a path's point and a unit; two paths' points;
+    along a path at a speed, at a path's point; a path's point, looking
+    along a path. Shots along a heading, and a tracking shot, aren't used
+    by Federation 1.
+  - `isCineractiveDone` is all four controllers done: a fixed or
+    followed one at once, a path at its end; `isCineractiveCancel` is
+    every human player having pressed Space (`switch_camera_shot`).
+  - `FadeOut` and `FadeIn` (seconds, delay, colour): after the delay the
+    screen goes to the colour, or from it, over the seconds, straight;
+    the colour black, or white if the third isn't 0. A fade out stays
+    until a fade in. The fade is drawn only during a cut scene.
 - **Saving:** the script registers a function to write and one to read
   its variables in the program's `save_scripts` and `load_scripts`
   lists; running scripts aren't saved, and loading clears them
@@ -125,11 +155,14 @@ for what they take from Armada.exe.
   - **the end:** `SucceedMission` and `FailMission` end the mission when
     the game time reaches the time they give.
 
-  Not done yet: the cineractive camera (each shot is taken as done at
-  once, so the opening runs 22 seconds, not the original's 44), voices
-  and music (`AudioMessage` is done at once), titles, subtitles, the
-  objectives box, the bridge, fades, `SetWarpSpeed`, the minimap's
-  messages and the AI files other missions load.
+  - **the cut scenes** as above (`Cineractive`, `play/cineractive.h`),
+    run after the rules each frame, their flags for the next; Space
+    skips one, and Esc still opens the menu.
+
+  Not done yet: voices and music (`AudioMessage` is done at once), titles,
+  subtitles, the objectives box, the bridge, `SetWarpSpeed`, the
+  minimap's messages, the shots along a heading, and the AI files other
+  missions load.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make

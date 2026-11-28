@@ -55,8 +55,23 @@ void MissionView::runScripts(double seconds) {
         _scriptFault = err.message;
         return;
     }
-    // No cineractive camera yet: each shot is done as it's given.
-    _missionScripts->setCineractive(true, false);
+    // The cut scene's camera after the rules, its flags for the next pass
+    // (0x43db6f).
+    _cine.update(float(seconds), locateForCine());
+    _missionScripts->setCineractive(_cine.done(), _cine.skipped());
+}
+
+Cineractive::Locate MissionView::locateForCine() {
+    // A unit by its origin and heading (+0x12c, +0x7c); a map object facing +z.
+    return [this](int32_t handle) -> std::optional<Cineractive::Placed> {
+        if (auto unit = unitOfHandle(handle)) {
+            const Movement::Ship &ship = _ships[*unit];
+            return Cineractive::Placed{ship.at, {std::sin(ship.heading), 0, std::cos(ship.heading)}};
+        }
+        if (auto at = placeOfHandle(handle))
+            return Cineractive::Placed{*at, {0, 0, 1}};
+        return std::nullopt;
+    };
 }
 
 std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const MissionScripts::Arguments &args) {
@@ -322,6 +337,77 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
     }
     if (name == "SucceedMission" || name == "FailMission") {
         _missionEnd = {double(args.real(0)), name == "FailMission"};
+        return 0u;
+    }
+    if (name == "CineractiveStart" || name == "CineractiveEnd") {
+        if (name == "CineractiveStart")
+            _cine.start();
+        else
+            _cine.end();
+        return 0u;
+    }
+    if (name == "CineractiveShot") {
+        // By the overload, its arguments' kinds (0x4ec6b0, 0x4ebf20,
+        // 0x4ebd90, 0x4ecab0, 0x4ec290); a path or point that isn't there,
+        // nothing.
+        const Cineractive::Locate locate = locateForCine();
+        const std::string &k = args.kinds;
+        auto pathOf = [this, &args](int n) -> const std::vector<gfx::Vec3> * {
+            auto it = _paths.find(args.text(n));
+            return it == _paths.end() || it->second.empty() ? nullptr : &it->second;
+        };
+        if (k == "ii") {
+            _cine.shotFollow(args.integer(0), args.integer(1), locate);
+        } else if (k == "sii") {
+            if (auto eye = pathPoint(args.text(0), args.integer(1)))
+                _cine.shotAt(*eye, args.integer(2), locate);
+        } else if (k == "sisi") {
+            auto eye = pathPoint(args.text(0), args.integer(1));
+            auto look = pathPoint(args.text(2), args.integer(3));
+            if (eye && look)
+                _cine.shotAt(*eye, *look, locate);
+        } else if (k == "sfsi") {
+            auto look = pathPoint(args.text(2), args.integer(3));
+            if (const std::vector<gfx::Vec3> *eye = pathOf(0); eye && look)
+                _cine.shotAlong(*eye, args.real(1), *look, locate);
+        } else if (k == "sisf") {
+            auto eye = pathPoint(args.text(0), args.integer(1));
+            if (const std::vector<gfx::Vec3> *look = pathOf(2); eye && look)
+                _cine.shotLookingAlong(*eye, *look, args.real(3), locate);
+        } else {
+            return std::nullopt; // the shots along a heading, not made yet
+        }
+        return 0u;
+    }
+    if (name == "CineractiveCameraOffset" || name == "CineractiveTargetOffset") {
+        const Cineractive::Locate locate = locateForCine();
+        const bool camera = name == "CineractiveCameraOffset";
+        if (args.kinds == "sfb") {
+            auto it = _paths.find(args.text(0));
+            if (it == _paths.end())
+                return 0u;
+            if (camera)
+                _cine.cameraOffset(it->second, args.real(1), args.flag(2), locate);
+            else
+                _cine.targetOffset(it->second, args.real(1), args.flag(2), locate);
+        } else if (args.kinds == "fffb") {
+            const gfx::Vec3 by{args.real(0), args.real(1), args.real(2)};
+            if (camera)
+                _cine.cameraOffset(by, args.flag(3), locate);
+            else
+                _cine.targetOffset(by, args.flag(3), locate);
+        } else {
+            return std::nullopt;
+        }
+        return 0u;
+    }
+    if (name == "FadeIn" || name == "FadeOut") {
+        // Over its seconds, after its delay; the third not 0, white, else black.
+        _cine.fade(name == "FadeOut", args.real(0), args.real(1), args.real(2) != 0);
+        return 0u;
+    }
+    if (name == "FadeRemove") {
+        _cine.removeFade();
         return 0u;
     }
     if (name == "AudioMessage")

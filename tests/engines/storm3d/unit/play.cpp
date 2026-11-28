@@ -6,6 +6,7 @@
 
 #include "engines/storm3d/formats/gui_config.h"
 #include "engines/storm3d/formats/tech_tree.h"
+#include "engines/storm3d/play/cineractive.h"
 #include "engines/storm3d/play/combat.h"
 #include "engines/storm3d/play/computer_player.h"
 #include "engines/storm3d/play/hud.h"
@@ -865,6 +866,51 @@ void testCrewAndSystems() {
     CHECK(!life.out() && !v.damaged());
 }
 
+// The cut scene's camera: a path passed through at a segment a second
+// times its speed, whatever the segment's length, done at its end; an
+// offset from its second point less its first; the frame never rolls; a
+// fade over its seconds after its delay.
+void testCineractive() {
+    using reluva::storm3d::Cineractive;
+    const Cineractive::Locate none = [](int32_t) { return std::optional<Cineractive::Placed>{}; };
+    Cineractive cine;
+    cine.start();
+    const std::vector<reluva::gfx::Vec3> path{{0, 0, 0}, {100, 0, 0}, {100, 0, 300}};
+    cine.shotAlong(path, 0.5f, {0, 0, 1000}, none);
+    CHECK(!cine.done());
+    cine.update(1, none); // half the first segment
+    auto camera = cine.camera();
+    CHECK(camera && camera->eye[0] > 40 && camera->eye[0] < 60);
+    CHECK(std::fabs(camera->up[1]) > 0.9f);
+    cine.update(1, none); // its second point
+    CHECK(std::fabs(cine.camera()->eye[0] - 100) < 1e-3f && std::fabs(cine.camera()->eye[2]) < 1e-3f);
+    cine.update(2, none);
+    CHECK(cine.done() && std::fabs(cine.camera()->eye[2] - 300) < 1e-3f);
+
+    // An offset path's first point is its pivot: at its second, 584 along z.
+    const Cineractive::Locate ship = [](int32_t) {
+        return std::optional<Cineractive::Placed>{Cineractive::Placed{{1000, 0, 0}, {1, 0, 0}}};
+    };
+    cine.shotFollow(1, 1, ship);
+    cine.cameraOffset({{0, 0, 0}, {0, 0, 584}, {0, 0, 600}}, 0.2f, true, ship);
+    cine.update(0, ship);
+    // Turned into the ship's axes, facing +x: its front, so 584 along x.
+    CHECK(std::fabs(cine.camera()->eye[0] - 1584) < 1e-2f);
+    // Looking straight down, the frame's right is +x.
+    const auto axes = Cineractive::frameOf({0, -1, 0});
+    CHECK(axes[0][0] == 1 && std::fabs(axes[1][2]) > 0.99f);
+
+    cine.fade(false, 2, 1, false);
+    cine.update(1, none);
+    CHECK(cine.fadeOver() && cine.fadeOver()->second == 1);
+    cine.update(1, none);
+    CHECK(std::fabs(cine.fadeOver()->second - 0.5f) < 1e-3f);
+    cine.update(1.5f, none);
+    CHECK(!cine.fadeOver());
+    cine.end();
+    CHECK(!cine.camera());
+}
+
 // The mission scripts' imports, read from their decorated names: their
 // arguments' bytes, members popping their own, a float's result, data.
 void testScriptSignatures() {
@@ -998,6 +1044,7 @@ static const reluva::test::Suite
                {"crew", [](const std::filesystem::path &) { testCrewAndSystems(); }},
                {"boarding", [](const std::filesystem::path &) { testBoardingAndRepair(); }},
                {"script signatures", [](const std::filesystem::path &) { testScriptSignatures(); }},
+               {"cineractive", [](const std::filesystem::path &) { testCineractive(); }},
                {"avoidance", [](const std::filesystem::path &) { testAvoidance(); }},
                {"climb", [](const std::filesystem::path &) { testClimb(); }},
                {"map icons", [](const std::filesystem::path &) { testMapIcons(); }},

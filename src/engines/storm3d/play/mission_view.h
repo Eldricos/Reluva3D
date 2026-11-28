@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/game_files.h"
+#include "engines/storm3d/play/cineractive.h"
 #include "engines/storm3d/play/combat.h"
 #include "engines/storm3d/formats/tech_tree.h"
 #include "engines/storm3d/play/computer_player.h"
@@ -516,6 +517,8 @@ private:
     std::optional<std::pair<double, bool>> _missionEnd;         // when, in game seconds; whether failed
     bool _computersOff = false;                                 // DisableAllAITeams
     int _audioMessages = 0;
+    Cineractive _cine;                   // the scripts' cut scene
+    Cineractive::Locate locateForCine(); // where a unit or map object of a handle is, for it
     void runScripts(double seconds);
     std::optional<uint32_t> scriptCall(const std::string &name, const MissionScripts::Arguments &args);
     std::optional<size_t> unitOfHandle(int32_t handle) const; // a living unit's

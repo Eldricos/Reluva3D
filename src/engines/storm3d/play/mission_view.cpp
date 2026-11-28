@@ -1902,6 +1902,8 @@ std::array<int, 3> MissionView::healthBarOf(const MapScene::Unit &unit, const gf
 }
 
 MapScene::Camera MissionView::camera() const {
+    if (auto cut = _cine.camera())
+        return *cut;
     return MapScene::overviewOf(_overview.target, _overview.height, _overview.turn);
 }
 
@@ -2205,6 +2207,7 @@ void MissionView::stop() {
     _missionEnd.reset();
     _computersOff = false;
     _audioMessages = 0;
+    _cine = Cineractive{};
     _recrewing.clear();
     _poolCarry.clear();
     _revealedUntil.clear();
@@ -2238,6 +2241,13 @@ void MissionView::handleEvent(const Event &ev) {
     if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
         _mouseX = ev.mouseX;
         _mouseY = ev.mouseY;
+    }
+    // A cut scene takes the input: Space votes to skip it (Input.map's
+    // switch_camera_shot, 0x4a49ca); Esc still opens the menu.
+    if (_cine.on() && !(ev.type == EventType::kKeyDown && ev.key == key::kEscape)) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kSpace)
+            _cine.skip();
+        return;
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && _hud.covers(ev.mouseX, ev.mouseY)) {
         // On the minimap, the camera goes there; on the control panel, its
@@ -2827,6 +2837,22 @@ void MissionView::draw(uint64_t millis) {
     drawShots(view);
     drawEffects(double(millis) / 1000);
     drawPlacement(view);
+    // A cut scene hides the interface (input mode 2): its fade alone over
+    // the picture (0x495850).
+    if (_cine.on()) {
+        if (_overlay.w != 640)
+            _overlay.create(640, 480, PixelFormat::kRGBA32);
+        std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
+        if (auto fade = _cine.fadeOver()) {
+            const auto byte = [](float v) { return uint8_t(std::lround(std::clamp(v, 0.0f, 1.0f) * 255)); };
+            const std::array<uint8_t, 4> rgba{byte(fade->first[0]), byte(fade->first[1]), byte(fade->first[2]),
+                                              byte(fade->second)};
+            for (size_t p = 0; p + 3 < _overlay.pixels.size(); p += 4)
+                std::copy(rgba.begin(), rgba.end(), _overlay.pixels.begin() + std::ptrdiff_t(p));
+        }
+        _renderer->endFrame(&_overlay);
+        return;
+    }
     // The cinematic view: the unit selected first; with none, as the
     // original's did, one of the player's units after another, each for 2
     // to 6 seconds, starting on its first ship *(inferred)*, from a run's
