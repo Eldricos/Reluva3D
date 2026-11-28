@@ -53,3 +53,10 @@ c6ea55278d722da89fb33390177f10ad6b667650 # Format: the age branch's sources with
 b3822e453d237958c8fcc4ac7a7906264b915c25 # Format: the age tests and tools
 3875df3b4618d1a901621097764dab0775001934 # Split: the age engine's last members declared several to a line
 cb61f467764f543ca75ea672f6a8b1dee9bfc689 # Doxygen: age's headers and 5 shared ones, // blocks above public declarations made /** */
+
+# The Need for Speed engine takes a second game, NFS II SE: NFS III's own
+# code moved to nfs3/ and into its namespace (tools/relocate.py with
+# tools/relocations/2026-11-nfs-games.txt)
+9eda710cbf3729b15071b48cb7783245f66a99cc # nfs: NFS III's own code in a folder of its own, nfs3/
+7fa9bfdacffc4d8a8e477ce2bc08c119ba6d18a3 # nfs: NFS III's own code in namespace reluva::nfs::nfs3
+e962568c7bdf79ede9e8b429bf2188cb28cec3f4 # nfs: NFS III's THRASH classes moved to nfs3/
