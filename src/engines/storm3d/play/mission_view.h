@@ -569,8 +569,12 @@ private:
     };
     std::map<std::tuple<int, int, bool>, AllyAttacks> _allyAttacks; // by victim, attacker, a station
     void noteAttack(size_t attacker, size_t target);
-    std::map<size_t, int> _perceived;       // the player a unit looks like it's of (SetPerceivedTeam)
-    std::map<size_t, double> _hitAt;        // game seconds it was last hit by another player's
+    std::map<size_t, int> _perceived; // the player a unit looks like it's of (SetPerceivedTeam)
+    std::map<size_t, double> _hitAt;  // game seconds it was last hit by another player's
+    // When a unit was destroyed: the scripts take it as still exploding
+    // for a while after (IsExploding) *(guessed: 2 seconds)*.
+    std::map<size_t, double> _explodedAt;
+    bool exploding(size_t unit) const;
     std::map<size_t, std::string> _patrols; // a unit's path, flown round and round (Patrol)
     std::set<int> _teamsOff;                // computer players whose AI is off (DisableTeam)
     uint64_t _scriptPasses = 0;             // the rule engine's passes, for the strengths' every 200th
@@ -579,7 +583,6 @@ private:
     std::optional<uint32_t> moreScriptCalls(const std::string &name, const MissionScripts::Arguments &args);
     std::set<size_t> _cannotDie;                        // CraftCannotDie
     std::optional<std::pair<double, bool>> _missionEnd; // when, in game seconds; whether failed
-    bool _computersOff = false;                         // DisableAllAITeams
     // The scripts' titles and subtitles (0x648928), by id: shown only in a
     // cut scene, fading in or out over a second.
     struct OverlayText {
@@ -683,7 +686,23 @@ private:
     // in the units' order, up to its maxTargets, within its range squared.
     std::vector<size_t> areaTargetsOf(size_t unit, const Combat::Special &special) const;
     void firePoint(const std::string &button, const gfx::Vec3 &point);
-    void transwarp(size_t unit, Combat::Special &special, const gfx::Vec3 &point); // it, or its conduit's ships, there
+    // A ship's transwarp drive jumps it alone; a transwarp gate's generator
+    // opens or shuts its conduit, a pair of wormholes (0x4e2210, 0x504e20).
+    void transwarp(size_t unit, Combat::Special &special, const gfx::Vec3 &point);
+    struct Conduit {
+        size_t near = 0; // the wormhole by the gate, a unit
+        size_t far = 0;  // the one at the point
+        double left = 0; // seconds till it shuts
+    };
+    std::map<size_t, Conduit> _conduits; // by gate
+    struct Jump {
+        size_t unit = 0;
+        gfx::Vec3 to{};
+        double at = 0; // the game's seconds it's there
+    };
+    std::vector<Jump> _jumps;
+    void closeConduit(size_t gate);
+    void runTranswarps(double seconds);
     void runEffects(double seconds); // the fields, beams, drains and what wears off
     // crew.cpp: transporting, boarding and capture, repair and recrew.
     void transport(size_t unit, size_t target);

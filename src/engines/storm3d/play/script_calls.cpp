@@ -303,7 +303,13 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         return uint32_t(bank->dilithium);
     }
     if (name == "DisableAllAITeams" || name == "EnableAllAITeams") {
-        _computersOff = name == "DisableAllAITeams";
+        // Each computer player's switch, which one turned on again later
+        // overrides (0x434c20).
+        for (const Computer &c : _computers)
+            if (name == "DisableAllAITeams")
+                _teamsOff.insert(c.slot);
+            else
+                _teamsOff.erase(c.slot);
         return 0u;
     }
     if (name == "GetLocation") {

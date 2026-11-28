@@ -332,8 +332,17 @@ From the same run's frames and draws:
     units not of the firer's side within 400 for its `lifeSpan` (45);
     Gemini Effect copies an allied ship for its `effectTimer`; Computer
     Override makes a ship the firer's player's; Nanites stop it taking
-    orders; the Romulan Spy shows what's round it; the transwarp drive
-    and conduit move a ship, or the ships near it, to a point seen. Not
+    orders; the Romulan Spy shows what's round it; a ship's transwarp
+    (its `transwarpconduit` weapon, firing `transwarpdrive`) heads it 20
+    towards a point seen and puts it there, alone, 0.6 seconds on,
+    stopped (0x4e2210); a transwarp gate's generator (`wormholegen`,
+    `bsuperbl`'s `gmastran`) opens a conduit, a pair of its `wormholeID`
+    wormholes, one at the gate's `gate` node and one at the point 40
+    under the grid, for all its special energy and its `lifetime` (90
+    seconds), which ships are sent through as through any
+    ([wormholes.md](wormholes.md)); fired again it shuts for nothing,
+    and it shuts too when its time's out or its gate is gone (0x504e20,
+    0x505200) *(from the code)*. Not
     made: those the files mark unfinished ("THIS IS A BUG", "WRITE ME")
     and the Omega particle's tractor beam, a mission's.
 

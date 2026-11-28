@@ -377,15 +377,16 @@ bool MissionView::fireMore(size_t unit, Combat::Special &special, int target) {
 }
 
 void MissionView::firePoint(const std::string &button, const gfx::Vec3 &point) {
-    // Transwarp: the ship there at once; a transwarp conduit, its player's
-    // ships near it too. Only to a place seen.
+    // A transwarp, to a place seen; an open conduit shuts, whatever its
+    // gate's energy.
     if (_scene.covered(point) && _scene.cover().shroud)
         return;
     for (int i : obeying(_selection)) {
         if (size_t(i) >= _specials.size())
             continue;
         for (Combat::Special &sp : _specials[size_t(i)]) {
-            if (sp.button != button || !wantsPoint(sp) || !usable(size_t(i), sp))
+            const bool shutting = sp.kind == "wormholegen" && _conduits.count(size_t(i));
+            if (sp.button != button || !wantsPoint(sp) || (!shutting && !usable(size_t(i), sp)))
                 continue;
             transwarp(size_t(i), sp, point);
         }
@@ -393,22 +394,100 @@ void MissionView::firePoint(const std::string &button, const gfx::Vec3 &point) {
 }
 
 void MissionView::transwarp(size_t unit, Combat::Special &special, const gfx::Vec3 &point) {
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    if (special.kind == "wormholegen") {
+        // Open, it shuts for nothing; shut, it opens only with all its cost
+        // to pay: a wormhole by the gate's `gate` node and one at the point,
+        // 40 under the grid, paired, for the generator's lifetime.
+        if (_conduits.count(unit)) {
+            closeConduit(unit);
+            return;
+        }
+        if (_vitals[unit].energy < special.energy)
+            return;
+        Odf weapon;
+        Odf hole;
+        const Odf::Loader loader = odfLoader();
+        if (weapon.load(special.weapon + ".odf", loader) ||
+            hole.load(text::toLower(weapon.string("wormholeID")) + ".odf", loader))
+            return;
+        _vitals[unit].energy -= special.energy;
+        special.ready = special.delay;
+        const std::string odf = text::toLower(weapon.string("wormholeID"));
+        const gfx::Vec3 near = _scene.nodeAt(unit, "gate").value_or(units[unit].at);
+        const float under = float(hole.number("distanceBelowGrid", 40));
+        const MapScene::Unit owner = units[unit];
+        auto a = addShip(odf, near, 0, owner);
+        auto b = addShip(odf, {point[0], -under, point[2]}, 0, owner);
+        if (!a || !b)
+            return;
+        // Made, they pair as any do; then linked to each other (0x4516a0).
+        auto ha = wormholeOfHandle(int32_t(*a + 1));
+        auto hb = wormholeOfHandle(int32_t(*b + 1));
+        if (ha && hb) {
+            _wormholes[*ha].partner = int(*hb);
+            _wormholes[*hb].partner = int(*ha);
+        }
+        _conduits[unit] = {*a, *b, double(weapon.number("lifetime", 90))};
+        return;
+    }
+    // A transwarp drive: the ship heads for a point 20 ahead towards it,
+    // and is at the point 0.6 seconds on, stopped.
     _vitals[unit].energy -= special.energy;
     special.ready = special.delay;
-    const gfx::Vec3 from = _scene.units()[unit].at;
-    const int slot = _scene.units()[unit].slot;
-    for (size_t j = 0; j < _ships.size() && j < _physics.size(); ++j) {
-        const bool going =
-            j == unit || (special.kind == "wormholegen" && _physics[j] && _scene.units()[j].slot == slot && !_dead[j] &&
-                          distanceOf(_scene.units()[j].at, from) <= 300);
-        if (!going)
-            continue;
-        for (size_t k : {size_t(0), size_t(2)})
-            _ships[j].at[k] = point[k] + (_scene.units()[j].at[k] - from[k]);
-        _ships[j].goal.reset();
-        _ships[j].speed = 0;
-        _scene.moveUnit(j, _ships[j].at, _ships[j].heading);
+    Movement::Ship &ship = _ships[unit];
+    const float dx = point[0] - ship.at[0];
+    const float dz = point[2] - ship.at[2];
+    const float d = std::hypot(dx, dz);
+    if (d > 0) {
+        ship.route.clear();
+        ship.goal = gfx::Vec3{ship.at[0] + dx / d * 20, ship.at[1], ship.at[2] + dz / d * 20};
     }
+    _jumps.push_back({unit, point, double(_last) / 1000 + 0.6});
+}
+
+void MissionView::closeConduit(size_t gate) {
+    auto it = _conduits.find(gate);
+    if (it == _conduits.end())
+        return;
+    for (size_t hole : {it->second.near, it->second.far})
+        if (hole < _dead.size() && !_dead[hole]) {
+            _dead[hole] = true;
+            _scene.hideUnit(hole);
+            forget(hole);
+        }
+    _conduits.erase(it);
+}
+
+void MissionView::runTranswarps(double seconds) {
+    const double now = double(_last) / 1000;
+    for (size_t i = 0; i < _jumps.size();) {
+        Jump &j = _jumps[i];
+        if (now < j.at) {
+            ++i;
+            continue;
+        }
+        // At the point across the plane, at its own height *(inferred)*, stopped.
+        if (j.unit < _dead.size() && !_dead[j.unit]) {
+            Movement::Ship &ship = _ships[j.unit];
+            ship.at[0] = j.to[0];
+            ship.at[2] = j.to[2];
+            ship.goal.reset();
+            ship.route.clear();
+            ship.speed = 0;
+            _scene.moveUnit(j.unit, ship.at, ship.heading);
+        }
+        _jumps.erase(_jumps.begin() + std::ptrdiff_t(i));
+    }
+    // A conduit shuts at its time's end, or when its gate's gone.
+    std::vector<size_t> shut;
+    for (auto &[gate, c] : _conduits) {
+        c.left -= seconds;
+        if (c.left < 0 || gate >= _dead.size() || _dead[gate])
+            shut.push_back(gate);
+    }
+    for (size_t gate : shut)
+        closeConduit(gate);
 }
 
 void MissionView::runEffects(double seconds) {

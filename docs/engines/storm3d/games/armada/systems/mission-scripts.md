@@ -347,6 +347,15 @@ for what they take from Armada.exe.
     at most once a second on ships and each 0.05 seconds on stations
     (0x426092, 0x446210); the computer's own attack order (`AI_Attack`)
     isn't counted;
+  - **transwarp gates:** `GetTranswarpExitWormhole(gate)` gives the far
+    end of the gate's open conduit, none while it's shut;
+    `GetNearestTranswarpGate` the nearest unit whose definition says
+    `isTranswarpGate`;
+  - **a unit exploding:** Reluva takes a unit away at once when it's
+    destroyed, where the program lets it explode first; the scripts see
+    it as exploding for 2 seconds after *(guessed)*: `IsExploding` and
+    `Exists` hold, `IsAlive` doesn't, and a person aboard is still there,
+    lost with it after (0x5597d0). Romulan 2 notices Oldan's death so;
   - **the sky:** `Starfield_Load_Background_Geometry` swaps the model
     drawn behind everything (`MbgBorg.sod`, `Mbgomega.sod`), as Borg 1's
     scenes move from one system to another.
@@ -357,11 +366,16 @@ for what they take from Armada.exe.
     along the camera offset's path with the flag (0x4ec400, 0x4ec990,
     0x4ebc50); none of the campaign's missions uses them.
 
+  The program never hands a person aboard to another ship of itself:
+  only the script's `TransferFlag` does, or the player's Special
+  Transport order, which its own tooltip calls obsolete (0x425a07,
+  0x46d8e0) *(from the code)*.
+
   Not done yet: saving and loading a mission; the tracking shot
-  (`CineractiveShotTrackLeft`, unused by the missions); `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish
-  AI's script borrowed by Romulan 1); the transwarp gates' wormholes;
-  the credits; the transporter's glow; the alert levels and the people
-  aboard handed over of themselves.
+  (`CineractiveShotTrackLeft`, unused by the missions);
+  `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish AI's script
+  borrowed by Romulan 1); the credits; the transporter's glow; the alert
+  levels.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make

@@ -59,6 +59,12 @@ void MissionView::noteAttack(size_t attacker, size_t target) {
     ++a.count;
 }
 
+bool MissionView::exploding(size_t unit) const {
+    constexpr double kExploding = 2;
+    auto it = _explodedAt.find(unit);
+    return it != _explodedAt.end() && double(_last) / 1000 - it->second < kExploding;
+}
+
 void MissionView::runPatrols() {
     // Round its path again each time it's at the end *(inferred)*.
     for (auto it = _patrols.begin(); it != _patrols.end();) {
@@ -230,17 +236,20 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
         return 0u; // kept by the program; what they change in play isn't known
 
     // A unit's state.
-    if (name == "IsAlive" || name == "Exists") {
-        // A unit not destroyed, or a map object (0x436d50, 0x436ce0).
+    // A unit exploding still exists, but isn't alive (0x436d50, 0x436ce0,
+    // 0x436d80); a map object always is.
+    auto exploded = [this](int32_t h) { return h >= 1 && h < kObjectHandles && exploding(size_t(h - 1)); };
+    if (name == "IsAlive") {
         const int32_t h = args.integer(0);
         return unitOfHandle(h) || (h >= kObjectHandles && placeOfHandle(h)) ? 1u : 0u;
     }
-    if (name == "DoesNotExist") {
+    if (name == "Exists" || name == "DoesNotExist") {
         const int32_t h = args.integer(0);
-        return unitOfHandle(h) || (h >= kObjectHandles && placeOfHandle(h)) ? 0u : 1u;
+        const bool there = unitOfHandle(h) || exploded(h) || (h >= kObjectHandles && placeOfHandle(h));
+        return there == (name == "Exists") ? 1u : 0u;
     }
     if (name == "IsExploding")
-        return 0u; // destroyed is gone at once here
+        return exploded(args.integer(0)) ? 1u : 0u;
     if (name == "IsDerelict") {
         auto unit = unitOfHandle(args.integer(0));
         return !unit || _vitals[*unit].derelict() ? 1u : 0u; // a bad handle reads derelict (0x436db0)
@@ -613,8 +622,31 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
                         consider(kObjectHandles + int32_t(k), _mapObjects[k].second);
         return uint32_t(best);
     }
-    if (name == "GetNearestTranswarpGate" || name == "GetTranswarpExitWormhole")
-        return 0u; // the transwarp gates' wormholes aren't made yet
+    if (name == "GetTranswarpExitWormhole") {
+        // The conduit's far end, at the point it was opened to; none shut (0x4663c0).
+        auto gate = unitOfHandle(args.integer(0));
+        auto it = gate ? _conduits.find(*gate) : _conduits.end();
+        return it == _conduits.end() ? 0u : uint32_t(it->second.far + 1);
+    }
+    if (name == "GetNearestTranswarpGate") {
+        // The nearest transwarp gate across the plane, anyone's (0x436600).
+        auto unit = unitOfHandle(args.integer(0));
+        if (!unit)
+            return 0u;
+        int32_t best = 0;
+        float bestDistance = std::numeric_limits<float>::max();
+        for (size_t i = 0; i < units.size(); ++i) {
+            if (i == *unit || _dead[i])
+                continue;
+            Odf def;
+            if (def.load(units[i].odf + ".odf", odfLoader()) || def.number("isTranswarpGate") == 0)
+                continue;
+            const float d = across(_ships[i].at, _ships[*unit].at);
+            if (d < bestDistance)
+                best = int32_t(i + 1), bestDistance = d;
+        }
+        return uint32_t(best);
+    }
 
     // The people aboard ships (0x438e00 on).
     if (name == "CreateSpecialFlag") {
@@ -656,11 +688,15 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
         return 0u;
     }
     if (name == "GetLocationOfFlag" || name == "GetRealTeamOfFlag" || name == "GetPercievedTeamOfFlag") {
+        // Lost with its carrier once that's gone, not while it explodes
+        // (0x5597d0).
         auto it = _flags.find(args.integer(0));
         const int holder = it == _flags.end() ? -1 : it->second.holder;
-        if (holder >= 0 && _dead[size_t(holder)])
-            it->second.holder = -1;
-        const bool held = holder >= 0 && !_dead[size_t(holder)];
+        if (holder >= 0 && _dead[size_t(holder)] && !exploding(size_t(holder))) {
+            _flags.erase(it);
+            return name == "GetLocationOfFlag" ? 0u : uint32_t(-1);
+        }
+        const bool held = holder >= 0;
         if (name == "GetLocationOfFlag")
             return held ? uint32_t(holder + 1) : 0u;
         if (!held)

@@ -937,8 +937,6 @@ void MissionView::think(double seconds) {
     const std::vector<MapScene::Unit> &units = _scene.units();
     const Odf::Loader loader = loaderOf(_files.files());
     for (Computer &c : _computers) {
-        if (_computersOff)
-            break;
         if (_teamsOff.count(c.slot))
             continue;
         // Its ships' goals, each ten seconds (guessed: its personality's
@@ -1283,6 +1281,7 @@ void MissionView::destroy(size_t unit, int by) {
         return;
     }
     _dead[unit] = true;
+    _explodedAt[unit] = double(_last) / 1000;
     // Counted as the original's debriefing showed: lost by its player, and
     // destroyed in its player's row too, not its killer's, when another's
     // shots did it (two ships killed by the computer's starbase: the
@@ -2272,10 +2271,12 @@ void MissionView::stop() {
     _teamsOff.clear();
     _paused = false;
     _allyAttacks.clear();
+    _explodedAt.clear();
+    _conduits.clear();
+    _jumps.clear();
     _scriptPasses = 0;
     _cannotDie.clear();
     _missionEnd.reset();
-    _computersOff = false;
     for (const auto &[id, voice] : _voices)
         if (_mixer && voice.handle != audio::kNoSound)
             _mixer->stop(voice.handle);
@@ -2855,6 +2856,7 @@ void MissionView::draw(uint64_t millis) {
     fight(seconds);
     runWormholes(seconds);
     runMarkers(seconds);
+    runTranswarps(seconds);
     runPatrols();
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));

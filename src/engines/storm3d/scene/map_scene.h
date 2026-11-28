@@ -240,6 +240,8 @@ public:
      * @return false if the node or the model isn't there
      */
     bool attachTo(size_t unit, const std::string &node, const std::string &odf);
+    /** Where a node of a standing unit's model is in the world (a transwarp gate's `gate`); none if it hasn't one. */
+    std::optional<gfx::Vec3> nodeAt(size_t unit, const std::string &node);
     /** Stops drawing a unit: one destroyed. */
     void hideUnit(size_t unit);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */

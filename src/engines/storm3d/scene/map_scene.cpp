@@ -784,6 +784,23 @@ void MapScene::setDamaged(size_t unit, bool damaged) {
     _damaged[_unitModels[unit].placed] = damaged;
 }
 
+std::optional<gfx::Vec3> MapScene::nodeAt(size_t unit, const std::string &node) {
+    if (unit >= _unitModels.size())
+        return std::nullopt;
+    const Look &host = lookFor(_units[unit].odf);
+    std::vector<uint8_t> data;
+    SodModel model;
+    if (host.model.empty() || _files.read("SOD/" + host.model + ".sod", data) || model.parse(data))
+        return std::nullopt;
+    const std::vector<gfx::Mat4> world = ModelTree::worldMatrices(model);
+    for (size_t i = 0; i < model.nodes.size() && i < world.size(); ++i)
+        if (text::equalsIgnoreCase(model.nodes[i].name, node)) {
+            const gfx::Mat4 place = gfx::multiply(_placed[_unitModels[unit].placed].second, world[i]);
+            return gfx::Vec3{place[12], place[13], place[14]};
+        }
+    return std::nullopt;
+}
+
 bool MapScene::attachTo(size_t unit, const std::string &node, const std::string &odf) {
     if (unit >= _unitModels.size())
         return false;
