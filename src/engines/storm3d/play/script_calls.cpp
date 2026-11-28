@@ -483,6 +483,27 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
             auto eye = pathPoint(args.text(0), args.integer(1));
             if (const std::vector<gfx::Vec3> *look = pathOf(2); eye && look)
                 _cine.shotLookingAlong(*eye, *look, args.real(3), locate);
+        } else if (k == "ib" || k == "sfb" || k == "sib") {
+            // The eye alone, looking along its way (0x4ec400, 0x4ec990, 0x4ebc50).
+            using Mode = Cineractive::Controller::Mode;
+            Cineractive::Controller e{k == "ib" ? Mode::kFollow : k == "sfb" ? Mode::kPath : Mode::kFixed};
+            if (k == "ib") {
+                if (!locate(args.integer(0)))
+                    return 0u;
+                e.handle = args.integer(0);
+            } else if (k == "sfb") {
+                const std::vector<gfx::Vec3> *path = pathOf(0);
+                if (!path)
+                    return 0u;
+                e.path = *path;
+                e.speed = args.real(1);
+            } else {
+                auto at = pathPoint(args.text(0), args.integer(1));
+                if (!at)
+                    return 0u;
+                e.point = *at;
+            }
+            _cine.shotLooking(e, args.flag(k == "ib" ? 1 : 2), locate);
         } else if (k == "sfsf") {
             // Both along their paths, each at its speed (0x4ecd80).
             using Mode = Cineractive::Controller::Mode;
@@ -524,7 +545,7 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
             else
                 _cine.shot(follow(0), other, locate);
         } else {
-            return std::nullopt; // the shots along a heading, not made yet
+            return std::nullopt; // an overload not known
         }
         return 0u;
     }

@@ -896,6 +896,13 @@ void testCineractive() {
     cine.update(0, ship);
     // Turned into the ship's axes, facing +x: its front, so 584 along x.
     CHECK(std::fabs(cine.camera()->eye[0] - 1584) < 1e-2f);
+
+    // An eye alone, on a ship facing +x, looks the way it faces.
+    Cineractive::Controller eye{Cineractive::Controller::Mode::kFollow};
+    eye.handle = 1;
+    cine.shotLooking(eye, false, ship);
+    cine.update(0, ship);
+    CHECK(std::fabs(cine.camera()->forward[0] - 1) < 1e-3f && std::fabs(cine.camera()->eye[0] - 1000) < 1e-3f);
     // Looking straight down, the frame's right is +x.
     const auto axes = Cineractive::frameOf({0, -1, 0});
     CHECK(axes[0][0] == 1 && std::fabs(axes[1][2]) > 0.99f);

@@ -135,6 +135,7 @@ void Cineractive::afterShot(const Locate &locate) {
 }
 
 void Cineractive::shotFollow(int32_t eye, int32_t look, const Locate &locate) {
+    _lookAhead = false;
     if (!locate || !locate(eye) || !locate(look))
         return;
     _eye = Controller{Controller::Mode::kFollow};
@@ -145,6 +146,7 @@ void Cineractive::shotFollow(int32_t eye, int32_t look, const Locate &locate) {
 }
 
 void Cineractive::shotAt(const gfx::Vec3 &eye, int32_t look, const Locate &locate) {
+    _lookAhead = false;
     if (!locate || !locate(look))
         return;
     _eye = Controller{Controller::Mode::kFixed, eye};
@@ -154,6 +156,7 @@ void Cineractive::shotAt(const gfx::Vec3 &eye, int32_t look, const Locate &locat
 }
 
 void Cineractive::shotAt(const gfx::Vec3 &eye, const gfx::Vec3 &look, const Locate &locate) {
+    _lookAhead = false;
     _eye = Controller{Controller::Mode::kFixed, eye};
     _look = Controller{Controller::Mode::kFixed, look};
     afterShot(locate);
@@ -161,6 +164,7 @@ void Cineractive::shotAt(const gfx::Vec3 &eye, const gfx::Vec3 &look, const Loca
 
 void Cineractive::shotAlong(const std::vector<gfx::Vec3> &eye, float speed, const gfx::Vec3 &look,
                             const Locate &locate) {
+    _lookAhead = false;
     _eye = Controller{Controller::Mode::kPath};
     _eye.path = eye;
     _eye.speed = speed;
@@ -170,6 +174,7 @@ void Cineractive::shotAlong(const std::vector<gfx::Vec3> &eye, float speed, cons
 
 void Cineractive::shotLookingAlong(const gfx::Vec3 &eye, const std::vector<gfx::Vec3> &look, float speed,
                                    const Locate &locate) {
+    _lookAhead = false;
     _eye = Controller{Controller::Mode::kFixed, eye};
     _look = Controller{Controller::Mode::kPath};
     _look.path = look;
@@ -180,6 +185,15 @@ void Cineractive::shotLookingAlong(const gfx::Vec3 &eye, const std::vector<gfx::
 void Cineractive::shot(const Controller &eye, const Controller &look, const Locate &locate) {
     _eye = eye;
     _look = look;
+    _lookAhead = false;
+    afterShot(locate);
+}
+
+void Cineractive::shotLooking(const Controller &eye, bool alongOffset, const Locate &locate) {
+    _eye = eye;
+    _look = Controller{};
+    _lookAhead = true;
+    _alongOffset = alongOffset;
     afterShot(locate);
 }
 
@@ -242,7 +256,11 @@ void Cineractive::build() {
     const gfx::Vec3 lookOffset =
         _turnLookOffset ? turnedBy(_lookOffset.position, _look.direction) : _lookOffset.position;
     const gfx::Vec3 eye = plus(_eye.position, eyeOffset);
-    const gfx::Vec3 direction = minus(plus(_look.position, lookOffset), eye);
+    gfx::Vec3 direction = minus(plus(_look.position, lookOffset), eye);
+    if (_lookAhead)
+        direction = _alongOffset
+                        ? (_turnEyeOffset ? turnedBy(_eyeOffset.direction, _eye.direction) : _eyeOffset.direction)
+                        : _eye.direction;
     // Looking nowhere, the camera stays as it was.
     if (std::abs(direction[0]) + std::abs(direction[1]) + std::abs(direction[2]) <= 0.0001f)
         return;

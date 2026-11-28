@@ -69,6 +69,12 @@ public:
     void shotLookingAlong(const gfx::Vec3 &eye, const std::vector<gfx::Vec3> &look, float speed, const Locate &locate);
     /** Any other pairing: each a fixed point, a unit followed, or a path at its speed. */
     void shot(const Controller &eye, const Controller &look, const Locate &locate);
+    /**
+     * An eye alone (0x4ec400, 0x4ec990, 0x4ebc50): it looks along its own
+     * way, a unit's heading, a path's tangent or +z, or along the camera
+     * offset's path with `alongOffset`.
+     */
+    void shotLooking(const Controller &eye, bool alongOffset, const Locate &locate);
     ///@}
     /**
      * The eye's offset along a path, from its second point, less its first
@@ -124,6 +130,8 @@ private:
     Controller _lookOffset;
     bool _turnEyeOffset = false;
     bool _turnLookOffset = false;
+    bool _lookAhead = false;   // an eye-only shot's
+    bool _alongOffset = false; // looking along the offset's path
     std::optional<MapScene::Camera> _camera;
     Fade _fade;
 };

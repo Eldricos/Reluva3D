@@ -351,8 +351,14 @@ for what they take from Armada.exe.
     drawn behind everything (`MbgBorg.sod`, `Mbgomega.sod`), as Borg 1's
     scenes move from one system to another.
 
-  Not done yet: saving and loading a mission; the shots along a
-  heading; `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish
+  - **the eye-only shots** (`CineractiveShot(unit, flag)`, `(path,
+    speed, flag)`, `(path, point, flag)`): the camera looks along the
+    eye's own way, the unit's heading, the path's tangent or +z, or
+    along the camera offset's path with the flag (0x4ec400, 0x4ec990,
+    0x4ebc50); none of the campaign's missions uses them.
+
+  Not done yet: saving and loading a mission; the tracking shot
+  (`CineractiveShotTrackLeft`, unused by the missions); `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish
   AI's script borrowed by Romulan 1); the transwarp gates' wormholes;
   the credits; the transporter's glow; the alert levels and the people
   aboard handed over of themselves.
