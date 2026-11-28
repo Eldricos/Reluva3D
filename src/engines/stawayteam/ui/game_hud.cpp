@@ -84,12 +84,13 @@ const image::Image &GameHud::picture(const std::string &name) {
 
 int GameHud::infoTop(uint64_t now) {
     // It slides over Info Bar Popup Time, its Info Bar Visible rows showing
-    // while it's down (0x4de991); it rises while the mouse is over it
-    // (inferred).
+    // while it's down (0x4de991), up or down only as its open button or
+    // Toggle Minimap turns it, back the way it came if turned while moving
+    // (0x5462c0, 0x4dea23, 0x4dee5a): the mouse over it doesn't raise it.
     const double popup = _custom ? _custom->number("Info Bar Popup Time").value_or(0.25) : 0.25;
     const float step = popup > 0.0 ? float(double(now - std::min(now, _last)) / 1000.0 / popup) : 1.0f;
     _last = now;
-    _open = std::clamp(_open + (_opening || _pinned ? step : -step), 0.0f, 1.0f);
+    _open = std::clamp(_open + (_pinned ? step : -step), 0.0f, 1.0f);
     int x = 0;
     int y = 0;
     readPoint(_custom, "Info Pos", x, y);
@@ -114,7 +115,6 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
     _mouseX = ev.mouseX;
     _mouseY = ev.mouseY;
     const bool overInfo = overInfoBar(ev.mouseX, ev.mouseY, now);
-    _opening = overInfo;
     int tx = 0;
     int ty = 0;
     readPoint(_custom, "Team Pos", tx, ty);
@@ -246,8 +246,7 @@ GameHud::Result GameHud::handleEvent(const Event &ev, uint64_t now) {
             r.step = 1;
     }
     if (overInfo) {
-        // Its open button holds it up, or lets it down (inferred: as
-        // Toggle Minimap presses it).
+        // Its open button raises it, or lets it down.
         int ix = 0;
         int iy = 0;
         int ox = 0;

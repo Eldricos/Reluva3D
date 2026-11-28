@@ -107,7 +107,7 @@ public:
         Kind kind = kOfficer;
     };
     void setMarks(std::vector<Mark> marks) { _marks = std::move(marks); }
-    /** The info bar's open button pressed: held up, or let down again. */
+    /** The info bar's open button pressed: raised, or let down again. */
     void toggleInfoBar() { _pinned = !_pinned; }
     /** Whether the mouse was over the interface, as the last event left it. */
     bool mouseOver() const { return _mouseOver; }
@@ -169,7 +169,6 @@ private:
     std::map<std::string, Font> _fieldFonts;
     // The info bar: how open it is (0 to 1) and since when it's moving.
     float _open = 0.0f;
-    bool _opening = false;
     uint64_t _last = 0;
     int _move = 0;
     std::vector<bool> _chosen;
@@ -199,7 +198,7 @@ private:
     // The points of interest's squares pulse: their size's phase, 0 to 4.
     float _pulse = 0.0f;
     uint64_t _pulseLast = 0;
-    bool _pinned = false; // the info bar held up by its open button
+    bool _pinned = false; // the info bar raised by its open button
     bool _mouseOver = false;
     // Where each item shown is on the screen, and its place in _held.
     struct Slot {

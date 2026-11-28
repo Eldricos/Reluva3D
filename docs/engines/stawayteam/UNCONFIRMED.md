@@ -36,10 +36,8 @@ None now.
   ([systems/menus.md](systems/menus.md#open-questions)).
 - **Maps:** the `Trans` and `Warped` polygons not on the ground kept
   under the models; the mouse's
-  buttons, the info bar rising under the
-  mouse, the move button's order, the
-  view held
-  by the camera's scripts, a line's time and the beaming in's look; the
+  buttons, the view held by the camera's scripts while they wait, a
+  line without a voice-over's time; the
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift; fighting:
   sight's line starting where the enemy stands, a shot meeting those on its

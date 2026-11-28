@@ -395,7 +395,13 @@ the main menu?" (`0x5bb190`).
 - **Walking, running, crouching:** the actions bound to Run, Crouch and
   Walk set the officer's move state (0 crouching, 1 walking, 2 running;
   the body's entity starts at 1), and Cycle Movement presses the button
-  box's move button, which goes round them (`0x476b90`). Crouching moves
+  box's move button, which goes round them (`0x476b90`): its states are
+  its `Crouch Button`, `Walk Button` and `Run Button` (`0x4764e5`), the
+  move states shown on it walking as 1, running 2, crouching 0
+  (`0x4769a0`), with `MultiMove Button` over it while those chosen move
+  differently (`0x51a640`); a press goes on to the next, after the last
+  the first (`0x51a600`), and sends that one (`0x476a2f`, `0x5c84e0`):
+  walking, running, crouching, walking. Crouching moves
   by `Crouch` and stands by `IdleCrouch`; running by `Run`.
 - **The waypoints** (`<map>.way`, a `CWayPointMap`): points
   `MinDistBetweenWayPoints` (15) apart over where walkers can go, lines
@@ -465,7 +471,10 @@ another as the map starts:
   Position` there at once, though the step still takes its `Time To
   Pan`.
 - **Then** its `Destination Action`, and `Time To Wait` seconds before
-  the next step.
+  the next step. The step sets the view each frame of its pan
+  (`0x47779c`) and leaves it while it waits (`0x4776d1`). With its steps
+  done, the manager's kept on while the info dialog's still up
+  (`0x4781bc`).
 - **The characters held:** a manager with `Pause Actors` (49 of the
   maps' and missions' 93) sends every active part of every map a
   `CPauseActorMessage` to stop as it starts, and one to go on as its
@@ -1112,7 +1121,11 @@ The info dialog (`0x435db6`) is `Dialog Window/Background` at Rules.txt's
 script in `Dialog Font` at `Dialog Text Pos`, wrapped to `Dialog Text
 Width`. Its voice-over plays with the options' voice-overs on; it's shown
 while that plays, or, with them off, for the voice-over's length
-(`0x4362f1`), and the time given it besides (`0x435f9c`).
+(`0x4362f1`), and a quarter of a second more (`0x5c9eb9`); a line of
+plain text, such as "You need a%s %s Officer to do use that.", has 2.5
+seconds added to what's left (`0x5c9e37`). The time doesn't run while
+the voice-over plays or the game's paused, and at none the dialog's put
+away (`0x435f54`).
 
 ## In Reluva
 
@@ -1153,8 +1166,10 @@ Rules.txt's places: the team bar with each officer's slot, name, head and
 health (the bar's foreground cut to what's left of it, from the
 bottom *(inferred)*), the chosen one's slot lit
 *(inferred)*; the button box's buttons as they start *(inferred)*; the
-info bar rising while the mouse is over it *(inferred)*, or held up by
-its open button or M, its minimap with the view outlined, a click on it
+info bar raised and let down only by its open button or M (Toggle
+Minimap), over its Info Bar Popup Time, back the way it came if pressed
+while it moves, starting down (`0x5462c0`, `0x4dea23`, `0x4dee5a`,
+`0x546046`), its minimap with the view outlined, a click on it
 moving the view there *(inferred)*, and on it the officers on the map
 and the parts shown of Player or Enemy, not Dead Bodies, as dots, and
 the points of interest pulsing; the chosen officer's items in the inventory's places, the
@@ -1246,11 +1261,11 @@ random, series (each time the next), delays, info and tricorder lines
 showing, hiding, deleting and destroying parts by name, sounds, checks
 whether a part's there (other checks fail), the team beaming in, and
 camera scripts *(inferred)*. Names compare without regard to case
-*(inferred)*. The team beams in fading in under the
-`Transporter Overlay`'s sparkle *(inferred)*, and their warp's noise
-([items.md](items.md#in-reluva)). A line
-stays a second and a half after its voice-over *(inferred)*, four
-seconds without one *(inferred)*. Without scripts, the view starts on the
+*(inferred)*. The team beams in or out, fading as their warp says and
+under its noise ([items.md](items.md#in-reluva)), and the `Transporter
+Overlay`'s sparkle over them *(inferred)*. A line
+stays a quarter of a second after its voice-over, as the program's, and
+2.5 seconds without one, as its lines of plain text *(inferred)*. Without scripts, the view starts on the
 team.
 
 The team, the team selection's or, without one, the officers the mission
@@ -1297,8 +1312,8 @@ way their direction's cycle goes (`Animation::cycleWay`), turned toward
 where they're going again each update, the last step straight onto it
 *(inferred)*: how the program's move ends isn't traced. The keys bound to
 Walk, Run, Crouch and Cycle Movement, and the move button, set how the
-ones chosen move, the button going walk, run, crouch *(inferred for its
-order)*, and the button shows it.
+ones chosen move, the button going walk, run, crouch, as the program's,
+and the button shows it.
 
 A new game reaches it after the briefing (mission 1) or the team
 selection's START MISSION.
@@ -1642,8 +1657,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Fighting:** a strike's flashes; the stun effect's look; what a
   `CShootWeaponAI` does while its target's out of range or sight.
 - **Choosing:** the game's mouse for a box and Shift.
-- **The team:** its mouse (which button chooses and which sends), and
-  the info bar's rising.
+- **The team:** its mouse (which button chooses and which sends).
 - **The buttons:** what key, if any, cycles the sight's enemy backwards
   (`0x5b6c90` can); the characters among what cuts the cone, Reluva
   taking only the parts with outlines that aren't enemies.
@@ -1653,5 +1667,5 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **A mission's maps:** whether those the team's left go on, which place
   each officer arrives at, what Only on this map does, and the other
   relocations.
-- **The scripts:** whether the player can move the view while they play,
-  how long a line stays, and how the beaming in looks.
+- **The scripts:** whether the player can move the view while they play
+  (the steps set it only while panning).

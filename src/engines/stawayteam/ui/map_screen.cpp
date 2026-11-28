@@ -41,10 +41,11 @@ constexpr int kMarkerY = 19;
 // IdleCrouch).
 const char *const kMoving[] = {"Walk", "Run", "Crouch"};
 const char *const kStanding[] = {"Idle", "Idle", "IdleCrouch"};
-// The info dialog stays this long after its voice-over (inferred), or this
-// long without one (inferred), in seconds.
-constexpr float kDialogAfter = 1.5f;
-constexpr float kDialogWithoutVoice = 4.0f;
+// The info dialog stays this long after its voice-over (0x5c9eb9), or, a
+// line without one, as long as the program's lines of plain text do
+// (0x5c9e37; inferred for these), in seconds.
+constexpr float kDialogAfter = 0.25f;
+constexpr float kDialogWithoutVoice = 2.5f;
 // A walk's speed for a model without one: the retail bodies' sideways,
 // 26 pixels in 10 frames at 14 a second.
 constexpr float kDefaultWalk = 36.4f;
@@ -849,7 +850,8 @@ void MapScreen::showDialog(const std::string &script, const std::string &line, c
         _mixer->stop(_dialogVoice);
     _dialogVoice = audio::kNoSound;
     // Shown while its voice-over plays, or for as long as it would
-    // (0x4362f1), and a moment after (inferred).
+    // (0x4362f1), and a moment after; its time stands still while the
+    // voice plays or the game's paused (0x435f54).
     const auto voice = voiceOver(_data, line);
     _dialogLeft = kDialogAfter;
     if (voice && voice->rate > 0 && voice->channels > 0) {
@@ -1081,7 +1083,8 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     }
     if (hud.moveCamera)
         moveCamera(hud.cameraX, hud.cameraY);
-    // The move button goes round walking, running and crouching (inferred).
+    // The move button goes round its states, crouching, walking, running
+    // (0x51a600, 0x4764e5).
     if (hud.cycleMove && _selected >= 0)
         setMove((_officers[size_t(_selected)].move + 1) % 3);
     if (hud.selectAll)
