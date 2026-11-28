@@ -180,6 +180,9 @@ public:
         const TextObject *taskProcess = nullptr; // the part's process they're going through
         size_t taskStep = 0;                     // its Process Activity they're on
         std::string group;                       // the movement group a CGotoTargetsAI put them in
+        int targetStep = -1;                     // the step whose numbered target they chose,
+        size_t target = 0;                       // and the part,
+        float retarget = 0.0f;                   // and the seconds till it's chosen again
         // The inventory bar's places, an item type's each: which of the
         // place's items it shows (its first, 0, as they come).
         std::vector<int> shown;
@@ -488,6 +491,8 @@ public:
      * @param struck where given, set to the part met.
      */
     bool blockedAt(size_t part, float x, float y, size_t *struck = nullptr) const;
+    /** Whether officer `officer` would fit where part `part` stands, of the officers minding only those before `before`. */
+    bool spotFree(size_t officer, size_t part, size_t before = SIZE_MAX) const;
     /** As blockedAt, for `shape` at (x, y), any part but `ignore`; a shape of under 3 points as a point. */
     bool shapeBlockedAt(const std::vector<std::pair<float, float>> &shape, size_t ignore, float x, float y,
                         size_t *struck = nullptr) const;

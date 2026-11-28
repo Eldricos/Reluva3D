@@ -753,9 +753,9 @@ bool MapScreen::shapeBlockedAt(const std::vector<std::pair<float, float>> &shape
     return false;
 }
 
-bool MapScreen::arrivalPlace(size_t officer, const std::string &location, float &x, float &y) const {
-    // A place's taken if the officer's shape there meets what collides,
-    // the officers already here among it (0x4375d0, 0x4f0f80).
+bool MapScreen::spotFree(size_t officer, size_t part, size_t before) const {
+    // Free if the officer's shape there meets nothing that collides, the
+    // officers standing here among it (0x4375d0, 0x4f0f80).
     const std::vector<std::pair<float, float>> &shape = modelInfo(_team[_officers[officer].member].bodyModel).footprint;
     const auto outline = [&](float px, float py) {
         std::vector<std::pair<float, float>> out;
@@ -763,19 +763,20 @@ bool MapScreen::arrivalPlace(size_t officer, const std::string &location, float 
             out.emplace_back(px + sx, py + sy);
         return out;
     };
-    const auto free = [&](size_t part) {
-        float px = 0.0f;
-        float py = 0.0f;
-        placeOf(part, px, py);
-        if (shapeBlockedAt(shape, part, px, py))
-            return false;
-        if (shape.size() >= 3)
-            for (size_t i = 0; i < _officers.size(); ++i)
-                if (i != officer && _officers[i].present &&
-                    meet(outline(px, py), outline(_officers[i].x, _officers[i].y)))
-                    return false;
-        return true;
-    };
+    float px = 0.0f;
+    float py = 0.0f;
+    placeOf(part, px, py);
+    if (shapeBlockedAt(shape, part, px, py))
+        return false;
+    if (shape.size() >= 3)
+        for (size_t i = 0; i < std::min(before, _officers.size()); ++i)
+            if (i != officer && _officers[i].present && meet(outline(px, py), outline(_officers[i].x, _officers[i].y)))
+                return false;
+    return true;
+}
+
+bool MapScreen::arrivalPlace(size_t officer, const std::string &location, float &x, float &y) const {
+    const auto free = [&](size_t part) { return spotFree(officer, part); };
     const auto named = [&](const std::string &name) -> const std::vector<size_t> * {
         const auto it = _byName.find(text::toLower(name));
         return it == _byName.end() || it->second.empty() ? nullptr : &it->second;

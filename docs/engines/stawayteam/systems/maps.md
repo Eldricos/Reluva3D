@@ -672,7 +672,21 @@ the part's in reach of the item: its Item Range on the ground, with
 sight if it Needs LOS (`0x5c6d30`); one out of reach isn't given it
 (`0x5c6cd2`), so nobody walks up to come into an item's range. Its own
 activities may walk them there: a `CGoToAI`, or a strike's
-`CStrikeTargetAI`.
+`CStrikeTargetAI`. `Allow Multiple Members` (a byte at `+0x29`,
+`0x547104`) is read only there: nothing holds a process to the officer
+going through it, and another sent to it later goes through it too.
+An officer's process ending lets them go (`0x5b8150`): their movement
+group's cleared.
+
+A `CGotoTargetsAI` (`0x437840`, by states) puts its officer in its
+`Movment Group Name` as it starts (`0x437790`), and chooses its target:
+of the parts its `Target` names, "#1-5#" numbering them, the first the
+officer fits at, their shape there meeting nothing that collides
+(`0x4376e0`, `0x4375d0`); none, and it gives up (state 9). It plans its
+walk there and chooses again each second on the way (`0x437936`,
+`0x4379af`), so one sent after another to "video room #1-5#" goes on to
+the next room once the first's taken; it's done as its walk is
+(`0x4379c7`).
 
 The 5 without a model are polygons: Mission 16's four gas clouds, each
 with a tricorder `Scan` ("Gas in Area") and a `Medical Scan` ("Dead
@@ -1241,8 +1255,12 @@ and Reluva takes 30 a second. Zoom Reset back to its size.
 A click on a part with a process for the chosen officer, one for their
 chosen item first, else one to Use with nothing (carrying its Required
 Item In Inventory), sends them through its Process Activity: walking to
-each place, `#1-4#` the first, then running its actions, they the
-instigator and the part `$trigger` *(inferred)*; one for their item from
+each place, then running its actions, they the instigator and the
+part `$trigger` *(inferred)*; a numbered target the first they fit at,
+else the first *(inferred: the program gives up)*, chosen again each
+second and as they reach it, one already standing
+there keeping it, since Reluva's characters walk onto one another
+*(inferred)*, and their walk done within 4 pixels of it *(inferred)*; one for their item from
 within its Item Range, as items are ([items.md](items.md#using-one))
 *(inferred)*. A
 `CTricorderDialogAction`'s line is typed on the instigator's tricorder
@@ -1724,9 +1742,8 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **The buttons:** what key, if any, cycles the sight's enemy backwards
   (`0x5b6c90` can); the characters among what cuts the cone, Reluva
   taking only the parts with outlines that aren't enemies.
-- **Processes:** a process that doesn't `Allow Multiple Members` is
-  held by its officer in the game's list (`0x5b8150`); what another
-  officer sent to it then does isn't traced, and Reluva doesn't hold it.
+- **Processes:** what a `CGotoTargetsAI` does when none of its targets
+  is free, past giving up (state 9).
 - **A mission's maps:** what the program does with the view as a
   relocation shows a map (`0x5bf6f0`), and an officer's spawn point's
   `CSpawnPointAI` told of them arriving (`0x415c20`).

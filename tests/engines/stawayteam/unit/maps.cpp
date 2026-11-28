@@ -2261,6 +2261,80 @@ void testBorgShields() {
     CHECK(two.health == 95.0f);
 }
 
+void testNumberedTargets() {
+    // A door whose process sends both chosen through "Spot #1-2#", in the
+    // movement group Pair: each to the first spot they fit at, the second
+    // there choosing again, so they end at one each.
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto spot = [](int n, int x) {
+        return "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Spot " + std::to_string(n) +
+               "\n\t\t\tPosition X=" + std::to_string(x) + "\n\t\t\tPosition Y=500\n\t\t}\n";
+    };
+    const std::string zax =
+        "CLayerSaveData\n{\n\tWidth=2000\n\tHeight=2000\n\tView Position=500.000000,300.000000\n"
+        "\tTree List=CSortList2D\n\t{\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Door\n\t\t\tVisible=1\n\t\t\tActive=1\n"
+        "\t\t\tActivity=Array\n\t\t\t{\n\t\t\t\tItem Count=1\n\t\t\t\tActivity=CProcessListAI\n\t\t\t\t{\n"
+        "\t\t\t\t\tProcess=Array\n\t\t\t\t\t{\n\t\t\t\t\t\tItem Count=1\n\t\t\t\t\t\tProcess=CProcess\n"
+        "\t\t\t\t\t\t{\n\t\t\t\t\t\t\tProcess Type=Use\n\t\t\t\t\t\t\tProcess Cursor=Generic Use\n"
+        "\t\t\t\t\t\t\tRequired Selected Item=!None\n\t\t\t\t\t\t\tRequired Item In Inventory=!None\n"
+        "\t\t\t\t\t\t\tAllow Multiple Members=1\n\t\t\t\t\t\t\tProcess Activity=Array\n\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\tItem Count=1\n\t\t\t\t\t\t\t\tProcess Activity=CGotoTargetsAI\n\t\t\t\t\t\t\t\t{\n"
+        "\t\t\t\t\t\t\t\t\tTarget=Spot #1-2#\n\t\t\t\t\t\t\t\t\tMovment Group Name=Pair\n"
+        "\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n"
+        "\t\t\tModel=Props/Console\n\t\t\tPosition X=600\n\t\t\tPosition Y=300\n\t\t}\n" +
+        spot(1, 300) + spot(2, 400) +
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 1\n\t\t\tPosition X=300\n"
+        "\t\t\tPosition Y=300\n\t\t}\n"
+        "\t\tLevel Part=CEntityBase\n\t\t{\n\t\t\tName=Away Team Spawn Point 2\n\t\t\tPosition X=340\n"
+        "\t\t\tPosition Y=300\n\t\t}\n\t}\n}\n";
+    MemoryArchive data;
+    data.files["Levels/Test.zax"] = bytesOf(zax);
+    data.files["Cache/Models/Props/Console.mdl16"] = modelFile("Console", 1, 1);
+    data.files["Cache/Models/Bodies/Body.mdl16"] =
+        modelFile("Body", 1, 1, 100.0f, {{-8.0f, -8.0f}, {8.0f, -8.0f}, {8.0f, 8.0f}, {-8.0f, 8.0f}});
+    GameMap map;
+    CHECK(!loadMap(data, "Levels/Test.zax", map));
+    TextObject rules;
+    CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                          "\t\tScreen Size=200,200\n\t}\n}\n",
+                          rules));
+    GameOptions options;
+    TeamMember ann;
+    ann.firstName = "Ann";
+    ann.bodyModel = "Bodies/Body";
+    TeamMember bo = ann;
+    bo.firstName = "Bo";
+    MapScreen screen(data, rules, map, options, 0, {ann, bo});
+    const MapScreen::Officer &a = screen.officers()[0];
+    const MapScreen::Officer &b = screen.officers()[1];
+    uint64_t now = 0;
+    screen.choose(0);
+    screen.choose(1, true);
+    screen.moveCamera(600.0f, 300.0f);
+    drawOnce(screen, now);
+    Event click;
+    click.type = EventType::kMouseMove;
+    click.mouseX = int(600.0f - screen.mapX(0));
+    click.mouseY = int(300.0f - screen.mapY(0));
+    screen.handleEvent(click, nullptr, now);
+    click.type = EventType::kMouseDown;
+    click.button = MouseButton::kRight;
+    screen.handleEvent(click, nullptr, now);
+    click.type = EventType::kMouseUp;
+    screen.handleEvent(click, nullptr, now);
+    CHECK(a.task == MapScreen::Officer::Task::kProcess && b.task == MapScreen::Officer::Task::kProcess);
+    screen.update(now += 50);
+    CHECK(a.group == "Pair" && b.group == "Pair");
+    while (now < 30000)
+        screen.update(now += 50);
+    // Their process over, they're out of the group.
+    CHECK(a.task == MapScreen::Officer::Task::kNone && b.task == MapScreen::Officer::Task::kNone);
+    CHECK(a.group.empty() && b.group.empty());
+    const auto at = [](const MapScreen::Officer &o, float x) { return std::hypot(o.x - x, o.y - 500.0f) <= 5.0f; };
+    CHECK((at(a, 300.0f) && at(b, 400.0f)) || (at(a, 400.0f) && at(b, 300.0f)));
+}
+
 void testProcesses() {
     // A console whose process, used with nothing chosen, walks the officer
     // to it and puts a line on the tricorder's panel and the crate on the
@@ -3886,6 +3960,7 @@ static const reluva::test::Suite
                {"stun switch", [](const std::filesystem::path &) { testStunSwitch(); }},
                {"borg shields", [](const std::filesystem::path &) { testBorgShields(); }},
                {"processes", [](const std::filesystem::path &) { testProcesses(); }},
+               {"numbered targets", [](const std::filesystem::path &) { testNumberedTargets(); }},
                {"polygon processes", [](const std::filesystem::path &) { testPolygonProcesses(); }},
                {"standing in the way", [](const std::filesystem::path &) { testStandingInTheWay(); }},
                {"scripts hold actors", [](const std::filesystem::path &) { testScriptsHoldActors(); }},

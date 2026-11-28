@@ -12,6 +12,7 @@
 #include "engines/stawayteam/ui/map_screen.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cmath>
 #include <cstdint>
 
@@ -34,6 +35,11 @@ constexpr float kUseReach = 30.0f;
 constexpr float kScanSpeed = 30.0f;
 // How long a mine's put down without its model giving it (inferred).
 constexpr float kDefaultArm = 2.0f;
+// How often a CGotoTargetsAI chooses its target again, in seconds: each
+// plan's 1 (0x437936).
+constexpr float kRetargetEvery = 1.0f;
+// How near a target a walk ends, as its route's last step lands (inferred).
+constexpr float kOnTarget = 4.0f;
 
 const char *const kScanSound = "Devices/Tricorder Science 3 pulse.ogg"; // the tricorders' Default Use Sound
 
@@ -604,6 +610,7 @@ bool MapScreen::startProcess(float x, float y) {
         o.taskY = y;
         o.taskProcess = process;
         o.taskStep = 0;
+        o.targetStep = -1;
         o.attacking = -1;
         o.path.clear();
     };
@@ -668,7 +675,6 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
     // CGoToAI's Destination, a CGotoRadiusAI's within its Radius, a
     // CGotoTargetsAI's Target, "#1-4#" the first), and actions run, the
     // officer their instigator and the part $Trigger (inferred).
-    (void)seconds;
     Officer &o = _officers[officer];
     const TextObject *list = o.taskProcess->object("Process Activity");
     const auto steps = list ? list->items() : std::vector<const TextField *>{};
@@ -682,10 +688,38 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
         if (kind == "CGoToAI" || kind == "CGotoRadiusAI" || kind == "CGotoTargetsAI") {
             if (kind == "CGotoTargetsAI")
                 o.group = readText(step, "Movment Group Name"); // the program's spelling (0x437790)
-            std::string name = readText(step, kind == "CGotoTargetsAI" ? "Target" : "Destination");
-            if (const size_t hash = name.find('#'); hash != std::string::npos)
-                name = name.substr(0, hash) + "1";
-            const std::vector<size_t> places = partsNamed(name, o.taskPart);
+            const std::string name = readText(step, kind == "CGotoTargetsAI" ? "Target" : "Destination");
+            std::vector<size_t> places;
+            if (const size_t hash = name.find('#'); hash != std::string::npos) {
+                // "video room #1-5#": the first of them the officer fits at,
+                // else the first; chosen as it starts and again each second
+                // on the way (0x4376e0; 0x4378c2, 0x4379af).
+                o.retarget -= seconds;
+                if (o.targetStep != int(o.taskStep) || o.retarget <= 0.0f) {
+                    int from = 1;
+                    int to = 1;
+                    if (std::sscanf(name.c_str() + hash, "#%d-%d#", &from, &to) < 2)
+                        to = from;
+                    std::vector<size_t> numbered;
+                    for (int n = from; n <= to; ++n)
+                        for (size_t part : partsNamed(name.substr(0, hash) + std::to_string(n), o.taskPart))
+                            numbered.push_back(part);
+                    if (!numbered.empty()) {
+                        const auto free = std::find_if(numbered.begin(), numbered.end(),
+                                                       [&](size_t part) { return spotFree(officer, part); });
+                        const size_t chosen = free != numbered.end() ? *free : numbered.front();
+                        if (o.targetStep == int(o.taskStep) && chosen != o.target)
+                            o.path.clear();
+                        o.target = chosen;
+                        o.targetStep = int(o.taskStep);
+                        o.retarget = kRetargetEvery;
+                    }
+                }
+                if (o.targetStep == int(o.taskStep))
+                    places.push_back(o.target);
+            } else {
+                places = partsNamed(name, o.taskPart);
+            }
             if (places.empty()) {
                 ++o.taskStep;
                 continue;
@@ -698,11 +732,23 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
             readPoint(step, "Offset", dx, dy);
             x += float(dx);
             y += float(dy);
-            const float radius =
-                kind == "CGotoRadiusAI" ? std::max(kUseReach, float(step->number("Radius").value_or(0.0))) : kUseReach;
+            // A CGotoTargetsAI walks onto its target: there as its move's
+            // done (0x4379c7).
+            const float radius = kind == "CGotoRadiusAI"
+                                     ? std::max(kUseReach, float(step->number("Radius").value_or(0.0)))
+                                     : (kind == "CGotoTargetsAI" ? kOnTarget : kUseReach);
             const float ratio = kind == "CGotoRadiusAI" ? float(step->number("Y to X Ratio").value_or(1.0)) : 1.0f;
             const float ex = (o.x - x) / radius;
             const float ey = (o.y - y) / (radius * (ratio > 0.0f ? ratio : 1.0f));
+            // One there first keeps a numbered target: the program's
+            // characters don't walk onto one another, so the second's held
+            // off and chooses again; Reluva's do (inferred).
+            const bool numberedTarget = kind == "CGotoTargetsAI" && o.targetStep == int(o.taskStep);
+            if (numberedTarget && ex * ex + ey * ey <= 1.0f && !spotFree(officer, o.target, officer)) {
+                o.retarget = 0.0f;
+                o.path.clear();
+                return false;
+            }
             if (ex * ex + ey * ey <= 1.0f) {
                 // There: its Done action (a stasis field's picks it up).
                 o.path.clear();

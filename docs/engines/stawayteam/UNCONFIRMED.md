@@ -46,6 +46,9 @@ None now.
   touching trigger, and the part told of a stopped move the first found
   rather than the nearest
   ([systems/maps.md](systems/maps.md#open-questions)).
+- **Numbered targets:** a `CGotoTargetsAI` with none free going to the
+  first, and one there first keeping it as another arrives
+  ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Relocations:** the map shown with those sent chosen and the view on
   the first, and one with no place staying where they stood
   ([systems/maps.md](systems/maps.md#in-reluva)).
