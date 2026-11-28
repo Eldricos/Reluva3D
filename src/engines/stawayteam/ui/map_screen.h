@@ -910,8 +910,12 @@ private:
     // The enemy whose sight is shown: what it can see, tinted (map_vision.cpp).
     void drawVision(Surface &view, int left, int top) const;
     void drawPause(Surface &screen, uint64_t now);
-    // The Warped polygons in sight, their water warped to now (map_screen.cpp).
-    void drawWater(Surface &view, int left, int top);
+    // Warped polygon `part` drawn on the view, its water warped to now, the
+    // view's left and top on the map (map_screen.cpp).
+    void drawWater(Surface &view, int left, int top, size_t part);
+    // Trans polygon `part`'s colour added to what's drawn under it.
+    void drawTrans(Surface &view, int left, int top, size_t part);
+    // Water effect `name`'s texture, warped to now.
     const image::Image *water(const std::string &name);
     void walk(Officer &o, float seconds);
     // A line a pixel wide, `opacity` (0-1) of the colour over what's there.
@@ -971,8 +975,8 @@ private:
         int clipRight = 0;
     };
     std::vector<Drawn> _drawn;
-    std::vector<size_t> _overlays; // the Trans polygons
-    std::vector<size_t> _warped;   // the Warped polygons: water
+    std::vector<size_t> _overlays; // the Trans polygons on the ground
+    std::vector<size_t> _warped;   // the Warped polygons on the ground: water
     std::vector<size_t> _raised;   // the polygons not on the ground, sorted with the models
     // A Water Warp Effects file's warp, its texture and what it warped to.
     struct Water {

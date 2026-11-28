@@ -182,9 +182,11 @@ strip of one (`0x4913c0`):
   (`0x53c8f0`). So it's sorted with the models: the Borg Cube's 196
   black polygons, each with a `YSort` of 267, cover the walls whose
   feet are less than 267 below their own, the cube's solid parts drawn
-  over what's behind them. Reluva draws the textured, black and shadow
-  ones so; the `Trans` and `Warped` ones it keeps on the ground
-  *(inferred)*.
+  over what's behind them. Whatever a polygon's kind, it goes into one
+  list or the other by its `On Ground` alone (`0x54ed6f`): 156 `Trans`
+  polygons and 6 `Warped` ones say 0, so a guide's tint falls on the
+  characters behind it and not on those in front, and water covers
+  what's behind it. Reluva draws them all so.
 
 ### The interface
 
@@ -1748,8 +1750,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 ## Open questions
 
-- **Drawing order:** where the `Trans` and `Warped` polygons not on
-  the ground are drawn.
 - **Fighting:** a strike's flashes; the stun effect's look; how a
   `CShootWeaponAI`'s line is tried exactly, from the muzzle's place
   (`0x5603fc`), where Reluva tries sight from where the shooter stands.

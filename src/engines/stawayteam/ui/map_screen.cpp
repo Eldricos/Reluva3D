@@ -225,15 +225,17 @@ MapScreen::MapScreen(const Archive &data, const TextObject &rules, GameMap map, 
         if (!p.polygon.empty()) {
             // The ground's own, drawn into its cells; the Trans colours are
             // drawn over it while they're active (below).
-            if (!p.visible || !p.active ||
-                (p.renderType != "Textured" && p.renderType != "Black" && p.renderType != "Shadow")) {
-                if (p.renderType.rfind("Trans ", 0) == 0)
-                    _overlays.push_back(i);
-                else if (p.renderType == "Warped" && !p.warpEffect.empty())
-                    _warped.push_back(i);
+            // Not on the ground, whatever its kind, it's sorted with the
+            // models (0x54ed6f).
+            const bool trans = p.renderType.rfind("Trans ", 0) == 0;
+            const bool warped = p.renderType == "Warped" && !p.warpEffect.empty();
+            if (trans || warped) {
+                (p.onGround ? (trans ? _overlays : _warped) : _raised).push_back(i);
                 continue;
             }
-            // Not on the ground, it's sorted with the models (0x54ed6f).
+            if (!p.visible || !p.active ||
+                (p.renderType != "Textured" && p.renderType != "Black" && p.renderType != "Shadow"))
+                continue;
             if (!p.onGround) {
                 _raised.push_back(i);
                 continue;
@@ -404,35 +406,56 @@ const image::Image *MapScreen::water(const std::string &name) {
     return &w.picture;
 }
 
-void MapScreen::drawWater(Surface &view, int left, int top) {
-    // Each drawn as a textured polygon is, its texture the water warped
+void MapScreen::drawWater(Surface &view, int left, int top, size_t part) {
+    // Drawn as a textured polygon is, its texture the water warped
     // (0x54eb66; inferred for where the texture's laid, as the others').
-    for (size_t i : _warped) {
-        if (!shown(i))
-            continue;
-        const MapPart &p = _map.parts[i];
-        const image::Image *tex = water(p.warpEffect);
-        if (!tex)
-            continue;
-        for (int y = 0; y < view.h; ++y) {
-            const float wy = float(top + y) + 0.5f;
-            std::vector<float> xs;
-            for (size_t k = 0; k + 1 < p.polygon.size(); ++k) {
-                const auto [ax, ay] = p.polygon[k];
-                const auto [bx, by] = p.polygon[k + 1];
-                if ((ay <= wy && by > wy) || (by <= wy && ay > wy))
-                    xs.push_back(ax + (wy - ay) * (bx - ax) / (by - ay));
-            }
-            std::sort(xs.begin(), xs.end());
-            for (size_t k = 0; k + 1 < xs.size(); k += 2) {
-                const int from = std::max(0, int(std::ceil(xs[k] - 0.5f)) - left);
-                const int to = std::min(view.w, int(std::ceil(xs[k + 1] - 0.5f)) - left);
-                for (int x = from; x < to; ++x) {
-                    const uint8_t *t = texel(*tex, left + x, top + y);
-                    std::memcpy(view.row(y) + x * 4, t, 3);
-                }
+    const MapPart &p = _map.parts[part];
+    const image::Image *tex = water(p.warpEffect);
+    if (!tex)
+        return;
+    for (int y = 0; y < view.h; ++y) {
+        const float wy = float(top + y) + 0.5f;
+        std::vector<float> xs;
+        for (size_t k = 0; k + 1 < p.polygon.size(); ++k) {
+            const auto [ax, ay] = p.polygon[k];
+            const auto [bx, by] = p.polygon[k + 1];
+            if ((ay <= wy && by > wy) || (by <= wy && ay > wy))
+                xs.push_back(ax + (wy - ay) * (bx - ax) / (by - ay));
+        }
+        std::sort(xs.begin(), xs.end());
+        for (size_t k = 0; k + 1 < xs.size(); k += 2) {
+            const int from = std::max(0, int(std::ceil(xs[k] - 0.5f)) - left);
+            const int to = std::min(view.w, int(std::ceil(xs[k + 1] - 0.5f)) - left);
+            for (int x = from; x < to; ++x) {
+                const uint8_t *t = texel(*tex, left + x, top + y);
+                std::memcpy(view.row(y) + x * 4, t, 3);
             }
         }
+    }
+}
+
+void MapScreen::drawTrans(Surface &view, int left, int top, size_t part) {
+    // Adding 10 steps of 16-bit colour to its channel, red and blue of 31,
+    // green of 63, at most full (0x53f985, 0x53fe85, 0x5429e4).
+    const MapPart &p = _map.parts[part];
+    const std::string &type = p.renderType;
+    const int channel = type == "Trans Red" ? 0 : type == "Trans Green" ? 1 : 2;
+    const int add = channel == 1 ? 10 * 255 / 63 : 10 * 255 / 31;
+    for (int y = 0; y < view.h; ++y) {
+        const float wy = float(top + y) + 0.5f;
+        std::vector<float> xs;
+        for (size_t k = 0; k + 1 < p.polygon.size(); ++k) {
+            const auto [ax, ay] = p.polygon[k];
+            const auto [bx, by] = p.polygon[k + 1];
+            if ((ay <= wy && by > wy) || (by <= wy && ay > wy))
+                xs.push_back(ax + (wy - ay) * (bx - ax) / (by - ay));
+        }
+        std::sort(xs.begin(), xs.end());
+        for (size_t k = 0; k + 1 < xs.size(); k += 2)
+            for (int x = std::max(0, int(xs[k]) - left); x < std::min(view.w, int(xs[k + 1]) - left); ++x) {
+                uint8_t &c = view.row(y)[x * 4 + channel];
+                c = uint8_t(std::min(255, c + add));
+            }
     }
 }
 
@@ -1408,35 +1431,14 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
     for (int cy = std::max(0, top / kCell); cy <= (top + viewH) / kCell; ++cy)
         for (int cx = std::max(0, left / kCell); cx <= (left + viewW) / kCell; ++cx)
             image::blit(view, groundCell(cx, cy), cx * kCell - left, cy * kCell - top);
-    drawWater(view, left, top);
-    // The guides laid on the ground while they're active: the Trans
-    // polygons, each adding 10 steps of 16-bit colour to its channel,
-    // red and blue of 31, green of 63, at most full (0x53f985, 0x53fe85,
-    // 0x5429e4).
-    for (size_t i : _overlays) {
-        if (!shown(i))
-            continue;
-        const MapPart &p = _map.parts[i];
-        const std::string &type = p.renderType;
-        const int channel = type == "Trans Red" ? 0 : type == "Trans Green" ? 1 : 2;
-        const int add = channel == 1 ? 10 * 255 / 63 : 10 * 255 / 31;
-        for (int y = 0; y < viewH; ++y) {
-            const float wy = float(top + y) + 0.5f;
-            std::vector<float> xs;
-            for (size_t k = 0; k + 1 < p.polygon.size(); ++k) {
-                const auto [ax, ay] = p.polygon[k];
-                const auto [bx, by] = p.polygon[k + 1];
-                if ((ay <= wy && by > wy) || (by <= wy && ay > wy))
-                    xs.push_back(ax + (wy - ay) * (bx - ax) / (by - ay));
-            }
-            std::sort(xs.begin(), xs.end());
-            for (size_t k = 0; k + 1 < xs.size(); k += 2)
-                for (int x = std::max(0, int(xs[k]) - left); x < std::min(viewW, int(xs[k + 1]) - left); ++x) {
-                    uint8_t &c = view.row(y)[x * 4 + channel];
-                    c = uint8_t(std::min(255, c + add));
-                }
-        }
-    }
+    // The water and the guides laid on the ground, the Trans polygons,
+    // while they're active.
+    for (size_t i : _warped)
+        if (shown(i))
+            drawWater(view, left, top, i);
+    for (size_t i : _overlays)
+        if (shown(i))
+            drawTrans(view, left, top, i);
     // The selection's marker on the ground under each officer chosen.
     if (_teamShown)
         for (const Officer &o : _officers)
@@ -1607,7 +1609,13 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
             continue;
         }
         if (piece.part == -3) {
-            drawPolygon([&](int row) { return view.row(row); }, viewW, viewH, left, top, _map.parts[piece.officer]);
+            const MapPart &raised = _map.parts[piece.officer];
+            if (raised.renderType == "Warped")
+                drawWater(view, left, top, piece.officer);
+            else if (raised.renderType.rfind("Trans ", 0) == 0)
+                drawTrans(view, left, top, piece.officer);
+            else
+                drawPolygon([&](int row) { return view.row(row); }, viewW, viewH, left, top, raised);
             continue;
         }
         if (piece.part < 0) {

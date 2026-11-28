@@ -27,8 +27,7 @@ None now.
 - **Network games:** the chosen game's and mission's font, and a chat
   line too long for its field showing its end
   ([systems/network.md](systems/network.md#open-questions)).
-- **Maps:** the `Trans` and `Warped` polygons not on the ground kept
-  under the models; the middle mouse button, a line without a
+- **Maps:** the middle mouse button, a line without a
   voice-over's time; the
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift; fighting:
