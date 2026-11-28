@@ -100,6 +100,7 @@ public:
         bool connectionOn = false;
         bool loadingOn = false;
         MissionView mission(_files);
+        mission.setMixer(_mixer);
         bool missionOn = false;
         // Over a skirmish, its own screens: its menu (the Options screen
         // with Surrender, Abort Mission and Return to Game), the settings

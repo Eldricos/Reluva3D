@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/events.h"
+#include "audio/mixer.h"
 #include "common/types.h"
 #include "engines/storm3d/formats/odf.h"
 #include "engines/storm3d/game_files.h"
@@ -55,6 +56,8 @@ public:
     static Overview startOf(const BznMap &map, int slot);
 
     explicit MissionView(const GameFiles &files) : _files(files), _scene(files) {}
+    /** Where the scripts' voice messages play; none, they're timed but not heard. */
+    void setMixer(audio::Mixer *mixer) { _mixer = mixer; }
     ~MissionView() { stop(); }
     MissionView(const MissionView &) = delete;
     MissionView &operator=(const MissionView &) = delete;
@@ -516,7 +519,30 @@ private:
     std::set<size_t> _cannotDie;                                // CraftCannotDie
     std::optional<std::pair<double, bool>> _missionEnd;         // when, in game seconds; whether failed
     bool _computersOff = false;                                 // DisableAllAITeams
-    int _audioMessages = 0;
+    // The scripts' titles and subtitles (0x648928), by id: shown only in a
+    // cut scene, fading in or out over a second.
+    struct OverlayText {
+        std::array<int, 4> area{}; // x, y, width, height
+        std::string text;
+        std::array<float, 3> colour{};
+        bool title = false;
+        float fade = 0;
+        bool shown = true;
+    };
+    std::map<int, OverlayText> _overlayTexts;
+    int _nextOverlayText = 0;
+    std::string _objectives; // the objectives box's text
+    bool _objectivesShown = false;
+    // The scripts' voice messages, by id: until when, by their length.
+    struct VoiceMessage {
+        audio::SoundHandle handle = audio::kNoSound;
+        double until = 0;
+    };
+    std::map<int, VoiceMessage> _voices;
+    int _nextVoice = 0;
+    std::map<std::string, std::string> _filesByName; // the install's files by their own names, as the game's index
+    audio::Mixer *_mixer = nullptr;
+    void drawCutScene();
     Cineractive _cine; // the scripts' cut scene
     bool _gridShown = true;
     std::map<size_t, float>

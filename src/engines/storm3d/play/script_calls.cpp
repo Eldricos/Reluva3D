@@ -7,6 +7,7 @@
 
 #include "engines/storm3d/play/mission_view.h"
 
+#include "audio/wav.h"
 #include "common/text.h"
 
 #include <algorithm>
@@ -56,8 +57,17 @@ void MissionView::runScripts(double seconds) {
         return;
     }
     // The cut scene's camera after the rules, its flags for the next pass
-    // (0x43db6f).
+    // (0x43db6f); its titles fading in or out over a second, gone faded out
+    // (0x494330).
     _cine.update(float(seconds), locateForCine());
+    if (_cine.on())
+        for (auto it = _overlayTexts.begin(); it != _overlayTexts.end();) {
+            OverlayText &t = it->second;
+            t.fade = std::clamp(t.fade + float(t.shown ? seconds : -seconds), 0.0f, 1.0f);
+            it = !t.shown && t.fade <= 0 ? _overlayTexts.erase(it) : std::next(it);
+        }
+    // The voices finished leave their ids, which reads them done (0x59e880).
+    std::erase_if(_voices, [this](const auto &v) { return double(_last) / 1000 >= v.second.until; });
     _missionScripts->setCineractive(_cine.done(), _cine.skipped());
 }
 
@@ -431,11 +441,97 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         _cine.removeFade();
         return 0u;
     }
-    if (name == "AudioMessage")
-        return uint32_t(++_audioMessages);
+    if (name == "ShowTitle" || name == "ShowSubtitle") {
+        // Titles blue (0, 0.5, 1) in the title font, subtitles white in the
+        // default one; faded in over a second, or shown whole (0x437190).
+        OverlayText t;
+        t.area = {args.integer(0), args.integer(1), args.integer(2), args.integer(3)};
+        t.text = args.text(4);
+        t.title = name == "ShowTitle";
+        t.colour = t.title ? std::array<float, 3>{0, 0.5f, 1} : std::array<float, 3>{1, 1, 1};
+        t.fade = args.flag(5) ? 0 : 1;
+        const int id = _nextOverlayText++;
+        _overlayTexts[id] = t;
+        return uint32_t(id);
+    }
+    if (name == "RemoveTitle" || name == "RemoveSubtitle") {
+        // Faded out, or gone at once.
+        auto it = _overlayTexts.find(args.integer(0));
+        if (it != _overlayTexts.end()) {
+            if (args.flag(1))
+                it->second.shown = false;
+            else
+                _overlayTexts.erase(it);
+        }
+        return 0u;
+    }
+    if (name == "ObjectivesDisplay_Set_Text_From_File") {
+        // From the install's files (objtxt.zfs); "null" or none, nothing.
+        const std::string file = args.text(0);
+        std::vector<uint8_t> data;
+        if (!file.empty() && !text::toLower(file).starts_with("null") && !_files.read(file, data))
+            _objectives.assign(data.begin(), data.end());
+        return 0u;
+    }
+    if (name == "ObjectivesDisplay_Set_Visibility") {
+        _objectivesShown = args.flag(0);
+        return 0u;
+    }
+    if (name == "AudioMessage") {
+        // Found by its name wherever it is, as the game's file index finds
+        // it; played once at the voice volume, done when it ends.
+        if (_filesByName.empty())
+            for (const std::string &path : _files.list()) {
+                const size_t slash = path.find_last_of('/');
+                _filesByName.emplace(text::toLower(slash == std::string::npos ? path : path.substr(slash + 1)), path);
+            }
+        const int id = _nextVoice++;
+        VoiceMessage voice;
+        voice.until = double(_last) / 1000;
+        auto found = _filesByName.find(text::toLower(args.text(0)));
+        auto sound = std::make_shared<audio::Sound>();
+        std::vector<uint8_t> data;
+        if (found != _filesByName.end() && !_files.read(found->second, data) && !audio::decodeWav(data, *sound) &&
+            sound->rate > 0) {
+            voice.until += double(sound->frames()) / sound->rate;
+            if (_mixer)
+                voice.handle = _mixer->play(sound, audio::SoundType::kSpeech);
+        }
+        _voices[id] = voice;
+        return uint32_t(id);
+    }
     if (name == "IsAudioMessageDone")
-        return 1u; // no voices played yet: each done at once
+        return _voices.count(args.integer(0)) ? 0u : 1u;
+    if (name == "StopAudioMessage") {
+        auto it = _voices.find(args.integer(0));
+        if (it != _voices.end()) {
+            if (_mixer && it->second.handle != audio::kNoSound)
+                _mixer->stop(it->second.handle);
+            _voices.erase(it);
+        }
+        return 0u;
+    }
     return std::nullopt;
+}
+
+void MissionView::drawCutScene() {
+    // Only the titles and the fade over the picture (input mode 2); the
+    // fade over the titles, as the original's lift with the picture
+    // (0x4942e7, 0x495720).
+    if (_overlay.w != 640)
+        _overlay.create(640, 480, PixelFormat::kRGBA32);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
+    for (const auto &[id, t] : _overlayTexts)
+        _hud.drawOverlayText(_overlay, t.area, t.text, t.colour, t.fade, t.title);
+    if (auto fade = _cine.fadeOver()) {
+        const float a = std::clamp(fade->second, 0.0f, 1.0f);
+        for (size_t p = 0; p + 3 < _overlay.pixels.size(); p += 4) {
+            uint8_t *px = &_overlay.pixels[p];
+            for (size_t k = 0; k < 3; ++k)
+                px[k] = uint8_t(std::lround(float(px[k]) * (1 - a) + fade->first[k] * 255 * a));
+            px[3] = uint8_t(std::lround(float(px[3]) + (255 - float(px[3])) * a));
+        }
+    }
 }
 
 } // namespace reluva::storm3d

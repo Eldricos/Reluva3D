@@ -107,6 +107,8 @@ Error Hud::load(const GameFiles &files, const std::string &race) {
             return err;
     if (_font.load(files))
         _font = SpriteFont{};
+    if (_titleFont.load(files, "title.spr", "font256"))
+        _titleFont = SpriteFont{};
     // The interface's words by their keys: pairs of quoted strings.
     _words.clear();
     std::vector<uint8_t> strings;
@@ -200,6 +202,74 @@ void Hud::drawText(Surface &screen, const std::array<int, 4> &area, const std::s
     const int x = area[0] + (area[2] - (_font.width(text) + 1)) / 2;
     const int y = area[1] + (area[3] - (SpriteFont::kHeight + 1)) / 2;
     _font.draw(screen, x, y, text, tint, true);
+}
+
+void Hud::drawOverlayText(Surface &screen, const std::array<int, 4> &area, const std::string &text,
+                          const std::array<float, 3> &colour, float fade, bool title) {
+    // Lines at \n, other characters under a space left out; the block
+    // centred in the box less a pixel each way, halves dropped (0x4a5090).
+    std::vector<std::string> lines(1);
+    for (char c : text) {
+        if (c == '\n')
+            lines.emplace_back();
+        else if (uint8_t(c) >= 0x20)
+            lines.back() += c;
+    }
+    int widest = 0;
+    for (const std::string &line : lines)
+        widest = std::max(widest, _font.width(line));
+    const int x = area[0] + (area[2] - 1 - widest) / 2;
+    int y = area[1] + (area[3] - 1 - int(lines.size()) * SpriteFont::kHeight) / 2;
+    const SpriteFont &font = title && _titleFont.loaded() ? _titleFont : _font;
+    std::array<uint8_t, 3> tint{};
+    for (size_t k = 0; k < 3; ++k)
+        tint[k] = uint8_t(std::lround(std::clamp(colour[k] * fade, 0.0f, 1.0f) * 255));
+    for (const std::string &line : lines) {
+        font.draw(screen, x, y, line, tint);
+        y += SpriteFont::kHeight * font.scale();
+    }
+}
+
+void Hud::drawObjectives(Surface &screen, const std::string &text) {
+    drawPanel(screen, "objectives");
+    const std::array<int, 4> panel = _layout.area("objectivesPanelArea");
+    // The text from the top left of its area, a line each 10 pixels down.
+    const std::array<int, 4> area = _layout.area("objectivesTextInformationArea");
+    std::array<uint8_t, 3> tint{};
+    for (size_t k = 0; k < 3; ++k)
+        tint[k] = uint8_t(std::lround(std::clamp(_layout.number("objectivesTextColor", k, 1), 0.0, 1.0) * 255));
+    int y = panel[1] + area[1];
+    std::string line;
+    auto put = [&] {
+        _font.draw(screen, panel[0] + area[0], y, line, tint, true);
+        y += SpriteFont::kHeight;
+        line.clear();
+    };
+    for (char ch : text) {
+        if (ch == '\n')
+            put();
+        else if (uint8_t(ch) >= 0x20)
+            line += ch;
+    }
+    if (!line.empty())
+        put();
+    const std::array<int, 4> ok = _layout.area("objectivesOkayButtonArea");
+    const int x = panel[0] + ok[0];
+    const int top = panel[1] + ok[1];
+    drawSprite(screen, _layout.text("objectivesOkayButtonImage"), x, top, ok[2], ok[3], kButtonTint);
+    drawText(screen, {x, top, ok[2], ok[3]}, word(_layout.text("objectivesOkayButtonText"), "OK"), kBlack);
+}
+
+bool Hud::objectivesOkAt(int x, int y) const {
+    const std::array<int, 4> panel = _layout.area("objectivesPanelArea");
+    const std::array<int, 4> ok = _layout.area("objectivesOkayButtonArea");
+    return x >= panel[0] + ok[0] && x < panel[0] + ok[0] + ok[2] && y >= panel[1] + ok[1] &&
+           y < panel[1] + ok[1] + ok[3];
+}
+
+bool Hud::objectivesCover(int x, int y) const {
+    const std::array<int, 4> panel = _layout.area("objectivesPanelArea");
+    return x >= panel[0] && x < panel[0] + panel[2] && y >= panel[1] && y < panel[1] + panel[3];
 }
 
 void Hud::drawBox(Surface &screen, int x0, int y0, int x1, int y1) {

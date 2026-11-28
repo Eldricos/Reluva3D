@@ -97,6 +97,38 @@ for what they take from Armada.exe.
     screen goes to the colour, or from it, over the seconds, straight;
     the colour black, or white if the third isn't 0. A fade out stays
     until a fade in. The fade is drawn only during a cut scene.
+- **Titles and subtitles** (`ShowTitle`, `ShowSubtitle`, `RemoveTitle`;
+  0x437190, 0x494330, 0x4a5090) *(from the code)*: boxes in one list,
+  their ids from one count, drawn only during a cut scene, under its
+  fade. A title is blue (0, 0.5, 1) in `title.spr`, the font sheet
+  `font256.tga` at twice the size; a subtitle white in the default font.
+  The text, lines broken only at `\n`, is centred in the box less a pixel
+  each way as the default font measures it, so a title sits right of
+  centre: "'PREMONITIONS'" in (0, 0, 200, 70) from x 65 to 185, as the
+  original's frames show it. One shown fading comes in over a second,
+  one removed fading goes out over a second, darkening; removed without,
+  it's gone at once. Their text passes through the strings file, and is
+  shown as given if it isn't a key there.
+- **Voice messages** (`AudioMessage`; 0x505620, 0x59e730) *(from the
+  code)*: the file found by its name wherever the game's index has it
+  (the cut scenes' voices in `sounds/voiceover/cineractive`, music in
+  `sounds/music`), streamed once at the voice volume, any number at
+  once, the music left as it is. Its id reads done
+  (`IsAudioMessageDone`) once it has ended or been stopped, or at once
+  if it couldn't be played.
+- **The objectives box** (`ObjectivesDisplay_...`; 0x499bf0, 0x49a6b0)
+  *(from the code)*: `gui_glob.cfg`'s "Objectives Pop-Up", a panel of 27
+  pieces at (128, 32), 384 × 288, its text from a file of `objtxt.zfs`
+  (`F1OB1.txt`: plain lines, the title centred by spaces) drawn from the
+  top left of its area in orange (1, 0.47, 0) in the default font, and
+  an OK button that puts it away. The script shows and hides it; the
+  game menu's restate button shows it again. Never drawn during a cut
+  scene. While it's up in a campaign the world stands still; the
+  interface and sound run on.
+- **The music in play** (`JukeBox`, 0x6bb1d0) *(from the code)*: the
+  player's race's `track0`, `track1`... at random, never the same twice
+  running, at the music volume; a cut scene stops it, and its end starts
+  another.
 - **Saving:** the script registers a function to write and one to read
   its variables in the program's `save_scripts` and `load_scripts`
   lists; running scripts aren't saved, and loading clears them
@@ -160,10 +192,13 @@ for what they take from Armada.exe.
     `warpSpeed`, and `CineractiveEnd` puts it back;
   - **the cut scenes** as above (`Cineractive`, `play/cineractive.h`),
     run after the rules each frame, their flags for the next; Space
-    skips one, and Esc still opens the menu.
+    skips one, and Esc still opens the menu;
+  - **titles, subtitles, voices and the objectives box** as above, the
+    voices timed by their length, so a run without sound finishes them
+    when the original would; clicks on the box go to it alone.
 
-  Not done yet: voices and music (`AudioMessage` is done at once), titles,
-  subtitles, the objectives box, the bridge, the
+  Not done yet: the music in play, the game menu's restate button, the
+  bridge, the
   minimap's messages, the shots along a heading, and the AI files other
   missions load.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run

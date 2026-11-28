@@ -160,6 +160,24 @@ public:
      * animation, black left out.
      */
     void drawCursor(Surface &screen, int x, int y, double seconds, const std::string &name);
+    /**
+     * A mission script's title or subtitle (0x437190): its lines centred in
+     * `area` (x, y, width, height) as the default font measures them,
+     * drawn in the title font (`title.spr`, twice the size, so off centre,
+     * as the original's) if `title`, its colour times `fade` (0 to 1).
+     */
+    void drawOverlayText(Surface &screen, const std::array<int, 4> &area, const std::string &text,
+                         const std::array<float, 3> &colour, float fade, bool title);
+    /**
+     * The objectives box (gui_glob.cfg's "Objectives Pop-Up"): its panel,
+     * the text from its top left in its colour, line by line, and its OK.
+     */
+    void drawObjectives(Surface &screen, const std::string &text);
+    /** Whether a point is on the objectives box's OK, and on the box at all. */
+    ///@{
+    bool objectivesOkAt(int x, int y) const;
+    bool objectivesCover(int x, int y) const;
+    ///@}
 
 private:
     // A sprite drawn into a rectangle of the screen: its texture's
@@ -182,6 +200,7 @@ private:
     GuiConfig _layout;
     std::vector<SpriteTable> _tables; // the race's, then gui_global.spr
     SpriteFont _font;
+    SpriteFont _titleFont;
     std::map<std::string, image::Image> _textures; // by lower-case name; empty if not there
     std::map<std::string, std::string> _words;     // Dynamic_Localized_Strings.h's, by key
     bool _cinematicShown = false;

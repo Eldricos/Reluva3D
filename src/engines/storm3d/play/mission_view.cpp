@@ -2208,7 +2208,15 @@ void MissionView::stop() {
     _cannotDie.clear();
     _missionEnd.reset();
     _computersOff = false;
-    _audioMessages = 0;
+    for (const auto &[id, voice] : _voices)
+        if (_mixer && voice.handle != audio::kNoSound)
+            _mixer->stop(voice.handle);
+    _voices.clear();
+    _nextVoice = 0;
+    _overlayTexts.clear();
+    _nextOverlayText = 0;
+    _objectives.clear();
+    _objectivesShown = false;
     _cine = Cineractive{};
     _gridShown = true;
     _warpSpeeds.clear();
@@ -2245,6 +2253,14 @@ void MissionView::handleEvent(const Event &ev) {
     if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
         _mouseX = ev.mouseX;
         _mouseY = ev.mouseY;
+    }
+    // The objectives box's OK puts it away (0x49a620); the rest of it
+    // takes clicks.
+    if (_objectivesShown && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft &&
+        _hud.objectivesCover(ev.mouseX, ev.mouseY)) {
+        if (_hud.objectivesOkAt(ev.mouseX, ev.mouseY))
+            _objectivesShown = false;
+        return;
     }
     // A cut scene takes the input: Space votes to skip it (Input.map's
     // switch_camera_shot, 0x4a49ca); Esc still opens the menu.
@@ -2712,9 +2728,13 @@ void MissionView::drawScreen(const Surface &screen, uint64_t millis) {
 void MissionView::draw(uint64_t millis) {
     if (!_renderer)
         return;
-    const double seconds = double(millis - _last) / 1000;
+    double seconds = double(millis - _last) / 1000;
     _overview = moved(_overview, _held, seconds);
     _last = millis;
+    // A campaign's objectives box holds the world still while it's up
+    // (0x43dad4); the camera and interface run on.
+    if (_objectivesShown && _missionScripts)
+        seconds = 0;
     // Each player's crew, by the starbases it has standing.
     auto starbasesOf = [this](int slot) {
         int n = 0;
@@ -2844,16 +2864,7 @@ void MissionView::draw(uint64_t millis) {
     // A cut scene hides the interface (input mode 2): its fade alone over
     // the picture (0x495850).
     if (_cine.on()) {
-        if (_overlay.w != 640)
-            _overlay.create(640, 480, PixelFormat::kRGBA32);
-        std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
-        if (auto fade = _cine.fadeOver()) {
-            const auto byte = [](float v) { return uint8_t(std::lround(std::clamp(v, 0.0f, 1.0f) * 255)); };
-            const std::array<uint8_t, 4> rgba{byte(fade->first[0]), byte(fade->first[1]), byte(fade->first[2]),
-                                              byte(fade->second)};
-            for (size_t p = 0; p + 3 < _overlay.pixels.size(); p += 4)
-                std::copy(rgba.begin(), rgba.end(), _overlay.pixels.begin() + std::ptrdiff_t(p));
-        }
+        drawCutScene();
         _renderer->endFrame(&_overlay);
         return;
     }
@@ -3029,6 +3040,8 @@ void MissionView::draw(uint64_t millis) {
                          : _hover >= 0          ? "c_select"
                          : sending && onMap     ? "c_move"
                                                 : "c_arrow";
+    if (_objectivesShown)
+        _hud.drawObjectives(_overlay, _objectives);
     _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, cursor);
     _renderer->endFrame(&_overlay);
 }

@@ -5,11 +5,12 @@
 
 #include "engines/storm3d/formats/sprite_table.h"
 
+#include <algorithm>
 #include <string>
 
 namespace reluva::storm3d {
 
-Error SpriteFont::load(const GameFiles &files) {
+Error SpriteFont::load(const GameFiles &files, const std::string &tableName, const std::string &name) {
     _letters.clear();
     SpriteTable table;
     const SpriteTable::Loader loader = [&files](std::string_view name, std::string &text) {
@@ -19,12 +20,12 @@ Error SpriteFont::load(const GameFiles &files) {
         text.assign(bytes.begin(), bytes.end());
         return Error::success();
     };
-    if (Error err = table.load("font.spr", loader))
+    if (Error err = table.load(tableName, loader))
         return err;
-    auto uv = table.animations().find("font_uv");
-    auto w = table.animations().find("font_w");
+    auto uv = table.animations().find(name + "_uv");
+    auto w = table.animations().find(name + "_w");
     if (uv == table.animations().end() || w == table.animations().end())
-        return Error::fail("font.spr: no font_uv or font_w");
+        return Error::fail(tableName + ": no " + name + "_uv or " + name + "_w");
     for (size_t i = 0; i < uv->second.keyframes.size(); ++i) {
         const auto &at = uv->second.keyframes[i];
         const int width =
@@ -33,10 +34,12 @@ Error SpriteFont::load(const GameFiles &files) {
             _letters.push_back({int(at[0]), int(at[1]), width});
     }
     std::vector<uint8_t> data;
-    if (Error err = files.read("Textures/RGB/font.tga", data))
+    if (Error err = files.read("Textures/RGB/" + name + ".tga", data))
         return err;
     if (Error err = image::decode(data, _sheet))
-        return Error::fail("font.tga: " + err.message);
+        return Error::fail(name + ".tga: " + err.message);
+    // Its places are on its table's @reference of 128 texels.
+    _scale = std::max(1, _sheet.w / 128);
     return Error::success();
 }
 
@@ -45,7 +48,7 @@ int SpriteFont::width(std::string_view text) const {
     for (char c : text) {
         const size_t i = size_t(uint8_t(c)) - 32;
         if (i < _letters.size())
-            w += _letters[i][2] + 1;
+            w += _letters[i][2] * _scale + 1;
     }
     return w;
 }
@@ -63,8 +66,10 @@ void SpriteFont::draw(Surface &screen, int x, int y, std::string_view text, cons
         const size_t i = size_t(uint8_t(c)) - 32;
         if (i >= _letters.size() || !loaded())
             break;
-        const auto &[lx, ly, lw] = _letters[i];
-        for (int row = 0; row < kHeight; ++row)
+        const int lx = _letters[i][0] * _scale;
+        const int ly = _letters[i][1] * _scale;
+        const int lw = _letters[i][2] * _scale;
+        for (int row = 0; row < kHeight * _scale; ++row)
             for (int col = 0; col < lw; ++col) {
                 const int sx = pen + col;
                 const int sy = y + row;

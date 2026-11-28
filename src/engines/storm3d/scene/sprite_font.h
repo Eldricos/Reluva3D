@@ -8,6 +8,7 @@
 #include "image/image.h"
 
 #include <array>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -26,12 +27,18 @@ public:
     static constexpr int kHeight = 10;
 
     /**
-     * Reads the font.
+     * Reads the font: `font.spr` over `font.tga`, or another of the same
+     * layout, `title.spr` over `font256.tga`, whose sheet is twice as fine
+     * and drawn twice the size.
+     * @param name Its sprite's name in its table ("font", "font256"), and
+     *        its texture's.
      * @return a failure if its table or sheet can't be read
      */
-    Error load(const GameFiles &files);
+    Error load(const GameFiles &files, const std::string &table = "font.spr", const std::string &name = "font");
+    /** How many pixels a texel of its table's 128 is: 1, or 2 for the title font. */
+    int scale() const { return _scale; }
     bool loaded() const { return _sheet.w > 0; }
-    /** How wide text is: each character's width and a pixel after it. */
+    /** How wide text is: each character's width, times its scale, and a pixel after it. */
     int width(std::string_view text) const;
     /**
      * Draws text from (x, y), its colour `tint` times the sheet's, over
@@ -44,7 +51,8 @@ public:
 
 private:
     image::Image _sheet;
-    std::vector<std::array<int, 3>> _letters; // x, y and width on the sheet, from the space up
+    std::vector<std::array<int, 3>> _letters; // x, y and width on a 128 sheet, from the space up
+    int _scale = 1;
 };
 
 } // namespace reluva::storm3d
