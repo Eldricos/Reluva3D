@@ -85,5 +85,5 @@ playing over a real network.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 28 November 2026 | Classics (`27, 2.0`) | Eldricos's machine | `nfs.nfs3.gamedata` passed, after the host's changes for NFS II SE on `engine/nfs-nfs2se` (input delivered before the main thread's functions; a hook for file reads' time, not set for NFS III; the DirectX key, NFS II SE's only) |
+| 28 November 2026 | Classics (`27, 2.0`) | Windows 10 | `nfs.nfs3.gamedata` passed, after the host's changes for NFS II SE on `engine/nfs-nfs2se` (input delivered before the main thread's functions; a hook for file reads' time, not set for NFS III; the DirectX key, NFS II SE's only) |
 | 13 November 2026 | Classics (`27, 2.0`) | Linux, after the merge into main | The automated checks; `reluva-tool nfs host` into a Hometown race natively and with `-glide`; a two-copy TCP race; the Tracks page |
