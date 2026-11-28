@@ -2407,6 +2407,7 @@ void MissionView::stop() {
     _conduits.clear();
     _alerts.clear();
     _billboards.clear();
+    _credits.reset();
     _jumps.clear();
     _scriptPasses = 0;
     _cannotDie.clear();
@@ -3124,6 +3125,7 @@ void MissionView::draw(uint64_t millis) {
     // the picture (0x495850).
     if (_cine.on()) {
         drawCutScene();
+        drawCredits(millis);
         _renderer->endFrame(&_overlay);
         return;
     }
@@ -3310,6 +3312,7 @@ void MissionView::draw(uint64_t millis) {
     if (_objectivesShown)
         _hud.drawObjectives(_overlay, _objectives);
     _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, cursor);
+    drawCredits(millis);
     _renderer->endFrame(&_overlay);
 }
 
@@ -3331,6 +3334,7 @@ void MissionView::drawBridge(uint64_t millis, const MapScene::Camera &view) {
     _hud.drawBridge(_overlay, bridgePrefix(), double(millis) / 1000 - _bridgeLightsFrom);
     // The titles and fade over the bridge (priorities 9 and 1).
     drawCutScene(false);
+    drawCredits(millis);
     _renderer->endFrame(&_overlay);
 }
 

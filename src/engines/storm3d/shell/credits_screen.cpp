@@ -114,10 +114,10 @@ CreditsScreen::Moment CreditsScreen::momentAt(const CreditsScript::Page &page, d
     return m;
 }
 
-Error CreditsScreen::start(gfx::Renderer3D *renderer, uint64_t millis) {
+Error CreditsScreen::start(gfx::Renderer3D *renderer, uint64_t millis, bool inMission) {
     stop();
     std::vector<uint8_t> data;
-    if (Error err = _files.read("Credits.txt", data))
+    if (Error err = _files.read(inMission ? "Credits2.txt" : "Credits.txt", data))
         return err;
     _script = CreditsScript::parse(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()));
     SodModel font;
@@ -195,18 +195,42 @@ void CreditsScreen::buildPage(size_t page) {
         _pageMesh = 0;
 }
 
-bool CreditsScreen::draw(uint64_t millis) {
-    if (!_renderer || _page >= _script.pages.size())
-        return false;
+void CreditsScreen::drawPage(uint64_t millis) {
+    if (!_renderer || _script.pages.empty())
+        return;
     Moment moment = momentAt(_script.pages[_page], double(millis - _pageStart) / 1000);
     if (moment.over) {
         _pageStart = millis;
-        if (++_page >= _script.pages.size())
-            return false;
+        _page = (_page + 1) % _script.pages.size();
         moment = Moment{};
     }
     if (_built != _page)
         buildPage(_page);
+    if (!_pageMesh)
+        return;
+    // The letters lie in the screen's own plane: placed already, not
+    // through the camera.
+    _renderer->setView(gfx::identity(), {0, 0, 0});
+    gfx::DrawCall call;
+    call.mesh = _pageMesh;
+    call.indexCount = _pageIndices;
+    // Going away: smaller about the screen's centre, where clip space's
+    // origin is.
+    call.model = gfx::identity();
+    call.model[0] = call.model[5] = moment.scale;
+    call.rgbSource = gfx::ColorSource::kVertex;
+    call.color = {1, 1, 1, moment.alpha};
+    call.state.cull = gfx::Cull::kNone;
+    call.state.depthTest = false;
+    call.state.depthWrite = false;
+    call.state.src = gfx::Blend::kSrcAlpha;
+    call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
+    _renderer->draw(call);
+}
+
+void CreditsScreen::draw(uint64_t millis) {
+    if (!_renderer)
+        return;
     const gfx::Mat4 viewProj = gfx::multiply(gfx::multiply(gfx::perspective(kFieldOfView, 640.0f / 480.0f, 1, 1000),
                                                            gfx::lookAlong({0, 0, 0}, {0, 0, -1}, {0, 1, 0})),
                                              SodMeshes::mirrorZ());
@@ -214,26 +238,7 @@ bool CreditsScreen::draw(uint64_t millis) {
     _meshes.setView({1, 0, 0}, {0, 1, 0}, double(millis) / 1000);
     if (_background)
         _meshes.draw(*_background, gfx::identity(), true);
-    if (_pageMesh) {
-        // The letters lie in the screen's own plane: placed already, not
-        // through the camera.
-        _renderer->setView(gfx::identity(), {0, 0, 0});
-        gfx::DrawCall call;
-        call.mesh = _pageMesh;
-        call.indexCount = _pageIndices;
-        // Going away: smaller about the screen's centre, where clip space's
-        // origin is.
-        call.model = gfx::identity();
-        call.model[0] = call.model[5] = moment.scale;
-        call.rgbSource = gfx::ColorSource::kVertex;
-        call.color = {1, 1, 1, moment.alpha};
-        call.state.cull = gfx::Cull::kNone;
-        call.state.depthTest = false;
-        call.state.depthWrite = false;
-        call.state.src = gfx::Blend::kSrcAlpha;
-        call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
-        _renderer->draw(call);
-    }
+    drawPage(millis);
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
     for (int y = kCaptionY; y < kCaptionBottom; ++y)
         for (int x = kCaptionX; x < kCaptionRight; ++x) {
@@ -242,7 +247,6 @@ bool CreditsScreen::draw(uint64_t millis) {
         }
     _caption.draw(_overlay, kCaptionX, kCaptionY, kCaption, {kCaptionColour[0], kCaptionColour[1], kCaptionColour[2]});
     _renderer->endFrame(&_overlay);
-    return true;
 }
 
 } // namespace reluva::storm3d

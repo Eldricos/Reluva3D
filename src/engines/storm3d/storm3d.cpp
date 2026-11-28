@@ -511,15 +511,8 @@ public:
                 }
             }
             if (creditsOn) {
-                // Back to the menu after the last page.
-                if (!credits.draw(now)) {
-                    credits.stop();
-                    creditsOn = false;
-                    if (Error err = _sys.initGraphics(kWidth, kHeight, PixelFormat::kRGBA32)) {
-                        stopAll();
-                        return err;
-                    }
-                }
+                // Round and round, till a key or a click (0x5936a2).
+                credits.draw(now);
                 _sys.delayMillis(kFrameMs);
                 continue;
             }

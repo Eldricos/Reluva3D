@@ -354,6 +354,13 @@ for what they take from Armada.exe.
     radius towards the camera (0x469be0, 0x5829c0) *(from the code)*.
     A unit sending a boarding party, and the one it's sending to, show it
     too while the transport lasts (0x463630);
+  - **the credits:** `StartCredits` shows `Credits2.txt`'s pages over
+    play, as the main menu's credits show `Credits.txt`'s, with the same
+    font model and timing, round and round till `EndCredits`; drawn
+    after the world, before the interface, 150 ahead of the camera as
+    the menu's are (0x4391e0, 0x5ac78c) *(from the code)*. Their letters
+    are lit as the menu's, where the program's take the map's own light
+    *(inferred)*;
   - **alert levels:** `SetRedAlert`, `SetYellowAlert` and
     `SetGreenAlert` set the unit's ([combat.md](combat.md));
   - **transwarp gates:** `GetTranswarpExitWormhole(gate)` gives the far
@@ -383,7 +390,7 @@ for what they take from Armada.exe.
   Not done yet: saving and loading a mission; the tracking shot
   (`CineractiveShotTrackLeft`, unused by the missions);
   `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish AI's script
-  borrowed by Romulan 1); the credits.
+  borrowed by Romulan 1).
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make

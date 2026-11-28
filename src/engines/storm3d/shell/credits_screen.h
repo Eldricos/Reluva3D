@@ -64,17 +64,21 @@ public:
     CreditsScreen &operator=(const CreditsScreen &) = delete;
 
     /**
-     * Starts the credits at `millis`, drawn through `renderer`.
+     * Starts the credits at `millis`, drawn through `renderer`: the
+     * shell's, `Credits.txt` on its own screen; or a mission's
+     * (StartCredits), `Credits2.txt`, its pages over the mission's frame.
      * @return a failure if the script or the font can't be read
      */
-    Error start(gfx::Renderer3D *renderer, uint64_t millis);
+    Error start(gfx::Renderer3D *renderer, uint64_t millis, bool inMission = false);
     /** Lets go of the renderer and what it made. */
     void stop();
+    /** Draws them as at `millis`, a frame of their own: the stars, the page and the caption. */
+    void draw(uint64_t millis);
     /**
-     * Draws them as at `millis`.
-     * @return false once the last page is gone
+     * Draws the page as at `millis` into the frame being drawn, after the
+     * last page the first again (0x5936a2).
      */
-    bool draw(uint64_t millis);
+    void drawPage(uint64_t millis);
 
 private:
     void buildPage(size_t page);

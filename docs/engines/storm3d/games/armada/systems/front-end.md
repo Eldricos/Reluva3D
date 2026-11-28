@@ -253,7 +253,8 @@ yet.
 ### The credits
 
 Credits on the main menu shows the credits, drawn in 3D, until a key or
-a click ends them:
+a click ends them, the first page again after the last (0x5936a2)
+*(from the code)*:
 
 - The camera is at the origin, looking along +z, 45 degrees high, as on
   the loading screen. Around it is the stars' background model,
@@ -368,7 +369,7 @@ its 16-bit path or how revision `f` keeps its planes, isn't traced.
   to its next value *(guessed)*, as the frames never show one open, and
   LAUNCH starts a skirmish on its map ([play.md](play.md)). Load Game opens the Load Game screen (`shell/load_game_screen.h`),
   its list empty. Credits shows the credits (`shell/credits_screen.h`),
-  back to the menu after the last page or a key or click. The models are drawn as the data viewer's are
+  round and round till a key or click. The models are drawn as the data viewer's are
   (`scene/sod_meshes.h`); the logo's specular glint isn't. The version is in Reluva's own
   font: the "System" font isn't in the install.
 - **The text** is Arial Bold, as the game asks GDI for it: the machine's

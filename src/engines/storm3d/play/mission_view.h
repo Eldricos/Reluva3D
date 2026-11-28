@@ -17,6 +17,7 @@
 #include "engines/storm3d/play/movement.h"
 #include "engines/storm3d/play/strategy.h"
 #include "engines/storm3d/scene/map_scene.h"
+#include "engines/storm3d/shell/credits_screen.h"
 #include "engines/storm3d/shell/options_screen.h"
 #include "engines/storm3d/shell/panel_movie.h"
 #include "graphics/gfx3d.h"
@@ -783,6 +784,8 @@ private:
     // The transporter's glow (xtransport) over a unit: one a script put
     // on it, or one sending or taking a boarding party (0x469be0, 0x463630).
     std::set<size_t> _billboards;
+    std::unique_ptr<CreditsScreen> _credits; // the credits over play (StartCredits)
+    void drawCredits(uint64_t millis);       // their page over the world, before the interface (0x5ac78c)
     void drawBillboards(const MapScene::Camera &view, double now);
     void drawEffects(double now); // the shields' glows and the explosions, at the game's seconds
     gfx::MeshId _shotMesh = 0;

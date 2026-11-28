@@ -65,6 +65,11 @@ bool MissionView::exploding(size_t unit) const {
     return it != _explodedAt.end() && double(_last) / 1000 - it->second < kExploding;
 }
 
+void MissionView::drawCredits(uint64_t millis) {
+    if (_credits)
+        _credits->drawPage(millis);
+}
+
 void MissionView::runPatrols() {
     // Round its path again each time it's at the end *(inferred)*.
     for (auto it = _patrols.begin(); it != _patrols.end();) {
@@ -745,8 +750,17 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
         }
         return 0u;
     }
-    if (name == "StartCredits" || name == "EndCredits")
-        return 0u; // drawn only: not made yet
+    if (name == "StartCredits") {
+        // Credits2.txt's pages over play, round and round (0x4391e0).
+        _credits = std::make_unique<CreditsScreen>(_files);
+        if (_credits->start(_renderer, _last, true))
+            _credits.reset();
+        return 0u;
+    }
+    if (name == "EndCredits") {
+        _credits.reset();
+        return 0u;
+    }
     return std::nullopt;
 }
 
