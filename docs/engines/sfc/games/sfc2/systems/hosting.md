@@ -464,6 +464,42 @@ again, a draw and a "Victory" (1,550 prestige, stardate 2290). The map
 redrawn after a load took longer as the campaign went on: the hex click
 had to wait 2,000 frames more by the sixth mission.
 
+Played again to be won, Peace In Our Times turns out to be timed by the
+mission itself. The diplomat beams down (the transporters' first BEAM
+OUT icon, (50,427), then ENERGIZE) only within a range of about 5 of
+Organia: pressed at 6 nothing goes, and the mission ends "Devastating
+Defeat ... couldn't even deliver a diplomat". Delivered, "Science: Three
+new ships have arrived in system by unknown means", the Organian's
+complaint, then "Endless bickering and war..." and "Because you could
+not find the strength to look for peace yourself, we have found others
+to bring it to you": three ISC ships (I-DDL, I-CL and another) appear,
+and at 8:50 of the mission's time the frigate takes 200 damage at once,
+182 of it internal with red alert's shields up, 200 without, wherever
+it is: stopped, orbiting, leaving at full speed, firing or not. The
+debriefing is then "Defeat: ... giving into a demand" (+75). The
+mission's text has another branch ("It is up to you to find a peaceful
+resolution. We shall not interfere again"), and a surrender line
+("This is [PLAYER_RANK] [PLAYER_NAME], we surrender"); what takes the
+other branch isn't known: the script's text has it, its logic wasn't traced.
+In orbit (the keypad's .) before delivering, nothing comes at all; the
+delegates' ships, which Y and the backquote target as enemies (the
+Klingon, Gorn and Hydran), fight back if fired on.
+
+A second ship: the F-DER destroyer (BPV 90, 485 prestige) bought at
+the base after a second win (650), and saved over the auto-save by hand
+(SAVED GAMES, SAVE at (401,455): the auto-save is made before what's
+bought after a mission). Loaded, its ACCEPT seemed to hang: the button
+blanked and no briefing came. The game's own trace messages, by their
+sites (`ERIK: tMatchCharacter::...`, watched with `-watch`), show why:
+moving twice within 1,500 frames started a second mission match while
+the first was still going; one pushed the list to the player, the other
+took an empty choice and ended (`OnReceiveChosenMission`, `OnEnd`), and
+ACCEPT went to the match that had ended. With the moves 4,000 frames
+apart the match goes through (`RequestShips`, `SendMatchedMission`,
+`StartGame`), both ships in the mission *(seen, not traced)*. A player
+clicking as fast would see the same *(inferred)*.
+
+
 Another empire's campaign, Klingon vs the ISC (the fifth on New
 Campaign's list): the Klingon map and interface in red, the IKV Fury, a
 frigate, and Monster and Patrol offered. Monster, played as Convoy
