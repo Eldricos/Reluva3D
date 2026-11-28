@@ -1320,15 +1320,15 @@ for the AI's next run, a frame on. One whose Valid Targets don't name Player or
 Team Member doesn't see the officers. Losing its target, it goes by its
 LostATarget's Had a Target: Investigate, going to where it saw them last.
 Up from a stun, its Stun's Next State: Investigate, going to where the
-shot came from (its own place for a shot not an officer's,
-*inferred*), or Recharge. Recharging, it runs its Recharge AI, its Hit
-Points back a second to whole, for its Time To Recharge if it has one,
-then End Recharge's AI and its patrol (*inferred* for those two); it
-sees the team as on patrol. A target within a twentieth of its weapon's
+one who stunned it stands, officer or enemy, or Recharge. Recharging, it
+runs its Recharge AI, its Hit Points back a second to whole, for its
+Time To Recharge if it has one, then End Recharge, whose AI runs one
+update before it asks for its patrol (`0x426dc0`), so a Borg's step out
+of its alcove is a step; it sees the team as on patrol. A target within a twentieth of its weapon's
 range, one that Runs Away If Too Close runs off three seconds, then
 back at them; to the retreat's spot as above, tried in its cone and
-then anywhere, giving up with no way there (*inferred*: the program
-tries again a second on). On patrol or alerted, a dead body it sees and
+then anywhere, with no way there trying again a second on, running away
+till its time's out all the same (`0x430760`). On patrol or alerted, a dead body it sees and
 hasn't before: its target dropped, its GotATarget's Dead Body,
 Investigate Dead Body, going to look at it, then back on patrol. A
 CSetPatrolAIAction's AI is its patrol from then. With no officer to
@@ -1400,10 +1400,13 @@ Sound, Opening played and then Open, out of the way only then, and its
 After Opened; closing likewise, back in the way at once. A way's planned through a closed
 door's outline only if it's not locked and answers to the walker's kind,
 officers by Triggered By Players, enemies by Enemies; without a way,
-they don't go (inferred: the program's goes straight there). An enemy
+they go straight there (`0x44960a`). An enemy
 that Tries To Collide doesn't take a step that would put its outline
 into a part that collides, a closed door too; the rest walk through. The messages
-above are acted on: told to look, one on patrol or looking goes there;
+above are acted on: told to look, one on patrol or looking goes there,
+one looking taking the new place and starting its look again
+(`0x42f07c`); done looking about, its Investigate state asks for its
+patrol (`0x42f10b`);
 given a target, it attacks them; a radius's action reaches the enemies,
 and the other parts of its categories, in its oval, a part its own
 `$Instigator` in the Touching Action.
@@ -1478,9 +1481,12 @@ officer's shot makes its weapon's. An enemy with Investigate Sounds, on
 patrol or investigating, that hears the newest noise it's inside goes
 there by the waypoints (running with Run To Investigate), turns to face
 the place, and looks about by its own AI for Time To Investigate, as
-the chase investigate AI does. Its going back on patrol where it left
-off, another noise heard meanwhile sending it there instead, and seeing
-an officer meanwhile alerting it are *(inferred)*.
+the chase investigate AI does. Done, its `CDoneInvestigatingMessage`
+puts it back on patrol (`0x42f10b`); another noise heard meanwhile, a
+`CInvestigateMessage`, sends it there instead, its look started again
+(`0x42f07c`); an officer seen meanwhile takes it straight to Got a
+Target (`0x42ed60`). That its patrol carries on from where it left off
+is *(inferred)*.
 A wall between stops a noise, and an officer's bolt makes a noise of
 200 for 1.5 seconds on the enemy it meets. The sound button, or S, shows the
 noises as the program draws them: blue arcs either side, at the ring's

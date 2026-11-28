@@ -248,6 +248,7 @@ public:
         std::string validTargets;
         std::vector<size_t> bodiesSeen;       // the dead bodies it's looked at, not to again
         float runAway = 0.0f;                 // seconds of running away left
+        float runRetry = 0.0f;                // seconds till it looks for a spot again; there, below 0
         std::string onceSequence;             // played once and then held (Inactive's shutting down)
         float onceTime = 0.0f;                // seconds into it
         std::string beforeInactive;           // the state it goes back to, activated
@@ -833,6 +834,9 @@ private:
     // How long a stun by `weapon` lies one down: its Stun Duration by the
     // difficulty (0x5dae70).
     float stunLength(const ItemDefinition &weapon) const;
+    // A spot for enemy `e` to run away to from officer `o`: a route there,
+    // or none.
+    void runAwayFrom(Enemy &e, const Officer &o);
     // A stunned enemy's Collideable put back, if it was put aside.
     void standUp(Enemy &e);
     // A stun of `length` lying down, as a character of `model` falls,

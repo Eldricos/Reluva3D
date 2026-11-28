@@ -261,6 +261,7 @@ void MapScreen::state(StateIo &s) {
         s.io(e.validTargets);
         s.io(e.bodiesSeen);
         s.io(e.runAway);
+        s.io(e.runRetry);
         s.io(e.onceSequence);
         s.io(e.onceTime);
         s.io(e.beforeInactive);

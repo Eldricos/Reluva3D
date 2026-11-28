@@ -47,9 +47,9 @@ None now.
   by box and Shift; fighting:
   sight's line starting where the enemy stands, a shot meeting those on its
   line at once, the stun effect not drawn, and officers waiting where
-  they stand while the enemy they're to shoot is out of range or sight; noise: what an enemy does after
-  looking about; the enemies going to retreat and acting on their
-  messages ([systems/maps.md](systems/maps.md#open-questions)).
+  they stand while the enemy they're to shoot is out of range or sight;
+  noise: an enemy's patrol carrying on where it left off after looking
+  about ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** the debriefing's lines typed only once their panel's
   in ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **Items:** the counts for -1, the keys matched to items by name, and
@@ -63,9 +63,6 @@ None now.
   ([systems/items.md](systems/items.md#open-questions)).
 - **The item panels' layout:** sequences placed from the panel's middle
   ([systems/items.md](systems/items.md#an-items-panel)).
-- **The enemies' states:** one running away giving up with no way to
-  its spot, and End Recharge's AI before its patrol
-  ([systems/maps.md](systems/maps.md#open-questions)).
 - **The triggers:** a thrown thing found after the characters in a
   touching trigger, and a collide trigger going as one comes into the
   part's shape rather than as their movement meets it

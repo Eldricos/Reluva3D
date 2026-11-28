@@ -771,7 +771,7 @@ void MapScreen::updateEnemies(float seconds) {
         }
         // Recharging (80 enemies start so): its Recharge AI, for its Time
         // To Recharge if it has one (-1: till it's disturbed), then End
-        // Recharge (0x427e89); its AI, then its patrol (inferred).
+        // Recharge (0x427e89).
         if (e.state == "Recharge") {
             const TextObject *recharge = states->object("Recharge");
             e.recharge += seconds;
@@ -785,18 +785,36 @@ void MapScreen::updateEnemies(float seconds) {
             }
             continue;
         }
+        // End Recharge runs its AI one update and asks for its patrol at
+        // once, whether that's done or not (0x426dc0).
         if (e.state == "EndRecharge") {
             const TextObject *end = states->object("EndRecharge");
-            if (runAI(e, end ? end->object("End Recharge AI") : nullptr, seconds))
-                setState(e, "Patrol");
+            runAI(e, end ? end->object("End Recharge AI") : nullptr, seconds);
+            setState(e, "Patrol");
             continue;
         }
-        // Running away from one too close, for its time, then back at them
-        // (0x42b084).
+        // Running away from one too close for its time, then back at them
+        // (0x42b084, 0x430791): its CRunAwayRetreatAI goes to its spot and
+        // stays; with no way to one it tries again a second on (0x5531a0),
+        // still running away till the time's out.
         if (e.state == "RunAway") {
             e.runAway -= seconds;
-            if (e.runAway <= 0.0f || e.route.empty() || followRoute(e, seconds, true))
+            if (e.runAway <= 0.0f) {
                 setState(e, e.target >= 0 ? "Attack" : "Patrol");
+                continue;
+            }
+            if (!e.route.empty()) {
+                if (followRoute(e, seconds, true)) {
+                    e.route.clear();
+                    e.runRetry = -1.0f;
+                }
+            } else if (e.runRetry >= 0.0f) {
+                e.runRetry -= seconds;
+                if (e.runRetry < 0.0f && e.target >= 0) {
+                    runAwayFrom(e, _officers[size_t(e.target)]);
+                    e.runRetry = e.route.empty() ? 1.0f : 0.0f;
+                }
+            }
             continue;
         }
         if (e.state == "Investigate") {
@@ -956,19 +974,8 @@ void MapScreen::updateEnemies(float seconds) {
                 runFor = std::min(kLongestShort, (e.weapon->energyUse - e.energy) / e.weapon->energyRecharge);
         }
         if (runFor > 0.0f) {
-            const auto randomUnit = [&] {
-                _random = _random * 1103515245u + 12345u;
-                return float((_random >> 8) & 0xffffff) / float(0xffffff);
-            };
-            const float away = std::atan2((e.y - o.y) / ParticleSystem::kYToX, e.x - o.x);
-            const float reach = e.weapon->range * kRetreatPart;
-            for (const float spread : {kPi / 4.0f, kPi}) {
-                const float a = away + (randomUnit() * 2.0f - 1.0f) * spread;
-                const float r = reach * (kRetreatNearest + randomUnit() * (kRetreatFarthest - kRetreatNearest));
-                e.route = route(e, o.x + std::cos(a) * r, o.y + std::sin(a) * r * ParticleSystem::kYToX, false);
-                if (!e.route.empty())
-                    break;
-            }
+            runAwayFrom(e, o);
+            e.runRetry = e.route.empty() ? 1.0f : 0.0f;
             e.runAway = runFor;
             setState(e, "RunAway");
             continue;
@@ -986,6 +993,25 @@ void MapScreen::updateEnemies(float seconds) {
             else
                 fireBolt(*e.weapon, e.x, e.y, o.x, o.y, self, self, e.stuns);
         }
+    }
+}
+
+void MapScreen::runAwayFrom(Enemy &e, const Officer &o) {
+    // A spot 0.83 to 1.2 times a quarter of its weapon's range from them,
+    // within 45 degrees of straight away, else anywhere round them
+    // (0x5530f0).
+    const auto randomUnit = [&] {
+        _random = _random * 1103515245u + 12345u;
+        return float((_random >> 8) & 0xffffff) / float(0xffffff);
+    };
+    const float away = std::atan2((e.y - o.y) / ParticleSystem::kYToX, e.x - o.x);
+    const float reach = e.weapon ? e.weapon->range * kRetreatPart : 0.0f;
+    for (const float spread : {kPi / 4.0f, kPi}) {
+        const float a = away + (randomUnit() * 2.0f - 1.0f) * spread;
+        const float r = reach * (kRetreatNearest + randomUnit() * (kRetreatFarthest - kRetreatNearest));
+        e.route = route(e, o.x + std::cos(a) * r, o.y + std::sin(a) * r * ParticleSystem::kYToX, false);
+        if (!e.route.empty())
+            break;
     }
 }
 

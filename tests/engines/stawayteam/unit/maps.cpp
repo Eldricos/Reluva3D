@@ -3059,8 +3059,9 @@ void testStates() {
     CHECK(lit("Body Found"));
     run(8000);
     CHECK(enemies[2].state == "Patrol" && enemies[2].bodiesSeen.size() == 1);
-    // The sleeper recharges its two seconds, goes 50 forward and patrols.
-    CHECK(enemies[4].state == "Patrol" && std::abs(enemies[4].x - 2450.0f) < 1.0f);
+    // The sleeper recharges its two seconds and patrols, its End Recharge
+    // AI (going 50 forward) run only one update (0x426dc0).
+    CHECK(enemies[4].state == "Patrol" && std::abs(enemies[4].x - 2500.0f) < 10.0f);
     // Beamed out by an action naming it its instigator: gone once its warp
     // time's done.
     TextObject beam;
