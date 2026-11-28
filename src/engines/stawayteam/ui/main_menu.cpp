@@ -189,7 +189,8 @@ MainMenu::~MainMenu() = default;
 bool MainMenu::run() {
     // The startup song as the game starts (0x4f629b); as it ends, the
     // first mission's Random Songs, the program's current mission being
-    // its table's first till one's begun (0x5b72c0).
+    // its table's first till one's begun (0x5b72c0, 0 at 0x5b512e): the
+    // first `MDS` its search of Levels finds (0x507847), Mission 01's.
     Mission first;
     if (!loadMission(_data, 1, first))
         _music.setRandomSongs(first.randomSongs);

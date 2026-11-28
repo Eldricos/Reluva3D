@@ -80,9 +80,7 @@ None now.
 
 ## Guessed
 
-- **The music at the start:** the first mission's Random Songs after the
-  startup song, taking Mission 01 for the program's table's first
-  ([systems/maps.md](systems/maps.md#in-reluva)).
+None now.
 
 ## Settled
 

@@ -535,7 +535,10 @@ and over while its mission has Random Songs (all 18 have 3). Without a
 mission, the song last queued again (`0x5bcbeb`). Nothing reads a map's
 `Map Song`: it's never played. Rules.txt's `Startup Song` is started as
 the game starts (`0x4f629b`, `0x4d5b80`), the program's current
-mission its table's first, and `Startup.wav` by the main menu
+mission its table's first (handle 0, `0x5b512e`): the table's the
+`MDS` files a search of `Levels` finds (`0x507847`, the search's list
+taken as is, `0x4acde0`), and Mission 01 comes first in the archive's
+order and in the names' alike, and `Startup.wav` by the main menu
 (`0x503555`). Nothing else stops the music: going back to the main
 menu, the song playing goes on.
 
@@ -1562,8 +1565,7 @@ startup song, then the first mission's Random Songs; as a mission
 begins, its Briefing Music queued; as its maps start, its Primary Song;
 as they end, its Debriefing Music; each song ending followed by the
 mission's Random Songs, shuffled as the program does. The startup
-mission's Random Songs are Mission 01's, taking it for the program's
-table's first *(inferred)*. Reluva's random numbers aren't the
+mission's Random Songs are Mission 01's, the program's table's first. Reluva's random numbers aren't the
 program's.
 
 A `CSendMessageAction`'s messages in the maps are `particle system on`
