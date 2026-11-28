@@ -531,7 +531,14 @@ private:
     std::vector<std::string> _mapObjectOdfs;                    // and their definitions
     std::set<size_t> _scripted;                                 // units the scripts order (SetSpecialForcesFlag)
     std::map<size_t, int> _picked;                              // targets units took up of themselves, by unit
-    bool _avoiding = true;                                      // ships steer round each other (ObstacleAvoidence)
+    // Each unit's alert level, by its process's AlertStatus (0x424ea0):
+    // 0 red, every unit's to start; 1 yellow; 2 green.
+    enum Alert : uint8_t { kRedAlert = 0, kYellowAlert = 1, kGreenAlert = 2 };
+    std::map<size_t, int> _alerts;
+    int alertOf(size_t unit) const;
+    void setAlert(size_t unit, int level);
+    void runAlerts();      // a green one hit goes to its shipyard
+    bool _avoiding = true; // ships steer round each other (ObstacleAvoidence)
     // An alert on the minimap (0x483c90): a ring shrinking a pixel each
     // `shrink` seconds from `radius`, again till `life` is spent.
     struct Marker {

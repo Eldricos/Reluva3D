@@ -400,6 +400,20 @@ From the same run's frames and draws:
   to the point on its way at 0.95 of that reach from the target, set
   afresh as the target moves, and stops there; within reach it holds
   where it is, as the original's destroyer did.
+- **Alert levels** *(from the code)*, each unit's, kept by its process
+  as `AlertStatus` (0x424ea0): red, every unit's to start (none of the
+  definitions sets `defaultGreenAlert`), takes the nearest enemy in its
+  weapons' reach of itself; yellow only one firing at it; green none
+  (0x42e540). An order to attack works at every level. Yellow or green
+  drops what it was firing at (0x425ad4); a green ship standing still
+  and hit goes to its player's nearest shipyard (0x428ba0), next to it,
+  its ring's half and 50 short of its middle *(guessed)*. Stations
+  have the level too. The order panel's first three buttons (`b_galert`,
+  `b_yalert`, `b_ralert`) and Shift+G, Shift+Y and Shift+R set it; the
+  level it's at is lit, where the original's is drawn pressed
+  *(guessed)*.
+  Search and Destroy sets red. Not made: a ship's helping an ally hit
+  near it, and its manoeuvres about the place it stopped.
   A target a ship took up of itself on its way somewhere it was sent,
   once out of reach, is let go rather than chased *(guessed)*: the
   script's Borg, passing the Premonition on their way into a wormhole,

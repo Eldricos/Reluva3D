@@ -231,8 +231,12 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
             _perceived[*unit] = args.integer(1);
         return 0u;
     }
-    if (name == "SetRace" || name == "EnableLight" || name == "SetRedAlert" || name == "SetYellowAlert" ||
-        name == "SetGreenAlert")
+    if (name == "SetRedAlert" || name == "SetYellowAlert" || name == "SetGreenAlert") {
+        if (auto unit = unitOfHandle(args.integer(0)))
+            setAlert(*unit, name == "SetRedAlert" ? kRedAlert : name == "SetYellowAlert" ? kYellowAlert : kGreenAlert);
+        return 0u;
+    }
+    if (name == "SetRace" || name == "EnableLight")
         return 0u; // kept by the program; what they change in play isn't known
 
     // A unit's state.
@@ -469,6 +473,7 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
                 if (d < bestDistance)
                     best = int(i), bestDistance = d;
             }
+        setAlert(*unit, kRedAlert); // its order sets red (0x425710)
         _targets[*unit] = best;
         return 0u;
     }

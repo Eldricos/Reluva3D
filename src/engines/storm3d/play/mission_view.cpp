@@ -551,8 +551,10 @@ void MissionView::pressControl(int slot) {
     if (slot == 0 || _selection.size() != 1)
         return;
     if (_ordering) {
-        // Decommission, the panel left open as the original's was, or back;
-        // the alerts and a ship's standing orders aren't made yet.
+        // The alert levels, decommission, the panel left open as the
+        // original's was, or back; a ship's standing orders aren't made yet.
+        if (slot >= 1 && slot <= 3)
+            setAlert(size_t(_selection.front()), slot == 1 ? kGreenAlert : slot == 2 ? kYellowAlert : kRedAlert);
         if (slot == 10)
             decommission(size_t(_selection.front()));
         if (slot == 12)
@@ -848,7 +850,9 @@ void MissionView::engage() {
         return near >= kCrowded;
     };
     for (size_t i = 0; i < units.size() && i < _targets.size(); ++i) {
-        if (_dead[i] || _targets[i] >= 0 || _weapons[i].empty())
+        // Green picks none; yellow only one firing at it (0x42e540).
+        const int alert = alertOf(i);
+        if (_dead[i] || _targets[i] >= 0 || _weapons[i].empty() || alert == kGreenAlert)
             continue;
         const bool computer = std::any_of(_computers.begin(), _computers.end(),
                                           [&](const Computer &c) { return c.slot == units[i].slot; });
@@ -863,7 +867,7 @@ void MissionView::engage() {
             // Nor a wormhole: it isn't fought *(inferred: the program's
             // wormhole_obj isn't a craft or a building)*.
             if (_dead[j] || !hostile(units[i].slot, units[j].slot) || (_cloaked[j] && !_revealedUntil.count(j)) ||
-                _classes[j] == "wormhole_obj")
+                _classes[j] == "wormhole_obj" || (alert == kYellowAlert && _targets[j] != int(i)))
                 continue;
             const gfx::Vec3 to = units[j].middle();
             const float d = std::hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
@@ -1894,6 +1898,56 @@ Odf::Loader MissionView::odfLoader() const {
     return loaderOf(_files.files());
 }
 
+int MissionView::alertOf(size_t unit) const {
+    auto it = _alerts.find(unit);
+    return it == _alerts.end() ? kRedAlert : it->second;
+}
+
+void MissionView::setAlert(size_t unit, int level) {
+    // Yellow or green drops what it was firing at (0x425ad4).
+    if (level == kRedAlert)
+        _alerts.erase(unit);
+    else
+        _alerts[unit] = level;
+    if (level != kRedAlert && unit < _targets.size()) {
+        _targets[unit] = -1;
+        _picked.erase(unit);
+    }
+}
+
+void MissionView::runAlerts() {
+    // A green ship standing still, hit in the last second, goes to the
+    // nearest shipyard of its player's, if there is one (0x428ba0); next
+    // to it *(guessed: its ring's half and 50 short of its middle)*.
+    const std::vector<MapScene::Unit> &units = _scene.units();
+    const double now = double(_last) / 1000;
+    for (const auto &[unit, level] : _alerts) {
+        if (level != kGreenAlert || unit >= _ships.size() || _dead[unit] || !_moves[unit] || _ships[unit].goal ||
+            _scripted.count(unit))
+            continue;
+        auto hit = _hitAt.find(unit);
+        if (hit == _hitAt.end() || now - hit->second >= 1)
+            continue;
+        int best = -1;
+        float bestDistance = std::numeric_limits<float>::max();
+        for (size_t i = 0; i < units.size(); ++i)
+            if (!_dead[i] && _classes[i] == "shipyard" && units[i].slot == units[unit].slot) {
+                const float d = std::hypot(units[i].at[0] - _ships[unit].at[0], units[i].at[2] - _ships[unit].at[2]);
+                if (d < bestDistance)
+                    best = int(i), bestDistance = d;
+            }
+        if (best < 0)
+            continue;
+        const gfx::Vec3 yard = units[size_t(best)].at;
+        const float off = ringHalfOf(units[size_t(best)]) + 50;
+        const float d = std::max(bestDistance, 1.0f);
+        _ships[unit].goal = gfx::Vec3{yard[0] + (_ships[unit].at[0] - yard[0]) / d * off, _ships[unit].at[1],
+                                      yard[2] + (_ships[unit].at[2] - yard[2]) / d * off};
+        _ships[unit].route.clear();
+        _ships[unit].waiting = Movement::kSetOff;
+    }
+}
+
 int MissionView::unitAt(const std::vector<MapScene::Unit> &units, const gfx::Mat4 &viewProj,
                         const MapScene::Camera &camera, int x, int y) {
     int best = -1;
@@ -2273,6 +2327,7 @@ void MissionView::stop() {
     _allyAttacks.clear();
     _explodedAt.clear();
     _conduits.clear();
+    _alerts.clear();
     _jumps.clear();
     _scriptPasses = 0;
     _cannotDie.clear();
@@ -2470,6 +2525,16 @@ void MissionView::handleEvent(const Event &ev) {
         for (int i : _selection)
             if (size_t(i) < _weapons.size() && !_weapons[size_t(i)].empty())
                 _targeting = true;
+        return;
+    }
+    // Shift+G, Shift+Y and Shift+R (Input.map's alerts): the selected
+    // units' alert level.
+    if (ev.type == EventType::kKeyDown && (ev.mods & keymod::kShift) && !(ev.mods & (keymod::kCtrl | keymod::kAlt)) &&
+        (ev.key == 'g' || ev.key == 'y' || ev.key == 'r')) {
+        const int level = ev.key == 'g' ? kGreenAlert : ev.key == 'y' ? kYellowAlert : kRedAlert;
+        for (int i : obeying(_selection))
+            if (size_t(i) < _scene.units().size() && _scene.units()[size_t(i)].slot == _slot)
+                setAlert(size_t(i), level);
         return;
     }
     // Shift+D, with Control and Alt up (Input.map's decomm): the selected
@@ -2857,6 +2922,7 @@ void MissionView::draw(uint64_t millis) {
     runWormholes(seconds);
     runMarkers(seconds);
     runTranswarps(seconds);
+    runAlerts();
     runPatrols();
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
@@ -3107,6 +3173,11 @@ void MissionView::draw(uint64_t millis) {
     if (_ordering && _selection.size() == 1) {
         const size_t one = size_t(_selection.front());
         orders.controls = orderPanelOf(one < _moves.size() && _moves[one]);
+        // The level it's at, lit as one being built is *(guessed: the
+        // original's is drawn pressed)*.
+        const int alert = alertOf(one);
+        for (Hud::Unit::Button &b : orders.controls)
+            b.active = b.slot == (alert == kGreenAlert ? 1 : alert == kYellowAlert ? 2 : 3);
     }
     if (_building) {
         orders.controls = _buildMenu.controls;
