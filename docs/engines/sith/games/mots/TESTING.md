@@ -71,6 +71,7 @@ after four seconds.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | *Widescreen* 16:10 and 21:9 with *3D drawing* in software through `reluva`, from a new player: the menus 4:3 in the middle, then the first level drawn by the game's own renderer across the window, both gauges in its corners; `host -wide 768` and `-wide 1120` said the game's renderer drew, at 768 and 1120 by 480 |
 | November 2026 | US retail | Linux | *Widescreen* 16:9 with *3D drawing* in software through `reluva`, from a new player: the menus 4:3 in the middle, then the first level drawn by the game's own renderer across the window, both gauges in its corners. The `widesw` step made and passed again with the other widescreen steps |
 | November 2026 | US retail | Linux | The cheats left: `freebird` (*Fly mode on*), `morelife` (*Heal*), `cartograph` (*All Map*) typed in the first level; `youarehere 0 0 0` moved Mara outside it, `quickzap 1` back to its start after walking; `makeitwork 1` and `40` ran, the game going on |
 | November 2026 | US retail | Linux | *Level select* through `reluva`: *Cutscenes* on the main menu, "(Debug)" on *Single Player*, opening *Choose Episode* with the game's four episodes; from a new player, the third level chosen through it by mouse clicks, *Asteroid Core*, started with its opening scene and played, its autosave written (`_JKAUTO_s1l3_astcore.jks`). Off, neither button |

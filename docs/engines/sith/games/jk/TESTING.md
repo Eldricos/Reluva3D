@@ -149,6 +149,7 @@ graphics card:
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| November 2026 | US retail | Linux | *Widescreen* 16:10 and 21:9 with *3D drawing* in software through `reluva`, from a new player: the menus 4:3 in the middle, then the first level drawn by the game's own renderer across the window, both gauges in its corners; `host -wide 768` and `-wide 1120` said the game's renderer drew, at 768 and 1120 by 480 |
 | November 2026 | US retail | Linux | *Widescreen* 16:9 with *3D drawing* in software through `reluva`, from a new player: the menus 4:3 in the middle, then the first level drawn by the game's own renderer across the window, both gauges in its corners. The `widesw` step made and passed again with the other widescreen steps |
 | November 2026 | US retail | Linux | *Setup*'s *Advanced Display Settings*, with `-devMode`: each choice tried into Nar Shaddaa ([systems/hosting.md](systems/hosting.md), step 25); the level drawn in all but *Vertex* geometry, which stops the game, and wireframe through Direct3D, which draws no world. The software renderer in an 8-bit mode of 854 by 480, a trial: the level drawn across it |
 | November 2026 | US retail | Linux | *Level select* through `reluva` on a virtual display: "(Debug)" on *Single Player*, opening *Choose Episode*; from a new player, *The Force Within*'s third level chosen through it by mouse clicks, *The Return Home to Sulon*, started and played, its autosave written (`_JKAUTO_03katarn.jks`). Off, no "(Debug)". `sith.unit.detection`'s *command line* test |
