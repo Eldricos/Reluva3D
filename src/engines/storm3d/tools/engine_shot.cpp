@@ -57,6 +57,10 @@ public:
     }
     bool pollEvent(Event &ev) override {
         // The screen as it was last shown, before this frame's events.
+        // Nothing drawn till a second before the screen kept: a long run
+        // costs what its game does, not its frames.
+        if (_renderer)
+            _renderer->drawing = getMillis() + 1000 >= shotAt;
         if (shot.pixels.empty() && getMillis() >= shotAt)
             shot = _in3D && _renderer ? _renderer->frame() : _last;
         if (_next < events.size() && events[_next].at <= getMillis()) {
