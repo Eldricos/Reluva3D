@@ -1629,7 +1629,9 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     me.race = hudRaceOf(text::toLower(parsed.race));
     me.human = true;
     _players = {me};
+    // No shroud yet: what the original's casts in a campaign isn't known.
     MapScene::Cover cover;
+    cover.shroud = false;
     if (Error err = play(renderer, parsed, units, cover, Hud::Resources{}, millis, parsed.techTree))
         return err;
     if (team >= 0)
