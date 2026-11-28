@@ -25,16 +25,6 @@ uint32_t bitsOf(float f) {
     return std::bit_cast<uint32_t>(f);
 }
 
-Odf::Loader loaderOf(const SearchSet &files) {
-    return [&files](std::string_view name, std::string &text) {
-        std::vector<uint8_t> data;
-        if (Error err = files.read(name, data))
-            return err;
-        text.assign(data.begin(), data.end());
-        return Error::success();
-    };
-}
-
 // What the program gives for a shield's share it can't read (0x5bdb4c).
 constexpr float kNoShields = -33.0f;
 
@@ -167,7 +157,7 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
             for (const MapScene::Unit &u : units)
                 if (u.slot == slot) {
                     Odf def;
-                    if (!def.load(u.odf + ".odf", loaderOf(_files.files())))
+                    if (!def.load(u.odf + ".odf", odfLoader()))
                         c.race = Combat::raceFileOf(def.string("race"));
                     break;
                 }
@@ -392,8 +382,8 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
         if (auto unit = ordered(0)) {
             const std::string item = text::toLower(args.text(1));
             Odf def;
-            if (!def.load(item + ".odf", loaderOf(_files.files())))
-                _queues[*unit].push_back(orderOf(item, loaderOf(_files.files())));
+            if (!def.load(item + ".odf", odfLoader()))
+                _queues[*unit].push_back(orderOf(item, odfLoader()));
         }
         return 0u;
     }
@@ -410,6 +400,12 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
                 chosen = &sp;
         if (!chosen)
             return 0u;
+        // At a point: a transwarp's jump there (0x435460).
+        if (args.kinds.size() == 3 && args.kinds[1] == 'v') {
+            if (wantsPoint(*chosen))
+                transwarp(*unit, *chosen, args.point(1));
+            return 0u;
+        }
         int target = -1;
         if (args.kinds.size() == 3 && args.kinds[1] == 'i')
             if (auto t = unitOfHandle(args.integer(1)))

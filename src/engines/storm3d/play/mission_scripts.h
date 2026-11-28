@@ -7,6 +7,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <list>
@@ -34,7 +35,7 @@ public:
         bool member = false;   // called with `this` in ECX, popping its arguments
         uint32_t argBytes = 0; // its arguments on the stack
         bool returnsFloat = false;
-        std::string kinds; // each argument's: 'i' a word, 'f' a float, 'b' a bool, 's' a string
+        std::string kinds; // each argument's: 'i' a word, 'f' a float, 'b' a bool, 's' a string, 'v' a point (3 words)
     };
     /** What Visual C++'s decoration says of a name; empty if it can't be read. */
     static std::optional<Signature> signatureOf(const std::string &decorated);
@@ -45,7 +46,16 @@ public:
         uint32_t self = 0;    // ECX, for a member
         std::string kinds;    // each one's, as Signature::kinds: tells overloads apart
         uint32_t scratch = 0; // 16 bytes of the scripts' memory for a result they're given the address of
-        uint32_t word(int n) const { return cpu.arg(n); }
+        /** The `n`th argument's first word: a point before it takes three. */
+        uint32_t word(int n) const { return cpu.arg(slot(n)); }
+        int slot(int n) const {
+            int at = n;
+            for (int i = 0; i < n && size_t(i) < kinds.size(); ++i)
+                at += kinds[size_t(i)] == 'v' ? 2 : 0;
+            return at;
+        }
+        /** A point passed whole ('v'): its x, y and z. */
+        std::array<float, 3> point(int n) const;
         int32_t integer(int n) const { return int32_t(word(n)); }
         float real(int n) const;
         bool flag(int n) const { return (word(n) & 0xff) != 0; }

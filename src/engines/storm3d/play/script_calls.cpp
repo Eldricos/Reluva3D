@@ -183,14 +183,39 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
     }
     if (name == "Attack" || name == "AI_Attack") {
         auto unit = ordered(0);
-        auto target = unitOfHandle(args.integer(1));
-        if (unit && target)
+        if (!unit)
+            return 0u;
+        if (args.kinds == "iv") {
+            // To a point, fighting what it meets there *(inferred: the
+            // program's attack order with a point, 0x435200, 0x435660)*.
+            Movement::Ship &ship = _ships[*unit];
+            ship.route.clear();
+            ship.goal = args.point(1);
+            ship.waiting = Movement::kSetOff;
+            _targets[*unit] = -1;
+            return 0u;
+        }
+        if (args.kinds == "i") {
+            // With no target, its own choice: the nearest it's at war with
+            // *(guessed)*, as SearchAndDestroy.
+            return moreScriptCalls("SearchAndDestroy", args);
+        }
+        if (auto target = unitOfHandle(args.integer(1)))
             _targets[*unit] = int(*target);
         return 0u;
     }
     if (name == "SetPosition") {
         auto unit = unitOfHandle(args.integer(0));
         auto at = pathPoint(args.text(1), 0);
+        // One of the map's own objects too: Federation 5's nebulae, moved
+        // about every 3 seconds.
+        const int32_t object = args.integer(0) - kObjectHandles;
+        if (at && object >= 0 && size_t(object) < _mapObjects.size()) {
+            _mapObjects[size_t(object)].second = *at;
+            _scene.moveObject(size_t(object), *at);
+            _mapIcons = mapIconsOf(_scene.map(), odfLoader());
+            return 0u;
+        }
         if (unit && at) {
             _ships[*unit].at = *at;
             _ships[*unit].goal.reset();
@@ -279,8 +304,11 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         return 0u;
     }
     if (name == "GetLocation") {
-        // A reference to its place; the script copies it at once.
-        const gfx::Vec3 at = placeOfHandle(args.integer(0)).value_or(gfx::Vec3{});
+        // A reference to its place, or a path's point's (0x435990); the
+        // script copies it at once.
+        const gfx::Vec3 at =
+            (args.kinds == "si" ? pathPoint(args.text(0), args.integer(1)) : placeOfHandle(args.integer(0)))
+                .value_or(gfx::Vec3{});
         for (uint32_t k = 0; k < 3; ++k)
             args.cpu.write32(args.scratch + 4 * k, bitsOf(at[k]));
         return args.scratch;

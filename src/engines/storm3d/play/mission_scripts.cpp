@@ -97,6 +97,9 @@ public:
         case 'V':
         case 'U':
         case 'T':
+            // The game's point, passed whole: three floats.
+            if (std::string_view(_s).substr(_at).starts_with("Vector3@@"))
+                size = 12;
             qualified();
             break;
         case 'W':
@@ -138,6 +141,8 @@ public:
             return 'b';
         if (rest.starts_with("PAD") || rest.starts_with("PBD"))
             return 's';
+        if (rest.starts_with("VVector3@@"))
+            return 'v';
         return 'i';
     }
 
@@ -231,6 +236,12 @@ std::optional<MissionScripts::Signature> MissionScripts::signatureOf(const std::
     if (d.failed())
         return std::nullopt;
     return sig;
+}
+
+std::array<float, 3> MissionScripts::Arguments::point(int n) const {
+    const int at = slot(n);
+    return {std::bit_cast<float>(cpu.arg(at)), std::bit_cast<float>(cpu.arg(at + 1)),
+            std::bit_cast<float>(cpu.arg(at + 2))};
 }
 
 float MissionScripts::Arguments::real(int n) const {
@@ -363,6 +374,11 @@ uint32_t MissionScripts::callGame(const std::string &decorated, const Signature 
             case 's':
                 line += '"' + args.text(n) + '"';
                 break;
+            case 'v': {
+                const std::array<float, 3> p = args.point(n);
+                line += "(" + std::to_string(p[0]) + ", " + std::to_string(p[1]) + ", " + std::to_string(p[2]) + ")";
+                break;
+            }
             default:
                 line += std::to_string(args.integer(n));
             }

@@ -387,22 +387,27 @@ void MissionView::firePoint(const std::string &button, const gfx::Vec3 &point) {
         for (Combat::Special &sp : _specials[size_t(i)]) {
             if (sp.button != button || !wantsPoint(sp) || !usable(size_t(i), sp))
                 continue;
-            _vitals[size_t(i)].energy -= sp.energy;
-            sp.ready = sp.delay;
-            const gfx::Vec3 from = _scene.units()[size_t(i)].at;
-            for (size_t j = 0; j < _ships.size() && j < _physics.size(); ++j) {
-                const bool going =
-                    j == size_t(i) || (sp.kind == "wormholegen" && _physics[j] && _scene.units()[j].slot == _slot &&
-                                       !_dead[j] && distanceOf(_scene.units()[j].at, from) <= 300);
-                if (!going)
-                    continue;
-                for (size_t k : {size_t(0), size_t(2)})
-                    _ships[j].at[k] = point[k] + (_scene.units()[j].at[k] - from[k]);
-                _ships[j].goal.reset();
-                _ships[j].speed = 0;
-                _scene.moveUnit(j, _ships[j].at, _ships[j].heading);
-            }
+            transwarp(size_t(i), sp, point);
         }
+    }
+}
+
+void MissionView::transwarp(size_t unit, Combat::Special &special, const gfx::Vec3 &point) {
+    _vitals[unit].energy -= special.energy;
+    special.ready = special.delay;
+    const gfx::Vec3 from = _scene.units()[unit].at;
+    const int slot = _scene.units()[unit].slot;
+    for (size_t j = 0; j < _ships.size() && j < _physics.size(); ++j) {
+        const bool going =
+            j == unit || (special.kind == "wormholegen" && _physics[j] && _scene.units()[j].slot == slot && !_dead[j] &&
+                          distanceOf(_scene.units()[j].at, from) <= 300);
+        if (!going)
+            continue;
+        for (size_t k : {size_t(0), size_t(2)})
+            _ships[j].at[k] = point[k] + (_scene.units()[j].at[k] - from[k]);
+        _ships[j].goal.reset();
+        _ships[j].speed = 0;
+        _scene.moveUnit(j, _ships[j].at, _ships[j].heading);
     }
 }
 

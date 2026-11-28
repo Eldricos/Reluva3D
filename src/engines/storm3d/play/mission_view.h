@@ -135,6 +135,8 @@ public:
                                   const std::vector<bool> &moves, const MapScene::Camera &camera, float plane);
     /** The map's objects that have a mark on the minimap: their definitions' mapIcon. */
     static std::vector<Hud::Minimap::Icon> mapIconsOf(const BznMap &map, const Odf::Loader &loader);
+    /** The definitions' loader, over the game's files. */
+    Odf::Loader odfLoader() const;
     /** The interface's layout's name for a race's definition ("fed" for "fed", "kli" for "kling"). */
     static std::string hudRaceOf(const std::string &race);
     /**
@@ -671,6 +673,7 @@ private:
     // in the units' order, up to its maxTargets, within its range squared.
     std::vector<size_t> areaTargetsOf(size_t unit, const Combat::Special &special) const;
     void firePoint(const std::string &button, const gfx::Vec3 &point);
+    void transwarp(size_t unit, Combat::Special &special, const gfx::Vec3 &point); // it, or its conduit's ships, there
     void runEffects(double seconds); // the fields, beams, drains and what wears off
     // crew.cpp: transporting, boarding and capture, repair and recrew.
     void transport(size_t unit, size_t target);

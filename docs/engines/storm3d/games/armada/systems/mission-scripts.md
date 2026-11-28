@@ -319,6 +319,19 @@ for what they take from Armada.exe.
     and `ClearRestrictions` keep its bits and lists; `GetLocationOfFlag`,
     `GetRealTeamOfFlag` and `GetPercievedTeamOfFlag` its carrier, its
     player, or the player it looks like (-1 for none);
+  - **attacks:** `Attack` and `AI_Attack` to a point (a `Vector3`
+    passed whole, three words) send the unit there, fighting what it
+    meets *(inferred)*; `AI_Attack` with no target sends it after the
+    nearest unit it's at war with *(guessed)*;
+  - **`SetPosition` on a map object** moves it, drawn and on the
+    minimap: Federation 5 moves its nebulae about every 3 seconds;
+  - **`Special_Attack` at a point** jumps a transwarp there (Finale 6's
+    escape); `GetLocation(path, point)` gives a path's point;
+  - **the decoration:** a function returning a class by value
+    (`GetAttackLocation`'s `Vector3`) is given the place for it ahead of
+    its arguments, and gives it back;
+    a point passed whole takes three words, and the arguments after it
+    are counted on past them;
   - **the world:** `PauseSimulation` holds the world still while the
     scripts and the camera run on, `UnpauseSimulation` lets it go;
     `CenterCamera` on a path's point, or the map's middle without one;

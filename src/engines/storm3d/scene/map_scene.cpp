@@ -437,6 +437,7 @@ void MapScene::clear() {
     _insetMesh = 0;
     _meshes.clear();
     _placed.clear();
+    _objectDraws.clear();
     _teams.clear();
     _damaged.clear();
     _hiding.clear();
@@ -491,6 +492,7 @@ void MapScene::build(const BznMap &map, const std::vector<StartUnit> &units, con
         const Look &look = lookFor(o.odf);
         // Each drawn with whether the cover hides it, where it is.
         auto place = [&](const SodMeshes::Built *built, const gfx::Mat4 &at) {
+            _objectDraws.emplace(index, _placed.size());
             _placed.push_back({built, at});
             _hiding.push_back({look.scenery, !look.scenery, {at[12], at[13], at[14]}});
         };
@@ -839,6 +841,21 @@ void MapScene::moveUnit(size_t unit, const gfx::Vec3 &at, float heading) {
             at[2] + std::min(-s * m.lo[0], -s * m.hi[0]) + std::min(c * m.lo[2], c * m.hi[2])};
     u.hi = {at[0] + std::max(c * m.lo[0], c * m.hi[0]) + std::max(s * m.lo[2], s * m.hi[2]), at[1] + m.hi[1],
             at[2] + std::max(-s * m.lo[0], -s * m.hi[0]) + std::max(c * m.lo[2], c * m.hi[2])};
+}
+
+void MapScene::moveObject(size_t object, const gfx::Vec3 &at) {
+    if (object >= _map.objects.size())
+        return;
+    gfx::Vec3 &was = _map.objects[object].position;
+    const gfx::Vec3 by{at[0] - was[0], at[1] - was[1], at[2] - was[2]};
+    was = at;
+    auto [first, last] = _objectDraws.equal_range(object);
+    for (auto it = first; it != last; ++it) {
+        gfx::Mat4 &place = _placed[it->second].second;
+        for (int k = 0; k < 3; ++k)
+            place[size_t(12 + k)] += by[size_t(k)];
+        _hiding[it->second].at = {place[12], place[13], place[14]};
+    }
 }
 
 void MapScene::scaleUnit(size_t unit, float scale) {

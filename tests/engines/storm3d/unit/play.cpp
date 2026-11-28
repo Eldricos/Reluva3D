@@ -927,6 +927,9 @@ void testScriptSignatures() {
     // A class by value comes back in a place passed ahead of the arguments.
     auto place = MissionScripts::signatureOf("?GetAttackLocation@@YA?AVVector3@@HH@Z");
     CHECK(place && place->kinds == "iii" && place->argBytes == 12 && !place->returnsFloat);
+    // A point passed whole is three words.
+    auto toPoint = MissionScripts::signatureOf("?AI_Attack@@YAXHVVector3@@@Z");
+    CHECK(toPoint && toPoint->kinds == "iv" && toPoint->argBytes == 16);
     auto step = MissionScripts::signatureOf("?add_step@script@@QAEXP6AHPAV1@@Z@Z");
     CHECK(step && step->name == "script::add_step" && step->member && step->argBytes == 4);
     auto rule = MissionScripts::signatureOf("?create_rule@IIIE@@QAEPAVrule@@P6AHXZP6AXXZPAD@Z");

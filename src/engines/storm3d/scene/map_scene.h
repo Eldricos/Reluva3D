@@ -244,6 +244,8 @@ public:
     void hideUnit(size_t unit);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
     void moveUnit(size_t unit, const gfx::Vec3 &at, float heading);
+    /** Puts one of the map's own objects (by its place in the map) somewhere else: a script's nebulae. */
+    void moveObject(size_t object, const gfx::Vec3 &at);
     /** Draws a unit at `scale` times its model's size: a wormhole opening. */
     void scaleUnit(size_t unit, float scale);
     /**
@@ -292,6 +294,7 @@ private:
     std::map<std::string, Look> _looks; // by lower-case definition
     // What's drawn: each object's model and place; the background's.
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
+    std::multimap<size_t, size_t> _objectDraws; // a map object's draws in _placed, by its place in the map
     // The main view's eye and forward, while it's drawn: what's wholly past
     // the far plane from them isn't drawn. None for an inset.
     std::optional<std::pair<gfx::Vec3, gfx::Vec3>> _farFrom;

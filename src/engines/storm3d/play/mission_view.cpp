@@ -1891,6 +1891,10 @@ Error MissionView::play(gfx::Renderer3D *renderer, const BznMap &parsed, const s
     return Error::success();
 }
 
+Odf::Loader MissionView::odfLoader() const {
+    return loaderOf(_files.files());
+}
+
 int MissionView::unitAt(const std::vector<MapScene::Unit> &units, const gfx::Mat4 &viewProj,
                         const MapScene::Camera &camera, int x, int y) {
     int best = -1;
