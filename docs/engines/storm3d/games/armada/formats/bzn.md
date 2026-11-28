@@ -117,8 +117,8 @@ nine player records for a campaign mission (0x446640) *(from the code)*:
 | 2 | integer | The officers' limit: 400 |
 | 3 | float | Crew: 4000 |
 | 4 | float | Its most: 10000 |
-| 5 | integer | 19 for `fed1.bzn`'s player, what its four ships take *(inferred)* |
-| 6 | integer | Not known: 1, 6, then each slot's own number |
+| 5 | integer | `TeamColor`: 19 for `fed1.bzn`'s player *(from the code)* |
+| 6 | integer | `MapColor`: 1, 6, then each slot's own number *(from the code)* |
 
 A map saved by version 0x7fb has an integer more before the limit
 *(from the code)*; none of the 49 is. All 49 have the nine runs; some
@@ -130,19 +130,22 @@ scripts in 64-character fields, `Federation1S.dsl` and
 
 ### Paths
 
+The integer before them is the number of the map's areas of interest
+(`[AOIs]`, 0x4345e0) *(from the code)*.
+
 The file ends with its paths, after an integer giving their number: 31
 in `fed1.bzn`, up to 156 in `finale6.bzn`; 2 to 8 in a skirmish map; none
 in `fulltech.bzn`. Each is seven fields:
 
 | Field | Type | |
 |---|---|---|
-| 0 | 0 | 4 bytes, varying |
+| 0 | 0 | `old_ptr`: the path's address when it was saved, 4 bytes *(from the code)* |
 | 1 | integer | Its name's length |
 | 2 | text | Its name, that long, without a zero: `ENTSTART`, `DOM1PATROL`, `CENTER` |
 | 3 | integer | Its points' number |
 | 4 | points | Its points |
-| 5 | 0 | 0 (1,186 paths), 2 (33) or 3 (19). The patrols' are 2: perhaps a path that loops *(guessed)* |
-| 6 | float | 0.01 in 1,221 of the 1,238; 0 to 0.15 in the others |
+| 5 | 0 | `pathType`: 0 (1,186 paths), 2 (33) or 3 (19). The patrols' are 2, as the script's `Patrol` sets it *(from the code)*; that 2 loops is *(inferred)* |
+| 6 | float | `asteroid_belt_speed`: 0.01 in 1,221 of the 1,238; 0 to 0.15 in the others *(from the code)* |
 
 A mission's script moves its ships along them, by name. A patrol's last
 point is its first.

@@ -323,7 +323,24 @@ public:
     bool takeMenuRequest() { return std::exchange(_menuWanted, false); }
     const Overview &overview() const { return _overview; }
 
+    /** The map it was started on. */
+    const std::string &map() const { return _map; }
+    /** Whether the game can be saved now: a campaign's mission, not in a cut scene (0x537020). */
+    bool canSave() const { return _missionScripts && !_cine.on(); }
+    /**
+     * The mission as it is, as a saved game holds it: its map, its units
+     * as they were made, everything they and the players are doing, and the
+     * scripts' variables as their own save functions write them. Reluva's
+     * own form, not the program's.
+     */
+    Error save(std::vector<uint8_t> &data);
+    /** Starts the mission a saved game holds, as it was, at `millis`. */
+    Error load(gfx::Renderer3D *renderer, const std::vector<uint8_t> &data, uint64_t millis);
+
 private:
+    friend struct Saver;       // saving.cpp: what a saved game holds, written and read alike
+    std::string _map;          // the map it was started on
+    int64_t _millisOffset = 0; // what's added to the clock it's given: a saved game's time, carried on
     const GameFiles &_files;
     MapScene _scene;
     gfx::Renderer3D *_renderer = nullptr;
@@ -645,10 +662,9 @@ private:
     std::array<int, 4> _bridgeMovieRect{};            // where it plays: the view screen when it began (0x47a5f0)
     void drawBridgeMovie(uint64_t millis, bool held); // its frame, if it's open, or held
     Cineractive _cine;                                // the scripts' cut scene
-    bool _gridShown = true;
-    std::map<size_t, float>
-        _warpSpeeds; // the definitions' warp speeds of those SetWarpSpeed changed              // GridVisible, the same the player's grid key toggles (0x616c20)
-    Cineractive::Locate locateForCine(); // where a unit or map object of a handle is, for it
+    bool _gridShown = true;                           // GridVisible, the same the player's grid key toggles (0x616c20)
+    std::map<size_t, float> _warpSpeeds;              // the definitions' warp speeds of those SetWarpSpeed changed
+    Cineractive::Locate locateForCine();              // where a unit or map object of a handle is, for it
     void runScripts(double seconds);
     std::optional<uint32_t> scriptCall(const std::string &name, const MissionScripts::Arguments &args);
     std::optional<size_t> unitOfHandle(int32_t handle) const; // a living unit's

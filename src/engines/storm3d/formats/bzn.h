@@ -60,8 +60,8 @@ struct BznMap {
         int32_t officerLimit = 0;
         float crew = 0;
         float maxCrew = 0;
-        int32_t officersUsed = 0; // what its units take, as saved (fed1's player's 19)
-        int32_t other = 0;        // not known: 1, 6, then each slot's own number in fed1
+        int32_t teamColour = 0; // TeamColor (fed1's player's 19)
+        int32_t mapColour = 0;  // MapColor: 1, 6, then each slot's own number in fed1
     };
 
     /** A named path for a mission's script (or a skirmish's start). */

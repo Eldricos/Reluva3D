@@ -244,11 +244,12 @@ and `scrolldn1` (14 × 20) at (614, 396). The bottom bar's middle plate
 says "Load Game", centred in 384 of its 394 pixels, and its right one
 "Delete Game" (`label.map`'s `load_game`).
 
-The program lists the saved games with `_findfirst` and `_findnext`; it
-names them `save\s<n>.sav`, by its strings *(inferred)*. With no saves,
-or with files there that aren't saves, the list is empty. Saves are made
-in play, so what they hold, and how the list shows them, isn't known
-yet.
+The program lists the saved games in `Addon\` and `save\` with
+`_findfirst` and `_findnext`, unsorted, a row each from (100, 61), 394
+by 32, eleven of them, each showing the save's description; with no
+saves, or with files there that aren't saves, the list is empty
+(0x53e750) *(from the code)*. Saving and loading are on
+[saved-games.md](saved-games.md).
 
 ### The credits
 

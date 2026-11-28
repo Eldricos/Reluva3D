@@ -1631,6 +1631,8 @@ MissionView::Overview MissionView::startOf(const BznMap &map, int slot) {
 
 Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int slot, int team, uint64_t millis) {
     stop();
+    _map = map;
+    _millisOffset = 0;
     BznMap parsed;
     std::vector<uint8_t> data;
     if (Error err = _files.read("bzn/" + map, data))
@@ -2990,6 +2992,7 @@ MissionView::Ending MissionView::ending() const {
 void MissionView::drawScreen(const Surface &screen, uint64_t millis) {
     if (!_renderer)
         return;
+    millis = uint64_t(int64_t(millis) + _millisOffset);
     _renderer->beginFrame(gfx::identity(), {0, 0, 0}, kClear);
     _renderer->endFrame(&screen);
     _last = millis;
@@ -2998,6 +3001,7 @@ void MissionView::drawScreen(const Surface &screen, uint64_t millis) {
 void MissionView::draw(uint64_t millis) {
     if (!_renderer)
         return;
+    millis = uint64_t(int64_t(millis) + _millisOffset);
     double seconds = double(millis - _last) / 1000;
     _overview = moved(_overview, _held, seconds);
     _last = millis;

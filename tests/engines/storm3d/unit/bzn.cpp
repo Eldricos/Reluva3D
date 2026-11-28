@@ -134,7 +134,7 @@ void testParse() {
     CHECK(map.objects[1].odf == "mafield" && map.objects[1].team == 0);
     CHECK((map.scripts == std::vector<std::string>{"Federation1S.dsl", "Federation1R.drl"}));
     CHECK(map.players.size() == 9 && map.players[0].dilithium == 0 && map.players[1].dilithium == 3500 &&
-          map.players[1].crew == 4000 && map.players[1].officerLimit == 400 && map.players[1].officersUsed == 19 &&
+          map.players[1].crew == 4000 && map.players[1].officerLimit == 400 && map.players[1].teamColour == 19 &&
           map.players[8].maxCrew == 10000);
     CHECK(map.paths.size() == 2 && map.paths[0].name == "ENTSTART" && map.paths[0].points.size() == 1 &&
           map.paths[1].points.size() == 2 && map.paths[1].points[1][2] == 2231.3f && map.paths[1].kind == 2);

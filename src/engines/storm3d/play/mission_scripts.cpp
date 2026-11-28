@@ -689,6 +689,68 @@ std::optional<uint32_t> MissionScripts::engine(const std::string &decorated, con
                 script.steps.push_back(args.word(0));
         return 0u;
     }
+    if (name == "out" && _saving) {
+        // A hot_int its value; a timer its value and seconds left; arrays
+        // their values: all binary, no names (0x4b0c20, 0x4b0c50, 0x4b0430).
+        auto put = [this](const void *p, size_t n) {
+            const auto *b = static_cast<const uint8_t *>(p);
+            _saving->insert(_saving->end(), b, b + n);
+        };
+        x86::Cpu &cpu = _process->cpu();
+        const uint32_t at = args.word(1);
+        if (decorated.find("PAVhot_int") != std::string::npos || decorated.find("PAVtimer_int") != std::string::npos) {
+            auto hot = _hots.find(at);
+            const int32_t value = hot == _hots.end() ? 0 : hot->second.value;
+            put(&value, 4);
+            if (decorated.find("PAVtimer_int") != std::string::npos) {
+                const float left = hot == _hots.end() ? 0.0f : hot->second.remaining;
+                put(&left, 4);
+            }
+        } else {
+            const uint32_t each = decorated.find("PAVVector3") != std::string::npos ? 12 : 4;
+            for (uint32_t k = 0; k < args.word(2) * each; k += 4) {
+                const uint32_t w = cpu.read32(at + k);
+                put(&w, 4);
+            }
+        }
+        return 1u;
+    }
+    if (name == "in" && _loading) {
+        x86::Cpu &cpu = _process->cpu();
+        auto take = [this]() {
+            uint32_t w = 0;
+            if (_loadAt + 4 <= _loading->size())
+                std::memcpy(&w, _loading->data() + _loadAt, 4);
+            _loadAt += 4;
+            return w;
+        };
+        const uint32_t at = args.word(1);
+        if (decorated.find("PAVhot_int") != std::string::npos || decorated.find("PAVtimer_int") != std::string::npos) {
+            const int32_t value = int32_t(take());
+            auto hot = _hots.find(at);
+            if (hot != _hots.end()) {
+                // Marked changed, even if the same, so its rules are tested.
+                hot->second.value = value - 1;
+                set(at, value);
+            }
+            if (decorated.find("PAVtimer_int") != std::string::npos) {
+                const float left = std::bit_cast<float>(take());
+                if (hot != _hots.end()) {
+                    if (hot->second.remaining > 0)
+                        _timers.remove(at);
+                    hot->second.remaining = left;
+                    if (left > 0)
+                        _timers.push_front(at);
+                    mirror(at);
+                }
+            }
+        } else {
+            const uint32_t each = decorated.find("PAVVector3") != std::string::npos ? 12 : 4;
+            for (uint32_t k = 0; k < args.word(2) * each; k += 4)
+                cpu.write32(at + k, take());
+        }
+        return 1u;
+    }
     if (name == "linked_list::Add_Data") {
         std::vector<uint32_t> &list = _lists[self];
         list.insert(list.begin(), args.word(0));
@@ -856,6 +918,44 @@ Error MissionScripts::tick(float seconds) {
             ++i;
     }
     return Error::success();
+}
+
+Error MissionScripts::callList(const std::string &list) {
+    // The program's list, by its decorated name, and its functions in turn,
+    // each given a stand-in FILE* they only pass back to in() and out().
+    for (const auto &[decorated, at] : _data) {
+        if (!decorated.starts_with("?" + list + "@@"))
+            continue;
+        const std::vector<uint32_t> functions = _lists[at];
+        for (uint32_t f : functions) {
+            uint32_t ignored = 0;
+            if (Error e = call(f, {_scratch}, ignored))
+                return e;
+        }
+    }
+    return Error::success();
+}
+
+Error MissionScripts::saveValues(std::vector<uint8_t> &data) {
+    if (!_cpu)
+        return Error::success();
+    _saving = &data;
+    const Error e = callList("save_scripts");
+    _saving = nullptr;
+    return e;
+}
+
+Error MissionScripts::loadValues(const std::vector<uint8_t> &data, float clock) {
+    if (!_cpu)
+        return Error::success();
+    _loading = &data;
+    _loadAt = 0;
+    const Error e = callList("load_scripts");
+    _loading = nullptr;
+    _clock = clock;
+    // Loading clears every character's scripts (0x5431d0).
+    _scripts.clear();
+    return e;
 }
 
 void MissionScripts::setCineractive(bool done, bool cancel) {

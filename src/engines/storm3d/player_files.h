@@ -33,6 +33,10 @@ public:
      * @return a failure if there's no save folder or it can't be written
      */
     Error write(const std::string &name, const std::vector<uint8_t> &data) const;
+    /** The names of the save folder's files in `folder` ("save") ending in `suffix` (".sav"), by name. */
+    std::vector<std::string> list(const std::string &folder, const std::string &suffix) const;
+    /** Takes a file out of the save folder, if it's there. */
+    void remove(const std::string &name) const;
 
 private:
     const GameFiles &_files;

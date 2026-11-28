@@ -78,6 +78,12 @@ public:
     int missionIndex() const { return _missionIndex; }
     /** Takes the campaign's next mission as the one to start, as a mission won goes straight on; false if none. */
     bool chooseNext();
+    /** Takes a saved game's mission as the one being played. */
+    void choose(int campaign, int mission, const std::string &map) {
+        _campaign = campaign;
+        _missionIndex = mission;
+        _mission = map;
+    }
     /** How many missions a campaign has. */
     int missionCount(int campaign) const {
         return campaign >= 0 && size_t(campaign) < _campaigns.size() ? int(_campaigns[size_t(campaign)].size()) : 0;

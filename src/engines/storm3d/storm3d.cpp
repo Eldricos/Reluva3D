@@ -10,6 +10,7 @@
 #include "common/settings.h"
 #include "engines/engine.h"
 #include "engines/storm3d/formats/preferences.h"
+#include "engines/storm3d/formats/saved_game.h"
 #include "engines/storm3d/formats/shell_progress.h"
 #include "engines/storm3d/game_files.h"
 #include "engines/storm3d/play/mission_view.h"
@@ -17,7 +18,7 @@
 #include "engines/storm3d/player_files.h"
 #include "engines/storm3d/shell/full_screen_movie.h"
 #include "engines/storm3d/shell/game_setup_screen.h"
-#include "engines/storm3d/shell/load_game_screen.h"
+#include "engines/storm3d/shell/saved_games_screen.h"
 #include "engines/storm3d/shell/loading_screen.h"
 #include "engines/storm3d/shell/main_menu.h"
 #include "engines/storm3d/shell/multiplayer_screen.h"
@@ -26,6 +27,8 @@
 #include "engines/storm3d/shell/single_player.h"
 
 #include <algorithm>
+#include <optional>
+#include <ctime>
 #include <cstdlib>
 #include <random>
 
@@ -88,8 +91,11 @@ public:
         MultiplayerScreen connection;
         GameSetupScreen setup;
         bool setupOn = false;
-        LoadGameScreen loadGame;
-        bool loadGameOn = false;
+        // The saved games' screen: from the single-player screen to load, or
+        // from a campaign's menu to save or load; a saved game being loaded.
+        SavedGamesScreen saved;
+        bool savedOn = false;
+        std::optional<SavedGame> toLoad;
         LoadingScreen loading(_files);
         CreditsScreen credits(_files);
         bool creditsOn = false;
@@ -151,6 +157,75 @@ public:
             debriefingOn = true;
             return Error::success();
         };
+        // The saved games in the player's save folder, as the list shows them.
+        auto listSaved = [&]() {
+            std::vector<SavedGamesScreen::Entry> entries;
+            for (const std::string &name : player().list("save", ".sav")) {
+                std::vector<uint8_t> data;
+                if (player().read("save/" + name, data))
+                    continue;
+                if (auto description = SavedGame::descriptionOf(data))
+                    entries.push_back({name, *description});
+            }
+            saved.setEntries(std::move(entries));
+        };
+        // A saved game read and its map loaded, as a mission starts; the
+        // mission then put back as it was saved (0x53b8b0).
+        auto loadSaved = [&](const std::string &name) -> Error {
+            std::vector<uint8_t> data;
+            SavedGame game;
+            if (player().read("save/" + name, data) || game.parse(data))
+                return Error::success(); // not one Reluva can load: the list stays
+            if (missionOn) {
+                mission.stop();
+                missionOn = gameMenuOn = false;
+            } else if (Error err = _sys.init3D(kWidth, kHeight, renderer3D)) {
+                return err;
+            }
+            savedOn = false;
+            _sys.setTextInput(false);
+            skirmish.clear();
+            if (Error err = loading.start(renderer3D, game.map))
+                return err;
+            toLoad = std::move(game);
+            loadingOn = true;
+            return Error::success();
+        };
+        // The mission saved, a new file or over the one chosen; the screen
+        // stays, its list read again (0x53eac0).
+        auto saveGame = [&]() {
+            SavedGame game;
+            if (mission.save(game.state))
+                return;
+            std::string description = saved.description();
+            if (description.empty())
+                description = mission.map();
+            char when[64] = {};
+            const std::time_t t = std::time(nullptr);
+            std::strftime(when, sizeof when, " %b %d %I:%M:%S %p", std::localtime(&t));
+            game.description = (description + when).substr(0, SavedGame::kDescriptionBytes - 1);
+            game.campaign = single.campaign();
+            game.mission = single.missionIndex();
+            game.map = mission.map();
+            std::vector<std::string> names;
+            for (const SavedGamesScreen::Entry &e : saved.entries())
+                names.push_back(e.file);
+            const std::string name =
+                saved.chosen() >= 0 ? saved.entries()[size_t(saved.chosen())].file : SavedGame::nextName(names);
+            (void)player().write("save/" + name, game.bytes());
+            listSaved();
+        };
+        // A saved game deleted, with the picture and track the program
+        // keeps beside some (0x53c186).
+        auto deleteSaved = [&]() {
+            if (saved.chosen() < 0)
+                return;
+            const std::string name = saved.entries()[size_t(saved.chosen())].file;
+            const std::string stem = name.substr(0, name.size() - 4);
+            for (const char *suffix : {".sav", ".bmp", ".trk"})
+                player().remove("save/" + stem + suffix);
+            listSaved();
+        };
         for (bool running = true; running;) {
             const uint64_t now = _sys.getMillis();
             if (!intro && !menuOn) {
@@ -201,6 +276,37 @@ public:
                             setupOn = false;
                             _sys.setTextInput(true);
                             connectionOn = true;
+                        }
+                    }
+                } else if (missionOn && savedOn) {
+                    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
+                        savedOn = false;
+                        _sys.setTextInput(false);
+                    } else if (ev.type == EventType::kTextInput) {
+                        saved.type(ev.text);
+                    } else if (ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
+                        saved.erase();
+                    } else if (ev.type == EventType::kMouseMove && saved.pointerAt(ev.mouseX, ev.mouseY)) {
+                        play("sounds/effects/cornron.wav", audio::SoundType::kEffects, false);
+                    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
+                        saved.press(ev.mouseX, ev.mouseY);
+                    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
+                        const SavedGamesChoice choice = saved.release(ev.mouseX, ev.mouseY);
+                        if (choice != SavedGamesChoice::kNone)
+                            play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
+                        if (choice == SavedGamesChoice::kPrevious) {
+                            // Back to the game's menu (0x53b8b0's state 11).
+                            savedOn = false;
+                            _sys.setTextInput(false);
+                        } else if (choice == SavedGamesChoice::kSave) {
+                            saveGame();
+                        } else if (choice == SavedGamesChoice::kDelete) {
+                            deleteSaved();
+                        } else if (choice == SavedGamesChoice::kLoad && saved.chosen() >= 0) {
+                            if (Error err = loadSaved(saved.entries()[size_t(saved.chosen())].file)) {
+                                stopAll();
+                                return err;
+                            }
                         }
                     }
                 } else if (missionOn && gameSettingsOn) {
@@ -258,6 +364,15 @@ public:
                                 stopAll();
                                 return err;
                             }
+                        } else if (choice == OptionsChoice::kSaveGame || choice == OptionsChoice::kLoadGame) {
+                            const bool saving = choice == OptionsChoice::kSaveGame;
+                            if (Error err = saved.load(_files, saving, saving ? mission.map() : std::string())) {
+                                stopAll();
+                                return err;
+                            }
+                            listSaved();
+                            savedOn = true;
+                            _sys.setTextInput(saving);
                         } else if (choice == OptionsChoice::kGraphics || choice == OptionsChoice::kSound ||
                                    choice == OptionsChoice::kGame) {
                             if (Error err = settings.load(_files, &_preferences)) {
@@ -295,8 +410,8 @@ public:
                         setupOn = false;
                     else if (settingsOn)
                         settingsOn = false;
-                    else if (loadGameOn)
-                        loadGameOn = false;
+                    else if (savedOn)
+                        savedOn = false;
                     else if (connectionOn)
                         connectionOn = leaveConnection();
                     else if (singleOn || optionsOn)
@@ -310,7 +425,7 @@ public:
                 } else if (ev.type == EventType::kMouseMove) {
                     if (singleOn       ? single.pointerAt(ev.mouseX, ev.mouseY, now)
                         : setupOn      ? setup.pointerAt(ev.mouseX, ev.mouseY)
-                        : loadGameOn   ? loadGame.pointerAt(ev.mouseX, ev.mouseY)
+                        : savedOn      ? saved.pointerAt(ev.mouseX, ev.mouseY)
                         : settingsOn   ? settings.pointerAt(ev.mouseX, ev.mouseY)
                         : connectionOn ? connection.pointerAt(ev.mouseX, ev.mouseY)
                         : optionsOn    ? options.pointerAt(ev.mouseX, ev.mouseY)
@@ -319,8 +434,8 @@ public:
                 } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
                     if (setupOn)
                         setup.press(ev.mouseX, ev.mouseY);
-                    else if (loadGameOn)
-                        loadGame.press(ev.mouseX, ev.mouseY);
+                    else if (savedOn)
+                        saved.press(ev.mouseX, ev.mouseY);
                     else if (singleOn)
                         single.press(ev.mouseX, ev.mouseY);
                     else if (settingsOn)
@@ -400,10 +515,19 @@ public:
                         setupOn = false;
                         loadingOn = true;
                     }
-                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && loadGameOn) {
-                    if (loadGame.release(ev.mouseX, ev.mouseY)) {
+                } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && savedOn) {
+                    const SavedGamesChoice choice = saved.release(ev.mouseX, ev.mouseY);
+                    if (choice != SavedGamesChoice::kNone)
                         play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
-                        loadGameOn = false;
+                    if (choice == SavedGamesChoice::kPrevious) {
+                        savedOn = false;
+                    } else if (choice == SavedGamesChoice::kDelete) {
+                        deleteSaved();
+                    } else if (choice == SavedGamesChoice::kLoad && saved.chosen() >= 0) {
+                        if (Error err = loadSaved(saved.entries()[size_t(saved.chosen())].file)) {
+                            stopAll();
+                            return err;
+                        }
                     }
                 } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && singleOn) {
                     const SingleChoice choice = single.release(ev.mouseX, ev.mouseY, now);
@@ -412,11 +536,12 @@ public:
                     if (choice == SingleChoice::kPreviousMenu) {
                         singleOn = false;
                     } else if (choice == SingleChoice::kLoadGame) {
-                        if (Error err = loadGame.load(_files)) {
+                        if (Error err = saved.load(_files, false)) {
                             stopAll();
                             return err;
                         }
-                        loadGameOn = true;
+                        listSaved();
+                        savedOn = true;
                     } else if (choice == SingleChoice::kStartMission) {
                         if (Error err = _sys.init3D(kWidth, kHeight, renderer3D)) {
                             stopAll();
@@ -517,9 +642,11 @@ public:
                 continue;
             }
             if (missionOn) {
-                if (debriefingOn || gameSettingsOn || gameMenuOn) {
+                if (debriefingOn || gameSettingsOn || gameMenuOn || savedOn) {
                     if (debriefingOn)
                         debriefing.draw(screen);
+                    else if (savedOn)
+                        saved.draw(screen);
                     else if (gameSettingsOn)
                         settings.draw(screen);
                     else
@@ -585,9 +712,18 @@ public:
                     loadingOn = false;
                     if (!skirmish.empty())
                         mission.setAlliedVictory(setup.teams());
-                    Error err = skirmish.empty() ? mission.start(renderer3D, single.mission(), 1, -1, now)
-                                                 : mission.startSkirmish(renderer3D, setup.map(), skirmish,
-                                                                         {shroud, fog}, start, now, setup.techLevel());
+                    Error err;
+                    if (toLoad) {
+                        // A saved game: its mission as it was, and which it is,
+                        // so a win goes on to the next.
+                        err = mission.load(renderer3D, toLoad->state, now);
+                        single.choose(toLoad->campaign, toLoad->mission, toLoad->map);
+                        toLoad.reset();
+                    } else {
+                        err = skirmish.empty() ? mission.start(renderer3D, single.mission(), 1, -1, now)
+                                               : mission.startSkirmish(renderer3D, setup.map(), skirmish, {shroud, fog},
+                                                                       start, now, setup.techLevel());
+                    }
                     if (err) {
                         stopAll();
                         return err;
@@ -606,8 +742,8 @@ public:
                     intro = stopIntro();
             } else if (setupOn) {
                 setup.draw(screen);
-            } else if (loadGameOn) {
-                loadGame.draw(screen);
+            } else if (savedOn) {
+                saved.draw(screen);
             } else if (singleOn) {
                 single.draw(screen, now);
             } else if (settingsOn) {

@@ -182,8 +182,8 @@ Error BznMap::parse(const std::vector<uint8_t> &file) {
             s.officerLimit = int32_t(word(fields[f + 2]));
             s.crew = real(fields[f + 3]);
             s.maxCrew = real(fields[f + 4]);
-            s.officersUsed = int32_t(word(fields[f + 5]));
-            s.other = int32_t(word(fields[f + 6]));
+            s.teamColour = int32_t(word(fields[f + 5]));
+            s.mapColour = int32_t(word(fields[f + 6]));
             players.push_back(s);
         }
         break;

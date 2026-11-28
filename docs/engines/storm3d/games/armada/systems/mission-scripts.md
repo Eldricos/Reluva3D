@@ -242,8 +242,8 @@ for what they take from Armada.exe.
     (0x5374fc-0x537880): Restate Objectives at y 72, which closes it and
     shows the objectives box again, Save Game at 112 (not during a cut
     scene) and Load Game at 152, then the settings, Abort Mission and
-    Return to Game, without a skirmish's Surrender. Save Game and Load
-    Game do nothing yet.
+    Return to Game, without a skirmish's Surrender; Save Game and Load
+    Game as on [saved-games.md](saved-games.md).
 
   - **the bridge** as above, its world view through `MapScene`'s inset.
 
@@ -404,8 +404,9 @@ for what they take from Armada.exe.
   Transport order, which its own tooltip calls obsolete (0x425a07,
   0x46d8e0) *(from the code)*.
 
-  Not done yet: saving and loading a mission; the tracking shot
-  (`CineractiveShotTrackLeft`, unused by the missions).
+  Saving and loading a mission are on [saved-games.md](saved-games.md).
+  Not done yet: the tracking shot (`CineractiveShotTrackLeft`, unused by
+  the missions).
 
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second

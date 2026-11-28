@@ -111,6 +111,18 @@ public:
     void setFloat(const std::string &name, float value);
     /** The game seconds the passes have counted, which GetTime gives if the game doesn't. */
     float clock() const { return _clock; }
+    /**
+     * The scripts' variables, as a saved game keeps them: each DLL's save
+     * function on the program's save_scripts list called, writing them with
+     * out() (0x4b0c20 on), into `data`.
+     */
+    Error saveValues(std::vector<uint8_t> &data);
+    /**
+     * Gives them back, as loading a saved game does: each load function
+     * called, reading them with in(), each marked changed so its rules are
+     * tested; then the clock, and no script running (0x5431d0).
+     */
+    Error loadValues(const std::vector<uint8_t> &data, float clock);
     /** The player a character of the scripts' stands for, by its address; none for the world's. */
     std::optional<int> teamOf(uint32_t character) const;
     /** The rules made, and the scripts running. */
@@ -180,6 +192,10 @@ private:
     std::list<uint32_t> _satisfied;                   // to fire, newest first
     std::vector<Script> _scripts;                     // oldest first
     std::map<uint32_t, std::vector<uint32_t>> _lists; // the save and load functions, by list
+    std::vector<uint8_t> *_saving = nullptr;          // where out() writes, while saving
+    const std::vector<uint8_t> *_loading = nullptr;   // and in() reads, while loading
+    size_t _loadAt = 0;
+    Error callList(const std::string &list); // each function on the program's list, given a stand-in FILE*
     uint32_t _world = 0;
     std::map<int, uint32_t> _teams;        // each player's character, made when first wanted
     std::map<uint32_t, Group> _groups;     // by address

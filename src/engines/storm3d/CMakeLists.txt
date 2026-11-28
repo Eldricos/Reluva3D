@@ -14,6 +14,7 @@ reluva_add_engine(storm3d
         play/script_calls.cpp
         play/wormholes.cpp
         play/campaign_calls.cpp
+        play/saving.cpp
         play/mission_view.cpp
         play/movement.cpp
         play/combat.cpp
@@ -30,6 +31,7 @@ reluva_add_engine(storm3d
         formats/odf.cpp
         formats/preferences.cpp
         formats/shell_progress.cpp
+        formats/saved_game.cpp
         formats/tech_tree.cpp
         formats/sod.cpp
         formats/sprite_table.cpp
@@ -45,7 +47,7 @@ reluva_add_engine(storm3d
         shell/full_screen_movie.cpp
         shell/loading_screen.cpp
         shell/game_setup_screen.cpp
-        shell/load_game_screen.cpp
+        shell/saved_games_screen.cpp
         shell/main_menu.cpp
         shell/multiplayer_screen.cpp
         shell/options_screen.cpp

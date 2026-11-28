@@ -57,8 +57,8 @@ int cmdBzn(int argc, char **argv) {
         std::printf("script %s\n", s.c_str());
     for (size_t p = 0; p < map.players.size(); ++p) {
         const BznMap::PlayerStart &s = map.players[p];
-        std::printf("player %zu: dilithium %g of %g, crew %g of %g, officers' limit %d (%d, %d)\n", p, s.dilithium,
-                    s.maxDilithium, s.crew, s.maxCrew, s.officerLimit, s.officersUsed, s.other);
+        std::printf("player %zu: dilithium %g of %g, crew %g of %g, officers' limit %d, colours %d and %d\n", p,
+                    s.dilithium, s.maxDilithium, s.crew, s.maxCrew, s.officerLimit, s.teamColour, s.mapColour);
     }
     std::printf("%zu objects:\n", map.objects.size());
     for (const BznMap::Object &o : map.objects)
