@@ -149,7 +149,7 @@ struct ModelInfo {
     std::vector<std::string> inventory;             // its Default Entity's items' definitions
     // A thrown thing's: its explosion's model and sound, how far its
     // explosion reaches (Explosion Radial Damage), whether it needs a clear
-    // line to reach anyone, how fast it flies, how long till it goes off
+    // line to reach anyone, how long till it goes off
     // (its Default Entity's Shot Duration), and the noise it makes then
     // (its Default Entity's Destroyed Action).
     std::string explosion;
@@ -157,7 +157,6 @@ struct ModelInfo {
     float explosionRadius = 0.0f;
     std::string collideDamageType; // its explosion's damage type (Collide Damage Type)
     bool explosionNeedsSight = false;
-    float maxVelocity = 0.0f;
     // How it bounces: the part of its fall's speed it keeps going up (Bounce
     // Factor), and of its speed along the ground it loses (Bounce Friction);
     // a bounce slower than Min Bounce, or speed along the ground less than

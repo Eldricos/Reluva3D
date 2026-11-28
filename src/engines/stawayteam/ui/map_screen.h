@@ -501,8 +501,11 @@ public:
     std::pair<float, float> placeFor(size_t officer, const std::string &model, float x, float y);
     // A thrown thing going from (x0, y0) to (x1, y1) on the ground: false if
     // a wall or a collideable polygon's in the way, its velocity turned off
-    // it, and `struck`, where given, set to its part (map_combat.cpp).
-    bool throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy, size_t *struck = nullptr) const;
+    // it by its model `model`'s bounce (without one, the program's: a
+    // bounce of 1), and `struck`, where given, set to its part
+    // (map_combat.cpp).
+    bool throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy, size_t *struck = nullptr,
+                     const ModelInfo *model = nullptr) const;
     // A move by `instigator` stopped by part `part`: its collide triggers
     // act (map_triggers.cpp).
     void collided(size_t part, int instigator);

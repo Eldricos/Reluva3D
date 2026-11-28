@@ -267,7 +267,6 @@ Error loadModelInfo(const Archive &data, const std::string &model, ModelInfo &ou
     out.explosionRadius = float(object.object.number("Explosion Radial Damage").value_or(0.0));
     out.collideDamageType = text(object.object, "Collide Damage Type");
     out.explosionNeedsSight = object.object.integer("Require LOS For Damage").value_or(0) != 0;
-    out.maxVelocity = float(object.object.number("Max Velocity").value_or(0.0));
     out.bounceFactor = float(object.object.number("Bounce Factor").value_or(0.0));
     out.bounceFriction = float(object.object.number("Bounce Friction").value_or(0.0));
     out.minBounce = float(object.object.number("Min Bounce").value_or(0.0));

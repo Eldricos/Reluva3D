@@ -163,14 +163,19 @@ bool MapScreen::clearSight(float x0, float y0, float x1, float y1) const {
     return true;
 }
 
-bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy, size_t *struck) const {
+bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, float &vy, size_t *struck,
+                            const ModelInfo *model) const {
     // Anything active and collideable stops it, seen or not, whatever
     // either's height: its move asks along the ground for all that's Active
     // and Collideable, not Visible nor Half or Full Height (0x4effe0,
     // 0x4ef720). So a polygon only while it's active: Mission 01's Fake
     // Grenade Bouncer poly, made so for half a second as a grenade passes
-    // its trigger. Off the first side crossed, mirrored about it (inferred:
-    // the bounce isn't traced). The characters aren't in its way: each side
+    // its trigger. Off the first side crossed (0x4efb20): what of its
+    // speed goes into the side is turned back by its model's Bounce Factor,
+    // none if no more than its Min Bounce; what goes along the side loses
+    // its Bounce Friction, none left if no more than its Min Bounce
+    // Friction (0x4efe08, 0x498193). Without a model, 1, 0.1, 0 and 0.1
+    // (0x4981cc). The characters aren't in its way: each side
     // of a collision may turn it down (0x4ef85b, 0x4ef87d), and a grenade's
     // CIgnoreCollisionAI turns down any CEntityWalking (0x4381c0), the kind
     // every character on the maps is.
@@ -180,11 +185,31 @@ bool MapScreen::throwPasses(float x0, float y0, float x1, float y1, float &vx, f
         const float length = std::hypot(bx - ax, by - ay);
         if (length <= 0.0f)
             return false;
-        const float nx = -(by - ay) / length;
-        const float ny = (bx - ax) / length;
+        // The side's normal toward where it came from.
+        float nx = -(by - ay) / length;
+        float ny = (bx - ax) / length;
+        if ((x0 - ax) * nx + (y0 - ay) * ny < 0.0f) {
+            nx = -nx;
+            ny = -ny;
+        }
         const float dot = vx * nx + vy * ny;
-        vx -= 2.0f * dot * nx;
-        vy -= 2.0f * dot * ny;
+        if (dot >= 0.0f)
+            return true;
+        const float factor = model ? model->bounceFactor : 1.0f;
+        const float minBounce = model ? model->minBounce : 0.1f;
+        const float friction = model ? model->bounceFriction : 0.0f;
+        const float minFriction = model ? model->minBounceFriction : 0.1f;
+        float tx = (vx - dot * nx) * (1.0f - friction);
+        float ty = (vy - dot * ny) * (1.0f - friction);
+        if (tx * tx + ty * ty <= minFriction * minFriction)
+            tx = ty = 0.0f;
+        const float back = dot * factor;
+        if (back * back > minBounce * minBounce) {
+            tx -= back * nx;
+            ty -= back * ny;
+        }
+        vx = tx;
+        vy = ty;
         return true;
     };
     // But not a part with a CPassThroughTriggerAI: its AIs let it through

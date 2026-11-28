@@ -1333,9 +1333,9 @@ Action then and every Repeat Every while anyone's in it, its Exit
 Action as it empties, and nothing for a character put there fewer than
 4 updates ago. With Trigger Only Once it's done after the first that
 runs, and with Auto-Flip Switch its part is then turned off. Which of
-several found at once it holds is the last of the officers, then the
-enemies, then the thrown things *(inferred: the program takes them in
-its map's order)*. Relays, repeat timers, and these actions are run: several,
+several found at once it holds is the last the grid's search finds, a
+thrown thing among them: one's put in its cells as it's thrown, after
+those there already, as any part coming onto the map is (`0x569a20`). Relays, repeat timers, and these actions are run: several,
 random, series (each time the next), delays, info and tricorder lines
 (the tricorder's in the info dialog), relays, activating, deactivating,
 showing, hiding, deleting and destroying parts by name, sounds, checks
@@ -1750,7 +1750,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 - **Drawing order:** where the `Trans` and `Warped` polygons not on
   the ground are drawn.
-- **The triggers:** where a thrown thing comes in the grid's search.
 - **Fighting:** a strike's flashes; the stun effect's look; how a
   `CShootWeaponAI`'s line is tried exactly, from the muzzle's place
   (`0x5603fc`), where Reluva tries sight from where the shooter stands.

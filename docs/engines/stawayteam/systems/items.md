@@ -336,7 +336,8 @@ to throw it there if the place is in its Item Range, as above; out of
 it, nothing's done and they don't walk there (`0x5c6cd2`). They throw it from its
 Height, as the program throws (`0x5f8fc0`): toward the place at 45° up,
 at √(Gravity × 20.749 × distance) times its Discharge Action's `Velocity
-Factor`, no faster than its model's Max Velocity *(inferred)*. Gravity is
+Factor`; its model's Max Velocity isn't asked (`0x5f8fc0`: only a
+rifle's `CShootProjectileWeaponAction` fires at it, `0x5f7683`). Gravity is
 its `Gravity AI`'s, in the particles' units, a second each second
 ([particles.md](particles.md#particles)). At a Velocity Factor of 1 that
 would land it there; the game's 0.725 lands it about half way. Each time
@@ -354,8 +355,19 @@ as a wall does; but not a part with a pass-through trigger, which lets
 it through ([maps.md](maps.md#the-maps-triggers)). A side turns it only
 as it goes in: what's met takes away only what of its move goes into the
 side (`0x4efcf1`), so one thrown from inside an outline, its thrower
-standing in it, goes out. It's turned back, mirrored off the side it
-meets, with its Bounce Sound *(inferred)*.
+standing in it, goes out. Its speed's turned off the side it meets as
+its move works it out (`0x4efb20`), with its model's bounce, as it
+bounces off the ground (`0x498193`, `0x53bc10`): what goes into the side
+is turned back by its `Bounce Factor`, none if that's no more than its
+`Min Bounce`; what goes along the side loses its `Bounce Friction`, none
+left if no more than its `Min Bounce Friction` (`0x4efe08`). A part
+without a model bounces by 1, 0.1, 0 and 0.1 (`0x4981cc`). Its gravity
+AI isn't told of it (`0x5335a0`); Reluva plays its Bounce Sound
+*(inferred)*.
+Landing where the ground's `Obstacle Water` its `CThrowGravityAI`'s `Hit
+Water Action` runs, and where it's `Obstacle Pit` its `Hit Pit Action`
+(`0x5f8920`, `0x4f1090`); no item in the game gives either, so Reluva
+leaves them.
 Mission 01's and 08's `Fake Grenade Bouncer poly`, made active for half
 a second by a pass-through trigger a grenade crosses, is for that. A
 thrown thing sets off the triggers `Triggered By Anything`, flying or
@@ -591,7 +603,5 @@ system ([particles.md](particles.md)).
 
 ## Open questions
 
-- **Using items:** how a thrown item turns off what it meets, and
-  whether its speed is held to its model's Max Velocity.
 - **Gadgets:** whether the enemy taken over is chosen in Slovaak's
   place; what a count of -1 gives an item that has Rounds.

@@ -275,9 +275,9 @@ bool MapScreen::doTask(size_t officer) {
         }
         t.gravity = gravityOf(thrownAs);
         const float distance = std::hypot(o.taskX - o.x, o.taskY - o.y);
-        float speed = std::sqrt(t.gravity * distance) * thrownAs.velocityFactor;
-        if (info.maxVelocity > 0.0f)
-            speed = std::min(speed, info.maxVelocity);
+        // Its model's Max Velocity isn't asked (0x5f8fc0): that's a
+        // rifle's shot's speed (0x5f7683).
+        const float speed = std::sqrt(t.gravity * distance) * thrownAs.velocityFactor;
         const float along = speed * std::cos(kPi / 4.0f);
         t.z = def->height;
         t.vx = distance > 0.0f ? (o.taskX - o.x) / distance * along : 0.0f;
@@ -501,10 +501,10 @@ void MapScreen::updateItems(float seconds) {
         if (t.resting)
             continue;
         const ModelInfo &info = modelInfo(t.model);
-        // A wall or collideable polygon in the way turns it, with its
-        // bounce's sound (inferred), and is told (0x4ef720).
+        // A wall or collideable polygon in the way turns it by its model's
+        // bounce, with its bounce's sound (inferred), and is told (0x4ef720).
         size_t struck = SIZE_MAX;
-        if (throwPasses(t.x, t.y, t.x + t.vx * seconds, t.y + t.vy * seconds, t.vx, t.vy, &struck)) {
+        if (throwPasses(t.x, t.y, t.x + t.vx * seconds, t.y + t.vy * seconds, t.vx, t.vy, &struck, &info)) {
             t.x += t.vx * seconds;
             t.y += t.vy * seconds;
         } else {
@@ -544,6 +544,7 @@ void MapScreen::updateItems(float seconds) {
         }
         const Thrown t = _thrown[i];
         _thrown.erase(_thrown.begin() + ptrdiff_t(i));
+        _gridPlaces.erase(kThrownInstigator - t.id);
         explode(t);
     }
 }

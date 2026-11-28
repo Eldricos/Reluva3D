@@ -190,8 +190,9 @@ inline std::vector<uint8_t> modelFile(const std::string &name, int rotations, in
     w.str("Idle");
     for (int i = 0; i < 6; ++i)
         w.str("");
-    w.f32(maxVelocity).f32(look.bounceFactor).f32(look.minBounce).f32(look.bounceFriction).f32(look.minBounceFriction);
-    w.f32(0.0f);
+    // Max Velocity, Turn Speed, then how it bounces, in the class's order.
+    w.f32(maxVelocity).f32(0.0f);
+    w.f32(look.bounceFactor).f32(look.minBounce).f32(look.bounceFriction).f32(look.minBounceFriction);
     w.bytes({'P', 'O', 'L', 'Y', '2', 'D', 0, 7}).i32(int32_t(footprint.size()));
     for (const auto &[x, y] : footprint)
         w.f32(x).f32(y);

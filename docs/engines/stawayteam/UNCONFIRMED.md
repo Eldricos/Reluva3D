@@ -35,12 +35,12 @@ None now.
   sight's line starting where the enemy stands, a shot meeting those on its
   line at once, the stun effect not drawn; noise: an enemy's patrol carrying on where it left off after looking
   about ([systems/maps.md](systems/maps.md#open-questions)).
-- **Items:** the counts for -1
+- **Items:** a thrown thing's Bounce Sound as it meets a wall, and the
+  counts for -1
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** the enemies themselves not cutting the
   sight drawn ([systems/maps.md](systems/maps.md#open-questions)).
-- **The triggers:** a thrown thing found after the characters in a
-  touching trigger, and the part told of a stopped move the first found
+- **The triggers:** the part told of a stopped move the first found
   rather than the nearest
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **Numbered targets:** a `CGotoTargetsAI` with none free going to the

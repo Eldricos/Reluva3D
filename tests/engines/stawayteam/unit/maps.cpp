@@ -1456,12 +1456,11 @@ void testItems() {
     run(3200);
     CHECK(screen.thrown().empty() && !screen.enemies()[0].alive());
     CHECK(screen.enemies()[1].state == "Patrol");
-    // The frag grenade thrown 50 toward Bo skips on to his feet: he's hurt,
-    // by twice its 40 at its middle, less the further off (he's 32 off as
-    // the ground's foreshortening has it); Ann, 100 off, isn't; then
-    // there's none left.
+    // The frag grenade thrown a little toward Bo skips on near his feet:
+    // he's hurt, by twice its 40 at its middle, less the further off; Ann,
+    // further off, isn't; then there's none left.
     screen.chooseItem(0, 1);
-    CHECK(screen.useItem(300.0f, 450.0f));
+    CHECK(screen.useItem(300.0f, 465.0f));
     run(7000);
     CHECK(b.health >= 70.0f && b.health < 100.0f && a.health == 100.0f && a.items[1].count == 0);
     CHECK(!screen.useItem(300.0f, 400.0f));
@@ -3020,7 +3019,8 @@ void testKit() {
 void testProjectiles() {
     // A grenade thrown east at a wall: it passes a trigger answering to
     // anything, collideable as that is, which turns a lamp on, and is turned back off the wall, low
-    // and unseen as that is, high as the grenade flies. A touching trigger
+    // and unseen as that is, high as the grenade flies, by its model's
+    // bounce. A touching trigger
     // answering to anything turns a second lamp on as it comes in, and off
     // as it goes off; one answering to projectiles doesn't answer to it.
     // Ann stands in a collideable outline, which lets the grenade out.
@@ -3071,13 +3071,23 @@ void testProjectiles() {
     CHECK(screen.useItem(600.0f, 300.0f));
     float furthest = 0.0f;
     bool lit = false;
+    float before = 0.0f;
+    float after = 0.0f;
     for (int k = 0; k < 60; ++k) {
+        const float was = screen.thrown().empty() ? 0.0f : screen.thrown()[0].vx;
         screen.update(now += 50);
-        if (!screen.thrown().empty())
+        if (!screen.thrown().empty()) {
             furthest = std::max(furthest, screen.thrown()[0].x);
+            if (was > 0.0f && screen.thrown()[0].vx < 0.0f) {
+                before = was;
+                after = screen.thrown()[0].vx;
+            }
+        }
         lit = lit || screen.partState(4).active;
     }
     CHECK(furthest > 340.0f && furthest <= 400.0f && screen.partState(2).active); // stopped at the wall's face
+    // Met head on, it's turned back at its Bounce Factor of its speed.
+    CHECK(before > 0.0f && std::abs(after + 0.6f * before) < 0.01f * before);
     CHECK(lit && !screen.partState(5).active);
     for (int k = 0; k < 200 && !screen.thrown().empty(); ++k)
         screen.update(now += 50);

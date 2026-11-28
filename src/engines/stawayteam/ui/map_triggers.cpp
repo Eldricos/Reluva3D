@@ -194,6 +194,10 @@ void MapScreen::placeInGrid() {
     }
     for (size_t o = 0; o < _officers.size(); ++o)
         place(int(o), gridCells(_team[_officers[o].member].bodyModel, _officers[o].x, _officers[o].y, 0));
+    // A thrown thing's a part made as it's thrown, so into its cells
+    // after those already there, as it flies (0x569a20).
+    for (const Thrown &th : _thrown)
+        place(kThrownInstigator - th.id, gridCells(th.model, th.x, th.y, int(th.z)));
 }
 
 std::array<int, 4> MapScreen::triggerCells(const Trigger &t) const {
@@ -273,8 +277,8 @@ void MapScreen::updateTriggers(float seconds) {
             continue;
         // A touching trigger (0x417670) has one in it at a time: of those it
         // answers to in its oval or polygon, the last the grid's search
-        // finds (0x4162f0, 0x417840, 0x41770b); a thrown thing after the
-        // characters (inferred). Its Enter Action as it goes from
+        // finds (0x4162f0, 0x417840, 0x41770b), a thrown thing among them.
+        // Its Enter Action as it goes from
         // empty to someone, them its instigator, unless they were put
         // there fewer than 4 updates ago (a character's Updates Since
         // Relocate, 0x417753): then it holds them without one, as at a
@@ -329,11 +333,8 @@ void MapScreen::updateTriggers(float seconds) {
         // thrown thing hasn't.
         if (flag(ai, "Triggered By Anything"))
             for (const Thrown &th : _thrown)
-                if (touches(t, th.x, th.y)) {
-                    found = true;
-                    who = kThrownInstigator - th.id;
-                    settled = true;
-                }
+                if (touches(t, th.x, th.y))
+                    take(kThrownInstigator - th.id, true);
         const bool was = t.occupied;
         const int left = t.occupant;
         t.occupied = found;
