@@ -310,6 +310,13 @@ in Arial Bold, as measured on its frame:
   **Quit To Windows** is on the right one (`navmain`), its words wider
   than the plate.
 
+A campaign's mission has no debriefing: its game keeps no tallies,
+and the debriefing is opened only from them (0x43f8c2, 0x43fa89)
+*(from the code)*. Won, if it opened the campaign's next mission, that
+one starts at once, with no screen between; lost, aborted, or won
+again with nothing newly open, the game goes back to the single-player
+screen (0x43f9e8). Reluva does the same.
+
 "Allied Victory", on the communications panel, says an ally's victory
 is enough to win (`Dynamic_Localized_Strings.h`), and the program has
 "%s surrendered." and "eliminated or quit" among its words.

@@ -58,12 +58,12 @@ Error ShellProgress::parse(const std::vector<uint8_t> &file) {
     return Error::success();
 }
 
-void ShellProgress::won(size_t campaign, int mission, int missions) {
+bool ShellProgress::won(size_t campaign, int mission, int missions) {
     if (campaign >= kCampaigns || mission != lastMission[campaign])
-        return;
+        return false;
     if (lastMission[campaign] + 1 < missions) {
         ++lastMission[campaign];
-        return;
+        return true;
     }
     finished[campaign] = true;
     if (finished[3])
@@ -72,6 +72,7 @@ void ShellProgress::won(size_t campaign, int mission, int missions) {
     lastCampaign = 0;
     while (lastCampaign < kCampaigns - 1 && finished[lastCampaign])
         ++lastCampaign;
+    return false;
 }
 
 std::vector<uint8_t> ShellProgress::bytes() const {

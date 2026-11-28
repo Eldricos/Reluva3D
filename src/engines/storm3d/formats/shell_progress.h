@@ -62,8 +62,9 @@ struct ShellProgress {
      * A mission won, as the program counts it (0x545e10): the campaign's
      * next opens if it was the last open; past its last, the campaign is
      * finished, and the Borg's finished opens the finale.
+     * @return whether it opened the campaign's next mission
      */
-    void won(size_t campaign, int mission, int missions);
+    bool won(size_t campaign, int mission, int missions);
 };
 
 } // namespace reluva::storm3d

@@ -76,6 +76,8 @@ public:
     /** The campaign and the mission in it last started from the panel. */
     int campaign() const { return _campaign; }
     int missionIndex() const { return _missionIndex; }
+    /** Takes the campaign's next mission as the one to start, as a mission won goes straight on; false if none. */
+    bool chooseNext();
     /** How many missions a campaign has. */
     int missionCount(int campaign) const {
         return campaign >= 0 && size_t(campaign) < _campaigns.size() ? int(_campaigns[size_t(campaign)].size()) : 0;

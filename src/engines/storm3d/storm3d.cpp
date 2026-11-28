@@ -239,6 +239,18 @@ public:
                                 stopAll();
                                 return err;
                             }
+                        } else if (choice == OptionsChoice::kAbort && skirmish.empty()) {
+                            // A campaign's: straight back to the single-player
+                            // screen, with no debriefing (0x43f9e8).
+                            if (Error err = endLoading()) {
+                                stopAll();
+                                return err;
+                            }
+                            if (Error err = single.load(_files, now)) {
+                                stopAll();
+                                return err;
+                            }
+                            singleOn = true;
                         } else if (choice == OptionsChoice::kAbort) {
                             // Its box's Yes: to the debriefing, as Surrender
                             // goes, as the original went.
@@ -528,16 +540,38 @@ public:
                             return err;
                         }
                         gameMenuOn = true;
-                    } else if (mission.ending() != MissionView::Ending::kNone) {
-                        // A campaign's mission won opens the next, kept in the
-                        // player's shell.set at once.
-                        if (skirmish.empty() && mission.ending() == MissionView::Ending::kWon) {
-                            _progress.won(size_t(single.campaign()), single.missionIndex(),
-                                          single.missionCount(single.campaign()));
-                            const std::vector<uint8_t> bytes = _progress.bytes();
-                            (void)player().write("shell.set", bytes);
-                            single.setProgress(_progress);
+                    } else if (mission.ending() != MissionView::Ending::kNone && skirmish.empty()) {
+                        // A campaign's mission keeps no tallies and has no
+                        // debriefing (0x43f8c2): won, it opens the next, kept
+                        // in the player's shell.set at once, and the next
+                        // starts straight away; otherwise back to the
+                        // single-player screen (0x43f9e8).
+                        const bool opened = mission.ending() == MissionView::Ending::kWon &&
+                                            _progress.won(size_t(single.campaign()), single.missionIndex(),
+                                                          single.missionCount(single.campaign()));
+                        const std::vector<uint8_t> bytes = _progress.bytes();
+                        (void)player().write("shell.set", bytes);
+                        single.setProgress(_progress);
+                        if (opened && single.chooseNext()) {
+                            mission.stop();
+                            missionOn = false;
+                            if (Error err = loading.start(renderer3D, single.mission())) {
+                                stopAll();
+                                return err;
+                            }
+                            loadingOn = true;
+                        } else {
+                            if (Error err = endLoading()) {
+                                stopAll();
+                                return err;
+                            }
+                            if (Error err = single.load(_files, now)) {
+                                stopAll();
+                                return err;
+                            }
+                            singleOn = true;
                         }
+                    } else if (mission.ending() != MissionView::Ending::kNone) {
                         if (Error err = openDebriefing()) {
                             stopAll();
                             return err;

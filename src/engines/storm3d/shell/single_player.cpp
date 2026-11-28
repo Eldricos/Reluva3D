@@ -117,6 +117,15 @@ Error SinglePlayerScreen::load(const GameFiles &files, uint64_t millis) {
     return Error::success();
 }
 
+bool SinglePlayerScreen::chooseNext() {
+    if (_campaign < 0 || size_t(_campaign) >= _campaigns.size() ||
+        size_t(_missionIndex) + 1 >= _campaigns[size_t(_campaign)].size())
+        return false;
+    ++_missionIndex;
+    _mission = _campaigns[size_t(_campaign)][size_t(_missionIndex)];
+    return true;
+}
+
 std::vector<std::string> SinglePlayerScreen::openMissions(int race) const {
     if (race < 0 || size_t(race) >= _campaigns.size() || !open(race))
         return {};
