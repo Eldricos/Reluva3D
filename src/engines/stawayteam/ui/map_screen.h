@@ -1133,11 +1133,14 @@ private:
         bool once = true; // its sequence plays once, then `then`
         float health = 0.0f;
         std::string painSound;
+        float fading = -1.0f; // seconds since its death behaviours began fading it out; below 0 not dead
         std::string then = "Idle";
         const TextObject *done = nullptr; // run as it's played once through
         int doneBy = -1;                  // its instigator
     };
     std::vector<Deployed> _deployed;
+    // How much of something put down shows as its death fades it out.
+    float deathShown(size_t part) const;
     // A part's sequence played once through from its start, then `then`,
     // then `done` run (a door opening, then Open, then After Opened).
     void playSequence(size_t part, const std::string &sequence, const std::string &then, const TextObject *done,

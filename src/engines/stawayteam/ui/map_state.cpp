@@ -401,6 +401,7 @@ void MapScreen::state(StateIo &s) {
         s.io(d.once);
         s.io(d.health);
         s.io(d.painSound);
+        s.io(d.fading);
         s.io(d.then);
         s.io(d.done);
         s.io(d.doneBy);

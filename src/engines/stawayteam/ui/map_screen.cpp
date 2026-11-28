@@ -73,34 +73,35 @@ bool contains(const TextObject *action, const char *className) {
     return false;
 }
 
-// The items the inventory's keys choose, by the keys' names: an item whose
-// name starts with the item's (inferred).
+// The items the inventory's keys choose: the program's table of the keys'
+// commands and the items' definitions (0x6492e0); Security Systems has no
+// row, so does nothing.
 const std::vector<std::pair<const char *, const char *>> &itemKeys() {
     static const std::vector<std::pair<const char *, const char *>> kKeys = {
         {"Phaser", "Phaser"},
-        {"Sniper Rifle", "Sniper Rifle"},
-        {"Concussion Grenade", "Concussion"},
-        {"EMP Grenade", "EM Pulse Grenade"},
+        {"Concussion Grenade", "Concussion Grenade"},
         {"Neural Disruptor", "Phase Neural Disrupter"},
-        {"Phaser Rifle", "Phaser Rifle"},
-        {"Proximity Mines", "Proximity Mine"},
-        {"Remote Mines", "Remote Mine"},
+        {"Hypospray", "Hypospray"},
+        {"Sniper Rifle", "Sniper Rifle"},
+        {"Vulcan Nerve Pinch", "Vulcan Neck Pinch"},
+        {"Enhanced Mind Meld", "Psychic Rack"},
+        {"EMP Grenade", "EM Pulse Grenade"},
+        {"Cloaking Band", "Personal Visual Dampening Band"},
+        {"Medical Tricorder", "Medical Tricorder"},
+        {"Tricorder", "Tricorder"},
         {"Audio Decoy", "Audio Decoy"},
         {"Holographic Projector", "Holographic Projection"},
-        {"Vulcan Nerve Pinch", "Vulcan Neck Pinch"},
-        {"Herbal Paralysis", "Botanical Paralysis"},
-        {"Hypospray", "Hypospray"},
-        {"Cloaking Band", "Personal Visual Dampening"},
-        {"Tricorder", "Tricorder"},
-        {"Medical Tricorder", "Medical Tricorder"},
         {"Extractor", "Extractor"},
+        {"Herbal Paralysis", "Botanical Paralysis"},
         {"Herbal Healing", "Botanical Healing"},
         {"Stasis Field Generator", "Portable Containmnet Field"},
         {"Teleportation Brig", "Telportation Brig"},
         {"Brig Controller", "Telportation Brig Controller"},
-        {"Computer Systems", "Computer Systems"},
-        {"Security Systems", "Security Doors & Systems"},
+        {"Phaser Rifle", "Phaser Rifle Type III"},
+        {"Proximity Mines", "Proximity Mine"},
+        {"Remote Mines", "Remote Mine"},
         {"Engineering Tech Kit", "Terminal Repair"},
+        {"Computer Systems", "Computer Systems"},
     };
     return kKeys;
 }
@@ -1248,8 +1249,9 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         if (down && bound("Toggle Sound Cones"))
             _listening = !_listening;
         // Inventory Next and Prev go along the chosen officer's items; an
-        // item's own key chooses it for the officers chosen who have it
-        // (inferred: by the keys' names).
+        // item's own key chooses its row's item, or the one overriding it
+        // that's been discovered, along the Overridden By (0x5bf2a6,
+        // 0x5b7c90), for the officers chosen who have it.
         if (down && _selected >= 0 && (bound("Inventory Next") || bound("Inventory Prev")))
             stepItem(_selected, bound("Inventory Next") ? 1 : -1);
         // Toggle Minimap presses the info bar's open button (0x4dee47).
@@ -1263,15 +1265,20 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         if (down && bound("Zoom Reset"))
             holdZoom(0, true);
         if (down)
-            for (const auto &[action, item] : itemKeys())
-                if (bound(action))
-                    for (size_t i = 0; i < _officers.size(); ++i)
-                        if (_officers[i].chosen)
-                            for (size_t k = 0; k < _officers[i].items.size(); ++k)
-                                if (_officers[i].items[k].name.rfind(item, 0) == 0) {
-                                    chooseItem(int(i), int(k));
-                                    break;
-                                }
+            for (const auto &[action, item] : itemKeys()) {
+                if (!bound(action))
+                    continue;
+                const std::string held = heldAs(_items, item, _progress->discovered);
+                if (held.empty())
+                    continue;
+                for (size_t i = 0; i < _officers.size(); ++i)
+                    if (_officers[i].chosen)
+                        for (size_t k = 0; k < _officers[i].items.size(); ++k)
+                            if (_officers[i].items[k].name == held) {
+                                chooseItem(int(i), int(k));
+                                break;
+                            }
+            }
         if (down && bound("Cycle Movement") && _selected >= 0)
             setMove((_officers[size_t(_selected)].move + 1) % 3);
     }
@@ -1445,7 +1452,7 @@ void MapScreen::draw(Surface &screen, uint64_t now) {
         look.y = int(std::lround(standY)) - top;
         look.lift = p.renderingHeight;
         // Beamed away, it fades as it goes (inferred).
-        look.shown = int(std::lround(255.0f * warpShown(i)));
+        look.shown = int(std::lround(255.0f * warpShown(i) * deathShown(i)));
         const float sortY = standY + float(modelInfo(p.model).sortingY);
         const Animation::Picture *picture = body.frame(look.frame, look.direction);
         if (!picture || body.cuts.empty()) {

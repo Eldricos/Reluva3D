@@ -22,6 +22,8 @@ constexpr float kCloakedOpacity = 0.25f;
 constexpr float kFadePerSecond = 1.0f;
 // Near enough to put something down where it's to go (inferred).
 constexpr float kDropReach = 30.0f;
+// Holo Death's fade out, its CEntityBehaviorFade's Num Seconds.
+constexpr float kHoloFade = 0.5f;
 
 std::string lower(std::string s) {
     for (char &c : s)
@@ -541,8 +543,8 @@ int MapScreen::closestDecoy(const Enemy &e, float &distance) const {
     int best = -1;
     for (const Deployed &d : _deployed) {
         const MapPart &p = _map.parts[d.part];
-        if (!shown(d.part) || !inCategory(p.category, "Decoy") || !inCategory(p.category, e.validTargets) ||
-            !seesPoint(e, p.x, p.y))
+        if (!shown(d.part) || d.fading >= 0.0f || !inCategory(p.category, "Decoy") ||
+            !inCategory(p.category, e.validTargets) || !seesPoint(e, p.x, p.y))
             continue;
         const float off = std::hypot(p.x - e.x, p.y - e.y);
         if (best < 0 || off < distance) {
@@ -569,7 +571,9 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
         setState(e, "Attack");
     }
     const size_t part = size_t(e.decoy);
-    if (!shown(part)) {
+    const auto down = std::find_if(_deployed.begin(), _deployed.end(),
+                                   [&](const Deployed &d) { return d.part == part && d.fading >= 0.0f; });
+    if (!shown(part) || down != _deployed.end()) {
         e.decoy = -1;
         setState(e, "Patrol");
         return true;
@@ -589,16 +593,33 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
     e.reload = e.weapon->reuseDelay;
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, p.x, p.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;
+    // Hurt as any character is (0x495220), with its Pain Sound; at its
+    // model's Hit Points it dies by its Default Death Type: the
+    // hologram's Holo Death takes its Collideable and fades it out in half
+    // a second, and it's nobody's target from then; it's taken away when
+    // its own action's 15 seconds are out.
     for (Deployed &d : _deployed)
-        if (d.part == part) {
+        if (d.part == part && d.fading < 0.0f) {
             if (_mixer)
                 if (auto sound = gameSound(_data, d.painSound))
                     _mixer->play(sound, audio::SoundType::kEffects);
             d.health -= e.weapon->weaponDamage;
-            if (d.health <= 0.0f)
-                _partStates[part].deleted = true;
+            if (d.health <= 0.0f) {
+                d.fading = 0.0f;
+                _partStates[part].collideable = false;
+                runDeathBehaviors(part, kEnemyInstigator - int(&e - _enemies.data()));
+            }
         }
     return true;
+}
+
+float MapScreen::deathShown(size_t part) const {
+    // CEntityBehaviorFade, Transition Out over its Num Seconds (Holo
+    // Death's 0.5).
+    for (const Deployed &d : _deployed)
+        if (d.part == part && d.fading >= 0.0f)
+            return std::max(0.0f, 1.0f - d.fading / kHoloFade);
+    return 1.0f;
 }
 
 void MapScreen::updateDeployed(float seconds) {
@@ -608,6 +629,8 @@ void MapScreen::updateDeployed(float seconds) {
     for (size_t k = 0; k < _deployed.size(); ++k) {
         Deployed &d = _deployed[k];
         d.time += seconds;
+        if (d.fading >= 0.0f)
+            d.fading += seconds;
         const std::string playing = d.sequence;
         const BinaryObject *object = modelObject(_map.parts[d.part].model);
         const BinaryObject *sequence = nullptr;

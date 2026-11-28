@@ -319,9 +319,13 @@ and its `Obscured Cursor` if `Show Obscured Cursor`. The Tricorder's are
 
 Each officer's items are the roster's, with its Count, or for -1 its
 definition's Rounds if it has any; the weapon they shoot with chosen
-*(inferred)*. A click on an item on the bar, or its key (matched by the
-keys' names, *inferred*), chooses it; a weapon chosen is the one they
-shoot with. With a grenade chosen, a click on the map sends the officer
+*(inferred)*. A click on an item on the bar, or its key, chooses it: each
+item key's command has its row in the program's table (`0x6492e0`) naming
+an item's definition, Phaser's the Phaser, Holographic Projector's the
+Holographic Projection, and the item chosen is that one or, along its
+Overridden By, the last discovered that overrides it (`0x5bf2a6`,
+`0x5b7c90`); Security Systems has no row and does nothing. A weapon
+chosen is the one they shoot with. With a grenade chosen, a click on the map sends the officer
 to throw it there if the place is in its Item Range, as above; out of
 it, nothing's done and they don't walk there (`0x5c6cd2`). They throw it from its
 Height, as the program throws (`0x5f8fc0`): toward the place at 45° up,
@@ -440,9 +444,13 @@ letting them go (`CSendAIDoneMessage`), warping away, setting a part's
 sequence and categories, checking for an item or a category, and noise.
 A hologram is found as an officer is, the nearest of an enemy's Valid
 Targets that it sees (`0x5dd690`; it's `Player,Team Member` too): one
-nearer than any officer seen is gone after. Shot, its hit points go
-down by the weapon's damage, with its Pain Sound, and it's gone at none
-*(inferred)*. A `CEveryTouchingOvalTriggerAI` answers to the enemies
+nearer than any officer seen is gone after. Its model's Default Entity
+is a `CEntityStationaryCharacter` with `Has Hit Points` and the model's
+35 `Hit Points`, whose `CActionAI` deletes it after 15 seconds. Hurt as
+any character (`0x495220`), with its Pain Sound, at its hit points it
+dies by its `Default Death Type`, `Holo Death`: its Collideable taken
+and faded out in half a second (`CEntityBehaviorFade`), no one's target
+from then, still there till its 15 seconds are out. A `CEveryTouchingOvalTriggerAI` answers to the enemies
 its Triggered by names too *(inferred)*. Held, an officer or enemy does
 nothing. A killed enemy's Death Behaviors' actions run, its categories
 and Default Death Type its model's where the map leaves them out
@@ -567,12 +575,11 @@ system ([particles.md](particles.md)).
 
 ## Open questions
 
-- **Using items:** the program's rules for each Process: when the
-  officer walks and when they use it, what the cursors show, how a
-  thrown item turns off what it meets, and whether its speed is held to
-  its model's Max Velocity.
-- **Gadgets:** how an enemy shoots a hologram, and how the player orders an enemy taken over, and how its own mind comes
-  back.
+- **Using items:** how a thrown item turns off what it meets, and
+  whether its speed is held to its model's Max Velocity.
+- **Gadgets:** how an enemy's shot reaches a hologram (Reluva hurts it
+  as the shot's fired), how the player orders an enemy taken over, and
+  how its own mind comes back.
 - **The panels:** where each part of an item's panel is drawn, and
   whether it's over the minimap: the point the info bar hands the
   panel's draw (its slot `0x64`, `0x534a70`) isn't traced.

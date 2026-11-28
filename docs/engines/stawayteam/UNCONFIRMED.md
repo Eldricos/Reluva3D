@@ -52,13 +52,13 @@ None now.
   about ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** the debriefing's lines typed only once their panel's
   in ([systems/objectives.md](systems/objectives.md#open-questions)).
-- **Items:** the counts for -1, the keys matched to items by name, and
-  the items' panels' layout
+- **Items:** the counts for -1, and the items' panels' layout
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** the enemies themselves not cutting the
   sight drawn ([systems/maps.md](systems/maps.md#open-questions)).
-- **The gadgets:** an enemy shooting a hologram down by its hit points,
-  and what's put down running its model's AIs as a map's part
+- **The gadgets:** an enemy's shot hurting a hologram as it's fired
+  rather than as it meets it, and what's put down running its model's
+  AIs as a map's part
   ([systems/items.md](systems/items.md#open-questions)).
 - **The item panels' layout:** sequences placed from the panel's middle
   ([systems/items.md](systems/items.md#an-items-panel)).
