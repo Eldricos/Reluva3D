@@ -77,7 +77,7 @@ What a person has to check, by hand or on real machines:
 - **Two copies on two real machines:** on a local network, over the
   internet on the serial link or a modem, and IPX with `broadcast=` or
   over a VPN ([README.md](README.md#using-it);
-  [research/network-play.md](research/network-play.md), Left open).
+  [systems/network.md](systems/network.md#open-questions)).
 - **Playing by hand** on a real GPU, with speakers and real controllers,
   a force-feedback wheel among them: the runs here were on Mesa's
   software Vulkan, the sound recorded to a file (`-wav`), and the wheel
@@ -93,7 +93,7 @@ What a person has to check, by hand or on real machines:
   ([formats/hrz.md](formats/hrz.md)).
 - **DirectPlay** on a real Windows install: the program has DirectPlay's
   names, but offered only IPX on the host, which has no DirectPlay
-  ([research/network-play.md](research/network-play.md), Left open).
+  ([systems/network.md](systems/network.md#open-questions)).
 - **Other releases** than the US CD: not checked
   ([README.md](README.md#releases)).
 - **macOS:** Reluva plays on it
