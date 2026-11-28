@@ -290,6 +290,9 @@ private:
     std::map<std::string, Look> _looks; // by lower-case definition
     // What's drawn: each object's model and place; the background's.
     std::vector<std::pair<const SodMeshes::Built *, gfx::Mat4>> _placed;
+    // The main view's eye and forward, while it's drawn: what's wholly past
+    // the far plane from them isn't drawn. None for an inset.
+    std::optional<std::pair<gfx::Vec3, gfx::Vec3>> _farFrom;
     std::vector<std::optional<gfx::Vec3>> _teams; // as _placed: each one's own team colour, if any
     std::vector<bool> _damaged;                   // as _placed: its damage emitters run
     // A piece of a unit broken up: a face of its model, where it was, and

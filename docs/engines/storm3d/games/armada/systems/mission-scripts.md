@@ -82,7 +82,15 @@ for what they take from Armada.exe.
     turned into the eye's own axes (0x4ed930).
   - The camera each frame: the eye plus its offset, looking at the
     target plus its offset; it never rolls, up from the world's (0x5534f0);
-    the field of view is play's. A shot cuts at once, and during a cut
+    the field of view and the far plane are play's: `ART_CFG.h`'s
+    `FAR_CLIPPING_PLANE`, 1400, so nothing whose bounding sphere is wholly
+    past 1400 along the view is drawn (0x582570). The background and the
+    starfield are drawn out to `STAR_FAR_CLIP_PLANE` (80000), the grid to
+    `GRID_FAR_CLIP_PLANE` (10000); the planets with them *(guessed: the
+    original shows Barisa 2,200 away)*. The `DETAIL_<n>_` clipping planes
+    of `ART_CFG.h` aren't read. A nebula is its model's sprite nodes,
+    drawn added on, as any object's: the map's at 3,000 to 7,000 from the
+    opening's camera aren't drawn, as the original's frames show none. A shot cuts at once, and during a cut
     scene puts both offsets back to none, so a script sets the offset
     after it.
   - The shots by their arguments: two units, the eye following the first

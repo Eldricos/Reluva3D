@@ -880,7 +880,9 @@ void MapScene::draw(const Camera &camera, double seconds, float range, Color cle
     if (!_renderer)
         return;
     _renderer->beginFrame(viewProjOf(camera, range), camera.eye, clear);
+    _farFrom = std::pair{camera.eye, camera.forward};
     drawContents(camera, seconds, grid, true);
+    _farFrom.reset();
 }
 
 void MapScene::drawInset(const Camera &camera, double seconds, float range, int x, int y, int w, int h) {
@@ -990,6 +992,31 @@ void MapScene::drawPlaced(bool scenery) {
         const Hiding &h = _hiding[i];
         if (h.scenery != scenery || (h.hides && (h.cloaked || covered(h.at))))
             continue;
+        // ART_CFG.h's FAR_CLIPPING_PLANE, 1400: an object whose sphere is
+        // wholly past it along the view isn't drawn, in play and in a cut
+        // scene alike (0x582570, 0x570e90); the planets and suns are drawn
+        // with the background's, so they're kept.
+        constexpr float kFarPlane = 1400;
+        const auto &[built, at] = _placed[i];
+        if (_farFrom && !scenery && built && !built->empty()) {
+            gfx::Vec3 middle{};
+            float radius = 0;
+            const float scale = std::sqrt(at[0] * at[0] + at[1] * at[1] + at[2] * at[2]);
+            for (size_t k = 0; k < 3; ++k) {
+                const float c = (built->lo[k] + built->hi[k]) / 2;
+                middle[0] += at[k * 4] * c;
+                middle[1] += at[k * 4 + 1] * c;
+                middle[2] += at[k * 4 + 2] * c;
+                radius += (built->hi[k] - built->lo[k]) * (built->hi[k] - built->lo[k]) / 4;
+            }
+            radius = std::sqrt(radius) * scale;
+            const auto &[eye, forward] = *_farFrom;
+            float depth = 0;
+            for (size_t k = 0; k < 3; ++k)
+                depth += (middle[k] + at[12 + k] - eye[k]) * forward[k];
+            if (depth - radius > kFarPlane)
+                continue;
+        }
         _batch.push_back(_placed[i]);
         _batchTeams.push_back(_teams[i]);
         _batchDamaged.push_back(_damaged[i]);
