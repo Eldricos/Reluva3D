@@ -473,9 +473,10 @@ where the others have a Weapon Setting, so it stuns.
 The Psychic Rack is as above. Out of range, nothing's done, as for any
 item's own process (`0x5c6cd2`). The enemy taken over is chosen in his
 place, chosen again with a click on it *(inferred)*, and sent with a
-click as an officer is: an enemy clicked in its weapon's reach is shot,
-in range and sight, till it's dead; out of reach, nothing; else to the
-place. Let go, it goes to look where Slovaak stands. Its panel shows the meter's frame for the
+click as an officer is: an enemy clicked in its weapon's reach is shot
+by its `CShootWeaponAI`, however far it goes, till it's dead or its line
+is blocked as it comes to shoot ([maps.md](maps.md#combat)); out of
+reach, nothing; else to the place. Let go, it goes to look where Slovaak stands. Its panel shows the meter's frame for the
 charge left, BREAK CONTROL and CENTER while it's on, else its Text
 *(inferred)*; CENTER brings the view to the enemy.
 

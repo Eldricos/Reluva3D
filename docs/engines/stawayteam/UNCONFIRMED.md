@@ -19,9 +19,8 @@ None now.
 
 ## Inferred
 
-- **The Psychic Rack:** the enemy chosen in Slovaak's place, and
-  waiting where it stands while what it's to shoot is out of range or
-  sight ([systems/items.md](systems/items.md#in-reluva)).
+- **The Psychic Rack:** the enemy chosen in Slovaak's place
+  ([systems/items.md](systems/items.md#in-reluva)).
 - **The remote mine's going:** at once on DETONATE, its Activate not
   shown, its model having no AI to play it
   ([systems/items.md](systems/items.md#in-reluva)).
@@ -34,9 +33,7 @@ None now.
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift; fighting:
   sight's line starting where the enemy stands, a shot meeting those on its
-  line at once, the stun effect not drawn, and officers waiting where
-  they stand while the enemy they're to shoot is out of range or sight;
-  noise: an enemy's patrol carrying on where it left off after looking
+  line at once, the stun effect not drawn; noise: an enemy's patrol carrying on where it left off after looking
   about ([systems/maps.md](systems/maps.md#open-questions)).
 - **Items:** the counts for -1
   ([systems/items.md](systems/items.md#open-questions)).

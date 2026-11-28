@@ -1026,13 +1026,14 @@ void testCombat() {
     CHECK(screen.objectives()[0].status == ObjectiveStatus::kFailed && screen.partState(3).active);
     // With her down it goes back to its patrol. Bo, sent to shoot it
     // behind the wall, has it in reach (his phaser needs no sight) but
-    // doesn't walk: he waits. Walked out past the wall, two of his
-    // phaser's shots kill it, each making a noise of 200 where it hits.
+    // no line to it as he comes to shoot: he doesn't walk, and he's done
+    // with it. Walked out past the wall, two of his phaser's shots kill
+    // it, each making a noise of 200 where it hits.
     CHECK(screen.enemyAt(500.0f, 500.0f) == 0);
     screen.choose(1);
     screen.attack(0);
     run(now + 1000);
-    CHECK(screen.officers()[1].attacking == 0 && screen.officers()[1].x == 300.0f && guard.alive());
+    CHECK(screen.officers()[1].attacking == -1 && screen.officers()[1].x == 300.0f && guard.alive());
     screen.order(300.0f, 640.0f);
     run(now + 3000);
     screen.attack(0);

@@ -1056,9 +1056,23 @@ They tell one another, by actions:
   (and `Half Height`) say whether it's in the way and whether it stands
   tall enough to hide anyone *(inferred)*. Triggers turn
   `Collideable` with a `CSetCollidableAction` (12 in Mission 01).
+- **Shooting by a process:** an officer given a gun's process, or the
+  enemy the Psychic Rack's taken over, shoots by its `CShootWeaponAI`
+  (`0x5600a0`, by states). Its range isn't looked at: the process was
+  given only in reach (`0x5c6cd2`), and after that it shoots however
+  far off the target goes. Each shot it waits for the weapon to be
+  ready (`0x55fd80`, the weapon's own test), turns to the target, then
+  tries the line from its muzzle to the target through what collides
+  (`0x4ef660` at `0x5603fc`): blocked, it lets the target go and is
+  done, its `Done action` run, even with `Fire Until Dead`; clear, it
+  plays its `Shoot Sequence Name` and fires, waits its `Fire Delay`,
+  and with `Should Recover` plays its recovery. With `Fire Until Dead`
+  it goes round again while the target's alive (`0x56016e`), else it's
+  done after one shot. It turns to face the target every 0.2 seconds
+  meanwhile (`0x55ffd0`).
 
-The program's weapon code isn't traced yet: how these act is read from
-the fields.
+The rest of the program's weapon code isn't traced yet: how these act
+is read from the fields.
 
 ### Borg shields
 
@@ -1541,9 +1555,10 @@ weapon's own process on it, the enemy having no process of the weapon's
 Process Type nor a Use one (`0x43d23a`): each chosen officer it's in
 reach of (Allow Multiple Members, as every gun) shoots it by the
 process's `CShootWeaponAI`, Fire Until Dead; one out of reach isn't
-given it. Reluva has them shoot each Reuse Delay while it's in range and
-sight, waiting where they stand otherwise *(inferred)*; walking
-elsewhere, or the enemy fallen, they stop. A shot hits the first standing on its line
+given it. Reluva has them shoot each Reuse Delay, however far off it
+goes, standing where they are, and done with it if its line's blocked
+as they come to shoot, as the program does; walking elsewhere, or the
+enemy fallen, they stop. A shot hits the first standing on its line
 from the shooter, by a figure's width either side, the one aimed at if
 no one's before them (lying stunned, only if aimed at); an officer's
 passes the other officers. It's a bolt (`CPhaserShot`) going at 1500
@@ -1736,8 +1751,9 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Drawing order:** where the `Trans` and `Warped` polygons not on
   the ground are drawn.
 - **The triggers:** where a thrown thing comes in the grid's search.
-- **Fighting:** a strike's flashes; the stun effect's look; what a
-  `CShootWeaponAI` does while its target's out of range or sight.
+- **Fighting:** a strike's flashes; the stun effect's look; how a
+  `CShootWeaponAI`'s line is tried exactly, from the muzzle's place
+  (`0x5603fc`), where Reluva tries sight from where the shooter stands.
 - **Choosing:** the game's mouse for a box and Shift.
 - **The buttons:** what key, if any, cycles the sight's enemy backwards
   (`0x5b6c90` can); the characters among what cuts the cone, Reluva

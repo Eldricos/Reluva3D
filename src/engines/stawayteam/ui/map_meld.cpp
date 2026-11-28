@@ -159,20 +159,22 @@ void MapScreen::updateMeld(float seconds) {
         followRoute(e, seconds, false);
         return;
     }
-    // Sent after an enemy: in its weapon's range and sight it turns and
-    // shoots, each Reuse Delay, till it's dead; out of either it waits
-    // where it is (inferred: as an officer's attack).
+    // Sent after an enemy, by the weapon's CShootWeaponAI as an officer
+    // is: it turns and shoots, each shot once the weapon's ready, however
+    // far off it is, till it's dead; its line blocked as it comes to
+    // shoot, it's done with it (0x5600a0).
     const Enemy &f = _enemies[size_t(e.foe)];
     if (!f.alive() || !shown(f.part) || !e.weapon) {
         e.foe = -1;
         return;
     }
-    const float distance = std::hypot(f.x - e.x, f.y - e.y);
-    if (distance > e.weapon->range || !clearSight(e.x, e.y, f.x, f.y))
-        return;
     turnTo(e, angleOf(f.x - e.x, f.y - e.y), kTurnSpeed, seconds);
     if (e.reload > 0.0f || !hasShot(*e.weapon, e.energy))
         return;
+    if (!clearSight(e.x, e.y, f.x, f.y)) {
+        e.foe = -1;
+        return;
+    }
     spendShot(*e.weapon, e.energy);
     e.reload = e.weapon->reuseDelay;
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()));

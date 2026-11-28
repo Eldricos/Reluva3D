@@ -794,37 +794,39 @@ void MapScreen::updateCombat(float seconds) {
             o.path.clear();
             continue;
         }
-        // In its range and sight they shoot, each Reuse Delay, till it's
-        // dead (the weapon's CShootWeaponAI, Fire Until Dead); out of
-        // either they wait where they are (inferred).
         // A strike (the neck pinch's, CStrikeTargetAction) reaches only its
         // Strike Damage Radius: they walk up to it (its CStrikeTargetAI).
-        const float distance = std::hypot(e.x - o.x, e.y - o.y);
-        const float reach = o.weapon->dischargeAction == "CStrikeTargetAction"
-                                ? std::max(o.weapon->strikeRadius, kStrikeReach)
-                                : o.weapon->range * enhancement(int(&o - _officers.data()));
-        if (distance <= reach && clearSight(o.x, o.y, e.x, e.y)) {
-            o.path.clear();
-            o.direction = directionOf(e.x - o.x, e.y - o.y);
-            float *energy = weaponEnergy(o);
-            if (o.reload <= 0.0f && (!energy || hasShot(*o.weapon, *energy))) {
-                if (energy)
-                    spendShot(*o.weapon, *energy);
-                o.reload = o.weapon->reuseDelay;
-                o.discharge = o.weapon->dischargeSequence.empty() ? "Shoot1" : o.weapon->dischargeSequence;
-                shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y, int(&o - _officers.data()));
-                makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
-                o.shooting = 1e-6f;
-                const int self = int(&o - _officers.data());
-                if (o.weapon->dischargeAction == "CStrikeTargetAction") {
-                    hurtEnemy(i, *o.weapon, self, stuns(o));
-                } else {
-                    fireBolt(*o.weapon, o.x, o.y, e.x, e.y, self, self, stuns(o));
-                }
-            }
-        } else if (o.path.empty() && o.weapon->dischargeAction == "CStrikeTargetAction") {
-            o.path = route(o, e.x, e.y);
+        const bool strike = o.weapon->dischargeAction == "CStrikeTargetAction";
+        if (strike && std::hypot(e.x - o.x, e.y - o.y) > std::max(o.weapon->strikeRadius, kStrikeReach)) {
+            if (o.path.empty())
+                o.path = route(o, e.x, e.y);
+            continue;
         }
+        // A gun's CShootWeaponAI, Fire Until Dead: where they stand, each
+        // shot once the weapon's ready, however far off it is; its line
+        // blocked as they come to shoot, they're done with it (0x5600a0,
+        // its line tried at 0x5603fc).
+        o.path.clear();
+        o.direction = directionOf(e.x - o.x, e.y - o.y);
+        float *energy = weaponEnergy(o);
+        if (o.reload > 0.0f || (energy && !hasShot(*o.weapon, *energy)))
+            continue;
+        if (!strike && !clearSight(o.x, o.y, e.x, e.y)) {
+            o.attacking = -1;
+            continue;
+        }
+        if (energy)
+            spendShot(*o.weapon, *energy);
+        o.reload = o.weapon->reuseDelay;
+        o.discharge = o.weapon->dischargeSequence.empty() ? "Shoot1" : o.weapon->dischargeSequence;
+        shoot(*o.weapon, _team[o.member].bodyModel, o.x, o.y, e.x, e.y, int(&o - _officers.data()));
+        makeNoise(o.x, o.y, o.weapon->shotNoise, o.weapon->shotNoiseTime);
+        o.shooting = 1e-6f;
+        const int self = int(&o - _officers.data());
+        if (strike)
+            hurtEnemy(i, *o.weapon, self, stuns(o));
+        else
+            fireBolt(*o.weapon, o.x, o.y, e.x, e.y, self, self, stuns(o));
     }
     for (Enemy &e : _enemies) {
         if (e.weapon)
