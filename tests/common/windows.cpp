@@ -1478,6 +1478,72 @@ static void testDirectSound() {
           cpu.read32(vector + 8) == 0x3f800000u);
 }
 
+// DirectSound's position notifications: an event set as the play cursor
+// passes its offset, each time round a looping buffer, and one as it
+// stops; a buffer made without DSBCAPS_CTRLPOSITIONNOTIFY has none.
+static void testDirectSoundNotify() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    process.useHostThreads();
+    x86::DirectSound directSound(process);
+    uint32_t now = 1000;
+    process.milliseconds = [&] { return now; };
+    uint32_t r = 0;
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        const bool ok = !cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r);
+        CHECK(ok);
+        return r;
+    };
+    auto kernel = [&](const char *name, std::vector<uint32_t> args) {
+        CHECK(!cpu.call(process.provided("KERNEL32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t out = process.memory().alloc(4);
+    CHECK(!cpu.call(process.provided("DSOUND.dll", "#1"), {0, out, 0}, r) && r == 0);
+    const uint32_t ds = cpu.read32(out);
+    // A second of 8 kHz mono 16-bit sound: 16000 bytes, 16 a millisecond.
+    const uint32_t wave = process.memory().alloc(18);
+    const uint16_t pcm[7] = {1, 1, 8000 & 0xffff, 0, 16000 & 0xffff, 0, 2};
+    for (uint32_t i = 0; i < 7; ++i)
+        cpu.write16(wave + 2 * i, pcm[i]);
+    cpu.write16(wave + 14, 16);
+    const uint32_t desc = process.memory().alloc(20);
+    const uint32_t fields[5] = {20, 0x100, 16000, 0, wave}; // DSBCAPS_CTRLPOSITIONNOTIFY
+    for (uint32_t i = 0; i < 5; ++i)
+        cpu.write32(desc + 4 * i, fields[i]);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    const uint32_t buffer = cpu.read32(out);
+    const uint32_t iid = process.memory().alloc(16);
+    x86::ComHost::writeGuid(cpu, iid, "{b0210783-89cd-11d0-af08-00a0c925cd16}");
+    CHECK(call(buffer, 0, {iid, out}) == 0);
+    const uint32_t notify = cpu.read32(out);
+    // Two events, auto-reset: at the buffer's half, and as it stops.
+    const uint32_t half = kernel("CreateEventA", {0, 0, 0, 0});
+    const uint32_t stopped = kernel("CreateEventA", {0, 0, 0, 0});
+    const uint32_t positions = process.memory().alloc(16);
+    cpu.write32(positions, 8000);
+    cpu.write32(positions + 4, half);
+    cpu.write32(positions + 8, 0xffffffffu); // DSBPN_OFFSETSTOP
+    cpu.write32(positions + 12, stopped);
+    CHECK(call(notify, 3, {2, positions}) == 0); // SetNotificationPositions
+    auto waitFor = [&](uint32_t event) { return kernel("WaitForSingleObject", {event, 0}); };
+    CHECK(call(buffer, 12, {0, 0, 1}) == 0); // Play, looping
+    now += 250;
+    CHECK(waitFor(half) == 0x102); // not there yet: WAIT_TIMEOUT
+    now += 500;
+    CHECK(waitFor(half) == 0 && waitFor(half) == 0x102); // passed once, and taken
+    now += 1000;
+    CHECK(waitFor(half) == 0); // round again
+    CHECK(waitFor(stopped) == 0x102);
+    CHECK(call(buffer, 18, {}) == 0); // Stop
+    CHECK(waitFor(stopped) == 0);
+    // Without the flag, no notify interface.
+    cpu.write32(desc + 4, 0x80);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    CHECK(call(cpu.read32(out), 0, {iid, out}) != 0);
+}
+
 // Input as the engine passes it on: window messages (with a double click
 // for a class that asks for them), key states, the pointer kept within
 // ClipCursor's rectangle; and DirectInput's mouse and keyboard, read as a
@@ -2140,6 +2206,7 @@ static const test::Suite kSuite(
         {"directx", [](const std::filesystem::path &) { testDirectX(); }},
         {"input", [](const std::filesystem::path &) { testInput(); }},
         {"DirectSound", [](const std::filesystem::path &) { testDirectSound(); }},
+        {"DirectSound notify", [](const std::filesystem::path &) { testDirectSoundNotify(); }},
         {"a3d", [](const std::filesystem::path &) { testA3d(); }},
         {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
     });

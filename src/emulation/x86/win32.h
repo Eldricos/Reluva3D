@@ -514,6 +514,12 @@ public:
      * whenever a thread waits on it), for overlapped I/O finishing.
      */
     void signalEventWhen(uint32_t handle, std::function<bool()> condition);
+    /**
+     * The same, but kept: the event is set each time the condition holds
+     * as threads wait on it, not only the first (DirectSound's position
+     * notifications, a buffer passing a place each time round).
+     */
+    void signalEventEachTime(uint32_t handle, std::function<bool()> condition);
     // Instructions between thread changes.
     uint32_t slice = 20000;
     // Called at each thread change, on the thread that ran (for checks by

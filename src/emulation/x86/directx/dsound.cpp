@@ -21,6 +21,7 @@ const char *const kIidDirectSound = "{279afa83-4981-11ce-a521-0020af0be560}";
 const char *const kIidBuffer = "{279afa85-4981-11ce-a521-0020af0be560}";
 const char *const kIidListener = "{279afa84-4981-11ce-a521-0020af0be560}";
 const char *const kIidBuffer3d = "{279afa86-4981-11ce-a521-0020af0be560}";
+const char *const kIidNotify = "{b0210783-89cd-11d0-af08-00a0c925cd16}";
 
 constexpr uint32_t kOk = 0;
 constexpr uint32_t kErrInvalidParam = 0x80070057u;
@@ -28,6 +29,9 @@ constexpr uint32_t kErrBadFormat = 0x88780064u;
 // DSBUFFERDESC's flags.
 constexpr uint32_t kPrimaryBuffer = 0x1;
 constexpr uint32_t kCtrl3d = 0x10;
+constexpr uint32_t kCtrlPositionNotify = 0x100;
+// A notification's offset for when the buffer stops (DSBPN_OFFSETSTOP).
+constexpr uint32_t kOffsetStop = 0xffffffffu;
 constexpr uint32_t kLocHardware = 0x40000;
 constexpr uint32_t kLocSoftware = 0x80000;
 // The primary buffer's size, in seconds of its format: programs can't
@@ -50,6 +54,7 @@ const std::vector<ComInterface::Method> kDirectSoundMethods = with({
     {"SetSpeakerConfig", 1},
     {"Initialize", 1},
 });
+const std::vector<ComInterface::Method> kNotifyMethods = with({{"SetNotificationPositions", 2}});
 const std::vector<ComInterface::Method> kBufferMethods = with({
     {"GetCaps", 1},
     {"GetCurrentPosition", 2},
@@ -118,6 +123,7 @@ struct DirectSound::State {
     ComInterface buffer{"IDirectSoundBuffer", kIidBuffer, kBufferMethods};
     ComInterface listener{"IDirectSound3DListener", kIidListener, kListenerMethods};
     ComInterface buffer3d{"IDirectSound3DBuffer", kIidBuffer3d, kBuffer3dMethods};
+    ComInterface notify{"IDirectSoundNotify", kIidNotify, kNotifyMethods};
     explicit State(Win32Process &p) : process(p), com(p) {}
 };
 
@@ -231,6 +237,14 @@ public:
         }
         return uint32_t(at % bytes);
     }
+    // Where the cursor has got to since it was last put somewhere, in bytes,
+    // not wrapped round.
+    int64_t played() const {
+        if (!playing)
+            return int64_t(start);
+        const uint64_t frames = (s->process.now() - since) * format.rate / 1000;
+        return int64_t(start) + int64_t(frames * format.blockAlign);
+    }
     void moveTo(uint32_t at) {
         start = size() ? at % size() : 0;
         since = s->process.now();
@@ -241,6 +255,8 @@ public:
             return &s->buffer;
         if ((flags & kCtrl3d) && iid == (primary ? kIidListener : kIidBuffer3d))
             return primary ? &s->listener : &s->buffer3d;
+        if (!primary && (flags & kCtrlPositionNotify) && iid == kIidNotify)
+            return &s->notify;
         return nullptr;
     }
 
@@ -248,6 +264,8 @@ public:
         const std::string_view m = iface.methods[size_t(index)].name;
         if (&iface == &s->buffer)
             return invokeBuffer(m, c);
+        if (&iface == &s->notify)
+            return invokeNotify(m, c);
         // The 3D interfaces: values kept as set, and given back. Settings
         // are made at once, deferred (DS3D_DEFERRED) or not.
         if (m == "SetAllParameters" || m == "GetAllParameters") {
@@ -282,6 +300,57 @@ public:
             return kOk;
         }
         return std::nullopt;
+    }
+
+    // SetNotificationPositions(count, DSBPOSITIONNOTIFY*: offset, event):
+    // each event set as the play cursor passes its offset, each time round,
+    // or as the buffer stops; as threads wait on it, by the clock.
+    std::optional<uint32_t> invokeNotify(std::string_view m, Cpu &c) {
+        if (m != "SetNotificationPositions")
+            return std::nullopt;
+        const uint32_t count = c.arg(1);
+        const uint32_t at = c.arg(2);
+        if (playing || (count && !c.valid(at, 8 * count)))
+            return kErrInvalidParam; // not while it plays, as Windows has it
+        auto self = std::weak_ptr<Buffer>(std::static_pointer_cast<Buffer>(shared_from_this()));
+        for (uint32_t i = 0; i < count; ++i) {
+            const uint32_t offset = c.read32(at + 8 * i);
+            const uint32_t event = c.read32(at + 8 * i + 4);
+            // Counted in bytes played since the cursor was last put
+            // somewhere, so a whole time round between looks is seen.
+            position();
+            uint32_t from = start;
+            uint64_t fromSince = since;
+            int64_t last = played();
+            bool wasPlaying = playing;
+            s->process.signalEventEachTime(event, [self, offset, from, fromSince, last, wasPlaying]() mutable {
+                auto b = self.lock();
+                if (!b || !b->size())
+                    return false;
+                b->position();
+                if (b->start != from || b->since != fromSince) {
+                    from = b->start;
+                    fromSince = b->since;
+                    last = int64_t(b->start);
+                }
+                const int64_t now = b->played();
+                bool passed = false;
+                if (offset == kOffsetStop) {
+                    passed = wasPlaying && !b->playing;
+                } else {
+                    const int64_t size = int64_t(b->size());
+                    auto laps = [&](int64_t at) {
+                        const int64_t d = at - int64_t(offset);
+                        return d >= 0 ? d / size : -((-d + size - 1) / size);
+                    };
+                    passed = laps(now) > laps(last);
+                }
+                last = now;
+                wasPlaying = b->playing;
+                return passed;
+            });
+        }
+        return kOk;
     }
 
     std::optional<uint32_t> invokeBuffer(std::string_view m, Cpu &c) {
@@ -482,7 +551,7 @@ DirectSound::~DirectSound() = default;
 
 DirectSound::DirectSound(Win32Process &process) : _s(std::make_unique<State>(process)) {
     State *s = _s.get();
-    for (ComInterface *f : {&s->directSound, &s->buffer, &s->listener, &s->buffer3d})
+    for (ComInterface *f : {&s->directSound, &s->buffer, &s->listener, &s->buffer3d, &s->notify})
         s->com.define(*f);
     // DirectSoundCreate(device guid, out, outer): the default device, whatever's asked for.
     auto create = [s](Cpu &c) {

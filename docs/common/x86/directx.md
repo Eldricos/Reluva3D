@@ -77,8 +77,15 @@ headers' (`directx/interfaces.cpp`).
   - the card has software buffers only, 8 and 16 bits, mono and stereo,
     at any rate.
 
-  Nothing is mixed or heard, and notifications (`IDirectSoundNotify`)
-  aren't there.
+  - position notifications (`IDirectSoundNotify`, on a buffer made with
+    `DSBCAPS_CTRLPOSITIONNOTIFY`): each event set as the play cursor
+    passes its offset, each time round a looping buffer, counted in bytes
+    played so a whole time round between looks isn't missed; or, at
+    `DSBPN_OFFSETSTOP`, as it stops. They're checked as the program's
+    threads wait on the events, by the process's clock
+    (`Win32Process::signalEventEachTime`).
+
+  Nothing is mixed or heard.
 
 ## How it works
 
@@ -134,6 +141,9 @@ checked without a GPU.
   wrapping round its end, the cursors, a sound played once ending, one
   looping going on, a duplicate on the same memory; the primary buffer's
   format, and its listener's orientation and position.
+- `testDirectSoundNotify` checks the notifications: an event at a looping
+  buffer's half set once as it's passed, again the next time round, and
+  one set as it stops; none without the flag.
 - **Confidence:** published unless marked.
 
 ## Used by
@@ -147,4 +157,7 @@ checked without a GPU.
   surface there is; none is listed, since what's made isn't kept for it and
   nothing is ever lost. With no sound card (`DirectSoundCreate` failing),
   its missions wait for their speech for ever; with the silent one, they
-  go on.
+  go on. It streams its voices through a buffer refilled on position
+  notifications, and drops a voice whose buffer has none: before they
+  were made, every voice ended at once, and "Premonitions"' opening ran
+  27 seconds instead of the length of its log.

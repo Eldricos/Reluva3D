@@ -28,6 +28,7 @@ struct EventObject : KernelObject {
     bool manualReset = false;
     bool signaled = false;
     std::function<bool()> signalWhen; // signalled once this holds (signalEventWhen)
+    bool signalEachTime = false;      // and kept for the next time (signalEventEachTime)
 };
 
 struct MutexObject : KernelObject {
@@ -69,6 +70,16 @@ void Win32Process::signalEventWhen(uint32_t handle, std::function<bool()> condit
     if (auto e = object<EventObject>(handle)) {
         e->signaled = false;
         e->signalWhen = std::move(condition);
+        e->signalEachTime = false;
+    }
+}
+
+// NOLINTNEXTLINE(readability-make-member-function-const): changes one of its event objects
+void Win32Process::signalEventEachTime(uint32_t handle, std::function<bool()> condition) {
+    if (auto e = object<EventObject>(handle)) {
+        e->signaled = false;
+        e->signalWhen = std::move(condition);
+        e->signalEachTime = true;
     }
 }
 
@@ -536,7 +547,8 @@ void Win32Process::addThreadStandIns() {
         if (auto e = object<EventObject>(h)) {
             if (!e->signaled && e->signalWhen && e->signalWhen()) {
                 e->signaled = true;
-                e->signalWhen = nullptr;
+                if (!e->signalEachTime)
+                    e->signalWhen = nullptr;
             }
             return e->signaled;
         }
