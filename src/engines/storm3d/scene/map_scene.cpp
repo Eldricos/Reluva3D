@@ -995,7 +995,8 @@ void MapScene::drawPlaced(bool scenery) {
         // ART_CFG.h's FAR_CLIPPING_PLANE, 1400: an object whose sphere is
         // wholly past it along the view isn't drawn, in play and in a cut
         // scene alike (0x582570, 0x570e90); the planets and suns are drawn
-        // with the background's, so they're kept.
+        // with the background's far plane, as the original's draws show, so
+        // they're kept.
         constexpr float kFarPlane = 1400;
         const auto &[built, at] = _placed[i];
         if (_farFrom && !scenery && built && !built->empty()) {

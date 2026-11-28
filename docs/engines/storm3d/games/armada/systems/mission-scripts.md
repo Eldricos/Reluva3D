@@ -86,8 +86,11 @@ for what they take from Armada.exe.
     `FAR_CLIPPING_PLANE`, 1400, so nothing whose bounding sphere is wholly
     past 1400 along the view is drawn (0x582570). The background and the
     starfield are drawn out to `STAR_FAR_CLIP_PLANE` (80000), the grid to
-    `GRID_FAR_CLIP_PLANE` (10000); the planets with them *(guessed: the
-    original shows Barisa 2,200 away)*. The `DETAIL_<n>_` clipping planes
+    `GRID_FAR_CLIP_PLANE` (10000), and the planets and suns with them: in
+    the original's draws of the opening's first shot, Barisa's vertices
+    are 1,480 to 1,815 deep under a far plane of about 80,000, as are the
+    sun's sprite (2,725) and the planet's glow (1,908); the rest of that
+    frame is the background and the title's letters *(seen)*. The `DETAIL_<n>_` clipping planes
     of `ART_CFG.h` aren't read. A nebula is its model's sprite nodes,
     drawn added on, as any object's: the map's at 3,000 to 7,000 from the
     opening's camera aren't drawn, as the original's frames show none. A shot cuts at once, and during a cut
