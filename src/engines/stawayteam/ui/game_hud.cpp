@@ -387,6 +387,19 @@ void GameHud::draw(Surface &screen, uint64_t now, int selected, float cameraX, f
         }
         const image::Image &head = _heads[i];
         image::blit(screen, head, x + offX - head.w / 2, y + offY - head.h / 2);
+        // With no health left, the Static Overlay over their head, centred
+        // on it, a frame of it at random each time its frames per second
+        // move it on (0x5e3080, 0x5e3590).
+        if (i < _health.size() && _health[i] <= 0.0f) {
+            const Animation &noise = sequence("Static Overlay");
+            if (!noise.frames.empty()) {
+                const uint64_t tick = noise.fps > 0.0f ? uint64_t(double(now) * double(noise.fps) / 1000.0) : 0;
+                uint32_t r = uint32_t(tick * 2654435761u) ^ uint32_t(i * 40503u);
+                r = r * 1103515245u + 12345u;
+                const image::Image &frame = noise.frames[(r >> 16) % noise.frames.size()].image;
+                image::blit(screen, frame, x + offX - frame.w / 2, y + offY - frame.h / 2);
+            }
+        }
         const auto font = _fieldFonts.find(_team[i].field);
         if (font != _fieldFonts.end() && font->second.loaded())
             font->second.draw(screen, x + fieldX, y + fieldY, _team[i].name());

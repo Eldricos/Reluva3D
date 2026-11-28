@@ -235,10 +235,14 @@ their items that's a weapon, energy or counted (`0x57ede0`), as its
 down with the game's time (`0x5cdcf0`); while it's above 0 the item's
 `Item Range` and `Weapon Damage` are a quarter more (×1.25, `0x5cded0`,
 `0x5cfda2`). The team bar loads `Interface/Team Bar/Inventory Enhanced`
-(`0x5e1ad0`), but nothing draws it (its place, `+0x158`, isn't read
-again); nor is an item's `Active HUD Sequence` (the band's
-`Invisibility Band`, the Psionic Projection's `Psyche Displacement`)
-read by anything that draws.
+(`0x5e1ad0`), but nothing draws it: its place, `+0x158`, is read by
+none of the team bar's own methods (its table at `0x62fbb8`); nor is an
+item's `Active HUD Sequence` (the band's `Invisibility Band`, the
+Psionic Projection's `Psyche Displacement`) read by anything that
+draws. What the bar does draw over an officer is its `Static Overlay`,
+over the head of one with no health left (`0x5e3080`): centred on the
+head's place, a frame of it at random (`0x54c120`) each time its frames
+per second move it on (`0x5e3590`).
 
 A phaser that's `Is Overloadable` (only `Phaser Damage Increase
 Overload`, the second of its upgrades) has its panel's OVERLOAD button:

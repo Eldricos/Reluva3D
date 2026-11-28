@@ -1671,9 +1671,11 @@ void testHealthBar() {
     MemoryArchive data;
     data.files["Cache/Interface/Screens/Team Bar/Health Bar Background.frm16"] = solidFrame(4, 10, 0xf800);
     data.files["Cache/Interface/Screens/Team Bar/Health Bar Foreground.frm16"] = solidFrame(4, 10, 0x07e0);
+    data.files["Cache/Sequences/Static Overlay.seq16"] = sequenceFile({solidFrame(6, 6, 0xffff)}, 10.0f);
     TextObject rules;
     CHECK(!readTextObject("CRules\n{\nCustom Rules=CCustomRules\n{\nScreen Pos=0,0\nScreen Size=640,480\n"
-                          "Team Pos=0,0\nTeam Icon Spacing=66\nTeam Health Offset=20,20\n}\n}\n",
+                          "Team Pos=0,0\nTeam Icon Spacing=66\nTeam Health Offset=20,20\nTeam Icon Offset=40,30\n"
+                          "}\n}\n",
                           rules));
     TeamMember ann;
     ann.firstName = "Ann";
@@ -1684,6 +1686,13 @@ void testHealthBar() {
     hud.draw(s, 0, 0, 500.0f, 500.0f, 400, 400);
     const auto green = [&](int y) { return s.row(y)[21 * 4 + 1] > 200 && s.row(y)[21 * 4] < 50; };
     CHECK(!green(24) && green(25) && green(29) && !green(30));
+    // With none left, the Static Overlay over her head (0x5e3080), and no
+    // foreground.
+    const auto white = [&](int x, int y) { return s.row(y)[x * 4] > 200 && s.row(y)[x * 4 + 2] > 200; };
+    CHECK(!white(40, 30));
+    hud.setHealth({0.0f});
+    hud.draw(s, 0, 0, 500.0f, 500.0f, 400, 400);
+    CHECK(white(40, 30) && !green(29));
 }
 
 void testFullInventory() {
