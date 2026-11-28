@@ -436,42 +436,53 @@ bool MapScreen::runMissionAction(const TextObject *action, int instigator) {
         named([&](size_t i) { _progress->objectives[i].visible = visible; });
     } else if (kind == "CStarTrekRelocateTeamAction" || kind == "CStarTrekRelocateAction" ||
                kind == "CStarTrekRelocateGroupAction") {
-        // The officers in its Touching Poly, or else Who To Switch (the
-        // instigator, or an officer by name), only those chosen with Only
-        // Relocated Selected Members, go to New Location on New Map Name,
-        // which is then shown with Make this map active (inferred: the
-        // program's switching isn't traced).
+        // Each goes to New Location on New Map Name, which is then shown
+        // with Make this map active.
         Relocation r;
         r.map = readText(action, "New Map Name");
         r.location = readText(action, "New Location");
         r.show = action->integer("Make this map active").value_or(1) != 0;
-        const bool chosenOnly = action->integer("Only Relocated Selected Members").value_or(0) != 0;
-        const std::string poly = readText(action, "Touching Poly");
-        const std::string who = lower(readText(action, "Who To Switch"));
-        std::vector<std::pair<float, float>> area;
-        for (size_t part : partsNamed(poly))
-            if (_map.parts[part].polygon.size() >= 3)
-                area = _map.parts[part].polygon;
-        for (size_t i = 0; i < _officers.size(); ++i) {
-            const Officer &o = _officers[i];
-            if (!o.present || !o.alive() || (chosenOnly && !o.chosen))
-                continue;
-            bool in = false;
-            if (!area.empty())
-                in = inside(area, o.x, o.y);
-            else if (kind == "CStarTrekRelocateGroupAction")
-                // Its Group Name, the movement group a process's
-                // CGotoTargetsAI sent (Mission 18's "video room #1-5#"):
-                // whoever set it off and those chosen with them (inferred).
-                in = int(i) == instigator || o.chosen;
-            else if (who == "$instigator")
-                in = int(i) == instigator;
-            else
-                in = lower(_team[o.member].name()) == who || lower(_team[o.member].id) == who;
-            if (in)
-                r.officers.push_back(int(i));
+        if (kind == "CStarTrekRelocateTeamAction") {
+            // The officers on this map in its Touching Poly; none if it
+            // names one that isn't here. Without one, the team on every
+            // map, only this one's with Only on this map, only those chosen
+            // with Only Relocated Selected Members; its Who To Switch
+            // isn't read (0x574a50).
+            const std::string poly = readText(action, "Touching Poly");
+            std::vector<std::pair<float, float>> area;
+            for (size_t part : partsNamed(poly))
+                if (_map.parts[part].polygon.size() >= 3)
+                    area = _map.parts[part].polygon;
+            if (!poly.empty() && area.empty())
+                return true;
+            r.chosenOnly = area.empty() && action->integer("Only Relocated Selected Members").value_or(1) != 0;
+            r.everyMap = area.empty() && action->integer("Only on this map").value_or(0) == 0;
+            for (size_t i = 0; i < _officers.size(); ++i) {
+                const Officer &o = _officers[i];
+                if (o.present && (area.empty() ? !r.chosenOnly || o.chosen : inside(area, o.x, o.y)))
+                    r.officers.push_back(int(i));
+            }
+        } else if (kind == "CStarTrekRelocateGroupAction") {
+            // The team's officers, on any map, in its Group Name: the
+            // movement group of a CGotoTargetsAI they're going through
+            // (0x575010, 0x437790).
+            r.group = readText(action, "Group Name");
+            r.everyMap = true;
+            for (size_t i = 0; i < _officers.size(); ++i)
+                if (_officers[i].present && !r.group.empty() && _officers[i].group == r.group)
+                    r.officers.push_back(int(i));
+        } else {
+            // Who To Switch: the instigator, or an officer by name.
+            const std::string who = lower(readText(action, "Who To Switch"));
+            for (size_t i = 0; i < _officers.size(); ++i) {
+                const Officer &o = _officers[i];
+                if (o.present &&
+                    (who == "$instigator" ? int(i) == instigator
+                                          : lower(_team[o.member].name()) == who || lower(_team[o.member].id) == who))
+                    r.officers.push_back(int(i));
+            }
         }
-        if (!r.officers.empty())
+        if (!r.officers.empty() || r.everyMap)
             _relocations.push_back(std::move(r));
     } else if (kind == "CDiscoverInventoryNextBriefingAction") {
         // Found: described in the next briefing (5 in the maps).

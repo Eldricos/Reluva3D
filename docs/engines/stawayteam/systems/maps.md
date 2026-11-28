@@ -509,6 +509,51 @@ same one. `CStarTrekRelocateGroupAction` (4, all Mission 18's) moves a
 officers it sent to "video room #1-5#". Every relocation in the game
 moves officers: Mission 16's "Brexen Ijoula" is one of its team.
 
+Who goes (each action's execute):
+
+- **`CStarTrekRelocateTeamAction`** (`0x574a50`): with a `Touching Poly`,
+  the team's officers on that polygon's map inside it, nothing if no
+  polygon has the name ("Couldn't find specified polygon",
+  `0x64595c`); without one, the whole team, those on the mission's other
+  maps too, less those not chosen with `Only Relocated Selected Members`
+  (`0x5b8440`) and those on other maps with `Only on this map`. Its
+  `Who To Switch` isn't read. Its three flags are bytes at `+0x20` to
+  `+0x22`, the first and last 1 unless set (`0x5747e0`).
+- **`CStarTrekRelocateAction`** (`CSwitchMapActionBase`'s execute,
+  `0x4ca510`): the parts `Who To Switch` names.
+- **`CStarTrekRelocateGroupAction`** (`0x575010`): the team's officers
+  whose movement group is its `Group Name`, an exact match. An officer's
+  group is set as a `CGotoTargetsAI` starts with them, to its `Movment
+  Group Name` (`0x437790`, `0x4aa0e0`), and cleared as their process lets
+  them go (`0x5b7f91`, `0x5b81a5`, `0x5b835f`).
+
+Each part's move (`0x4ca560`) is queued (`0x5ca7f0`), one entry a part,
+and the queue's taken after the game's update (`0x5c11f4`, `0x5ca9b0`):
+the map loaded if it isn't (`0x4f7d10`), each part taken off its map
+and put on the new one, then each placed in turn (`0x5be560`). An
+officer's place (`0x5bc2b0`) is the first there is of:
+
+1. a part named `New Location`, whole: a list's commas aren't split
+   (`0x56a910`), so Mission 15's "space1,space2,space3,space4" names
+   none;
+2. the first free of "`New Location` 1" to "5" (`0x5bc160`), free where
+   the officer's shape meets nothing that collides, the officers already
+   placed among it (`0x4375d0`, `0x4f0f80`);
+3. "*name* Spawn Point" (`0x649608`), then the first free of "*name* 1"
+   to "5", *name* the officer's;
+4. the first free of "Away Team Spawn Point 1" to "5" (`0x6491b4`).
+
+None found, the program says "Couldn't find spawn point for team
+member" (`0x649618`). The officer stands on its place, as they were but
+for that (`0x4f8a10`), and its `CSpawnPointAI` is told. Every
+relocation in the maps finds a place: all but two by a numbered name,
+Mission 10's and 16's by one whole, and Mission 06's empty one and
+Mission 15's lists at the spawn points. `New Map Name` "$return" would
+send a part back where it last came from (`0x63e198`); no map has it.
+
+Every map loaded is updated each frame, whether anyone's looking at it
+or not (`0x4f7420`, `0x4f0880`): the maps the team's left go on.
+
 ### The music
 
 A mission's `.MDS` has its `Primary Song` and `Random Song`, an array
@@ -1547,18 +1592,16 @@ meanwhile *(inferred)*.
 
 A mission's maps (`ui/main_menu.cpp`): each is loaded as the team's
 first sent there, its parts as they start, and kept while the mission
-lasts, those the team isn't on going on meanwhile *(inferred)*. A
-relocation's officers are those in its polygon, or else Who To Switch,
-only the chosen ones if it says; a group's, whoever set it off and
-those chosen with them *(inferred: the process's movement group, which
-Reluva doesn't keep)*; each leaves their map and arrives at
-their place, the place's number as they go, or the list's next, or
-beside the place itself, as they were but with nothing under way
-*(inferred)*; the map's shown, them chosen, if it says. An officer on
-another map is out of this one's: not drawn, chosen or seen. Their slot
-chosen on the team bar shows their map *(inferred)*. The mission's
-objectives, end and time are the same on all its maps, the time counted
-while one's shown.
+lasts, those the team isn't on going on meanwhile. A relocation's
+officers are found as above; Reluva keeps an officer's movement group
+while their process lasts. They leave their maps and arrive one by
+one at their places (`MapScreen::arrivalPlace`), as they were but with
+nothing under way; one with no place stays where they stood
+*(inferred)*. The map's shown if it says, them chosen and the view on
+the first *(inferred)*. An officer on another map is out of this one's:
+not drawn, chosen or seen. Their slot chosen on the team bar shows
+their map *(inferred)*. The mission's objectives, end and time are the
+same on all its maps, the time counted while one's shown.
 
 The music (`MusicQueue`, `ui/music.cpp`, played by `MainMenu`): the
 startup song, then the first mission's Random Songs; as a mission
@@ -1684,7 +1727,7 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Processes:** a process that doesn't `Allow Multiple Members` is
   held by its officer in the game's list (`0x5b8150`); what another
   officer sent to it then does isn't traced, and Reluva doesn't hold it.
-- **A mission's maps:** whether those the team's left go on, which place
-  each officer arrives at, what Only on this map does, and the other
-  relocations.
+- **A mission's maps:** what the program does with the view as a
+  relocation shows a map (`0x5bf6f0`), and an officer's spawn point's
+  `CSpawnPointAI` told of them arriving (`0x415c20`).
 - **The middle button:** what the game's third button does on the map.

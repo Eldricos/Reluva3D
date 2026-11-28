@@ -679,11 +679,10 @@ void MainMenu::showMap(MapScreen *map) {
 }
 
 void MainMenu::moveOfficers() {
-    // Officers sent to another map leave theirs and arrive there, each at
-    // its place: the next of a list ("space1,space2"), or numbered as they
-    // go ("to lower bay 1" to "4", as the maps have them), or side by side
-    // about the place itself (inferred); without a map named, on the same
-    // one. The map's shown if the action says.
+    // Officers sent to another map leave theirs and arrive there, one by
+    // one, each at its place (MapScreen::arrivalPlace); without a map
+    // named, on the same one. The map's shown if the action says. Every
+    // map goes on, whether the team's on it or not (0x4f7420).
     // One who's joined the team on one map is on the others' team bars
     // too, there elsewhere.
     const MapScreen *largest = nullptr;
@@ -697,44 +696,47 @@ void MainMenu::moveOfficers() {
     for (auto &[name, map] : _maps)
         for (Relocation &r : map->takeRelocations())
             moves.emplace_back(map.get(), std::move(r));
-    for (auto &[from, r] : moves) {
-        MapScreen *to = r.map.empty() ? from : openMap(r.map, true);
+    for (auto &[sender, r] : moves) {
+        MapScreen *to = r.map.empty() ? sender : openMap(r.map, true);
         if (!to)
             continue;
-        std::vector<std::string> places;
-        for (size_t at = 0; at <= r.location.size();) {
-            const size_t comma = std::min(r.location.find(',', at), r.location.size());
-            places.push_back(r.location.substr(at, comma - at));
-            at = comma + 1;
-        }
-        float x = to->cameraX();
-        float y = to->cameraY();
-        if (!to->partPosition(places[0], x, y))
-            (void)to->partPosition(places[0] + " 1", x, y);
-        constexpr float kSpacing = 24.0f;
-        float firstX = x;
-        float firstY = y;
-        for (size_t k = 0; k < r.officers.size(); ++k) {
-            float ox = x + kSpacing * float(k);
-            float oy = y;
-            if (places.size() > 1)
-                (void)to->partPosition(places[std::min(k, places.size() - 1)], ox, oy);
-            else
-                (void)to->partPosition(places[0] + " " + std::to_string(k + 1), ox, oy);
-            if (k == 0) {
-                firstX = ox;
-                firstY = oy;
+        // Those on the sender's map first, then the team's on the others.
+        std::vector<std::pair<MapScreen *, size_t>> going;
+        for (int officer : r.officers)
+            going.emplace_back(sender, size_t(officer));
+        if (r.everyMap)
+            for (auto &[name, map] : _maps) {
+                if (map.get() == sender)
+                    continue;
+                for (size_t i = 0; i < map->officers().size(); ++i) {
+                    const MapScreen::Officer &o = map->officers()[i];
+                    if (o.present && (!r.chosenOnly || o.chosen) && (r.group.empty() || o.group == r.group))
+                        going.emplace_back(map.get(), i);
+                }
             }
-            const size_t officer = size_t(r.officers[k]);
+        bool first = true;
+        float firstX = 0.0f;
+        float firstY = 0.0f;
+        for (const auto &[from, officer] : going) {
             const MapScreen::Officer state = from->officers()[officer];
             if (from != to)
                 from->depart(officer);
-            to->arrive(officer, state, ox, oy);
+            // One with nowhere to go stays where they stood (inferred).
+            float x = state.x;
+            float y = state.y;
+            to->arrive(officer, state, x, y);
+            if (to->arrivalPlace(officer, r.location, x, y))
+                to->arrive(officer, state, x, y);
+            if (first) {
+                firstX = x;
+                firstY = y;
+                first = false;
+            }
         }
-        if (r.show) {
+        if (r.show && !going.empty()) {
             showMap(to);
-            for (size_t k = 0; k < r.officers.size(); ++k)
-                to->choose(r.officers[k], k > 0);
+            for (size_t k = 0; k < going.size(); ++k)
+                to->choose(int(going[k].second), k > 0);
             to->moveCamera(firstX, firstY);
         }
     }

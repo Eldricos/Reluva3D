@@ -413,6 +413,10 @@ void MapScreen::updateItems(float seconds) {
     updateOverloads(seconds);
     for (size_t i = 0; i < _officers.size(); ++i) {
         Officer &o = _officers[i];
+        // Their movement group's for as long as their process lasts
+        // (0x5b7f91, 0x5b81a5).
+        if (o.task != Officer::Task::kProcess)
+            o.group.clear();
         if (o.task == Officer::Task::kNone)
             continue;
         if (o.task == Officer::Task::kProcess) {
@@ -676,6 +680,8 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
         }
         const std::string &kind = step->className;
         if (kind == "CGoToAI" || kind == "CGotoRadiusAI" || kind == "CGotoTargetsAI") {
+            if (kind == "CGotoTargetsAI")
+                o.group = readText(step, "Movment Group Name"); // the program's spelling (0x437790)
             std::string name = readText(step, kind == "CGotoTargetsAI" ? "Target" : "Destination");
             if (const size_t hash = name.find('#'); hash != std::string::npos)
                 name = name.substr(0, hash) + "1";

@@ -753,6 +753,61 @@ bool MapScreen::shapeBlockedAt(const std::vector<std::pair<float, float>> &shape
     return false;
 }
 
+bool MapScreen::arrivalPlace(size_t officer, const std::string &location, float &x, float &y) const {
+    // A place's taken if the officer's shape there meets what collides,
+    // the officers already here among it (0x4375d0, 0x4f0f80).
+    const std::vector<std::pair<float, float>> &shape = modelInfo(_team[_officers[officer].member].bodyModel).footprint;
+    const auto outline = [&](float px, float py) {
+        std::vector<std::pair<float, float>> out;
+        for (const auto &[sx, sy] : shape)
+            out.emplace_back(px + sx, py + sy);
+        return out;
+    };
+    const auto free = [&](size_t part) {
+        float px = 0.0f;
+        float py = 0.0f;
+        placeOf(part, px, py);
+        if (shapeBlockedAt(shape, part, px, py))
+            return false;
+        if (shape.size() >= 3)
+            for (size_t i = 0; i < _officers.size(); ++i)
+                if (i != officer && _officers[i].present &&
+                    meet(outline(px, py), outline(_officers[i].x, _officers[i].y)))
+                    return false;
+        return true;
+    };
+    const auto named = [&](const std::string &name) -> const std::vector<size_t> * {
+        const auto it = _byName.find(text::toLower(name));
+        return it == _byName.end() || it->second.empty() ? nullptr : &it->second;
+    };
+    // The first free of "<name> 1" to "<name> 5" (0x5bc160).
+    const auto numbered = [&](const std::string &name) {
+        for (int n = 1; n <= 5; ++n)
+            if (const std::vector<size_t> *parts = named(name + " " + std::to_string(n)))
+                if (free(parts->front())) {
+                    placeOf(parts->front(), x, y);
+                    return true;
+                }
+        return false;
+    };
+    // The name whole, commas and all: "space1,space2,space3,space4" is no
+    // part's, so falls to the spawn points (0x56a910).
+    if (!location.empty()) {
+        if (const std::vector<size_t> *parts = named(location)) {
+            placeOf(parts->front(), x, y);
+            return true;
+        }
+        if (numbered(location))
+            return true;
+    }
+    const std::string name = _team[_officers[officer].member].name();
+    if (const std::vector<size_t> *parts = named(name + " Spawn Point")) {
+        placeOf(parts->front(), x, y);
+        return true;
+    }
+    return numbered(name) || numbered("Away Team Spawn Point");
+}
+
 std::vector<std::pair<float, float>> MapScreen::route(float x0, float y0, float x1, float y1, int officer, int enemy,
                                                       bool straight) const {
     // Planned as the move starts, round where the characters stand then,

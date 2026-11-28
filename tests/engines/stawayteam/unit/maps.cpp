@@ -1889,19 +1889,36 @@ void testMaps() {
     const std::vector<Relocation> moves = first.takeRelocations();
     CHECK(moves.size() == 1 && moves[0].map == "Test B.zax" && moves[0].show);
     CHECK((moves[0].officers == std::vector<int>{0}) && first.takeRelocations().empty());
-    // A group's, with Bo chosen and Ann setting it off, sends them both.
+    // Without a polygon, the team: only Bo, chosen, with Only Relocated
+    // Selected Members, and those on the other maps too without Only on
+    // this map. Who To Switch isn't read.
+    TextObject team;
+    CHECK(!readTextObject("CStarTrekRelocateTeamAction\n{\n\tNew Map Name=Test B.zax\n\tNew Location=Landing\n"
+                          "\tWho To Switch=$Instigator\n\tTouching Poly=\n\tOnly on this map=0\n"
+                          "\tOnly Relocated Selected Members=1\n}\n",
+                          team));
+    first.choose(1);
+    first.runAction(&team, 0);
+    const std::vector<Relocation> teamMoves = first.takeRelocations();
+    CHECK(teamMoves.size() == 1 && (teamMoves[0].officers == std::vector<int>{1}));
+    CHECK(teamMoves[0].everyMap && teamMoves[0].chosenOnly);
+    // A group's: those in its movement group, none here.
     TextObject group;
     CHECK(!readTextObject("CStarTrekRelocateGroupAction\n{\n\tNew Map Name=Test B.zax\n\tNew Location=Landing\n"
                           "\tWho To Switch=$Instigator\n\tGroup Name=Door Team\n}\n",
                           group));
-    first.choose(1);
     first.runAction(&group, 0);
     const std::vector<Relocation> groupMoves = first.takeRelocations();
-    CHECK(groupMoves.size() == 1 && (groupMoves[0].officers == std::vector<int>{0, 1}));
-    // She leaves the first and arrives at the landing, as she was.
+    CHECK(groupMoves.size() == 1 && groupMoves[0].officers.empty() && groupMoves[0].group == "Door Team");
+    // A place named whole, else the first free numbered one, else the
+    // team's spawn points: "Landing" on the second; a list of names, none
+    // a part's, the first spawn point on the first.
     float x = 0.0f;
     float y = 0.0f;
-    CHECK(second.partPosition(moves[0].location, x, y) && x == 700.0f && y == 600.0f);
+    CHECK(second.arrivalPlace(0, "Landing", x, y) && x == 700.0f && y == 600.0f);
+    CHECK(first.arrivalPlace(1, "space1,space2", x, y) && x == 100.0f && y == 100.0f);
+    // She leaves the first and arrives at the landing, as she was.
+    CHECK(second.arrivalPlace(0, moves[0].location, x, y) && x == 700.0f && y == 600.0f);
     second.arrive(0, first.officers()[0], x, y);
     first.depart(0);
     CHECK(!first.officers()[0].present && second.officers()[0].present && second.officers()[0].x == 700.0f);

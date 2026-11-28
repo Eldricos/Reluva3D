@@ -46,6 +46,9 @@ None now.
   touching trigger, and the part told of a stopped move the first found
   rather than the nearest
   ([systems/maps.md](systems/maps.md#open-questions)).
+- **Relocations:** the map shown with those sent chosen and the view on
+  the first, and one with no place staying where they stood
+  ([systems/maps.md](systems/maps.md#in-reluva)).
 - **Joining:** a character joining the team losing its other AIs, and
   on the mission's other maps as away
   ([systems/maps.md](systems/maps.md#open-questions)).

@@ -62,13 +62,18 @@ void stateOf(StateIo &s, TeamMember &member);
 /**
  * Officers sent to another of the mission's maps (`CStarTrekRelocateTeamAction`):
  * the map ("Mission 02/02 Security deck.zax"), the part they arrive at, and
- * whether it's then the map shown.
+ * whether it's then the map shown. Its officers are those on the map that
+ * sent it; the team's on the others go too with `everyMap`, only those
+ * chosen with `chosenOnly`, or those in the movement group `group`.
  */
 struct Relocation {
     std::string map;
     std::string location;
     std::vector<int> officers;
     bool show = true;
+    bool everyMap = false;
+    bool chosenOnly = false;
+    std::string group;
 };
 
 /**
@@ -174,6 +179,7 @@ public:
         int taskPart = -1;                       // what a scan or process is of, or the enemy a meld's with
         const TextObject *taskProcess = nullptr; // the part's process they're going through
         size_t taskStep = 0;                     // its Process Activity they're on
+        std::string group;                       // the movement group a CGotoTargetsAI put them in
         // The inventory bar's places, an item type's each: which of the
         // place's items it shows (its first, 0, as they come).
         std::vector<int> shown;
@@ -545,6 +551,13 @@ public:
     void depart(size_t officer);
     /** Where the part named `name` stands; false if there's none. */
     bool partPosition(const std::string &name, float &x, float &y) const;
+    /**
+     * Where officer `officer`, relocated here, arrives for `location`: the
+     * part of that name, or the first free of its numbered ones, or failing
+     * those the team's spawn points (0x5bc2b0).
+     * @return false if there's none of them.
+     */
+    bool arrivalPlace(size_t officer, const std::string &location, float &x, float &y) const;
     /** Whether the objectives window is open. */
     bool objectivesShown() const { return _objectivesWindow != nullptr; }
     /**
