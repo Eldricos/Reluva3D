@@ -2233,6 +2233,10 @@ void MissionView::stop() {
     _objectives.clear();
     _objectivesShown = false;
     stopMusic();
+    stopBridgeMovie();
+    _bridgeMovie.reset();
+    _bridgeType = 0;
+    _bridgeShown = _bridgeOnScreen = false;
     _tracks.clear();
     _lastTrack = -1;
     _jukeboxUpdates = 0;
@@ -2844,6 +2848,10 @@ void MissionView::draw(uint64_t millis) {
     _scene.see(sights);
     std::erase_if(_selection, [this](int i) { return i < 0 || !_scene.shown(size_t(i)); });
     const MapScene::Camera view = camera();
+    if (_cine.on() && _bridgeShown) {
+        drawBridge(millis, view);
+        return;
+    }
     _scene.draw(view, double(millis) / 1000, kRange, kClear, _gridShown);
     const gfx::Mat4 viewProj = MapScene::viewProjOf(view, kRange);
     const std::vector<MapScene::Unit> &units = _scene.units();
@@ -3063,6 +3071,46 @@ void MissionView::draw(uint64_t millis) {
     if (_objectivesShown)
         _hud.drawObjectives(_overlay, _objectives);
     _hud.drawCursor(_overlay, _mouseX, _mouseY, double(millis) / 1000, cursor);
+    _renderer->endFrame(&_overlay);
+}
+
+void MissionView::drawBridge(uint64_t millis, const MapScene::Camera &view) {
+    // The world isn't drawn whole while the bridge is up (0x5ac97a): only
+    // into its view screen, unless that shows the movie.
+    _renderer->beginFrame(gfx::identity(), {0, 0, 0}, kClear);
+    const std::array<int, 4> screen = bridgeScreen();
+    if (!_bridgeOnScreen)
+        _scene.drawInset(view, double(millis) / 1000, kRange, screen[0], screen[1], screen[2], screen[3]);
+    // The movie, by its clock, counted through its plays; its frame under
+    // the picture, showing through the screen.
+    if (_bridgeMovie && _bridgeMoviePlaying) {
+        _bridgeMovie->update(millis);
+        if (_bridgeMoviePasses > 0 && _bridgeMovie->shown() >= _bridgeMovie->frames() * _bridgeMoviePasses)
+            stopBridgeMovie();
+    }
+    if (_overlay.w != 640)
+        _overlay.create(640, 480, PixelFormat::kRGBA32);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
+    if (_bridgeMovie && (_bridgeMoviePlaying || _bridgeOnScreen) && !_bridgeMovie->rgba().empty()) {
+        const int w = _bridgeMovie->width();
+        const int h = _bridgeMovie->height();
+        for (int y = 0; y < screen[3]; ++y)
+            for (int x = 0; x < screen[2]; ++x) {
+                const int sx = x * w / screen[2];
+                const int sy = y * h / screen[3];
+                const int px = screen[0] + x;
+                const int py = screen[1] + y;
+                if (px < 0 || py < 0 || px >= 640 || py >= 480)
+                    continue;
+                const uint8_t *from = &_bridgeMovie->rgba()[(size_t(sy) * size_t(w) + size_t(sx)) * 4];
+                uint8_t *to = _overlay.row(py) + size_t(px) * 4;
+                std::copy(from, from + 3, to);
+                to[3] = 255;
+            }
+    }
+    _hud.drawBridge(_overlay, bridgePrefix(), double(millis) / 1000 - _bridgeLightsFrom);
+    // The titles and fade over the bridge (priorities 9 and 1).
+    drawCutScene(false);
     _renderer->endFrame(&_overlay);
 }
 

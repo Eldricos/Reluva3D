@@ -137,6 +137,23 @@ for what they take from Armada.exe.
   player's race's `track0`, `track1`... at random, never the same twice
   running, at the music volume; a cut scene stops it, and its end starts
   another.
+- **The bridge** (0x648180, drawn in a cut scene under its titles and
+  fade, 0x48f9b0) *(from the code)*: `SetBridgeSceneRace` picks its race,
+  1 to 4 the Federation's, Klingons', Romulans' and Borg's (`f_`, `k_`,
+  `r_`, `b_` in `gui_glob.cfg`), another a default (`d_`); each a
+  picture over the whole screen, in six tiles, its view screen clear:
+  400 × 200 at (220, 10) for the Federation's. Over it seven console
+  lights, flipbooks of `TEX_ANIM_gui.SPR` (its frames over its seconds,
+  stepped), begun again by `ShowBridgeScene`. While the bridge is up the
+  world isn't drawn whole: only into the view screen, unless
+  `ShowBridgeOnScreen` gives the screen to the movie.
+- **The bridge's movie** (`PlayBridgeMovie`, 0x47a5f0) *(from the
+  code)*: a Bink of `animations/`, in the view screen, its own sound at
+  the voice volume, at its own rate, played its count of times (0 or
+  under, until `StopMovie`); one already open, nothing. Stopped, its last
+  frame stays while the bridge and its screen are up. Federation 1 shows
+  Deming's call (`F1DEM1.bik`, 9.3 seconds) after the Premonition's cut
+  scene, and `F1DEM2.bik` (50 seconds) before the end.
 - **Saving:** the script registers a function to write and one to read
   its variables in the program's `save_scripts` and `load_scripts`
   lists; running scripts aren't saved, and loading clears them
@@ -222,8 +239,11 @@ for what they take from Armada.exe.
     Return to Game, without a skirmish's Surrender. Save Game and Load
     Game do nothing yet.
 
-  Not done yet: saving and loading a mission, the
-  bridge, the
+  - **the bridge** as above, its world view through `MapScene`'s inset.
+
+  Not done yet: saving and loading a mission, a bridge movie still
+  playing after its cut scene is skipped (the original draws it over play
+  until it ends), the
   minimap's messages, the shots along a heading, and the AI files other
   missions load.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run

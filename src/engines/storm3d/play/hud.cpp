@@ -105,6 +105,9 @@ Error Hud::load(const GameFiles &files, const std::string &race) {
           std::string("cursor.spr"), std::string("gui_map.spr"), std::string("weapon.spr")})
         if (Error err = _tables.emplace_back().load(name, loader))
             return err;
+    // The interface's flipbooks (the bridge's lights), if it's there.
+    if (_tables.emplace_back().load("TEX_ANIM_gui.SPR", loader))
+        _tables.pop_back();
     if (_font.load(files))
         _font = SpriteFont{};
     if (_titleFont.load(files, "title.spr", "font256"))
@@ -227,6 +230,53 @@ void Hud::drawOverlayText(Surface &screen, const std::array<int, 4> &area, const
     for (const std::string &line : lines) {
         font.draw(screen, x, y, line, tint);
         y += SpriteFont::kHeight * font.scale();
+    }
+}
+
+void Hud::drawBridge(Surface &screen, const std::string &prefix, double seconds) {
+    // The picture, in its tiles over the screen.
+    const std::string background = _layout.text(prefix + "bridgeBackground");
+    const std::array<int, 4> at = _layout.area(prefix + "bridgeBackgroundRect");
+    const int pieces = int(_layout.number(prefix + "bridgeBackgroundSize"));
+    for (int i = 0; i < pieces; ++i) {
+        const std::array<int, 4> piece = _layout.area(prefix + "bridgeBackground_" + std::to_string(i));
+        drawSprite(screen, background + "." + std::to_string(i), at[0] + piece[0], at[1] + piece[1], piece[2],
+                   piece[3]);
+    }
+    // Its lights: each sprite's flipbook, its frames over its seconds,
+    // stepped, down a column or in a square of the sprite's size.
+    for (int n = 0; n < 7; ++n) {
+        const std::string key = prefix + "bridgeLayer" + std::to_string(n);
+        std::string name = _layout.text(key + "Sprite");
+        if (name.empty())
+            name = "bridge_layer_" + std::to_string(n);
+        const std::array<int, 4> r = _layout.area(key + "Rect");
+        const SpriteTable::Sprite *s = sprite(name);
+        const image::Image *tex = s ? texture(s->texture) : nullptr;
+        if (!tex)
+            continue;
+        double du = 0;
+        double dv = 0;
+        for (const std::string &animName : s->animations)
+            for (const SpriteTable &table : _tables) {
+                auto a = table.animations().find(animName);
+                if (a == table.animations().end() || a->second.count <= 0 || a->second.duration <= 0)
+                    continue;
+                const int frames = a->second.count;
+                const int frame = int(seconds / a->second.duration * frames) % frames;
+                if (a->second.autoLayout == "square") {
+                    du = (frame % 2) * s->w;
+                    dv = (frame / 2) * s->h;
+                } else if (a->second.autoLayout == "column") {
+                    dv = frame * s->h;
+                } else if (a->second.autoLayout == "row") {
+                    du = frame * s->w;
+                }
+            }
+        const double sx = s->referenceWidth > 0 ? double(tex->w) / s->referenceWidth : 1;
+        const double sy = s->referenceHeight > 0 ? double(tex->h) / s->referenceHeight : 1;
+        drawTexels(screen, *tex, (s->u + du) * sx, (s->v + dv) * sy, s->w * sx, s->h * sy, r[0], r[1], r[2], r[3],
+                   {255, 255, 255}, false);
     }
 }
 

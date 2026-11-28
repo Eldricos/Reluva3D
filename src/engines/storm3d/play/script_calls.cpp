@@ -438,6 +438,47 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         }
         return 0u;
     }
+    if (name == "PreLoadBridgeScene")
+        return 0u; // its pictures read ahead, which these needn't be
+    if (name == "SetBridgeSceneRace") {
+        _bridgeType = args.integer(0);
+        return 0u;
+    }
+    if (name == "ShowBridgeScene") {
+        // Its lights from the start again (0x48faf0).
+        _bridgeShown = args.flag(0);
+        _bridgeLightsFrom = double(_last) / 1000;
+        return 0u;
+    }
+    if (name == "ShowBridgeOnScreen") {
+        _bridgeOnScreen = args.flag(0);
+        return 0u;
+    }
+    if (name == "PlayBridgeMovie") {
+        // From animations/, into the view screen, played its number of
+        // times (0 or under, until stopped), with its sound at the voice
+        // volume; one already open, nothing (0x47a5f0).
+        if (_bridgeMoviePlaying)
+            return 0u;
+        auto movie = std::make_unique<PanelMovie>();
+        if (movie->open(_files, "animations/" + args.text(0)))
+            return 0u;
+        const std::shared_ptr<audio::Sound> sound = movie->sound();
+        movie->restart(_last);
+        _bridgeMovie = std::move(movie);
+        _bridgeMoviePlaying = true;
+        _bridgeMoviePasses = args.integer(1);
+        if (_mixer && sound)
+            _bridgeMovieSound =
+                _mixer->play(sound, audio::SoundType::kSpeech, audio::kMaxVolume, 0, _bridgeMoviePasses <= 0);
+        return 0u;
+    }
+    if (name == "StopMovie") {
+        stopBridgeMovie();
+        return 0u;
+    }
+    if (name == "IsMoviePlaying")
+        return _bridgeMoviePlaying ? 1u : 0u;
     if (name == "GridVisible") {
         _gridShown = args.flag(0);
         return 0u;
@@ -559,13 +600,44 @@ void MissionView::runMusic() {
         playMusic();
 }
 
-void MissionView::drawCutScene() {
+std::array<int, 4> MissionView::bridgeScreen() const {
+    // Each race's view screen, 400 x 200, where its picture is clear
+    // (0x48f5b0); another type, the default's.
+    switch (_bridgeType) {
+    case 1:
+        return {220, 10, 400, 200};
+    case 2:
+        return {154, 128, 400, 200};
+    case 3:
+        return {84, 148, 400, 200};
+    case 4:
+        return {184, 126, 400, 200};
+    default:
+        return {62, 110, 400, 200};
+    }
+}
+
+std::string MissionView::bridgePrefix() const {
+    static const char *const kPrefixes[] = {"d_", "f_", "k_", "r_", "b_"};
+    return kPrefixes[_bridgeType >= 1 && _bridgeType <= 4 ? _bridgeType : 0];
+}
+
+void MissionView::stopBridgeMovie() {
+    // Closed; its last frame stays while the bridge shows it (0x47a980).
+    _bridgeMoviePlaying = false;
+    if (_mixer && _bridgeMovieSound != audio::kNoSound)
+        _mixer->stop(_bridgeMovieSound);
+    _bridgeMovieSound = audio::kNoSound;
+}
+
+void MissionView::drawCutScene(bool clear) {
     // Only the titles and the fade over the picture (input mode 2); the
     // fade over the titles, as the original's lift with the picture
     // (0x4942e7, 0x495720).
     if (_overlay.w != 640)
         _overlay.create(640, 480, PixelFormat::kRGBA32);
-    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
+    if (clear)
+        std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), uint8_t(0));
     for (const auto &[id, t] : _overlayTexts)
         _hud.drawOverlayText(_overlay, t.area, t.text, t.colour, t.fade, t.title);
     if (auto fade = _cine.fadeOver()) {

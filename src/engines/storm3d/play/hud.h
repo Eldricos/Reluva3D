@@ -173,6 +173,12 @@ public:
      * the text from its top left in its colour, line by line, and its OK.
      */
     void drawObjectives(Surface &screen, const std::string &text);
+    /**
+     * The bridge (0x48f9b0), its race's by `prefix` ("f_", "k_", "r_", "b_",
+     * "d_"): the picture over the screen, its view screen clear, and its
+     * seven console lights, each its flipbook `seconds` since they began.
+     */
+    void drawBridge(Surface &screen, const std::string &prefix, double seconds);
     /** Whether a point is on the objectives box's OK, and on the box at all. */
     ///@{
     bool objectivesOkAt(int x, int y) const;

@@ -3,11 +3,13 @@
 
 #pragma once
 
+#include "audio/sound.h"
 #include "common/types.h"
 #include "engines/storm3d/game_files.h"
 #include "video/bink.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -37,6 +39,13 @@ public:
      * @return false if a frame fails to decode
      */
     bool update(uint64_t millis);
+    /** How many frames it has shown since it started, over every loop, and how many it has. */
+    ///@{
+    int64_t shown() const { return _shown + 1; }
+    int64_t frames() const { return int64_t(_movie.frameCount()); }
+    ///@}
+    /** Its first audio track whole, before any frame is shown; none without one. */
+    std::shared_ptr<audio::Sound> sound();
     /** The frame it's at, as RGBA, width x height. */
     const std::vector<uint8_t> &rgba() const { return _rgba; }
 

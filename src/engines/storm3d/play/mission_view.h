@@ -18,6 +18,7 @@
 #include "engines/storm3d/play/strategy.h"
 #include "engines/storm3d/scene/map_scene.h"
 #include "engines/storm3d/shell/options_screen.h"
+#include "engines/storm3d/shell/panel_movie.h"
 #include "graphics/gfx3d.h"
 #include "image/image.h"
 
@@ -551,7 +552,7 @@ private:
     int _nextVoice = 0;
     std::map<std::string, std::string> _filesByName; // the install's files by their own names, as the game's index
     audio::Mixer *_mixer = nullptr;
-    void drawCutScene();
+    void drawCutScene(bool clear = true);            // its titles and fade, over what's drawn unless `clear`
     std::string pathByName(const std::string &name); // a file by its own name, wherever it is
     // The music in play (JukeBox, 0x6bb1d0): the player's race's tracks at
     // random, never the same twice running.
@@ -564,6 +565,21 @@ private:
     void playMusic();
     void stopMusic();
     void runMusic();
+    // The bridge (0x648180): shown in a cut scene, its race, whether its
+    // view screen shows the movie rather than the world, and when its
+    // lights began; its movie, the times left to play it, its sound.
+    int _bridgeType = 0;
+    bool _bridgeShown = false;
+    bool _bridgeOnScreen = false;
+    double _bridgeLightsFrom = 0;
+    std::unique_ptr<PanelMovie> _bridgeMovie;
+    bool _bridgeMoviePlaying = false; // else its last frame held, if any
+    int _bridgeMoviePasses = 1;       // 0 or under: over and over
+    audio::SoundHandle _bridgeMovieSound = audio::kNoSound;
+    std::array<int, 4> bridgeScreen() const; // the view screen: x, y, width, height
+    std::string bridgePrefix() const;
+    void stopBridgeMovie();
+    void drawBridge(uint64_t millis, const MapScene::Camera &view);
     Cineractive _cine; // the scripts' cut scene
     bool _gridShown = true;
     std::map<size_t, float>

@@ -19,6 +19,18 @@ Error PanelMovie::open(const GameFiles &files, const std::string &name) {
     return Error::success();
 }
 
+std::shared_ptr<audio::Sound> PanelMovie::sound() {
+    if (!_open || _movie.audioRate() <= 0)
+        return nullptr;
+    auto sound = std::make_shared<audio::Sound>();
+    sound->rate = _movie.audioRate();
+    sound->channels = _movie.audioChannels();
+    const bool failed = bool(_movie.decodeAllAudio(sound->samples));
+    _movie.rewind();
+    _shown = -1;
+    return failed || sound->samples.empty() ? nullptr : sound;
+}
+
 void PanelMovie::restart(uint64_t millis) {
     _start = millis;
     _shown = -1;
