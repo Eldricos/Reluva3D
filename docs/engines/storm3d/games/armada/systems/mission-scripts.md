@@ -155,6 +155,8 @@ for what they take from Armada.exe.
   - **the end:** `SucceedMission` and `FailMission` end the mission when
     the game time reaches the time they give.
 
+  - **the grid,** shown or not by `GridVisible`, as the player's grid
+    key does;
   - **the cut scenes** as above (`Cineractive`, `play/cineractive.h`),
     run after the rules each frame, their flags for the next; Space
     skips one, and Esc still opens the menu.

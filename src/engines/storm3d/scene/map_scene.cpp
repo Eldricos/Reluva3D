@@ -72,7 +72,9 @@ MapScene::Look MapScene::lookOf(const std::string &odf, const SearchSet &files) 
     const Odf::Loader loader = loaderFor(files);
     if (definition.load(odf + ".odf", loader))
         return look; // no definition: the model by the same name, if there is one
-    if (definition.number("dont_load_SOD") != 0)
+    // Nor one the program reads as hidden (0x466f3d): the directional
+    // lights, whose model is the editor's arrow *(inferred)*.
+    if (definition.number("dont_load_SOD") != 0 || definition.number("hidden") != 0)
         look.model.clear();
     look.scale = float(definition.number("scaleSOD", 1));
     look.scanRange = float(definition.number("rangeScan"));

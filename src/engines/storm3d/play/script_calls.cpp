@@ -406,6 +406,10 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         _cine.fade(name == "FadeOut", args.real(0), args.real(1), args.real(2) != 0);
         return 0u;
     }
+    if (name == "GridVisible") {
+        _gridShown = args.flag(0);
+        return 0u;
+    }
     if (name == "FadeRemove") {
         _cine.removeFade();
         return 0u;

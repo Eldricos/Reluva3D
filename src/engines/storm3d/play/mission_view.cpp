@@ -2208,6 +2208,7 @@ void MissionView::stop() {
     _computersOff = false;
     _audioMessages = 0;
     _cine = Cineractive{};
+    _gridShown = true;
     _recrewing.clear();
     _poolCarry.clear();
     _revealedUntil.clear();
@@ -2800,7 +2801,7 @@ void MissionView::draw(uint64_t millis) {
     _scene.see(sights);
     std::erase_if(_selection, [this](int i) { return i < 0 || !_scene.shown(size_t(i)); });
     const MapScene::Camera view = camera();
-    _scene.draw(view, double(millis) / 1000, kRange, kClear, true);
+    _scene.draw(view, double(millis) / 1000, kRange, kClear, _gridShown);
     const gfx::Mat4 viewProj = MapScene::viewProjOf(view, kRange);
     const std::vector<MapScene::Unit> &units = _scene.units();
     _hover = _hud.covers(_mouseX, _mouseY) ? -1 : liveUnitAt(viewProj, _mouseX, _mouseY);
