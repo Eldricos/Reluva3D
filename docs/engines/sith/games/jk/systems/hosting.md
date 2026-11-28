@@ -488,8 +488,12 @@ Windows does when it fails, and dialog boxes are made but not drawn
     ship bind those actions: from 9, `-` twice and `=` once left 8
     *(confirmed)*.
 
-    Left open: the game's own software renderer, never offered a wide
-    mode (it draws in 8-bit modes, 1024 by 768 at most).
+    The game's own software renderer, offered an 8-bit mode of 854 by
+    480 as well and chosen with *Setup*'s 3D acceleration off (a trial,
+    not an option), drew Nar Shaddaa across the whole screen with the
+    gauges in its corners, framed as through Direct3D *(confirmed)*: the
+    focal length's widening serves it too. It isn't offered: widescreen
+    plays through Direct3D.
 25. **The console and `-devMode`** *(confirmed)*. The
     game has one command line for its console, its cheats and, in
     multiplayer, chat: T opens it in a level, and Enter (`0x408e50`)
@@ -528,7 +532,30 @@ Windows does when it fails, and dialog boxes are made but not drawn
     the multiplayer ones too, then any of its levels to start; and
     *Advanced* to *Setup*'s display screen (`0x414a60`, "For advanced
     users and debugging", its own settings marked as for LucasArts'
-    support), not opened here.
+    support).
+
+    *Advanced* (*Advanced Display Settings*, its warning to change them
+    only when told to by LucasArts' support) chooses the display device
+    (the primary, or a "DIBsection windowed display"), the 3D device
+    (*RenderDroid I*, the game's own; Direct3D's *RGB Emulation*; its
+    HAL), texturing (affine, perspective), geometry (vertex, wireframe,
+    solid, texture), lighting (full, none, diffuse, Gouraud), *Clear
+    Display* and *Disable Page Flip*. Each tried into Nar Shaddaa
+    (`host -args -devMode`, `-d3d` for the 3D devices'), the game went on
+    and drew the level *(confirmed)*: in its own renderer wireframe,
+    solid, affine with diffuse or no lighting, *Clear Display* and
+    *Disable Page Flip*; the windowed display at 320 by 200, its gauges
+    large; through Direct3D *RGB Emulation*, *RenderDroid I* and the two
+    switches. Two differ:
+    - Wireframe through Direct3D draws the gauges and no world: the game
+      gives the device no lines and no triangles then (counted in its
+      execute buffers), so nothing is lost on Reluva's side.
+    - *Vertex* geometry in the game's own renderer stops the game as the
+      level is drawn: it calls a drawing routine through a structure's
+      `+0x1e4` (`0x44c705`), which the program fills with one of eleven
+      routines or leaves 0 (as it clears it, `0x4d8b31`), and for vertex
+      geometry it's 0 *(inferred)*: a fault of the program's, which
+      Windows would stop as well.
 
     `JKM.EXE` has the same *(confirmed)*: `-devMode` (`0x401545`) sets
     `0x941d40` and `0x941d44`, which turn on "(Debug)" on *Single Player*

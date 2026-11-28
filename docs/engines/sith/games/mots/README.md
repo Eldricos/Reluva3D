@@ -182,19 +182,20 @@ their handlers as the console starts (`0x422500` to `0x422a2f`):
 | Word | Handler | What it does |
 |---|---|---|
 | `statuesque` | `0x423450` | The game's name for it is *Disable AI* |
-| `freebird` | `0x423480` | *Unknown* |
+| `freebird` | `0x423480` | The game's *Fly mode on* *(confirmed)* |
 | `boinga` | `0x4234b0` | Invulnerable, the game's *Invul* *(confirmed)* |
-| `youarehere` | `0x4234e0` | *Unknown* |
-| `makeitwork` | `0x423530` | Stops the game, in widescreen and at 4:3 alike: a read of address 0 (`0x56c365`) in the program's own formatting of a string (`0x5610e0`, called at `0x421de9`) *(confirmed)*; whether it does on Windows isn't known |
+| `youarehere <x> <y> <z>` | `0x4234e0` | Moves the player to that place (`%f %f %f`, `0x53d530`): `youarehere 0 0 0` put Mara outside the level, where she died and the level began again *(confirmed)* |
+| `makeitwork <n>` | `0x423530` | Sends thing *n*'s script a message (`0x53d680`, `0x52ae60`); with a number it ran and the game went on *(confirmed)*. Typed alone it stops the game: the text after the word is then null, and the program reads its number with its own `sscanf` (`0x56c350`, the read of address 0 at `0x56c365`) without the check `takemeto` makes (`0x42340d`) *(from the code)*: a fault of the program's, as on Windows |
 | `gospeedgo` | `0x423560` | The game's *Slowmo* |
-| `quickzap` | `0x423590` | Nothing shown in the first level; *unknown* |
+| `quickzap <n>` | `0x423590` | Puts the player where player *n*'s slot keeps its place (`0x54de80`: the position, orientation and sector at `+0x135c` and `+0x138c` of the 5,044-byte slots at `0x9a9fa0`, those in use): `quickzap 1`, after walking, put Mara back at the level's start; 10 and 40 did nothing in single player *(confirmed)* |
 | `gameover` | `0x4235c0` | Ends the level (`0x403160`) *(confirmed)* |
 | `diediedie` | `0x4235e0` | Every weapon, the game's *All Weapons* *(confirmed)* |
 | `gimmestuff` | `0x423870` | The game's *All items* *(confirmed)* |
 | `iamagod` | `0x423ba0` | The game's *Uber Jedi* *(confirmed)* |
 | `trainme` | `0x423f00` | The game's *Level Up* *(confirmed)* |
 | `trixie` | `0x424180` | The game's *Mana* *(confirmed)* |
-| `morelife`, `cartograph` | `0x4240f0`, `0x424140` | Registered with their words (`0x423170`); *unknown* |
+| `morelife` | `0x4240f0` | The game's *Heal* *(confirmed)* |
+| `cartograph` | `0x424140` | The game's *All Map* *(confirmed)* |
 | `takemeto <n>` | `0x423400` | Goes to level *n* of the episode (`0x4035d0`): `takemeto 12` went to the Upper Sith *(confirmed)* |
 
 ## Using it
