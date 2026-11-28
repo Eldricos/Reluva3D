@@ -207,7 +207,14 @@ for what they take from Armada.exe.
     third frame unless a cut scene is; the shell's music stops as the
     mission starts.
 
-  Not done yet: the game menu's restate button, the
+  - **the game menu** a campaign's, as the original builds it
+    (0x5374fc-0x537880): Restate Objectives at y 72, which closes it and
+    shows the objectives box again, Save Game at 112 (not during a cut
+    scene) and Load Game at 152, then the settings, Abort Mission and
+    Return to Game, without a skirmish's Surrender. Save Game and Load
+    Game do nothing yet.
+
+  Not done yet: saving and loading a mission, the
   bridge, the
   minimap's messages, the shots along a heading, and the AI files other
   missions load.

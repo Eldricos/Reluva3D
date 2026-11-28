@@ -28,6 +28,7 @@ using reluva::storm3d::ConnectionChoice;
 using reluva::storm3d::MenuChoice;
 using reluva::storm3d::MultiplayerScreen;
 using reluva::storm3d::OptionsChoice;
+using reluva::storm3d::OptionsMenu;
 using reluva::storm3d::OptionsScreen;
 using reluva::storm3d::SettingsPage;
 using reluva::storm3d::SettingsScreen;
@@ -104,22 +105,30 @@ void testDebriefing() {
 }
 
 void testOptions() {
-    CHECK(OptionsScreen::buttons(false).size() == 3);
-    CHECK(OptionsScreen::choiceAt(320, 208, false) == OptionsChoice::kGraphics);
-    CHECK(OptionsScreen::choiceAt(158, 232, false) == OptionsChoice::kSound);
-    CHECK(OptionsScreen::choiceAt(481, 303, false) == OptionsChoice::kGame);
-    CHECK(OptionsScreen::choiceAt(320, 228, false) == OptionsChoice::kNone);
-    CHECK(OptionsScreen::choiceAt(60, 460, false) == OptionsChoice::kPreviousMenu);
-    CHECK(OptionsScreen::choiceAt(117, 460, false) == OptionsChoice::kNone);
-    CHECK(OptionsScreen::choiceAt(560, 460, false) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::buttons(OptionsMenu::kFrontEnd).size() == 3);
+    CHECK(OptionsScreen::choiceAt(320, 208, OptionsMenu::kFrontEnd) == OptionsChoice::kGraphics);
+    CHECK(OptionsScreen::choiceAt(158, 232, OptionsMenu::kFrontEnd) == OptionsChoice::kSound);
+    CHECK(OptionsScreen::choiceAt(481, 303, OptionsMenu::kFrontEnd) == OptionsChoice::kGame);
+    CHECK(OptionsScreen::choiceAt(320, 228, OptionsMenu::kFrontEnd) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::choiceAt(60, 460, OptionsMenu::kFrontEnd) == OptionsChoice::kPreviousMenu);
+    CHECK(OptionsScreen::choiceAt(117, 460, OptionsMenu::kFrontEnd) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::choiceAt(560, 460, OptionsMenu::kFrontEnd) == OptionsChoice::kNone);
     // In a game: Surrender above, Abort Mission and Return to Game below,
     // and no Previous Menu.
-    CHECK(OptionsScreen::buttons(true).size() == 6);
-    CHECK(OptionsScreen::choiceAt(320, 168, true) == OptionsChoice::kSurrender);
-    CHECK(OptionsScreen::choiceAt(320, 208, true) == OptionsChoice::kGraphics);
-    CHECK(OptionsScreen::choiceAt(320, 328, true) == OptionsChoice::kAbort);
-    CHECK(OptionsScreen::choiceAt(320, 368, true) == OptionsChoice::kReturn);
-    CHECK(OptionsScreen::choiceAt(60, 460, true) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::buttons(OptionsMenu::kSkirmish).size() == 6);
+    CHECK(OptionsScreen::choiceAt(320, 168, OptionsMenu::kSkirmish) == OptionsChoice::kSurrender);
+    CHECK(OptionsScreen::choiceAt(320, 208, OptionsMenu::kSkirmish) == OptionsChoice::kGraphics);
+    CHECK(OptionsScreen::choiceAt(320, 328, OptionsMenu::kSkirmish) == OptionsChoice::kAbort);
+    CHECK(OptionsScreen::choiceAt(320, 368, OptionsMenu::kSkirmish) == OptionsChoice::kReturn);
+    CHECK(OptionsScreen::choiceAt(60, 460, OptionsMenu::kSkirmish) == OptionsChoice::kNone);
+    // A campaign's: Restate Objectives, Save Game and Load Game above, no
+    // Surrender; Save Game not in a cut scene.
+    CHECK(OptionsScreen::buttons(OptionsMenu::kCampaign).size() == 8);
+    CHECK(OptionsScreen::choiceAt(320, 88, OptionsMenu::kCampaign) == OptionsChoice::kRestate);
+    CHECK(OptionsScreen::choiceAt(320, 128, OptionsMenu::kCampaign) == OptionsChoice::kSaveGame);
+    CHECK(OptionsScreen::choiceAt(320, 168, OptionsMenu::kCampaign) == OptionsChoice::kLoadGame);
+    CHECK(OptionsScreen::choiceAt(320, 128, OptionsMenu::kCampaignCutScene) == OptionsChoice::kNone);
+    CHECK(OptionsScreen::choiceAt(320, 368, OptionsMenu::kCampaign) == OptionsChoice::kReturn);
 }
 
 // The settings pages' controls where the game's frames have them, and

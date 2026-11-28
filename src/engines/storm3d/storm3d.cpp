@@ -228,6 +228,10 @@ public:
                             play("sounds/effects/cornrclk.wav", audio::SoundType::kEffects, false);
                         if (choice == OptionsChoice::kReturn) {
                             gameMenuOn = false;
+                        } else if (choice == OptionsChoice::kRestate) {
+                            // The objectives again, the menu closed (0x537b51).
+                            gameMenuOn = false;
+                            mission.restateObjectives();
                         } else if (choice == OptionsChoice::kSurrender) {
                             // Straight to the debriefing, as the original went.
                             mission.surrender();
@@ -256,8 +260,8 @@ public:
                     }
                 } else if (missionOn && ev.type == EventType::kKeyDown && ev.key == key::kEscape &&
                            !mission.players().empty()) {
-                    // A skirmish's menu, as its MENU button opens it.
-                    if (Error err = gameMenu.load(_files, true)) {
+                    // The game's menu, as its MENU button opens it.
+                    if (Error err = gameMenu.load(_files, mission.menu())) {
                         stopAll();
                         return err;
                     }
@@ -519,7 +523,7 @@ public:
                 } else {
                     mission.draw(now);
                     if (mission.takeMenuRequest()) {
-                        if (Error err = gameMenu.load(_files, true)) {
+                        if (Error err = gameMenu.load(_files, mission.menu())) {
                             stopAll();
                             return err;
                         }

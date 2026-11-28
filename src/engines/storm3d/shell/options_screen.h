@@ -15,7 +15,24 @@
 namespace reluva::storm3d {
 
 /** What the player chose on the Options screen. */
-enum class OptionsChoice { kNone, kPreviousMenu, kGraphics, kSound, kGame, kSurrender, kAbort, kReturn };
+enum class OptionsChoice {
+    kNone,
+    kPreviousMenu,
+    kGraphics,
+    kSound,
+    kGame,
+    kSurrender,
+    kAbort,
+    kReturn,
+    kRestate,
+    kSaveGame,
+    kLoadGame
+};
+/**
+ * Which of the screen's menus: the front end's; a skirmish's; a
+ * campaign mission's, with Save Game but during a cut scene (0x5375fb).
+ */
+enum class OptionsMenu : uint8_t { kFrontEnd, kSkirmish, kCampaign, kCampaignCutScene };
 
 /**
  * The front end's Options screen, as the game draws it at 640 x 480: the
@@ -36,10 +53,10 @@ public:
         const char *key;
         int y;
     };
-    /** The buttons, top to bottom: the front end's, or a game's. */
-    static const std::vector<Button> &buttons(bool inGame);
+    /** The buttons, top to bottom, of a menu. */
+    static const std::vector<Button> &buttons(OptionsMenu menu);
     /** The choice under a point, the buttons' sizes as the install's: kNone if none. */
-    static OptionsChoice choiceAt(int x, int y, bool inGame);
+    static OptionsChoice choiceAt(int x, int y, OptionsMenu menu);
     /** Whether Abort Mission's box is up, asking. */
     bool asking() const { return _asking; }
 
@@ -47,7 +64,7 @@ public:
      * Reads its pictures and text.
      * @return a failure if one isn't there
      */
-    Error load(const GameFiles &files, bool inGame = false);
+    Error load(const GameFiles &files, OptionsMenu menu = OptionsMenu::kFrontEnd);
 
     /** @return whether the pointer came onto a button (the game plays a sound) */
     bool pointerAt(int x, int y);
@@ -59,6 +76,7 @@ public:
 
 private:
     image::Image _background;
+    OptionsMenu _menu = OptionsMenu::kFrontEnd;
     bool _inGame = false;
     std::vector<ShellButton> _settings; // as buttons()
     NavigationBar _bar;

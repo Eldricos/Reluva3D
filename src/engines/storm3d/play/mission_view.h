@@ -17,6 +17,7 @@
 #include "engines/storm3d/play/movement.h"
 #include "engines/storm3d/play/strategy.h"
 #include "engines/storm3d/scene/map_scene.h"
+#include "engines/storm3d/shell/options_screen.h"
 #include "graphics/gfx3d.h"
 #include "image/image.h"
 
@@ -56,6 +57,14 @@ public:
     static Overview startOf(const BznMap &map, int slot);
 
     explicit MissionView(const GameFiles &files) : _files(files), _scene(files) {}
+    /** The game menu this mission has: a campaign's, in a cut scene or not, or a skirmish's. */
+    OptionsMenu menu() const {
+        return !_missionScripts ? OptionsMenu::kSkirmish
+               : _cine.on()     ? OptionsMenu::kCampaignCutScene
+                                : OptionsMenu::kCampaign;
+    }
+    /** The menu's Restate Objectives: the objectives box shown again. */
+    void restateObjectives() { _objectivesShown = true; }
     /** Where the scripts' voice messages play; none, they're timed but not heard. */
     void setMixer(audio::Mixer *mixer) { _mixer = mixer; }
     ~MissionView() { stop(); }
