@@ -318,8 +318,8 @@ definition's Rounds if it has any; the weapon they shoot with chosen
 *(inferred)*. A click on an item on the bar, or its key (matched by the
 keys' names, *inferred*), chooses it; a weapon chosen is the one they
 shoot with. With a grenade chosen, a click on the map sends the officer
-to throw it there: they walk until the place is in its Item Range, as
-above (walking there, rather than refusing, *inferred*), then throw it from its
+to throw it there if the place is in its Item Range, as above; out of
+it, nothing's done and they don't walk there (`0x5c6cd2`). They throw it from its
 Height, as the program throws (`0x5f8fc0`): toward the place at 45° up,
 at √(Gravity × 20.749 × distance) times its Discharge Action's `Velocity
 Factor`, no faster than its model's Max Velocity *(inferred)*. Gravity is
@@ -450,8 +450,8 @@ Neural Disrupter and the paralysis are set to Kill, so they kill; the
 neck pinch, a `CStarTrekHandWeaponInventoryItem`, has `Weapon Kills=0`
 where the others have a Weapon Setting, so it stuns.
 
-The Psychic Rack is as above. Out of range, Slovaak walks into it first
-*(inferred)*. The enemy taken over is chosen in his place, chosen again
+The Psychic Rack is as above. Out of range, nothing's done, as for any
+item's own process (`0x5c6cd2`). The enemy taken over is chosen in his place, chosen again
 with a click on it, and sent with a click: after an enemy clicked,
 shooting it in its weapon's range and sight, else to the place; let go,
 it's on patrol *(inferred)*. Its panel shows the meter's frame for the

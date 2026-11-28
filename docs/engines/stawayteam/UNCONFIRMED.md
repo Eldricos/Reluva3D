@@ -19,7 +19,7 @@ None now.
 
 ## Inferred
 
-- **The Psychic Rack:** walking into range, the enemy chosen in
+- **The Psychic Rack:** the enemy chosen in
   Slovaak's place, its orders, and its going back on patrol
   ([systems/items.md](systems/items.md#in-reluva)).
 - **Warps:** the team shown fading in as they beam in, though their
@@ -46,14 +46,14 @@ None now.
   triggers' and the enemies' rules, read from the maps' fields; choosing
   by box and Shift; fighting:
   sight's line starting where the enemy stands, a shot meeting those on its
-  line at once, the stun effect not drawn, and a click on an enemy to
-  attack it; noise: what an enemy does after
+  line at once, the stun effect not drawn, and officers waiting where
+  they stand while the enemy they're to shoot is out of range or sight; noise: what an enemy does after
   looking about; the enemies going to retreat and acting on their
   messages ([systems/maps.md](systems/maps.md#open-questions)).
 - **Objectives:** the debriefing's lines typed only once their panel's
   in ([systems/objectives.md](systems/objectives.md#open-questions)).
-- **Items:** the counts for -1, the keys matched to items by name,
-  walking into range before using one, and the items' panels' layout
+- **Items:** the counts for -1, the keys matched to items by name, and
+  the items' panels' layout
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** which enemy's sight is shown, and its
   rays cut where sight's blocked
@@ -80,9 +80,6 @@ None now.
 - **The score and saves:** the save screens' rows, time and game info
   ([systems/objectives.md](systems/objectives.md#open-questions),
   [systems/menus.md](systems/menus.md#open-questions)).
-- **Parts' processes:** the one chosen for an officer, and their walking
-  into range first
-  ([systems/maps.md](systems/maps.md#open-questions)).
 - **The team selection:** the inventory's empty columns and lit items,
   the figures' time from the game's start, where a place answers a
   click, and the officer's name over the transporter's own text

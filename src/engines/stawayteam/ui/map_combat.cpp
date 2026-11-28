@@ -238,8 +238,15 @@ int MapScreen::enemyAt(float x, float y) const {
 void MapScreen::attack(int enemy) {
     if (enemy < 0 || size_t(enemy) >= _enemies.size())
         return;
+    // A click on it with a weapon chosen runs the weapon's own process on
+    // it, it having none of the weapon's Process Type nor a Use
+    // (0x43d23a): for each chosen officer it's in reach of, its Item Range
+    // on the ground, a quarter more enhanced (0x5c6d30); one out of reach
+    // isn't given it (0x5c6cd2), so doesn't walk up.
+    const Enemy &e = _enemies[size_t(enemy)];
     for (Officer &o : _officers)
-        if (o.chosen && o.alive() && o.weapon) {
+        if (o.chosen && o.alive() && o.weapon &&
+            inItemRange(*o.weapon, o.x, o.y, e.x, e.y, o.weapon->range * enhancement(int(&o - _officers.data())))) {
             o.attacking = enemy;
             o.path.clear();
         }
@@ -772,8 +779,9 @@ void MapScreen::updateCombat(float seconds) {
             o.path.clear();
             continue;
         }
-        // In its range and sight they stop and shoot, each Reuse Delay;
-        // else they go to it by the waypoints (inferred).
+        // In its range and sight they shoot, each Reuse Delay, till it's
+        // dead (the weapon's CShootWeaponAI, Fire Until Dead); out of
+        // either they wait where they are (inferred).
         // A strike (the neck pinch's, CStrikeTargetAction) reaches only its
         // Strike Damage Radius: they walk up to it (its CStrikeTargetAI).
         const float distance = std::hypot(e.x - o.x, e.y - o.y);
@@ -799,7 +807,7 @@ void MapScreen::updateCombat(float seconds) {
                     fireBolt(*o.weapon, o.x, o.y, e.x, e.y, self, self, stuns(o));
                 }
             }
-        } else if (o.path.empty()) {
+        } else if (o.path.empty() && o.weapon->dischargeAction == "CStrikeTargetAction") {
             o.path = route(o, e.x, e.y);
         }
     }

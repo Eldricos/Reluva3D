@@ -593,6 +593,25 @@ shows on the tricorder's panel. `CAddAIAction` gives a part an AI (59
 processes, 28 points of interest, 8 triggers), and `CRemoveAIAction`
 takes one away by its class's name.
 
+**Which process, and who.** A click on a part with an item chosen
+(`0x43d100`) takes its first process of the item's own `Process Type`
+(the part's AIs' lists, then its model's, `0x5474c0`), else its `Use`
+process; failing both, the item's own process aimed at the part, as a
+gun's at an enemy (`0x43d23a`). With nothing chosen, its `Use` process
+(`0x43d280`). The process goes (`0x5c7160`), with `Allow Multiple
+Members`, to each chosen officer it suits (`0x5c71f8`); without, to one
+of them: the first whose chosen item is its `Required Selected Item`,
+one with uses left before one without (`0x5b8730`); else the first
+carrying that item, so (`0x5b88a0`); else the first carrying its
+`Required Item In Inventory`, then its `Hint Item In Inventory`; else
+the first chosen in the team's order (`0x5b69c0`). An officer's given it
+(`0x5c6ac0`) only if they have what it needs chosen and carried, and
+the part's in reach of the item: its Item Range on the ground, with
+sight if it Needs LOS (`0x5c6d30`); one out of reach isn't given it
+(`0x5c6cd2`), so nobody walks up to come into an item's range. Its own
+activities may walk them there: a `CGoToAI`, or a strike's
+`CStrikeTargetAI`.
+
 The 5 without a model are polygons: Mission 16's four gas clouds, each
 with a tricorder `Scan` ("Gas in Area") and a `Medical Scan` ("Dead
 Borg"), and Mission 10's `Holocontrol activate poly`, whose list is
@@ -1391,10 +1410,14 @@ Inventory Type is Primary, as an enemy attacking takes (`0x42945a`,
 *(inferred)*, which for all 600 of the maps' enemies is the same. An enemy attacking shoots its
 target while it sees them in its weapon's range, aimed within its Max
 Shoot Angle, each Reuse Delay; one it sees further off it walks straight
-at *(inferred)*. A click on an enemy sends the officers chosen to shoot
-it: by the waypoints till it's in range and sight, then each Reuse Delay
-*(inferred)*; walking elsewhere, or the
-enemy fallen, they stop. A shot hits the first standing on its line
+at *(inferred)*. A click on an enemy with a weapon chosen runs the
+weapon's own process on it, the enemy having no process of the weapon's
+Process Type nor a Use one (`0x43d23a`): each chosen officer it's in
+reach of (Allow Multiple Members, as every gun) shoots it by the
+process's `CShootWeaponAI`, Fire Until Dead; one out of reach isn't
+given it. Reluva has them shoot each Reuse Delay while it's in range and
+sight, waiting where they stand otherwise *(inferred)*; walking
+elsewhere, or the enemy fallen, they stop. A shot hits the first standing on its line
 from the shooter, by a figure's width either side, the one aimed at if
 no one's before them (lying stunned, only if aimed at); an officer's
 passes the other officers. It's a bolt (`CPhaserShot`) going at 1500
@@ -1584,13 +1607,11 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 
 ## Open questions
 
-- **Processes:** how the program chooses one, walks to it, and when the
-  officer must be in range.
 - **Drawing order:** where the `Trans` and `Warped` polygons not on
   the ground are drawn.
 - **The triggers:** where a thrown thing comes in the grid's search.
-- **Fighting:** a strike's flashes; the stun effect's look; death, and
-  the mouse for attacking.
+- **Fighting:** a strike's flashes; the stun effect's look; what a
+  `CShootWeaponAI` does while its target's out of range or sight.
 - **Choosing:** the game's mouse for a box and Shift.
 - **The team:** its mouse (which button chooses and which sends), and
   the info bar's rising.

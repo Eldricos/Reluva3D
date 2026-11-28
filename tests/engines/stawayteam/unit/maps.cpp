@@ -842,7 +842,10 @@ void testHostage() {
     ModelLook laid;
     laid.sequence = "dead";
     data.files["Cache/Models/Characters/Body.mdl16"] = modelFile("Body", 1, 1, 100.0f, {}, 0.0f, false, 0.0f, laid);
+    // Its Process Type is what a part's process for it is found by
+    // (0x43d1be).
     const std::string hypospray = "CStarTrekInventoryItemDefinition\n{\nDisplay In Inventory=1\n"
+                                  "Process=CProcess\n{\nProcess Type=Hypospray Use\n}\n"
                                   "Discharge Action=CGiveHealthWeaponAction\n{\nHealth action=CGiveHealthAction\n{\n"
                                   "Health=30\n}\n}\n}\n";
     data.files["Inventory/Item Definitions/Hypospray.txt"] = std::vector<uint8_t>(hypospray.begin(), hypospray.end());
@@ -1016,11 +1019,17 @@ void testCombat() {
     // has failed, and run its Fail Action.
     CHECK(screen.objectives().size() == 1 && screen.objectives()[0].officer == 0);
     CHECK(screen.objectives()[0].status == ObjectiveStatus::kFailed && screen.partState(3).active);
-    // With her down it goes back to its patrol; Bo, sent to shoot it,
-    // walks towards it till he sees it, and two of his phaser's shots kill
-    // it, each making a noise of 200 where it hits.
+    // With her down it goes back to its patrol. Bo, sent to shoot it
+    // behind the wall, has it in reach (his phaser needs no sight) but
+    // doesn't walk: he waits. Walked out past the wall, two of his
+    // phaser's shots kill it, each making a noise of 200 where it hits.
     CHECK(screen.enemyAt(500.0f, 500.0f) == 0);
     screen.choose(1);
+    screen.attack(0);
+    run(now + 1000);
+    CHECK(screen.officers()[1].attacking == 0 && screen.officers()[1].x == 300.0f && guard.alive());
+    screen.order(300.0f, 640.0f);
+    run(now + 3000);
     screen.attack(0);
     bool hitNoise = false;
     while (now < 20000) {
@@ -1756,7 +1765,7 @@ void testMinePlace() {
 void testThrowRange() {
     // Ann at (300, 500), a wall 100 to her right. A grenade needs no clear
     // line: she throws over it from where she stands. One that Needs LOS
-    // has her walk round. Its range is on the ground, the map's
+    // isn't thrown, nor does she walk round. Its range is on the ground, the map's
     // foreshortening undone: 340 up the map is 477 away, in its 500; 380
     // up is 533, out of it.
     const std::string zax =
@@ -1805,19 +1814,12 @@ void testThrowRange() {
     screen.chooseItem(0, 1);
     CHECK(screen.useItem(600.0f, 500.0f));
     run(100);
-    CHECK(screen.thrown().empty() && (!a.path.empty() || a.x != 300.0f));
-    screen.cancelOrders();
-    // Back where she started, the first grenade up the map.
-    screen.order(300.0f, 500.0f);
-    run(3000);
-    CHECK(std::hypot(a.x - 300.0f, a.y - 500.0f) < 1.0f);
+    CHECK(screen.thrown().empty() && a.path.empty() && a.x == 300.0f);
+    // The first grenade up the map, out of its reach: nor that (0x5c6cd2).
     screen.chooseItem(0, 0);
     CHECK(screen.useItem(300.0f, 120.0f));
     run(100);
-    CHECK(screen.thrown().empty() && a.y < 500.0f);
-    screen.cancelOrders();
-    screen.order(300.0f, 500.0f);
-    run(3000);
+    CHECK(screen.thrown().empty() && a.path.empty() && a.y == 500.0f);
     CHECK(screen.useItem(300.0f, 160.0f));
     run(100);
     CHECK(screen.thrown().size() == 1 && std::hypot(a.x - 300.0f, a.y - 500.0f) < 1.0f);
@@ -3599,6 +3601,67 @@ void testStunning() {
     }
 }
 
+void testProcessMembers() {
+    // A console with a Use process that waits there; Ann and Bo both
+    // chosen. Not Allowing Multiple Members, it's given to the first
+    // chosen in the team's order (0x5b69c0); allowing them, to both
+    // (0x5c71f8).
+    const auto bytesOf = [](const std::string &s) { return std::vector<uint8_t>(s.begin(), s.end()); };
+    const auto spawn = [](int n, int x) {
+        return "Level Part=CEntityBase\n{\nName=Away Team Spawn Point " + std::to_string(n) +
+               "\nPosition X=" + std::to_string(x) + "\nPosition Y=500\n}\n";
+    };
+    for (const int multiple : {0, 1}) {
+        const std::string zax =
+            "CLayerSaveData\n{\nWidth=2000\nHeight=2000\nView Position=500.000000,500.000000\n"
+            "Tree List=CSortList2D\n{\n"
+            "Level Part=CEntityBase\n{\nName=Console\nVisible=1\nActive=1\nActivity=Array\n{\nItem Count=1\n"
+            "Activity=CProcessListAI\n{\nProcess=Array\n{\nItem Count=1\nProcess=CProcess\n{\nProcess Type=Use\n"
+            "Allow Multiple Members=" +
+            std::to_string(multiple) +
+            "\nProcess Activity=Array\n{\nItem Count=1\nProcess Activity=CGoToAI\n{\nDestination=$trigger\n}\n}\n"
+            "}\n}\n}\n}\nModel=Props/Console\nPosition X=470\nPosition Y=500\n}\n" +
+            spawn(1, 380) + spawn(2, 400) + "}\n}\n";
+        MemoryArchive data;
+        data.files["Levels/Test.zax"] = bytesOf(zax);
+        data.files["Cache/Models/Props/Console.mdl16"] = modelFile("Console", 1, 1);
+        GameMap map;
+        CHECK(!loadMap(data, "Levels/Test.zax", map));
+        TextObject rules;
+        CHECK(!readTextObject("CRules\n{\n\tCustom Rules=CCustomRules\n\t{\n\t\tScreen Pos=0,0\n"
+                              "\t\tScreen Size=200,200\n\t}\n}\n",
+                              rules));
+        GameOptions options;
+        TeamMember ann;
+        ann.firstName = "Ann";
+        TeamMember bo;
+        bo.firstName = "Bo";
+        MapScreen screen(data, rules, map, options, 0, {ann, bo});
+        uint64_t now = 0;
+        while (now < 3000)
+            screen.update(now += 50);
+        screen.choose(1);
+        screen.choose(0, true);
+        drawOnce(screen, now);
+        // The Action Button on the console.
+        Event click;
+        click.type = EventType::kMouseMove;
+        click.mouseX = int(470.0f - screen.mapX(0));
+        click.mouseY = int(500.0f - screen.mapY(0));
+        screen.handleEvent(click, nullptr, 0);
+        click.type = EventType::kMouseDown;
+        click.button = MouseButton::kRight;
+        click.mouseX = int(470.0f - screen.mapX(0));
+        click.mouseY = int(500.0f - screen.mapY(0));
+        screen.handleEvent(click, nullptr, 0);
+        click.type = EventType::kMouseUp;
+        screen.handleEvent(click, nullptr, 0);
+        const auto &o = screen.officers();
+        CHECK(o[0].task == MapScreen::Officer::Task::kProcess);
+        CHECK((o[1].task == MapScreen::Officer::Task::kProcess) == (multiple != 0));
+    }
+}
+
 void testChoosing() {
     MemoryArchive data;
     data.files["Levels/Test.zax"] = std::vector<uint8_t>(kMap, kMap + std::string(kMap).size());
@@ -3731,6 +3794,7 @@ static const reluva::test::Suite
                {"search order", [](const std::filesystem::path &) { testSearchOrder(); }},
                {"team count", [](const std::filesystem::path &) { testTeamCount(); }},
                {"stunning", [](const std::filesystem::path &) { testStunning(); }},
+               {"process members", [](const std::filesystem::path &) { testProcessMembers(); }},
                {"combat", [](const std::filesystem::path &) { testCombat(); }},
                {"noise", [](const std::filesystem::path &) { testNoise(); }},
                {"objectives", [](const std::filesystem::path &) { testObjectives(); }},

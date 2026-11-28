@@ -797,14 +797,17 @@ private:
     // The pointer over (x, y) on the map: a process there that runs on
     // hovering is started as it comes onto its part.
     void hoverAt(float x, float y);
-    // The process of part `part` (its CProcessListAI's) the chosen officer
-    // can go through with their chosen item, or with none; nullptr if none.
+    // The process of part `part` (its CProcessListAI's) for officer `o`'s
+    // chosen item, or with none; nullptr if none.
     const TextObject *processFor(size_t part, const Officer &o) const;
+    // Whether officer `o` can be given `process` on `part`, clicked at
+    // (x, y): what it needs chosen and carried, and in reach.
+    bool canTakeProcess(const Officer &o, const TextObject *process, size_t part, float x, float y) const;
     // A part's first process of the Process Type `type` (any, if empty), or
     // none (0x5474c0).
     const TextObject *processOfType(size_t part, const std::string &type) const;
-    // Sends the chosen officer through the process of the part at (x, y);
-    // false if there's none for them.
+    // Sends the chosen officers through the process of the part at (x, y),
+    // as many as it allows; false if none is given it.
     bool startProcess(float x, float y);
     // An officer's process a step; true once it's through.
     bool runProcess(size_t officer, float seconds);

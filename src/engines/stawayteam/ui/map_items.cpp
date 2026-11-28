@@ -427,36 +427,33 @@ void MapScreen::updateItems(float seconds) {
             o.task = Officer::Task::kNone;
             continue;
         }
-        // Near enough, they use it; else they walk there by the waypoints
-        // (inferred). A throw or scan needs the place in the item's range.
+        // The item's own process is given only to one with the place in
+        // its Item Range (0x5c6cd2): put down, scanned, taken over or
+        // thrown at once, or not at all; they don't walk up to it. Used on
+        // an officer, they walk up, its CStrikeTargetAI (inferred).
         float x = o.taskX;
         float y = o.taskY;
         bool near = false;
-        if (o.task == Officer::Task::kPlace) {
-            near = std::hypot(x - o.x, y - o.y) <= kUseReach;
+        const float range = def->range * enhancement(int(i));
+        if (o.task == Officer::Task::kPlace || o.task == Officer::Task::kThrow) {
+            if (!inItemRange(*def, o.x, o.y, x, y, range)) {
+                o.task = Officer::Task::kNone;
+                continue;
+            }
+            near = true;
         } else if (o.task == Officer::Task::kScan) {
             placeOf(size_t(o.taskPart), x, y);
-            near = inItemRange(*def, o.x, o.y, x, y, def->range);
+            if (!inItemRange(*def, o.x, o.y, x, y, range)) {
+                o.task = Officer::Task::kNone;
+                continue;
+            }
+            near = true;
         } else if (o.task == Officer::Task::kMeld) {
-            // Taken over from within its Item Range (inferred: walked to
-            // first, as a scan's).
             const Enemy &e = _enemies[size_t(o.taskPart)];
-            if (!e.alive()) {
-                o.task = Officer::Task::kNone;
-                continue;
-            }
-            x = e.x;
-            y = e.y;
-            if (inItemRange(*def, o.x, o.y, x, y, def->range)) {
-                o.path.clear();
-                o.task = Officer::Task::kNone;
-                if (canMeld(i, size_t(o.taskPart)))
-                    startMeld(i, size_t(o.taskPart));
-                continue;
-            }
-        } else if (o.task == Officer::Task::kThrow) {
-            const float range = def->range * enhancement(int(&o - _officers.data()));
-            near = inItemRange(*def, o.x, o.y, x, y, range);
+            o.task = Officer::Task::kNone;
+            if (e.alive() && inItemRange(*def, o.x, o.y, e.x, e.y, range) && canMeld(i, size_t(o.taskPart)))
+                startMeld(i, size_t(o.taskPart));
+            continue;
         } else {
             const Officer &target = _officers[size_t(o.taskOfficer)];
             if (!target.alive()) {
@@ -543,58 +540,113 @@ const TextObject *MapScreen::processOfType(size_t part, const std::string &type)
 }
 
 const TextObject *MapScreen::processFor(size_t part, const Officer &o) const {
-    // One for their chosen item (its Required Selected Item), first; else
-    // one to Use with none (inferred: the program's choosing isn't traced).
-    // One that needs an item in the inventory needs them to have it, its
-    // uses spent or not (a stasis field's to pick it up).
+    // With an item chosen, the part's first process of the item's Process
+    // Type, else its Use process (0x43d1be, 0x43d208); with none, its Use
+    // process (0x43d288). What the process needs chosen or carried is
+    // asked of the officer given it, not here.
     const ItemDefinition *item = itemOf(o);
-    const auto carries = [&](const std::string &name) {
-        if (name.empty() || name == "!None")
-            return true;
-        for (const Officer::Held &h : o.items)
-            if (h.name == name)
-                return true;
+    if (item && !item->processType.empty())
+        if (const TextObject *process = processOfType(part, item->processType))
+            return process;
+    return processOfType(part, "Use");
+}
+
+bool MapScreen::canTakeProcess(const Officer &o, const TextObject *process, size_t part, float x, float y) const {
+    // What it needs chosen chosen, what it needs carried carried (0x5c6b5c,
+    // 0x5c6be7), and the part in reach of the chosen item it needs: its
+    // Item Range on the ground, any reach for one without (0x5c6d30). One
+    // out of reach isn't given it, so doesn't walk up to it (0x5c6cd2).
+    if (o.down())
         return false;
+    const auto carries = [&](const std::string &name) {
+        return name.empty() || name == "!None" ||
+               std::any_of(o.items.begin(), o.items.end(), [&](const Officer::Held &h) { return h.name == name; });
     };
-    for (const bool withItem : {true, false})
-        for (const TextObject *ai : _map.parts[part].activities) {
-            if (ai->className != "CProcessListAI")
-                continue;
-            const TextObject *list = ai->object("Process");
-            if (!list)
-                continue;
-            for (const TextField *f : list->items()) {
-                const TextObject *process = f->object.get();
-                if (!process || !carries(readText(process, "Required Item In Inventory")))
-                    continue;
-                const std::string needs = readText(process, "Required Selected Item");
-                if (withItem && item && needs == item->name)
-                    return process;
-                if (!withItem && (needs.empty() || needs == "!None") && readText(process, "Process Type") == "Use")
-                    return process;
-            }
-        }
-    return nullptr;
+    const std::string selected = readText(process, "Required Selected Item");
+    const ItemDefinition *chosen = itemOf(o);
+    if (!selected.empty() && selected != "!None" && (!chosen || chosen->name != selected))
+        return false;
+    if (!carries(readText(process, "Required Item In Inventory")))
+        return false;
+    if (!chosen || selected.empty() || selected == "!None")
+        return true;
+    if (!_map.parts[part].model.empty())
+        placeOf(part, x, y);
+    return inItemRange(*chosen, o.x, o.y, x, y, chosen->range * enhancement(int(&o - _officers.data())));
 }
 
 bool MapScreen::startProcess(float x, float y) {
     if (_selected < 0)
         return false;
-    Officer &o = _officers[size_t(_selected)];
     const int part = partAt(x, y);
-    if (o.down() || part < 0)
+    if (part < 0 || _officers[size_t(_selected)].down())
         return false;
-    const TextObject *process = processFor(size_t(part), o);
+    const TextObject *process = processFor(size_t(part), _officers[size_t(_selected)]);
     if (!process)
         return false;
-    o.task = Officer::Task::kProcess;
-    o.taskPart = part;
-    o.taskX = x;
-    o.taskY = y;
-    o.taskProcess = process;
-    o.taskStep = 0;
-    o.attacking = -1;
-    o.path.clear();
+    const auto give = [&](Officer &o) {
+        o.task = Officer::Task::kProcess;
+        o.taskPart = part;
+        o.taskX = x;
+        o.taskY = y;
+        o.taskProcess = process;
+        o.taskStep = 0;
+        o.attacking = -1;
+        o.path.clear();
+    };
+    // Allow Multiple Members: each chosen officer it suits (0x5c71f8).
+    // Else one: of the chosen, the first with its Required Selected Item
+    // chosen, one with uses left before one without (0x5b8730); else the
+    // first carrying it, so (0x5b88a0); else carrying its Required Item In
+    // Inventory, then its Hint Item In Inventory; else the first chosen in
+    // the team's order (0x5b69c0).
+    bool given = false;
+    if (process->number("Allow Multiple Members").value_or(0.0) != 0.0) {
+        for (Officer &o : _officers)
+            if (o.chosen && canTakeProcess(o, process, size_t(part), x, y)) {
+                give(o);
+                given = true;
+            }
+        return given;
+    }
+    const auto usesLeft = [&](const Officer &o, const std::string &name) {
+        for (const Officer::Held &h : o.items)
+            if (h.name == name)
+                return h.count != 0;
+        return false;
+    };
+    const auto pick = [&](const std::string &name, bool chosenOnly) -> Officer * {
+        if (name.empty() || name == "!None")
+            return nullptr;
+        Officer *first = nullptr;
+        for (Officer &o : _officers) {
+            if (!o.chosen)
+                continue;
+            const ItemDefinition *chosen = itemOf(o);
+            const bool has = chosenOnly ? chosen && chosen->name == name
+                                        : std::any_of(o.items.begin(), o.items.end(),
+                                                      [&](const Officer::Held &h) { return h.name == name; });
+            if (!has)
+                continue;
+            if (usesLeft(o, name))
+                return &o;
+            if (!first)
+                first = &o;
+        }
+        return first;
+    };
+    const std::string selected = readText(process, "Required Selected Item");
+    Officer *who = pick(selected, true);
+    for (const std::string &name :
+         {selected, readText(process, "Required Item In Inventory"), readText(process, "Hint Item In Inventory")})
+        if (!who)
+            who = pick(name, false);
+    for (Officer &o : _officers)
+        if (!who && o.chosen)
+            who = &o;
+    if (!who || !canTakeProcess(*who, process, size_t(part), x, y))
+        return false;
+    give(*who);
     return true;
 }
 
@@ -605,22 +657,6 @@ bool MapScreen::runProcess(size_t officer, float seconds) {
     // officer their instigator and the part $Trigger (inferred).
     (void)seconds;
     Officer &o = _officers[officer];
-    // One for their item, a tricorder's scan, from within its Item Range,
-    // walked to first (inferred: as the item's own scan).
-    const ItemDefinition *def = itemOf(o);
-    if (o.taskStep == 0 && def && def->range > 0.0f && readText(o.taskProcess, "Required Selected Item") == def->name) {
-        // A polygon's is where it was pointed at, having no place of its own.
-        float x = o.taskX;
-        float y = o.taskY;
-        if (!_map.parts[size_t(o.taskPart)].model.empty())
-            placeOf(size_t(o.taskPart), x, y);
-        if (!inItemRange(*def, o.x, o.y, x, y, def->range)) {
-            if (o.path.empty())
-                o.path = route(o, x, y);
-            return false;
-        }
-        o.path.clear();
-    }
     const TextObject *list = o.taskProcess->object("Process Activity");
     const auto steps = list ? list->items() : std::vector<const TextField *>{};
     while (o.taskStep < steps.size()) {
