@@ -591,15 +591,23 @@ void MapScreen::chooseAll() {
     }
 }
 
-void MapScreen::order(float x, float y) {
+void MapScreen::order(float x, float y, bool sprint) {
     // Every one chosen to the place itself: the game gives each the first
     // one's point (0x5bfcdb, 0x5b8050, 0x5b7e50), and a place with only a
-    // character on it is walked onto (0x449481).
+    // character on it is walked onto (0x449481). Sprinting they run, the
+    // move they had kept till they're there (0x5b6650, 0x4aa000, given
+    // back on CProcessDoneMessage at 0x4a9fa0).
     for (Officer &o : _officers) {
         if (!o.chosen)
             continue;
         o.path = route(o, x, y);
         o.attacking = -1;
+        if (sprint) {
+            if (o.sprintFrom < 0)
+                o.sprintFrom = o.move;
+            o.move = 1;
+            o.travelled = 0.0f;
+        }
     }
 }
 
@@ -607,6 +615,7 @@ void MapScreen::setMove(int move) {
     for (Officer &o : _officers)
         if (o.chosen) {
             o.move = std::clamp(move, 0, 2);
+            o.sprintFrom = -1;
             o.travelled = 0.0f;
         }
 }
@@ -615,6 +624,16 @@ void MapScreen::walk(Officer &o, float seconds) {
     if (o.path.empty() || o.down())
         return;
     const Animation &walking = animation(_team[o.member].bodyModel, kMoving[o.move]);
+    // Running, their sequence plays at their Speed's part of 100 and a half
+    // more, 1.5 without one (0x4aa063, 0x5e54b0).
+    float play = 1.0f;
+    if (o.move == 1) {
+        play = 1.5f;
+        for (const TeamMember::Attribute &a : _team[o.member].attributes)
+            if (a.name == "Speed")
+                play = float(a.value) / kAttributeWhole + 0.5f;
+    }
+    const float fps = walking.fps * play;
     float left = seconds;
     while (!o.path.empty() && left > 0.0f) {
         const float dx = o.path.front().first - o.x;
@@ -632,10 +651,10 @@ void MapScreen::walk(Officer &o, float seconds) {
         const int per = walking.perDirection();
         const float before = walking.frameAt(o.direction, o.travelled);
         float used = left;
-        float step = walking.walk(o.direction, o.travelled, left, walking.fps, distance, used);
+        float step = walking.walk(o.direction, o.travelled, left, fps, distance, used);
         if (step < 0.0f) {
-            step = std::min(distance, kDefaultWalk * left);
-            used = step / kDefaultWalk;
+            step = std::min(distance, kDefaultWalk * play * left);
+            used = step / (kDefaultWalk * play);
         }
         // Through anyone in the way: the move ignores one character meeting
         // another (0x497c60), and an officer's doesn't collide at all, its
@@ -650,9 +669,9 @@ void MapScreen::walk(Officer &o, float seconds) {
         o.y += wy * step;
         // The footsteps its frames passed make their noise (the
         // sequence's Trigger, 0x518100).
-        if (per > 0 && walking.fps > 0.0f) {
+        if (per > 0 && fps > 0.0f) {
             const int from = int(before);
-            const int to = int(before + used * walking.fps);
+            const int to = int(before + used * fps);
             for (int f = from + 1; f <= to; ++f)
                 for (const Animation::Noise &n : walking.noises)
                     if (n.frame == f % per) {
@@ -666,6 +685,11 @@ void MapScreen::walk(Officer &o, float seconds) {
                     }
         }
         left -= std::max(used, 1e-6f);
+    }
+    if (o.path.empty() && o.sprintFrom >= 0) {
+        o.move = o.sprintFrom;
+        o.sprintFrom = -1;
+        o.travelled = 0.0f;
     }
 }
 
@@ -938,12 +962,16 @@ void MapScreen::update(uint64_t now) {
         return;
     // Time stopped, the view can still be moved (inferred).
     if (_paused) {
-        if (_scripts.empty())
-            scroll(seconds);
+        scroll(seconds);
         return;
     }
     if (_active)
         _progress->time += seconds;
+    // The view scrolls by the keys and the mouse while the camera's scripts
+    // play too: nothing in the game's update stops it but an in-game movie
+    // (0x5bff1a, 0x5c0139); a script panning sets the view after it each
+    // frame (0x47779c), so only its wait leaves it to the player.
+    scroll(seconds);
     playScripts(seconds);
     _warpLeft = std::max(0.0f, _warpLeft - seconds);
     if (!_dialogText.empty()) {
@@ -954,9 +982,6 @@ void MapScreen::update(uint64_t now) {
                 _dialogText.clear();
         }
     }
-    // The camera's scripts move the view meanwhile (inferred).
-    if (_scripts.empty())
-        scroll(seconds);
     // A script whose manager has Pause Actors tells every character on the
     // maps to stop as it starts (a CPauseActorMessage, 0x478246, 0x5ca760)
     // and to go on as it ends (0x4780f5): they neither walk nor act nor
@@ -1124,16 +1149,19 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
     // On the map, the mouse's buttons by its scheme (the options' Control
     // Scheme, 0x5bec60): normally the left the Move Button and the right
     // the Action Button, the other way round reversed; the middle cycles
-    // the inventory. The Move Button "moves the selected team to the
-    // current mouse position", the Action Button has them "execute an
-    // action in the world" (Rules.txt's help). Either chooses an officer
-    // clicked (Shift: adds or takes them away) or those in a box dragged
-    // (inferred: what each does past its help isn't traced).
+    // the inventory (inferred). The Move Button chooses a character
+    // clicked (Shift: adds or takes them away), or with the vision button
+    // choosing, shows an enemy's sight, else sends those chosen there,
+    // running with Ctrl (0x5bfba0); dragged, it chooses those in its box
+    // (0x5c06dc). The Action Button uses the chosen item on what's clicked
+    // or where, or a part's Use, and chooses no one (0x5cb2b0, 0x43d280).
     const auto toMapX = [&](int sx) { return mapX(sx); };
     const auto toMapY = [&](int sy) { return mapY(sy); };
     const bool inView =
         ev.mouseX >= _viewX && ev.mouseY >= _viewY && ev.mouseX < _viewX + _viewW && ev.mouseY < _viewY + _viewH;
-    const bool playing = _scripts.empty() && _teamShown;
+    // The clicks are taken while the camera's scripts play, as the scroll
+    // is (0x5bfe00); not before the team's beamed in, there to click.
+    const bool playing = _teamShown;
     const bool reversed = _options.controls.scheme == 1;
     const auto isMove = [&](MouseButton b) { return b == (reversed ? MouseButton::kRight : MouseButton::kLeft); };
     const auto isAction = [&](MouseButton b) { return b == (reversed ? MouseButton::kLeft : MouseButton::kRight); };
@@ -1171,27 +1199,20 @@ MapScreen::Choice MapScreen::handleEvent(const Event &ev, audio::Mixer *mixer, u
         if (_dragging) {
             chooseIn(px, py, toMapX(ev.mouseX), toMapY(ev.mouseY), add);
         } else if (_pressedMove) {
+            const bool sprint = (ev.mods & keymod::kCtrl) != 0;
             if (_melded >= 0 && enemyAt(px, py) == _melded && !_meldChosen)
                 chooseMelded();
             else if (const int officer = officerAt(px, py); officer >= 0)
                 choose(officer, add);
-            else if (_meldChosen)
+            else if (const int seen = enemyAt(px, py); _vision == 1 && seen >= 0) {
+                _visionEnemy = seen;
+                _vision = 2;
+            } else if (_meldChosen)
                 orderMelded(px, py);
             else
-                order(px, py);
-        } else if (const int seen = enemyAt(toMapX(_pressX), toMapY(_pressY)); _vision == 1 && seen >= 0) {
-            // Choosing whose sight to show: the enemy clicked (inferred).
-            _visionEnemy = seen;
-            _vision = 2;
-        } else if (_melded >= 0 && enemyAt(toMapX(_pressX), toMapY(_pressY)) == _melded && !_meldChosen) {
-            // The enemy taken over chosen (inferred: as an officer is).
-            chooseMelded();
-        } else if (_meldChosen && officerAt(toMapX(_pressX), toMapY(_pressY)) < 0) {
-            orderMelded(toMapX(_pressX), toMapY(_pressY));
+                order(px, py, sprint);
         } else if (useItem(toMapX(_pressX), toMapY(_pressY))) {
             // The chosen officer's item used there.
-        } else if (const int officer = officerAt(toMapX(_pressX), toMapY(_pressY)); officer >= 0) {
-            choose(officer, add);
         } else if (startProcess(toMapX(_pressX), toMapY(_pressY))) {
             // The part's process, with the chosen item or none.
         } else if (const int enemy = enemyAt(toMapX(_pressX), toMapY(_pressY)); enemy >= 0) {

@@ -3742,6 +3742,13 @@ void testChoosing() {
     // How they move, all at once.
     screen.setMove(1);
     CHECK(screen.officers()[0].move == 1 && screen.officers()[1].move == 1);
+    // Sent with Ctrl, crouching ones run there, and crouch again once
+    // there (0x5b6650, 0x4a9fa0).
+    screen.setMove(2);
+    screen.order(20.0f, 20.0f, true);
+    CHECK(screen.officers()[0].move == 1);
+    screen.update(20000);
+    CHECK(screen.officers()[0].x == 20.0f && screen.officers()[0].move == 2 && screen.officers()[1].move == 2);
 }
 
 void testWater() {

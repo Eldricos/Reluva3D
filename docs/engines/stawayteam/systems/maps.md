@@ -1265,8 +1265,11 @@ camera scripts *(inferred)*. Names compare without regard to case
 under its noise ([items.md](items.md#in-reluva)), and the `Transporter
 Overlay`'s sparkle over them *(inferred)*. A line
 stays a quarter of a second after its voice-over, as the program's, and
-2.5 seconds without one, as its lines of plain text *(inferred)*. Without scripts, the view starts on the
-team.
+2.5 seconds without one, as its lines of plain text *(inferred)*. While
+the scripts play the view's scrolled and the clicks taken, as the
+game's update stops neither but for an in-game movie (`0x5bff1a`,
+`0x5c0139`), a script's pan setting the view after them. Without
+scripts, the view starts on the team.
 
 The team, the team selection's or, without one, the officers the mission
 says start, at the spawn points as the program chooses them, each
@@ -1284,11 +1287,27 @@ the left is the Move Button and the right the Action Button, reversed
 the other way round, the middle the third; each goes to what's bound
 to it (`0x52ee50`). The Move Button "moves the selected team to the
 current mouse position", the Action Button has them "execute an action
-in the world" (Rules.txt's help texts): in Reluva the Action Button
-uses the chosen item, goes through a part's process, attacks an enemy
-or chooses whose sight to show; either chooses an officer clicked
-*(inferred)*; the middle steps the item on *(inferred)*, and the wheel
-does what it's bound to (Inventory Next down, Prev up). A Move Button
+in the world" (Rules.txt's help texts). The scheme makes the buttons the
+game's three (`0x5bec60`: normally the left its second, the right its
+first, the middle its third; reversed, the left the first and the right
+the second), each kept as pressed, released and double-clicked
+(`0x482ca0`, `0x510e10`). Its second, the Move Button, clicked
+(`0x5c06a7`, `0x5bfba0`): on a character the player may choose, chooses
+them (with Shift, adding or taking away; `0x5c6790`); else, with the
+vision button choosing and a `CSkeletonBaseAI` part clicked, shows its
+sight (`0x5b6ee0`); else cancels the chosen ones' orders and sends them
+there, with Ctrl running (move state 3, `0x5b6650`: run, the move they
+had given back as they're done, `0x4aa000`, `0x4a9fa0`). Held and
+dragged, it boxes (`0x5c06dc`, `0x510f60`), with Shift adding. Its
+first, the Action Button, clicked (`0x5c05c6`, `0x5cb2b0`), goes by
+the part under the pointer and the chosen item (`0x62dc94`'s four): an
+item on a part, as above (`0x43d100`); no item on a part, its `Use`
+process (`0x43d280`); an item on no part, used at the point
+(`0x43d2e0`); neither, nothing. It chooses no one. Running, the body's
+sequence plays at the officer's `Speed` attribute over 100 and a half
+more, 1.5 without one (`0x4aa063`, `0x5e54b0`): Boa Rand's 65, 1.15.
+In Reluva the buttons do so; the middle steps the item on *(inferred)*,
+and the wheel does what it's bound to (Inventory Next down, Prev up). A Move Button
 click elsewhere on the map sends those chosen walking there, every one to
 the place itself: the game cancels their orders (`0x5b80e0`), gives
 each the point (`0x5bfcdb`, by `0x5c78a0`) and starts each moving to the
@@ -1657,7 +1676,6 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **Fighting:** a strike's flashes; the stun effect's look; what a
   `CShootWeaponAI` does while its target's out of range or sight.
 - **Choosing:** the game's mouse for a box and Shift.
-- **The team:** its mouse (which button chooses and which sends).
 - **The buttons:** what key, if any, cycles the sight's enemy backwards
   (`0x5b6c90` can); the characters among what cuts the cone, Reluva
   taking only the parts with outlines that aren't enemies.
@@ -1667,5 +1685,4 @@ colours and its going after its Shot Duration. Every relocation in the maps chec
 - **A mission's maps:** whether those the team's left go on, which place
   each officer arrives at, what Only on this map does, and the other
   relocations.
-- **The scripts:** whether the player can move the view while they play
-  (the steps set it only while panning).
+- **The middle button:** what the game's third button does on the map.

@@ -130,7 +130,7 @@ void MapScreen::setScale(float scale) {
 std::string MapScreen::cursorName() {
     // Rules.txt's Mouse Cursors are Interface/Game Cursors' (0x5c5d2f); the
     // pointer's Interface/Cursors' Pointer (0x4f566a).
-    const bool playing = _scripts.empty() && _teamShown && !_endGame && !_objectivesWindow && !_escape;
+    const bool playing = _teamShown && !_endGame && !_objectivesWindow && !_escape;
     if (!playing || _overInterface)
         return "Pointer";
     // At the view's edges, which way it scrolls (0x5c25ee).

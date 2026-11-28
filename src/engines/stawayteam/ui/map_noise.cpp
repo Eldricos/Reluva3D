@@ -19,8 +19,6 @@ constexpr float kPi = 3.14159265f;
 // Heard from as far above or below as this times less than to the side:
 // the view's foreshortening (0x519465).
 constexpr float kHearingSquash = 1.40299f;
-// An attribute's whole (0x5e5830).
-constexpr float kAttributeWhole = 100.0f;
 // How long an enemy looks about where it heard something when its AI
 // doesn't say (inferred).
 constexpr float kLookAbout = 5.0f;

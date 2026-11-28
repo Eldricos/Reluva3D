@@ -194,6 +194,7 @@ void MapScreen::state(StateIo &s) {
         s.io(o.path);
         s.io(o.travelled);
         s.io(o.move);
+        s.io(o.sprintFrom);
         s.io(o.chosen);
         s.io(o.health);
         s.io(o.maxHealth);

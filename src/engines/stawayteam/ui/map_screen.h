@@ -80,6 +80,8 @@ class MapScreen {
 public:
     /** An instigator that's enemy `e`: kEnemyInstigator - e (officers are 0 up). */
     static constexpr int kEnemyInstigator = -1000;
+    /** A team member's attribute at its whole (0x5e5830). */
+    static constexpr float kAttributeWhole = 100.0f;
     /** An instigator that's neither an officer nor an enemy. */
     static constexpr int kNobody = -1;
     /** Hit points for a character whose model gives none (inferred). */
@@ -130,6 +132,7 @@ public:
         std::vector<std::pair<float, float>> path; // where they're walking to, the next first
         float travelled = 0.0f;                    // into their walk's cycle, in pixels
         int move = 0;                              // walking, running (1) or crouching (2)
+        int sprintFrom = -1;                       // sent running with Ctrl: the move they go back to
         bool chosen = false;                       // among those the player has chosen
         float health = 0.0f;
         float maxHealth = 0.0f;
@@ -200,8 +203,13 @@ public:
     void chooseIn(float x0, float y0, float x1, float y1, bool add = false);
     /** Chooses the whole team (Select Entire Team). */
     void chooseAll();
-    /** Sends the officers chosen walking to (x, y) on the map, by the waypoints, side by side. */
-    void order(float x, float y);
+    /**
+     * Sends the officers chosen walking to (x, y) on the map, by the
+     * waypoints, side by side.
+     *
+     * @param sprint running there, as with Ctrl, then moving as before.
+     */
+    void order(float x, float y, bool sprint = false);
     /** How the officers chosen move: 0 walking, 1 running, 2 crouching. */
     void setMove(int move);
     /** Moves everyone on to `now` (the camera, the officers walking). */
