@@ -55,6 +55,11 @@ int cmdBzn(int argc, char **argv) {
                 map.background.c_str(), map.techTree.c_str(), map.race.c_str());
     for (const std::string &s : map.scripts)
         std::printf("script %s\n", s.c_str());
+    for (size_t p = 0; p < map.players.size(); ++p) {
+        const BznMap::PlayerStart &s = map.players[p];
+        std::printf("player %zu: dilithium %g of %g, crew %g of %g, officers' limit %d (%d, %d)\n", p, s.dilithium,
+                    s.maxDilithium, s.crew, s.maxCrew, s.officerLimit, s.officersUsed, s.other);
+    }
     std::printf("%zu objects:\n", map.objects.size());
     for (const BznMap::Object &o : map.objects)
         std::printf("  %-10s team %d at %9.1f %8.1f %9.1f  %s (%zu fields)\n", o.odf.c_str(), o.team, o.position[0],
@@ -81,6 +86,7 @@ int cmdBznCheck(int argc, char **argv) {
     int failed = 0;
     size_t objects = 0;
     size_t paths = 0;
+    int withPlayers = 0;
     std::map<std::string, int> definitions; // how many maps place each
     for (const std::string &name : files.list()) {
         if (!reluva::text::hasSuffixIgnoreCase(name, ".bzn"))
@@ -94,14 +100,15 @@ int cmdBznCheck(int argc, char **argv) {
         ++read;
         objects += map.objects.size();
         paths += map.paths.size();
+        withPlayers += map.players.empty() ? 0 : 1;
         std::map<std::string, bool> here;
         for (const BznMap::Object &o : map.objects)
             here[reluva::text::toLower(o.odf)] = true;
         for (const auto &[odf, yes] : here)
             ++definitions[odf];
     }
-    std::printf("%d maps read, %d failed; %zu objects of %zu definitions, %zu paths\n", read, failed, objects,
-                definitions.size(), paths);
+    std::printf("%d maps read, %d failed; %zu objects of %zu definitions, %zu paths; players' counters in %d\n", read,
+                failed, objects, definitions.size(), paths, withPlayers);
     return failed ? 1 : 0;
 }
 

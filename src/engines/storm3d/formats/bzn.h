@@ -50,6 +50,20 @@ struct BznMap {
         size_t fieldCount = 0;             // this many (to the next object, or the map's tail)
     };
 
+    /**
+     * A player's counters as the map saves them, read for a campaign
+     * mission (0x446640): slot 0, then 1 to 8.
+     */
+    struct PlayerStart {
+        float dilithium = 0;
+        float maxDilithium = 0;
+        int32_t officerLimit = 0;
+        float crew = 0;
+        float maxCrew = 0;
+        int32_t officersUsed = 0; // what its units take, as saved (fed1's player's 19)
+        int32_t other = 0;        // not known: 1, 6, then each slot's own number in fed1
+    };
+
     /** A named path for a mission's script (or a skirmish's start). */
     struct Path {
         std::string name;
@@ -66,6 +80,7 @@ struct BznMap {
     std::string techTree;        // "fed1.tt"
     std::string race;            // the player's: "federation"
     std::vector<Object> objects;
+    std::vector<PlayerStart> players; // the players' counters, after the objects; none if not found
     std::vector<std::string> scripts; // a mission's: "Federation1S.dsl", "Federation1R.drl"
     std::vector<Path> paths;
     std::vector<Field> fields; // every field, in order

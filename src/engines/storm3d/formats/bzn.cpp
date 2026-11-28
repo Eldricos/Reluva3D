@@ -160,6 +160,34 @@ Error BznMap::parse(const std::vector<uint8_t> &file) {
 
     // A mission's scripts, named in 64-character fields after the objects.
     const size_t afterObjects = objects.empty() ? kHeaderFields : objects.back().firstField + std::size(kObjectStart);
+
+    // The players' counters: nine runs of float, float, integer, float,
+    // float, integer, integer, the last nine such runs after the objects.
+    static constexpr uint8_t kPlayerFields[] = {kFloat, kFloat, kInt, kFloat, kFloat, kInt, kInt};
+    constexpr size_t kPlayers = 9;
+    constexpr size_t kRun = std::size(kPlayerFields) * kPlayers;
+    for (size_t i = fields.size(); i-- > afterObjects;) {
+        if (i + kRun > fields.size())
+            continue;
+        bool all = true;
+        for (size_t p = 0; p < kPlayers && all; ++p)
+            all = startsWith(fields, i + p * std::size(kPlayerFields), kPlayerFields, std::size(kPlayerFields));
+        if (!all)
+            continue;
+        for (size_t p = 0; p < kPlayers; ++p) {
+            const size_t f = i + p * std::size(kPlayerFields);
+            PlayerStart s;
+            s.dilithium = real(fields[f]);
+            s.maxDilithium = real(fields[f + 1]);
+            s.officerLimit = int32_t(word(fields[f + 2]));
+            s.crew = real(fields[f + 3]);
+            s.maxCrew = real(fields[f + 4]);
+            s.officersUsed = int32_t(word(fields[f + 5]));
+            s.other = int32_t(word(fields[f + 6]));
+            players.push_back(s);
+        }
+        break;
+    }
     for (size_t i = afterObjects; i < fields.size(); ++i)
         if (fields[i].type == kText && fields[i].data.size() == 64) {
             const std::string s = text(fields[i]);

@@ -106,10 +106,25 @@ light, are how the game lights the map ([Lighting](#lighting)).
 
 ### After the objects
 
-What follows the last object isn't worked out: integers and floats in
-groups (400, 3500, 1000000, 4000, 10000 repeating, perhaps by team
-*(guessed)*), and in a mission's map a 40-character `EmptyMission`, then
-its scripts in 64-character fields, `Federation1S.dsl` and
+After the last object, the players' counters: nine runs of seven fields,
+one a player slot from 0 (none) to 8, as the program reads them into its
+nine player records for a campaign mission (0x446640) *(from the code)*:
+
+| Field | Type | |
+|---|---|---|
+| 0 | float | Dilithium: 3500 in `fed1.bzn`, 0 for slot 0 |
+| 1 | float | Its most: 1000000 |
+| 2 | integer | The officers' limit: 400 |
+| 3 | float | Crew: 4000 |
+| 4 | float | Its most: 10000 |
+| 5 | integer | 19 for `fed1.bzn`'s player, what its four ships take *(inferred)* |
+| 6 | integer | Not known: 1, 6, then each slot's own number |
+
+A map saved by version 0x7fb has an integer more before the limit
+*(from the code)*; none of the 49 is. All 49 have the nine runs; some
+hold `RTS_CFG.h`'s values instead (999999 and 99999 most, 100 officers).
+In a mission's map, a 40-character `EmptyMission` follows, then its
+scripts in 64-character fields, `Federation1S.dsl` and
 `Federation1R.drl` (those the missions' DLLs are named for,
 [install.md](install.md#missions)), and the title again.
 

@@ -197,6 +197,11 @@ for what they take from Armada.exe.
     voices timed by their length, so a run without sound finishes them
     when the original would; clicks on the box go to it alone.
 
+  - **the player's counters** from the map's saved ones
+    ([formats/bzn.md](../formats/bzn.md#after-the-objects)): the
+    original's "Premonitions" starts its player with 3,500 dilithium
+    (then the script's 6,000), 4,000 crew, and 19 of 400 officers, its
+    memory showed, and so does Reluva's;
   - **the music in play** as above, the race's tracks from its file
     (`fed.odf`'s `mfed300.wav`, `mfed115.wav`, `mfed100.wav`), on at the
     third frame unless a cut scene is; the shell's music stops as the

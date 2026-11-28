@@ -1634,7 +1634,15 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
     // No shroud yet: what the original's casts in a campaign isn't known.
     MapScene::Cover cover;
     cover.shroud = false;
-    if (Error err = play(renderer, parsed, units, cover, Hud::Resources{}, millis, parsed.techTree))
+    // The player's counters as the map saves them, its officers' limit
+    // less what its units take (0x446640); the RTS_CFG.h start
+    // (cfgStartingDilithium, cfgStartingCrew) is what the maps hold.
+    Hud::Resources start;
+    if (size_t(slot) < parsed.players.size()) {
+        const BznMap::PlayerStart &saved = parsed.players[size_t(slot)];
+        start = {int(saved.dilithium), int(saved.crew), 0, saved.officerLimit};
+    }
+    if (Error err = play(renderer, parsed, units, cover, start, millis, parsed.techTree))
         return err;
     if (team >= 0)
         _scene.build(parsed, units, "", _scene.sightsOf(parsed, {}, team), cover);
