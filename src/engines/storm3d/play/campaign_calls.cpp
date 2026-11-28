@@ -159,7 +159,8 @@ std::optional<uint32_t> MissionView::moreScriptCalls(const std::string &name, co
     // 0x434b70 on).
     if (name == "AI_Team_Load_AIP") {
         if (args.kinds.size() == 2 && args.kinds[0] == 'i') {
-            const int slot = args.integer(0);
+            // A player's number, or its character (the borrowed AI script's).
+            const int slot = _missionScripts->teamOf(args.word(0)).value_or(args.integer(0));
             _teamsOff.erase(slot);
             if (Computer *c = computerOf(slot)) {
                 std::string file = text::toLower(args.text(1));

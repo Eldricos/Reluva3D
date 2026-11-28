@@ -361,6 +361,23 @@ for what they take from Armada.exe.
     the menu's are (0x4391e0, 0x5ac78c) *(from the code)*. Their letters
     are lit as the menu's, where the program's take the map's own light
     *(inferred)*;
+  - **a borrowed AI script:** Romulan 1's script imports from
+    `AI/Klingon_Medium_Script.dsl`, which is loaded and started first,
+    from `missions/` else `AI/`, as Windows' loader would; its start-up
+    loads its rules, `Klingon_Medium_Rules.drl`, through `Load_Rules`,
+    which binds to the half-started script DLL (0x4068a0). Each player
+    the scripts name gets a character of its own; a rule made on its
+    rule engine (the character's 0x38) is its, and its condition and
+    action are called with it. `Add_Team_To_Group` adds the player's
+    character to a group and calls the group's entry functions on it;
+    `add_group_entry_function` calls them on the members there are
+    (0x4043c0, 0x4047f0). `add_character_param` and `nth_param_ptr`
+    give a script its character, and `trash_rule` by name takes the
+    newest of the character's of that name. So team 2 gets
+    `klingon.aip` through `AI_Team_Load_AIP(character, file)` *(from
+    the code)*. No campaign map uses Romulan 1; the scripts tool runs
+    it. A debug build's C runtime's `HeapValidate` and `DebugBreak` are
+    stood in for;
   - **alert levels:** `SetRedAlert`, `SetYellowAlert` and
     `SetGreenAlert` set the unit's ([combat.md](combat.md));
   - **transwarp gates:** `GetTranswarpExitWormhole(gate)` gives the far
@@ -388,9 +405,8 @@ for what they take from Armada.exe.
   0x46d8e0) *(from the code)*.
 
   Not done yet: saving and loading a mission; the tracking shot
-  (`CineractiveShotTrackLeft`, unused by the missions);
-  `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish AI's script
-  borrowed by Romulan 1).
+  (`CineractiveShotTrackLeft`, unused by the missions).
+
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make

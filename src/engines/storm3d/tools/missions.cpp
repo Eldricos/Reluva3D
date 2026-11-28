@@ -39,6 +39,7 @@ int cmdMissionScripts(int argc, char **argv) {
     }
     MissionScripts scripts;
     scripts.trace = [](const std::string &line) { std::printf("%s\n", line.c_str()); };
+    scripts.readFile = [&files](const std::string &path, std::vector<uint8_t> &data) { return files.read(path, data); };
     const Error e = scripts.load(mission, script, rules);
     for (const std::string &name : scripts.unknown())
         std::printf("unread import: %s\n", name.c_str());

@@ -69,6 +69,11 @@ public:
     std::function<std::optional<uint32_t>(const std::string &name, const Arguments &args)> game;
     /** Each call the scripts make of the game, for a log. */
     std::function<void(const std::string &line)> trace;
+    /**
+     * Reads one of the game's files by its path ("AI/Klingon_Medium_Rules.drl"):
+     * for the DLLs the scripts load of themselves, from `missions/`, else `AI/`.
+     */
+    std::function<Error(const std::string &path, std::vector<uint8_t> &data)> readFile;
 
     MissionScripts();
     ~MissionScripts();
@@ -106,6 +111,8 @@ public:
     void setFloat(const std::string &name, float value);
     /** The game seconds the passes have counted, which GetTime gives if the game doesn't. */
     float clock() const { return _clock; }
+    /** The player a character of the scripts' stands for, by its address; none for the world's. */
+    std::optional<int> teamOf(uint32_t character) const;
     /** The rules made, and the scripts running. */
     size_t ruleCount() const { return _rules.size(); }
     size_t scriptCount() const { return _scripts.size(); }
@@ -124,7 +131,8 @@ private:
     struct Rule {
         uint32_t condition = 0;
         uint32_t action = 0;
-        bool withCharacter = false; // both called with the world's character
+        bool withCharacter = false; // both called with the character it's of
+        uint32_t owner = 0;         // that character: the world's, or a player's
         bool queued = false;        // on the list to test this pass
         int32_t last = 0;           // its test's last result
         bool satisfied = false;
@@ -136,9 +144,21 @@ private:
         std::vector<uint32_t> steps; // in the order added
         size_t next = 0;
         std::string name;
+        std::vector<uint32_t> params; // characters given it (add_character_param)
+    };
+    // A rule engine's group (0x3c bytes in the program): its members, and
+    // the functions called on each that joins or leaves, newest first.
+    struct Group {
+        std::vector<uint32_t> members;
+        std::vector<std::pair<uint32_t, uint32_t>> functions; // entry, exit
     };
 
     void provideImports(const std::vector<uint8_t> &file);
+    // A DLL by its name, from missions/ else AI/, with the DLLs it imports
+    // from first; loaded once. `id` its place among those so loaded.
+    Error loadModule(const std::string &name, uint32_t &id);
+    Error loadImportsOf(const std::vector<uint8_t> &file);
+    uint32_t characterOf(int team);
     uint32_t callGame(const std::string &decorated, const Signature &sig, x86::Cpu &cpu);
     std::optional<uint32_t> engine(const std::string &decorated, const Signature &sig, const Arguments &args);
     void set(uint32_t hot, int32_t value);
@@ -161,6 +181,9 @@ private:
     std::vector<Script> _scripts;                     // oldest first
     std::map<uint32_t, std::vector<uint32_t>> _lists; // the save and load functions, by list
     uint32_t _world = 0;
+    std::map<int, uint32_t> _teams;        // each player's character, made when first wanted
+    std::map<uint32_t, Group> _groups;     // by address
+    std::vector<std::string> _loadedNames; // the DLLs loaded by name, by id
     uint32_t _scratch = 0;
     float _clock = 0;
 };

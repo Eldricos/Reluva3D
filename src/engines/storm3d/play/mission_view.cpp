@@ -1695,6 +1695,9 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
         _missionScripts->game = [this](const std::string &name, const MissionScripts::Arguments &args) {
             return scriptCall(name, args);
         };
+        _missionScripts->readFile = [this](const std::string &path, std::vector<uint8_t> &data) {
+            return _files.read(path, data);
+        };
         const std::string name = parsed.scripts[0].substr(0, parsed.scripts[0].size() - 5);
         if (Error err = _missionScripts->load(name, script, rules))
             return Error::fail(map + ": " + err.message);

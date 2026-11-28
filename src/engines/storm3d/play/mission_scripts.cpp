@@ -3,6 +3,8 @@
 
 #include "engines/storm3d/play/mission_scripts.h"
 
+#include "common/text.h"
+
 #include "common/pe.h"
 
 #include <algorithm>
@@ -280,10 +282,17 @@ Error MissionScripts::load(const std::string &mission, const std::vector<uint8_t
         _tls[c.arg(0)] = c.arg(1);
         return 1u;
     });
-    for (const char *tls : {"TlsAlloc", "TlsFree", "TlsGetValue", "TlsSetValue"})
-        _cpu->setWritesTracked(std::string("KERNEL32.dll!") + tls);
+    // A debug build's C runtime checks the heap and breaks into a debugger.
+    _process->provideStdcall("KERNEL32.dll", "HeapValidate", 3, [](x86::Cpu &) { return 1u; });
+    _process->provideStdcall("KERNEL32.dll", "DebugBreak", 0, [](x86::Cpu &) { return 0u; });
+    for (const char *name : {"TlsAlloc", "TlsFree", "TlsGetValue", "TlsSetValue", "HeapValidate", "DebugBreak"})
+        _cpu->setWritesTracked(std::string("KERNEL32.dll!") + name);
     provideImports(script);
     provideImports(rules);
+    // A DLL the script imports from (Romulan 1's AI script, from AI/),
+    // loaded and started before it, as Windows' loader would.
+    if (Error e = loadImportsOf(script))
+        return e;
     const x86::Win32Process::Module *s = nullptr;
     const x86::Win32Process::Module *r = nullptr;
     if (Error e = _process->load(mission + "S.dsl", script, s))
@@ -296,6 +305,61 @@ Error MissionScripts::load(const std::string &mission, const std::vector<uint8_t
     if (Error e = _process->attach(*r))
         return Error::fail(mission + "R.drl: " + e.message);
     return Error::success();
+}
+
+Error MissionScripts::loadImportsOf(const std::vector<uint8_t> &file) {
+    PeImage pe;
+    if (parsePe(file, pe))
+        return Error::success();
+    for (const PeImage::ImportedDll &dll : pe.imports) {
+        const std::string &name = dll.name;
+        if (text::hasSuffixIgnoreCase(name, ".dsl") || text::hasSuffixIgnoreCase(name, ".drl")) {
+            uint32_t id = 0;
+            if (Error e = loadModule(name, id))
+                return e;
+        }
+    }
+    return Error::success();
+}
+
+Error MissionScripts::loadModule(const std::string &name, uint32_t &id) {
+    for (size_t i = 0; i < _loadedNames.size(); ++i)
+        if (text::equalsIgnoreCase(_loadedNames[i], name)) {
+            id = uint32_t(i);
+            return Error::success();
+        }
+    std::vector<uint8_t> file;
+    if (!readFile || (readFile("missions/" + name, file) && readFile("AI/" + name, file)))
+        return Error::fail(name + " isn't in missions/ or AI/");
+    provideImports(file);
+    if (Error e = loadImportsOf(file))
+        return e;
+    const x86::Win32Process::Module *m = nullptr;
+    if (Error e = _process->load(name, file, m))
+        return e;
+    // Known by its id before it's started: its start-up may load another
+    // that imports from it (Klingon_Medium_Script.dsl's rules).
+    id = uint32_t(_loadedNames.size());
+    _loadedNames.push_back(name);
+    if (Error e = _process->attach(*m))
+        return Error::fail(name + ": " + e.message);
+    return Error::success();
+}
+
+uint32_t MissionScripts::characterOf(int team) {
+    auto it = _teams.find(team);
+    if (it != _teams.end())
+        return it->second;
+    const uint32_t at = _process->memory().alloc(0xa0);
+    _teams[team] = at;
+    return at;
+}
+
+std::optional<int> MissionScripts::teamOf(uint32_t character) const {
+    for (const auto &[team, at] : _teams)
+        if (at == character)
+            return team;
+    return std::nullopt;
 }
 
 void MissionScripts::provideImports(const std::vector<uint8_t> &file) {
@@ -517,7 +581,32 @@ std::optional<uint32_t> MissionScripts::engine(const std::string &decorated, con
         rule.action = args.word(1);
         rule.name = args.text(2);
         rule.withCharacter = decorated.find("AAVcharacter") != std::string::npos;
+        // Its character's: the one whose rule engine it's made on, at 0x38
+        // into it (0x405c80); the world's unless it's a player's.
+        rule.owner = _world;
+        for (const auto &[team, character] : _teams)
+            if (self == character + 0x38)
+                rule.owner = character;
         return at;
+    }
+    if (name == "IIIE::trash_rule" && args.kinds == "s") {
+        // By its name: the newest of its character's (0x405d40).
+        uint32_t owner = _world;
+        for (const auto &[team, character] : _teams)
+            if (self == character + 0x38)
+                owner = character;
+        const std::string wanted = args.text(0);
+        uint32_t newest = 0;
+        for (const auto &[at, rule] : _rules)
+            if (rule.owner == owner && rule.name == wanted && at > newest)
+                newest = at;
+        if (newest) {
+            if (auto it = std::find(_satisfied.begin(), _satisfied.end(), newest); it != _satisfied.end())
+                _satisfied.erase(it);
+            _affected.remove(newest);
+            _rules.erase(newest);
+        }
+        return 0u;
     }
     if (name == "IIIE::trash_rule") {
         // Off the satisfied list by its first place there (0x405d00).
@@ -535,6 +624,64 @@ std::optional<uint32_t> MissionScripts::engine(const std::string &decorated, con
     if (name == "character::clear_scripts") {
         _scripts.clear();
         return 0u;
+    }
+    if (name == "script::add_character_param") {
+        for (Script &script : _scripts)
+            if (script.address == self)
+                script.params.push_back(args.word(0));
+        return 0u;
+    }
+    if (name == "script::nth_param_ptr") {
+        for (const Script &script : _scripts)
+            if (script.address == self && args.word(0) < script.params.size())
+                return script.params[args.word(0)];
+        return 0u;
+    }
+    if (name == "group::constructor") {
+        _groups[self] = Group{};
+        return self;
+    }
+    if (name == "group::destructor") {
+        _groups.erase(self);
+        return 0u;
+    }
+    if (name == "group::add_group_entry_function" || name == "group::remove_group_entry_function") {
+        // Kept, newest first, and called on each member there is: the entry
+        // when it's added, the exit when it's taken away (0x4047f0, 0x404950).
+        Group &g = _groups[self];
+        const std::pair<uint32_t, uint32_t> functions{args.word(0), args.word(1)};
+        const bool adding = name == "group::add_group_entry_function";
+        if (adding)
+            g.functions.insert(g.functions.begin(), functions);
+        else
+            std::erase(g.functions, functions);
+        const std::vector<uint32_t> members = g.members;
+        for (uint32_t member : members) {
+            // Called from within the scripts' own call: a fault goes on up
+            // through it, failing the pass.
+            uint32_t ignored = 0;
+            (void)call(adding ? functions.first : functions.second, {member}, ignored);
+        }
+        return 0u;
+    }
+    if (name == "Add_Team_To_Group") {
+        // The player's character joins, each entry function called on it (0x430310).
+        const uint32_t character = characterOf(args.integer(0));
+        Group &g = _groups[args.word(1)];
+        g.members.push_back(character);
+        const std::vector<std::pair<uint32_t, uint32_t>> functions = g.functions;
+        for (const auto &[entry, exit] : functions) {
+            uint32_t ignored = 0;
+            (void)call(entry, {character}, ignored);
+        }
+        return 0u;
+    }
+    if (name == "Load_Rules" || name == "Load_Action_Scripts") {
+        // From missions/, else AI/; its id, or -1 if it isn't there (0x4068a0).
+        uint32_t id = 0;
+        if (loadModule(args.text(0), id))
+            return uint32_t(-1);
+        return id;
     }
     if (name == "script::add_step") {
         for (Script &script : _scripts)
@@ -660,8 +807,9 @@ Error MissionScripts::tick(float seconds) {
             continue;
         rule->second.queued = false;
         uint32_t result = 0;
-        if (Error e = call(rule->second.condition,
-                           rule->second.withCharacter ? std::vector{_world} : std::vector<uint32_t>{}, result))
+        if (Error e =
+                call(rule->second.condition,
+                     rule->second.withCharacter ? std::vector{rule->second.owner} : std::vector<uint32_t>{}, result))
             return e;
         rule = _rules.find(r);
         if (rule == _rules.end() || int32_t(result) == rule->second.last)
@@ -685,8 +833,9 @@ Error MissionScripts::tick(float seconds) {
         if (rule == _rules.end())
             continue;
         uint32_t ignored = 0;
-        if (Error e = call(rule->second.action,
-                           rule->second.withCharacter ? std::vector{_world} : std::vector<uint32_t>{}, ignored))
+        if (Error e =
+                call(rule->second.action,
+                     rule->second.withCharacter ? std::vector{rule->second.owner} : std::vector<uint32_t>{}, ignored))
             return e;
     }
     // Each script its next step, oldest first, gone after its last
