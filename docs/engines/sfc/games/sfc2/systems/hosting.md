@@ -479,8 +479,34 @@ it is: stopped, orbiting, leaving at full speed, firing or not. The
 debriefing is then "Defeat: ... giving into a demand" (+75). The
 mission's text has another branch ("It is up to you to find a peaceful
 resolution. We shall not interfere again"), and a surrender line
-("This is [PLAYER_RANK] [PLAYER_NAME], we surrender"); what takes the
-other branch isn't known: the script's text has it, its logic wasn't traced.
+("This is [PLAYER_RANK] [PLAYER_NAME], we surrender"), but its code
+never shows them: the script (`Uni_1Peace.scr`, loaded at 0xcc0000 in
+these runs, 0x10000000 by its own header) keeps its lines as a table of
+strings, 16 bytes each from 0x10056340, shown by number (0x1000a210).
+Its timed stages show 35 (the log) at the start, 36 to 39 (the diplomat
+landed, the disturbance, the three ships, the Organian) one after the
+other once the diplomat is down (0x10001b2a, 0x10001b55, 0x10001b95),
+then 50 and the three ISC ships put on the enemy's team (0x10001c3d);
+40, "up to you to find a peaceful resolution", is shown by no code, so
+the ambush comes every time *(from the code)*. Its outcome handler
+(0x100020a0, its object's 20th method) only picks the debriefing's
+text, 58 to 63 by the level the game hands it (0 Astounding Victory
+to 4 Devastating Defeat, -1 forfeit): the level is the game's, by its
+`Score.gf` `[VictoryLevels]` (1.0, 0.8, 0.5, 0.2, 0.0) *(from the
+code)*. So it's won by beating the three ISC ships. The frigate's
+sudden 200 damage at 8:50 is what they do on arrival close to the
+planet: moved away first (T twice to an ally, the keypad's * and two
+presses of S, stopped after 400 frames), it lived to 9:45, taking 79
+to 94 damage and doing 70 to 135, and lost.
+
+The enemies grow with the player's fleet: the mission matcher scores a
+mission by its enemies' BPV against the player's
+(`MissionMatching.gf`'s `[FleetScoring]`). Convoy Escort, won every
+time by the frigate alone with the inputs above, was lost three times
+in four by the frigate and a destroyer (max ECM, F, and ECCM, G, made
+no difference), and Deep Space Encounter, against three ships, lost in
+about two minutes each way tried. Inputs fixed in advance, which can't
+answer what the enemy does, win the easy fights only.
 In orbit (the keypad's .) before delivering, nothing comes at all; the
 delegates' ships, which Y and the backquote target as enemies (the
 Klingon, Gorn and Hydran), fight back if fired on.
