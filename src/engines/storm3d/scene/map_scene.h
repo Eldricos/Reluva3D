@@ -244,6 +244,8 @@ public:
     void hideUnit(size_t unit);
     /** Puts a unit somewhere else, turned to `heading` (radians from +z towards +x). */
     void moveUnit(size_t unit, const gfx::Vec3 &at, float heading);
+    /** Draws a unit at `scale` times its model's size: a wormhole opening. */
+    void scaleUnit(size_t unit, float scale);
     /**
      * Where the ray from the camera through a point of the screen meets the
      * plane y = `height`; none if it doesn't, ahead.

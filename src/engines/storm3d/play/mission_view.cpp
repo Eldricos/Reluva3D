@@ -791,14 +791,17 @@ void MissionView::plan(Computer &c) {
     std::vector<Strategy::Ship> ships;
     std::vector<size_t> shipUnits;
     for (size_t i = 0; i < units.size(); ++i) {
-        if (_dead[i])
+        if (_dead[i] || _classes[i] == "wormhole_obj")
             continue;
         Strategy::Cell &cell = cells[cellOf(units[i].at)];
         const bool station = !_moves[i];
         if (units[i].slot == c.slot) {
             cell.ourStations += station;
-            // Its ships that fight: armed, and not a builder or freighter.
-            if (!station && !_weapons[i].empty() && _classes[i] != "constructionrig" && _classes[i] != "freighter") {
+            // Its ships that fight: armed, and not a builder or freighter;
+            // nor one a mission's script has taken over (SetSpecialForcesFlag)
+            // *(guessed)*.
+            if (!station && !_weapons[i].empty() && _classes[i] != "constructionrig" && _classes[i] != "freighter" &&
+                !_scripted.count(i)) {
                 ships.push_back({units[i].at[0] - map.area[0], units[i].at[2] - map.area[4], _vitals[i].maxShields});
                 shipUnits.push_back(i);
             }
@@ -857,7 +860,10 @@ void MissionView::engage() {
         float bestDistance = reach;
         for (size_t j = 0; j < units.size(); ++j) {
             // A cloaked unit not seen by a detector isn't taken.
-            if (_dead[j] || units[j].slot == units[i].slot || (_cloaked[j] && !_revealedUntil.count(j)))
+            // Nor a wormhole: it isn't fought *(inferred: the program's
+            // wormhole_obj isn't a craft or a building)*.
+            if (_dead[j] || units[j].slot == units[i].slot || (_cloaked[j] && !_revealedUntil.count(j)) ||
+                _classes[j] == "wormhole_obj")
                 continue;
             const gfx::Vec3 to = units[j].middle();
             const float d = std::hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
@@ -867,6 +873,8 @@ void MissionView::engage() {
             }
         }
         _targets[i] = best;
+        if (best >= 0)
+            _picked[i] = best;
     }
 }
 
@@ -1055,6 +1063,8 @@ void MissionView::addFighter(const std::string &odf) {
     _dead.push_back(false);
     _scans.push_back(read ? float(def.number("rangeScan", 500)) : 500.0f);
     _classes.push_back(read ? text::toLower(def.string("classLabel")) : std::string());
+    if (_classes.back() == "wormhole_obj")
+        addWormhole(def, _classes.size() - 1, std::nullopt);
 }
 
 int MissionView::liveUnitAt(const gfx::Mat4 &viewProj, int x, int y) const {
@@ -1414,6 +1424,11 @@ void MissionView::forget(size_t unit) {
     std::erase_if(_sites, [unit](const Site &s) { return s.builder == unit; });
     _decommissioning.erase(unit);
     std::erase_if(_decommissioning, [unit](const auto &d) { return d.second.bay == unit; });
+    _boundFor.erase(unit);
+    std::erase_if(_passages, [unit](const Passage &p) { return p.unit == unit; });
+    for (size_t i = 0; i < _wormholes.size(); ++i)
+        if (_wormholes[i].unit == unit && !_wormholes[i].gone)
+            loseWormhole(i);
 }
 
 std::optional<size_t> MissionView::addShip(const std::string &odf, const gfx::Vec3 &at, float heading,
@@ -1654,8 +1669,13 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
         _scene.build(parsed, units, "", _scene.sightsOf(parsed, {}, team), cover);
     for (const BznMap::Path &p : parsed.paths)
         _paths.emplace(p.name, p.points);
-    for (const BznMap::Object &o : parsed.objects)
+    for (const BznMap::Object &o : parsed.objects) {
         _mapObjects.emplace_back(o.label, o.position);
+        Odf def;
+        if (!def.load(o.odf + ".odf", loaderOf(_files.files())) &&
+            text::equalsIgnoreCase(def.string("classLabel"), "wormhole_obj"))
+            addWormhole(def, std::nullopt, _mapObjects.size() - 1);
+    }
     // Its scripts, from the map's [AiMission]: the script's DLL, then the
     // rules' (formats/bzn.md).
     if (parsed.scripts.size() == 2 && text::hasSuffixIgnoreCase(parsed.scripts[0], "S.dsl")) {
@@ -2225,7 +2245,12 @@ void MissionView::stop() {
     _scriptFault.clear();
     _paths.clear();
     _mapObjects.clear();
+    _wormholes.clear();
+    _waitingWormhole = -1;
+    _boundFor.clear();
+    _passages.clear();
     _scripted.clear();
+    _picked.clear();
     _cannotDie.clear();
     _missionEnd.reset();
     _computersOff = false;
@@ -2373,6 +2398,15 @@ void MissionView::handleEvent(const Event &ev) {
         const int unit = liveUnitAt(MapScene::viewProjOf(camera(), kRange), ev.mouseX, ev.mouseY);
         if (unit >= 0 && _scene.units()[size_t(unit)].slot != _slot && attack(unit))
             return;
+        // Sent to a wormhole, the ships go through it (0x425b7e).
+        if (auto hole = unit >= 0 ? wormholeOfHandle(unit + 1) : std::nullopt) {
+            for (int i : obeying(_selection))
+                if (size_t(i) < _moves.size() && _moves[size_t(i)]) {
+                    _targets[size_t(i)] = -1;
+                    sendThrough(size_t(i), *hole);
+                }
+            return;
+        }
         // Sent to the point under the pointer, on the plane the selected
         // units fly in; an order to go gives up their attack.
         for (int i : _selection)
@@ -2434,7 +2468,8 @@ void MissionView::handleEvent(const Event &ev) {
 }
 
 bool MissionView::attack(int target) {
-    if (target < 0 || size_t(target) >= _dead.size() || _dead[size_t(target)])
+    if (target < 0 || size_t(target) >= _dead.size() || _dead[size_t(target)] ||
+        _classes[size_t(target)] == "wormhole_obj")
         return false;
     bool any = false;
     for (int i : obeying(_selection))
@@ -2476,7 +2511,17 @@ void MissionView::pursue() {
         float reach = 0;
         for (const Combat::Weapon &w : _weapons[i])
             reach = std::max(reach, w.range);
-        if (auto point = chasePointOf(units[i].middle(), units[size_t(t)].middle(), reach, ship.at[1])) {
+        auto point = chasePointOf(units[i].middle(), units[size_t(t)].middle(), reach, ship.at[1]);
+        // A target it took up itself on the way somewhere it was sent, gone
+        // out of reach, is let go, not chased *(guessed)*.
+        auto picked = _picked.find(i);
+        if (point && !_chasing[i] && (ship.goal || _boundFor.count(i) || inWormholeQueue(i)) &&
+            picked != _picked.end() && picked->second == t) {
+            _targets[i] = -1;
+            _picked.erase(picked);
+            continue;
+        }
+        if (point) {
             ship.goal = point;
             ship.route.clear();
             _chasing[i] = true;
@@ -2782,6 +2827,7 @@ void MissionView::draw(uint64_t millis) {
     engage();
     pursue();
     fight(seconds);
+    runWormholes(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
     // What each ship keeps clear of: every other unit standing, as it moves.

@@ -192,8 +192,10 @@ for what they take from Armada.exe.
   - **names and paths:** `GetHandle` finds the first unit, then map
     object, of the map's name, exactly; paths are the map's, by name;
   - **orders,** only to a unit the script has taken
-    (`SetSpecialForcesFlag`): `Goto` a path, along its points *(inferred)*,
-    or a unit; `Stop`; `Attack` and `AI_Attack`, the same here
+    (`SetSpecialForcesFlag`), which the computer player then leaves
+    alone *(guessed)*: `Goto` a path, along its points *(inferred)*,
+    or a unit, through it if it's a wormhole
+    ([wormholes.md](wormholes.md)); `Stop`; `Attack` and `AI_Attack`, the same here
     *(guessed)*, how the second differs not known. `SetPosition` puts
     a unit at a path's first point, `PointAt` turns it, `BuildObject`
     makes one at a path's point for a player, `RemoveObject` takes one
@@ -210,8 +212,9 @@ for what they take from Armada.exe.
     units that aren't derelict, by player and definition, within the
     radius across the plane; `GetDistance` to a path's point and
     `GetNearestEnemy` (in a square of the range) are across the plane
-    too; `InAttackMode` is having a target; `InQueue` having somewhere to
-    go *(inferred)*; `IsCompromised` gone, derelict or another's;
+    too; `InAttackMode` is having a target; `InQueue` being in a
+    wormhole's queue, going in or coming out; `LinkWormHoles` pairs two
+    wormholes; `IsCompromised` gone, derelict or another's;
   - **the end:** `SucceedMission` and `FailMission` end the mission when
     the game time reaches the time they give.
 

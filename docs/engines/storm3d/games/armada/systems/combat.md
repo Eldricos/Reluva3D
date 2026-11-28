@@ -391,6 +391,10 @@ From the same run's frames and draws:
   to the point on its way at 0.95 of that reach from the target, set
   afresh as the target moves, and stops there; within reach it holds
   where it is, as the original's destroyer did.
+  A target a ship took up of itself on its way somewhere it was sent,
+  once out of reach, is let go rather than chased *(guessed)*: the
+  script's Borg, passing the Premonition on their way into a wormhole,
+  went after it instead. A wormhole is never a target *(inferred)*.
 - **Shown:** the bar over a unit being attacked, and the info panel's
   shield bar, with their colours; the shots as their sprite, added on,
   along their way and turned to the camera.

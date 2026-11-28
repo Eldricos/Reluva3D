@@ -526,6 +526,7 @@ private:
     std::map<std::string, std::vector<gfx::Vec3>> _paths;       // the map's, by name
     std::vector<std::pair<std::string, gfx::Vec3>> _mapObjects; // the map's objects: name, place
     std::set<size_t> _scripted;                                 // units the scripts order (SetSpecialForcesFlag)
+    std::map<size_t, int> _picked;                              // targets units took up of themselves, by unit
     std::set<size_t> _cannotDie;                                // CraftCannotDie
     std::optional<std::pair<double, bool>> _missionEnd;         // when, in game seconds; whether failed
     bool _computersOff = false;                                 // DisableAllAITeams
@@ -649,6 +650,49 @@ private:
     void decommission(size_t unit);
     void runDecommissions(double seconds);
     void forget(size_t unit); // gone from play: orders, targets and work of it dropped
+    // wormholes.cpp: the wormholes, paired, and the ships they carry
+    // through (docs/.../systems/wormholes.md).
+    struct Wormhole {
+        enum class State : uint8_t { kClosed, kOpening, kOpen, kClosing };
+        std::optional<size_t> unit;   // a unit's, or else the map's object
+        std::optional<size_t> object; // its place in _mapObjects
+        int partner = -1;
+        State state = State::kClosed;
+        float scale = 10;
+        float closedScale = 10;
+        float openScale = 50;
+        float rate = 20; // its scale's change a second, opening or closing
+        float speedRange = 50;
+        float maxSpeed = 4;
+        std::string openSound;
+        std::string closeSound;
+        bool gone = false;
+    };
+    // A ship on its way into a wormhole, or out of its partner.
+    struct Passage {
+        size_t unit = 0;
+        size_t hole = 0;
+        bool out = false;
+        std::array<gfx::Vec3, 4> curve{}; // from, to, and the tangents at each
+        float t = 0;                      // 0 to 1 along it
+        float length = 1;
+        float height = 0;              // the ship's, as it went in
+        std::optional<gfx::Vec3> held; // an order given on the way, kept till it's out
+    };
+    void addWormhole(const Odf &def, std::optional<size_t> unit, std::optional<size_t> object);
+    std::optional<size_t> wormholeOfHandle(int32_t handle) const;
+    std::optional<size_t> wormholeNear(const gfx::Vec3 &point) const; // within 5 of its middle
+    gfx::Vec3 wormholeAt(size_t hole) const;
+    void sendThrough(size_t unit, size_t hole);
+    void enterWormhole(size_t unit, size_t hole);
+    void runWormholes(double seconds);
+    void loseWormhole(size_t hole);
+    void playWormholeSound(const std::string &name);
+    bool inWormholeQueue(size_t unit) const;
+    std::vector<Wormhole> _wormholes;
+    int _waitingWormhole = -1;                                // the one the next made pairs with
+    std::map<size_t, std::pair<size_t, gfx::Vec3>> _boundFor; // ship: the wormhole, the point it joins its queue at
+    std::vector<Passage> _passages;
     std::map<size_t, Decommission> _decommissioning;
     bool disabled(size_t unit) const; // without crew, it neither moves nor fires
     bool active(double until) const { return double(_last) / 1000 < until; }

@@ -841,6 +841,19 @@ void MapScene::moveUnit(size_t unit, const gfx::Vec3 &at, float heading) {
             at[2] + std::max(-s * m.lo[0], -s * m.hi[0]) + std::max(c * m.lo[2], c * m.hi[2])};
 }
 
+void MapScene::scaleUnit(size_t unit, float scale) {
+    if (unit >= _units.size() || scale <= 0)
+        return;
+    UnitModel &m = _unitModels[unit];
+    const float by = scale / m.scale;
+    for (int k = 0; k < 3; ++k) {
+        m.lo[k] *= by;
+        m.hi[k] *= by;
+    }
+    m.scale = scale;
+    moveUnit(unit, _units[unit].at, _units[unit].heading);
+}
+
 std::optional<gfx::Vec3> MapScene::pointOn(const Camera &camera, float height, int x, int y) {
     // Right, in the game's left-handed coordinates: up x forward.
     const gfx::Vec3 &u = camera.up;

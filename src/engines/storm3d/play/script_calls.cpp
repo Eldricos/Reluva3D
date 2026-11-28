@@ -144,6 +144,15 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
             ship.route.assign(it->second.begin(), it->second.end() - 1);
             ship.goal = it->second.back();
         } else if (auto at = placeOfHandle(args.integer(1))) {
+            // To a wormhole, or a point within 5 of one, is through it (0x425b7e).
+            auto hole = wormholeOfHandle(args.integer(1));
+            if (!hole)
+                hole = wormholeNear(*at);
+            _targets[*unit] = -1;
+            if (hole) {
+                sendThrough(*unit, *hole);
+                return 0u;
+            }
             ship.route.clear();
             ship.goal = *at;
         }
@@ -153,6 +162,7 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
     }
     if (name == "Stop") {
         if (auto unit = ordered(0)) {
+            _boundFor.erase(*unit);
             _ships[*unit].goal.reset();
             _ships[*unit].route.clear();
             _targets[*unit] = -1;
@@ -336,9 +346,20 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         return unit && _targets[*unit] >= 0 ? 1u : 0u;
     }
     if (name == "InQueue") {
-        // Orders still to carry out: somewhere to go *(inferred)*.
+        // In a wormhole's queue: on its way in or out (0x434e90).
         auto unit = unitOfHandle(args.integer(0));
-        return unit && _ships[*unit].goal ? 1u : 0u;
+        return unit && inWormholeQueue(*unit) ? 1u : 0u;
+    }
+    if (name == "LinkWormHoles") {
+        // Each the other's partner; their old partners keep their one-way
+        // links (0x4516a0).
+        auto a = wormholeOfHandle(args.integer(0));
+        auto b = wormholeOfHandle(args.integer(1));
+        if (a && b) {
+            _wormholes[*a].partner = int(*b);
+            _wormholes[*b].partner = int(*a);
+        }
+        return 0u;
     }
     if (name == "IsCompromised") {
         // Gone, derelict, or another player's (0x436df0).
