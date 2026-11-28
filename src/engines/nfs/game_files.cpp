@@ -76,7 +76,9 @@ std::vector<FileRef> GameFiles::textTables() const {
     std::vector<FileRef> out;
     for (const FileRef &f : _files) {
         const std::string lower = fs::toLower(f.name);
-        if (f.inner.empty() && lower.rfind("fedata/text/text.", 0) == 0)
+        if (f.inner.empty() &&
+            (lower.rfind("fedata/text/text.", 0) == 0 || lower.rfind("fedata/pc/text/text.", 0) == 0 ||
+             lower.rfind("gamedata/dashhud/pc/textsim.", 0) == 0))
             out.push_back(f);
     }
     return out;

@@ -1,6 +1,6 @@
 # Need for Speed III: `.hrz` sky files
 
-> **Status:** decoded · **Code:** `src/engines/nfs/formats/hrz.cpp` · **Checked on:** every sky file · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/nfs/nfs3/formats/hrz.cpp` · **Checked on:** every sky file · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -132,7 +132,7 @@ pixels. In the first frames after the poke the sky is still drawn
     (210, 205, 157) at the first two edges, as computed.
 - **The sun**, unfogged, added (unless `NOADD`). With `INFRONT` it comes
   after the clouds instead (`0x47a190`), still before the earth and
-  horizon. Its picture's text (`A200 B45 R25 ROTATE`, [fsh.md](fsh.md))
+  horizon. Its picture's text (`A200 B45 R25 ROTATE`, [fsh.md](../../../formats/fsh.md))
   places it (`0x47ab40`):
   - **Where.** At (cos A, cos B, sin A) × 3000 in the track's
     coordinates, A and B in degrees. So A is a heading of
@@ -463,9 +463,10 @@ The reason is in the code: the game sends fog only to the 3dfx
 renderers (`0x4b59c0` sets the fog mode 4 for `voodooa` and `voodoo2a`
 and 0 for the rest, and with 0 `0x470aa0` and `0x470ad0` send no fog
 state; [thrash.md](../systems/thrash.md), Fog). So the clip's game drew no fog:
-the clips were most likely recorded with the Direct3D renderer
-(`d3da`), or with a Glide renderer that leaves out table fog. Either
-way the page and `reluva-tool nfs host` are right for the 3dfx path the page
+the clips were recorded with the Direct3D renderer (`d3da`), from the
+user's own copy in a virtual machine
+([UNCONFIRMED.md](../UNCONFIRMED.md#settled)). The page and `reluva-tool
+nfs host` are right for the 3dfx path the page
 draws, and with fog off match the clip. By day without weather (density
 5, value 475) the difference is slight, which is why the earlier clips
 didn't show it. Comparison: the clip frame, the host's list, the page
@@ -502,8 +503,8 @@ queued with each (`0x414e10`); not listened for.
 
 ### The Direct3D renderer (November 2026)
 
-The clips were most likely made with `d3da.dll` (the user's game ran in
-a virtual machine with emulated Direct3D). What the game and the DLL do
+The clips were made with `d3da.dll` (the user's game ran in a virtual
+machine with emulated Direct3D). What the game and the DLL do
 differently for it, from `nfs3.exe` (every reader of the renderer byte
 `0x7a3a58`: bit 0x40 is `d3da`, the mask 0x1e0 `ragea`, `d3da` and the
 two `powervra`; [frd.md](frd.md), the detail levels) and `d3da.dll`:
@@ -664,7 +665,7 @@ page's sky may be what differs); and the Summit's greyer scenery.
 
 ## In Reluva
 
-Read as `Horizon` (`src/engines/nfs/formats/hrz.cpp`), and checked on all
+Read as `Horizon` (`src/engines/nfs/nfs3/formats/hrz.cpp`), and checked on all
 36 retail files: four per track, `3trNN.hrz` (day), `n` (night), `w`
 (weather) and `nw` (night with weather). The data
 viewer's Tracks page draws the sky.

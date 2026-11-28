@@ -248,6 +248,8 @@ unreal engines have theirs).
 - **Running them:**
   - `ctest --test-dir build --output-on-failure` runs them all;
   - with Visual Studio's generator, add `-C Release` (or `Debug`);
+  - built in Visual Studio with its presets, the folder is the preset's:
+    `ctest --test-dir out\build\x64-release` (Ninja's: no `-C`);
   - `ctest -L <label>` runs some: a kind (`unit`, `engine`, `gamedata`) or an
     area (`common`, `idtech3`);
   - `reluva-tests` runs them directly: alone, every suite; with names, those
@@ -298,8 +300,9 @@ what an engine does is caught, even where no unit test looks. Elite Force
 Express (`awe`, `RELUVA_MOTOE`, see [its TESTING.md](engines/awe/games/motoe/TESTING.md)),
 LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
 [its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)), and
-Need for Speed III (`nfs`, `RELUVA_NFS3`, see
-[its TESTING.md](engines/nfs/games/nfs3/TESTING.md)).
+Need for Speed III and II SE (`nfs`, `RELUVA_NFS3` and `RELUVA_NFS2SE`, see
+[NFS III's TESTING.md](engines/nfs/games/nfs3/TESTING.md) and
+[NFS II SE's](engines/nfs/games/nfs2se/TESTING.md)).
 
 ### The basic engine test: no game files
 
@@ -340,8 +343,23 @@ Need for Speed III (`nfs`, `RELUVA_NFS3`, see
   RELUVA_STVEF=/path/to/EliteForce ctest --test-dir build -L gamedata
   ```
 
-  On Windows: `set RELUVA_STVEF=C:\Games\EliteForce`, then
-  `ctest --test-dir build -C Release -L gamedata`.
+  On Windows, in PowerShell (Visual Studio 2022's Developer PowerShell
+  too), from the top of the repository, with Visual Studio's preset's
+  build folder (`out\build\x64-release` for **x64 Release (fast)**; its
+  builds are Ninja's, so no `-C`):
+
+  ```powershell
+  $env:RELUVA_STVEF = "C:\Games\EliteForce"
+  ctest --test-dir out\build\x64-release -L gamedata
+  ```
+
+  PowerShell's `set` makes a variable of PowerShell's own, which ctest
+  never sees: use `$env:`. In the Command Prompt, `set
+  RELUVA_STVEF=C:\Games\EliteForce`; and with Visual Studio's generator
+  (`build`), add `-C Release`. "No tests were found" means none by that
+  name in that folder: the folder isn't the build, or the build was made
+  before the test was added (build again, which reconfigures).
+  `ctest --test-dir <folder> -N -L gamedata` lists what's there.
 - **Or from the launcher's list.** Without the variable, a step takes the
   game's folder from the launcher's entry for it (`reluva.ini`), so a game
   added in the launcher needs nothing set: `ctest --test-dir build -L

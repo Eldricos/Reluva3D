@@ -476,6 +476,8 @@ void Win32Process::addDriveStandIns() {
         const size_t n = size ? std::fread(c.memory().data() + buffer, 1, size, f->file) : 0;
         if (done)
             c.write32(done, uint32_t(n));
+        if (fileRead && n)
+            fileRead(uint32_t(n));
         return 1u;
     });
     // GetOverlappedResult(handle, OVERLAPPED*, LPDWORD done, wait): a
@@ -613,7 +615,8 @@ void Win32Process::addDriveStandIns() {
         if (!f)
             return 0u;
         std::error_code ec;
-        const uint64_t t = fileTime(stdfs::last_write_time(hostPath(f->path, false), ec));
+        const uint64_t t =
+            fixedFileTime ? fixedFileTime : fileTime(stdfs::last_write_time(hostPath(f->path, false), ec));
         for (int i = 1; i <= 3; ++i)
             if (c.arg(i)) {
                 c.write32(c.arg(i), uint32_t(t));
@@ -639,14 +642,14 @@ void Win32Process::addDriveStandIns() {
     });
 
     // Searches: FindFirstFileA(pattern, WIN32_FIND_DATAA*).
-    auto fillFind = [](Cpu &c, uint32_t p, const FindObject::Entry &e) {
+    auto fillFind = [this](Cpu &c, uint32_t p, const FindObject::Entry &e) {
         if (!c.valid(p, 320))
             return;
         std::memset(c.memory().data() + p, 0, 320);
         std::error_code ec;
         const bool dir = stdfs::is_directory(e.host, ec);
         c.write32(p, dir ? kDirectory : kArchive);
-        const uint64_t t = fileTime(stdfs::last_write_time(e.host, ec));
+        const uint64_t t = fixedFileTime ? fixedFileTime : fileTime(stdfs::last_write_time(e.host, ec));
         for (uint32_t at : {4u, 12u, 20u}) {
             c.write32(p + at, uint32_t(t));
             c.write32(p + at + 4, uint32_t(t >> 32));
@@ -895,9 +898,12 @@ void Win32Process::addDriveStandIns() {
             return 0u;
         const uint32_t bytes = c.arg(4) ? c.arg(4) : uint32_t(m->data.size() - offset);
         const uint32_t p = _arena->alloc(std::max(bytes, 1u), 0x10000);
-        if (p)
-            std::memcpy(c.memory().data() + p, m->data.data() + offset,
-                        std::min<size_t>(bytes, m->data.size() - offset));
+        if (p) {
+            const size_t n = std::min<size_t>(bytes, m->data.size() - offset);
+            std::memcpy(c.memory().data() + p, m->data.data() + offset, n);
+            if (fileRead && n)
+                fileRead(uint32_t(n));
+        }
         return p;
     });
     stdcall(k, "UnmapViewOfFile", 1, [this](Cpu &c) {
@@ -1020,6 +1026,8 @@ void Win32Process::addFileStandIns() {
         const size_t n = std::fread(c.memory().data() + buffer, 1, size, f->file);
         if (c.arg(3))
             c.write32(c.arg(3), uint32_t(n));
+        if (fileRead && n)
+            fileRead(uint32_t(n));
         return 1u;
     });
     // SetFilePointer(handle, low, high*, method): 32-bit offsets only.
@@ -1236,8 +1244,9 @@ void Win32Process::addFileStandIns() {
             const long at = std::ftell(f->file);
             std::fseek(f->file, long(offset), SEEK_SET);
             const size_t n = std::fread(c.memory().data() + view, 1, size, f->file);
-            (void)n;
             std::fseek(f->file, at, SEEK_SET);
+            if (fileRead && n)
+                fileRead(uint32_t(n));
         }
         return view;
     });

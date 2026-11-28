@@ -52,10 +52,15 @@ Allowed under CONTRIBUTING.md:
 - **The retail data and executable** (this copy). Reverse engineering of
   the executable is for interoperability: the THRASH, iSND and Win32
   interfaces.
-- **Public format write-ups.** The NFS modding community's documents on
-  FRD/COL/FCE (Denis Auroux's NFS3 track and car format notes, as used
-  by T3ED and FCEFinish), the MultimediaWiki pages on EA formats
+- **Public format write-ups.** The MultimediaWiki pages on EA formats
   (RefPack, SHPI, SCHl/ASF, MAD), and fan wikis.
+- **Not used:** Denis Auroux's NFS III track notes (FRD and COL, in
+  T3ED's help file, 1998-99), which forbid using their information
+  commercially and so don't sit with the GPL, and the community's FCE
+  notes, whose terms couldn't be checked. They were the first guide to
+  the layouts; every fact on the format pages was found again on the
+  files and in `nfs3.exe`, and the one meaning only his notes gave is
+  dropped ([PLAN.md](PLAN.md#the-formats-sources-reviewed-done)).
 - **Open-source readers, as references only.** OpenNFS (MIT) and
   FFmpeg's EA demuxers and decoders (LGPL 2.1+) may be read to check our
   understanding of a format. No code is copied from them: Reluva's code is

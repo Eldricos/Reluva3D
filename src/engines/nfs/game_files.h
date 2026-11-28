@@ -43,7 +43,11 @@ public:
      * lower case), ignoring the names' case, in scan order.
      */
     std::vector<FileRef> withExtensions(std::initializer_list<const char *> extensions) const;
-    /** The front-end string tables (FeData/text/text.*), loose files only. */
+    /**
+     * The string tables, loose files only: the front end's (NFS III's
+     * FeData/text/text.*, NFS II SE's FeData/pc/text/text.*) and NFS II
+     * SE's race messages (GameData/DashHud/pc/textsim.*).
+     */
     std::vector<FileRef> textTables() const;
 
     /**

@@ -64,7 +64,7 @@ struct TrackCollision {
         std::vector<Polygon> polygons;
     };
 
-    /** An object (type 3: moving, by keys as .frd's; type 1: still). */
+    /** An object: type 3 moves by keys, as .frd's do; the retail files have no other. */
     struct Object {
         /** Where a moving object is at one step of its path. */
         struct Key {
@@ -73,17 +73,16 @@ struct TrackCollision {
         };
         uint8_t type = 0;
         uint8_t structure = 0;
-        Vec3 reference{};
         int16_t delay = 0;
         std::vector<Key> keys;
     };
 
-    std::vector<std::array<uint8_t, 8>> textures; // xbid 2, not decoded yet
-    std::vector<Structure> structures;            // xbid 8
-    // xbid 7 and 18
+    std::vector<std::array<uint8_t, 8>> textures; // block id 2, not decoded yet
+    std::vector<Structure> structures;            // block id 8
+    // block ids 7 and 18
     std::vector<Object> objects;
     std::vector<Object> objects2;
-    std::vector<RoadPoint> road; // xbid 15
+    std::vector<RoadPoint> road; // block id 15
 };
 
 /**

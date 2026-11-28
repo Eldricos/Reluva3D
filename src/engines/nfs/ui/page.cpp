@@ -11,8 +11,8 @@ namespace reluva::nfs {
 
 Error runPages(System &sys, const GameTarget &target, const GameInfo &game, const MakePages &makePages, bool browse) {
     const GameFolders folders = findFolders(target.path, target.settings, game.executable);
-    if (trackFolders(folders.install).empty())
-        return Error::fail("No tracks (GameData/Tracks/trkNNN) found in " + folders.install.string());
+    if (Error err = checkFolders(game, folders))
+        return err;
 
     if (Error err = sys.initGraphics(kScreenWidth, kScreenHeight, PixelFormat::kRGBA32))
         return err;

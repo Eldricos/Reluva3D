@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engines/nfs/folders.h"
-#include "engines/nfs/render/thrash_gpu.h"
+#include "engines/nfs/nfs3/render/thrash_gpu.h"
 #include "engines/nfs/ui/page.h"
 
 #include <atomic>
@@ -21,9 +21,10 @@ namespace reluva::nfs {
 class GameHost;
 
 /**
- * The game itself: the retail nfs3.exe in the x86 interpreter
- * (host/game_host.h), started when the page is first shown and running
- * on a thread of its own from then on. Its frames are shown here, its
+ * The game itself: its retail program (NFS III's nfs3.exe, NFS II SE's
+ * nfs2sen.exe) in the x86 interpreter (host/game_host.h), started when
+ * the page is first shown and running on a thread of its own from then
+ * on. Its frames are shown here, its
  * sound goes to the mixer, and the keyboard and mouse go to it. Esc goes
  * to the game too: Ctrl+F5 goes back to the launcher. With a GPU, what the
  * game draws through THRASH is drawn with it (thrash_gpu.h); without, in
@@ -68,6 +69,25 @@ public:
      */
     void setPositionalUpdates(bool on) { _positionalUpdates = on; }
     /**
+     * Where the game's IPX broadcasts go instead of the local network
+     * (reluva.ini's broadcast=: addresses or host names, by commas; the
+     * nfs host tool's -broadcast): for network play with machines outside
+     * it. Set before the page is first shown.
+     */
+    void setBroadcast(std::string to) { _broadcast = std::move(to); }
+    /**
+     * The program to run: "nfs3.exe" unless set, from `file` if given (NFS
+     * II SE's CD's), else from the install folder. Only NFS III's draws
+     * through THRASH, so only it takes the GPU and the renderer settings.
+     * NFS II SE's nfs2sea.exe draws through Glide, on a Voodoo Graphics
+     * unless the glideboard setting names another; nfs2sen.exe through
+     * DirectDraw. Set before the page is first shown.
+     */
+    void setProgram(std::string program, std::filesystem::path file = {}) {
+        _program = std::move(program);
+        _programFile = std::move(file);
+    }
+    /**
      * The keys named at the foot of the screen shown until the game's
      * first frame.
      */
@@ -98,7 +118,14 @@ private:
     // The title, how the run is going and the log's last lines (_mutex held).
     void drawStatus(Surface &screen);
 
+    // Whether the program draws through THRASH (NFS III's), or Glide
+    // itself (NFS II SE's 3dfx program).
+    bool drawsThrash() const { return _program == "nfs3.exe"; }
+    bool drawsGlide() const { return _program == "nfs2sea.exe"; }
+
     GameFolders _folders;
+    std::string _program = "nfs3.exe";
+    std::filesystem::path _programFile; // where it is, if not in the install
     std::filesystem::path _saveFolder;
     audio::Mixer *_mixer;
     std::unique_ptr<GameHost> _host;
@@ -114,6 +141,7 @@ private:
     // its COM ports' and modem's links (GameHost::Options)
     std::string _serial;
     std::string _modem;
+    std::string _broadcast;
     bool _fillMovies = true; // the black lines between a movie's filled in
     std::string _wheelPedals;
     std::string _keysLine = "Keys and mouse go to the game   Ctrl+F5: launcher";
@@ -138,11 +166,11 @@ private:
     std::string _glideDll;       // ... with this THRASH DLL file instead of the install's
     std::string _glideBoard;     // ... on this board
     bool _direct3d = false;      // the game told of d3da.dll (its Direct3D look)
-    ThrashGpu _gpuDraw;          // on the engine's thread
+    nfs3::ThrashGpu _gpuDraw;    // on the engine's thread
     // THRASH's frames not drawn yet, in order: each is drawn (some add to
     // what the one before left), with the textures it brought, then kept.
     struct Pending {
-        ThrashFrame frame;
+        nfs3::ThrashFrame frame;
         std::shared_ptr<const Surface> software; // comparing: the software rasterizer's of the same flip
     };
     std::deque<Pending> _pending;
@@ -190,8 +218,11 @@ private:
  * @param saveFolder Where the game writes (its "game" folder);
  *        the install's reluva-save if empty.
  * @param mixer Plays the game's sound; null without audio output.
+ * @param program The game's program (PlayPage::setProgram): its file, or
+ *        empty for NFS III's nfs3.exe in the install.
  */
 std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::filesystem::path &saveFolder,
-                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings);
+                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings,
+                                       const std::filesystem::path &program = {});
 
 } // namespace reluva::nfs

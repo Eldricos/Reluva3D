@@ -63,11 +63,12 @@ These are the same keyframe paths as the `.frd` file's moving objects
 (Hometown's 141-key loop is in both). The game's object sounds use block 7 only, its
 n-th type-3 object taking row n of a per-track table (`0x410e30`,
 `0x5dd840` set by the loader `0x41dcc0`; id 18 is not read there):
-see [bnk.md](bnk.md), The moving objects' sounds. Block 7 holds 1
+see [bnk.md](../../../formats/bnk.md), The moving objects' sounds. Block 7 holds 1
 object on Hometown (the loop), 4 on Redrock Ridge, 1 on Atlantica (with
 2 more in block 18), 3 on Lost Canyons, 2 on Aquatica, 2 on Summit and
-5 on Empire City. Type 1, a still object with a
-16.16 reference point, follows the community's description, untested.
+5 on Empire City. No retail object has another type; the reader keeps
+another type's type and structure only, what follows them not being
+known.
 
 ### Virtual road (id 15), 36 bytes per point
 
@@ -223,7 +224,7 @@ to the points, used in place):
       words: the audio's size and −1; the game's parser, `0x50265b`,
       `0x502686`). So the game needs no allowance. Read as a version-2
       bank its sounds seem two slots up, which is what was seen; see
-      [bnk.md](bnk.md).
+      [bnk.md](../../../formats/bnk.md).
 
     Then, for any wall hit (`0x42b11a`), by car `+0xb8` (its speed by
     the look of it):
@@ -373,7 +374,7 @@ right, blue where the side's code is 3 and white where it is 5.
 
 The wall hits' sparks, dust and smoke, read from nfs3.exe in October
 2026, from making to drawing. Reluva has them in
-`src/engines/nfs/render/particles.cpp` and shows them on the Track page (key P
+`src/engines/nfs/nfs3/render/particles.cpp` and shows them on the Track page (key P
 at the wall nearest the line of sight; Shift+P a fast hit). The ticks
 below are the game's, 64 a second (`0x7d3684`); a particle's life is
 counted every other one.
@@ -670,7 +671,7 @@ with a second sound at 0:35.08, 0:47-0:52, 1:00.15, 1:09-1:11, 1:20.2,
   car, and the sparks keep half the car's velocity (`+0x34`), so they
   stream back past it.
 - The burst needs `+0xB8` at 22 or more (`0x5537b8`, m/s). The HUD
-  reads `+0x4F4`, the speed along the road ([fsh.md](fsh.md)), so 47
+  reads `+0x4F4`, the speed along the road ([fsh.md](../../../formats/fsh.md)), so 47
   mph is 21.0 m/s along the road; `+0xB8` is max(|vx|, |vz|) + ¼ min,
   which counts the sideways slip of a car scraping a wall too, so 47
   mph on the HUD passing 22 isn't a contradiction.
@@ -1055,7 +1056,7 @@ the wall's line and up from the road, the centre a unit further in).
 
 The weather's falling rain or snow and its splashes on the screen,
 read from nfs3.exe in November 2026 (`gdecomp`, `asm`, the static data
-read from the exe). Reluva has it in `src/engines/nfs/render/particles.cpp`
+read from the exe). Reluva has it in `src/engines/nfs/nfs3/render/particles.cpp`
 (`Weather`) and draws it on the Track page. It isn't a particle kind:
 it has its own pools, its own pass and its own pictures.
 
@@ -1256,14 +1257,17 @@ numbers are Reluva's.
 Read as `TrackCollision` (`src/engines/nfs/formats/col.cpp`), and checked
 on all 9 retail tracks. The Tracks page draws the walls from the virtual
 road (key G). The wall hits' particles and the weather are in
-`src/engines/nfs/render/particles.cpp` (Particles, Rain and snow, above).
+`src/engines/nfs/nfs3/render/particles.cpp` (Particles, Rain and snow, above).
 
 ## Sources and checks
 
 October 2026, from hex dumps and survey scripts:
 
-- **Starting point.** The block ids follow the NFS modding community's
-  descriptions of NFS III's COL.
+- **Block ids.** Each id's records were identified on the data, as the
+  checks below say (2's records aren't decoded yet), and the game's
+  loader reads them so (`0x41e370`, `0x41dcc0`). A community description
+  of the format was the first guide to them; its terms forbid commercial
+  use, so nothing here rests on it ([PLAN.md](../PLAN.md#the-formats-sources-reviewed-done)).
 - **Blocks.** Every block's size field accounts for exactly the space to
   the next.
 - **Structures.** Every structure's size is 8 + 16 × vertices + 6 ×

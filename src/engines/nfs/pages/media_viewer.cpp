@@ -653,7 +653,7 @@ void MoviePage::load(int movie) {
     _audio.reset();
     _error.clear();
     _decoder = {};
-    _decoder.setArithmetic(_display ? MadDecoder::Arithmetic::kGame : MadDecoder::Arithmetic::kReference);
+    _decoder.setArithmetic(_display ? nfs3::MadDecoder::Arithmetic::kGame : nfs3::MadDecoder::Arithmetic::kReference);
     _decoded = -1;
     _picture = {};
     std::vector<uint8_t> data;
@@ -693,7 +693,7 @@ void MoviePage::showFrame(int frame) {
         }
     _decoded = frame;
     if (_display)
-        _decoder.toGameSurface(_picture, static_cast<MadDecoder::Display>(_display));
+        _decoder.toGameSurface(_picture, static_cast<nfs3::MadDecoder::Display>(_display));
     else
         _decoder.toSurface(_picture);
 }
@@ -758,7 +758,8 @@ void MoviePage::handleKey(uint32_t k, uint16_t) {
         const int frame = _decoded;
         _decoded = -1;
         _decoder = {};
-        _decoder.setArithmetic(_display ? MadDecoder::Arithmetic::kGame : MadDecoder::Arithmetic::kReference);
+        _decoder.setArithmetic(_display ? nfs3::MadDecoder::Arithmetic::kGame
+                                        : nfs3::MadDecoder::Arithmetic::kReference);
         showFrame(std::max(frame, 0));
         break;
     }

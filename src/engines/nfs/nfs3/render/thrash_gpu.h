@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "graphics/gfx3d.h"
+#include "engines/nfs/nfs3/host/thrash_native.h"
+
+#include <map>
+#include <tuple>
+#include <utility>
+
+namespace reluva::nfs::nfs3 {
+
+/**
+ * Draws THRASH's frames (host/thrash_native.h, ThrashFrame) with the GPU
+ * renderer: screen space triangles in their batches, in order, without
+ * depth (the game draws back to front for the software renderer).
+ */
+class ThrashGpu {
+public:
+    /**
+     * The renderer to draw with; null when it's gone (its textures and
+     * mesh with it). Textures are made again from the copies kept.
+     */
+    void setRenderer(gfx::Renderer3D *renderer);
+    /** Textures made or changed, as a frame brings them. */
+    void updateTextures(const ThrashFrame &frame);
+    /**
+     * Draws frames in order, each over what the one before left (with the
+     * textures each brought, applied as it's reached), and shows the
+     * result once, with `overlay` on top if given.
+     */
+    void draw(const std::vector<const ThrashFrame *> &frames, const Surface *overlay);
+    /** The same for one frame. */
+    void draw(const ThrashFrame &frame, const Surface *overlay) {
+        draw(std::vector<const ThrashFrame *>{&frame}, overlay);
+    }
+    /** The next frame drawn, kept for capture() (RGBA, the renderer's size). */
+    void captureNext() {
+        if (_renderer)
+            _renderer->captureNextFrame();
+    }
+    /** The frame captureNext() kept; false without a renderer, or if none was kept since the last call. */
+    bool capture(std::vector<uint8_t> &rgba) { return _renderer && _renderer->takeCapture(rgba); }
+    // Point-sampled textures (else bilinear, as both DLLs ask for), unless a
+    // batch says (ThrashFrame::Batch::filter, d3da's).
+    bool nearest = false;
+    // The renderer's frame against the game's (640x480): 2 draws at
+    // 1280x960, the same picture with sharper edges.
+    int scale = 1;
+
+private:
+    gfx::TextureId texture(uint32_t handle, bool wrap, bool point);
+
+    gfx::Renderer3D *_renderer = nullptr;
+    gfx::MeshId _mesh = 0;
+    size_t _indexCapacity = 0; // indices 0, 1, 2... set this far
+    std::vector<gfx::Vertex> _vertices;
+    Surface _scaledOverlay;                             // an overlay of the game's size, enlarged to the renderer's
+    std::map<uint32_t, ThrashFrame::Texture> _textures; // by handle: what they hold
+    std::map<std::tuple<uint32_t, bool, bool>, gfx::TextureId> _gpuTextures; // by handle, wrapping, nearest
+    // Textures replaced while a frame was being drawn (a draw already made
+    // may use them): destroyed once it's shown.
+    std::vector<gfx::TextureId> _retired;
+};
+
+} // namespace reluva::nfs::nfs3

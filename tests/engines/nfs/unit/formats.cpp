@@ -231,6 +231,68 @@ void testShapes() {
     CHECK(parseShapeBank(Bytes{'S', 'H', 'P', 'X'}, bank));
 }
 
+// NFS II SE's pictures (fsh.md, NFS II SE): a bank's palette entry for its
+// pictures without their own, 4-bit pictures, and 16-bit 5:6:5 palettes.
+void testShapesNfs2se() {
+    // The bank's palette: 32-bit, three colours.
+    Bytes bankPalette;
+    putShapeHeader(bankPalette, 0x2a, 0, 3, 1, 0, 0, 0, 0);
+    bankPalette.insert(bankPalette.end(), {0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255}); // red, green, blue
+    // 8-bit, 2x1, no palette of its own: the bank's.
+    Bytes plain;
+    putShapeHeader(plain, 0x7b, 0, 2, 1, 0, 0, 0, 0);
+    plain.insert(plain.end(), {2, 1, 0, 0});
+    // 8-bit, 1x1, with its own 5:6:5 palette, which wins over the bank's.
+    Bytes own;
+    putShapeHeader(own, 0x7b, 16 + 4, 1, 1, 0, 0, 0, 0);
+    own.insert(own.end(), {1, 0, 0, 0});
+    putShapeHeader(own, 0x29, 0, 2, 1, 0, 0, 0, 0);
+    put16(own, 0);
+    put16(own, 0x07e0); // green
+    // 4-bit, 3x2: rows of two bytes, the low half of a byte first; a
+    // 24-bit palette of two colours (R, G, B).
+    Bytes four;
+    putShapeHeader(four, 0x7a, 16 + 4, 3, 2, 0, 0, 0, 0);
+    four.insert(four.end(), {0x10, 0x01, 0x01, 0x00});
+    putShapeHeader(four, 0x24, 0, 2, 1, 0, 0, 0, 0);
+    four.insert(four.end(), {0, 0, 0, 255, 0, 0}); // black, red
+
+    ShapeBank bank;
+    CHECK(
+        !parseShapeBank(makeShapeBank({{"!pal", bankPalette}, {"plan", plain}, {"own ", own}, {"dot ", four}}), bank));
+    CHECK(bank.shapes.size() == 4);
+    if (bank.shapes.size() != 4)
+        return;
+    image::Image img;
+
+    // The entry is a palette: a row of its colours.
+    CHECK(isPaletteType(bank.shapes[0].type) && bank.shapes[0].width == 3 && bank.shapes[0].pixels.empty());
+    CHECK(!decodeShape(bank.shapes[0], img));
+    CHECK(img.w == 3 && img.h == 1 && img.rgba.size() == 12 && img.rgba[0] == 255 && img.rgba[1] == 0);
+
+    CHECK(bank.shapes[1].bankPalette);
+    CHECK(!decodeShape(bank.shapes[1], img));
+    const uint8_t blueGreen[] = {0, 0, 255, 255, 0, 255, 0, 255};
+    CHECK(img.rgba.size() == 8 && std::memcmp(img.rgba.data(), blueGreen, 8) == 0);
+
+    CHECK(!bank.shapes[2].bankPalette && bank.shapes[2].palette.size() == 8);
+    CHECK(!decodeShape(bank.shapes[2], img));
+    const uint8_t green[] = {0, 255, 0, 255};
+    CHECK(img.rgba.size() == 4 && std::memcmp(img.rgba.data(), green, 4) == 0);
+
+    const Shape &dot = bank.shapes[3];
+    CHECK(dot.type == kShape4Bit && dot.pixels.size() == 4 && !dot.bankPalette);
+    CHECK(!decodeShape(dot, img));
+    // Row 0: 0x10 gives 0 then 1, 0x01 gives 1; row 1: 0x01 gives 1, 0, then 0.
+    const int red[] = {0, 1, 1, 1, 0, 0};
+    for (int i = 0; i < 6 && img.rgba.size() == 24; ++i)
+        CHECK(img.rgba[size_t(i) * 4] == (red[i] ? 255 : 0) && img.rgba[size_t(i) * 4 + 2] == 0);
+
+    // A bank without a palette entry leaves its 8-bit pictures without one.
+    CHECK(!parseShapeBank(makeShapeBank({{"plan", plain}}), bank));
+    CHECK(bank.shapes.size() == 1 && bank.shapes[0].palette.empty() && decodeShape(bank.shapes[0], img));
+}
+
 // A cockpit's gauges block (fsh.md, Gauges) and its needles.
 void testCockpit() {
     Shape dash;
@@ -301,6 +363,33 @@ void testTextTable() {
     odd[0] = 13;
     CHECK(parseTextTable(odd, table));
     CHECK(parseTextTable(Bytes{1, 0}, table));
+    CHECK(table.places.empty());
+
+    // NFS II SE's front end's layout: 12-byte records (the font's size,
+    // three bytes, x, y, the offset), then the strings.
+    Bytes placed;
+    auto record = [&](uint8_t size, uint16_t x, uint16_t y, uint32_t offset) {
+        placed.insert(placed.end(), {size, 2, 4, 5});
+        put16(placed, x);
+        put16(placed, y);
+        put32(placed, offset);
+    };
+    record(18, 168, 126, 24);
+    record(36, 620, 447, 29);
+    putText(placed, "game", 5);
+    putText(placed, "RACE", 5);
+    CHECK(!parseTextTable(placed, table));
+    CHECK(table.strings == (std::vector<std::string>{"game", "RACE"}));
+    CHECK(table.places.size() == 2);
+    if (table.places.size() == 2) {
+        CHECK(table.places[0].fontSize == 18 && table.places[0].x == 168 && table.places[0].y == 126);
+        CHECK(table.places[1].fontSize == 36 && table.places[1].x == 620 && table.places[1].y == 447);
+        CHECK(table.places[0].colour == 2 && table.places[0].pickedColour == 4 && table.places[0].style == 5);
+    }
+    // An offset outside the file fails it, as in NFS III's layout.
+    Bytes placedOutside = placed;
+    placedOutside[20] = 200;
+    CHECK(parseTextTable(placedOutside, table));
 }
 
 void testFont() {
@@ -885,6 +974,20 @@ void testMusic() {
     Bytes cut(mus.begin(), mus.end() - 3);
     CHECK(stream.open(cut));
 
+    // NFS II SE's: a segment ending 2 bytes past 4 is padded to it with
+    // zeros before the next. Other bytes there aren't padding.
+    Bytes padded;
+    chunk(padded, "SCHl", ptHeader({{0x82, 2}, {0x85, 0}}));
+    chunk(padded, "SCEl", Bytes((2 + 8 - (padded.size() + 8) % 4) % 4, 0)); // ending 2 past 4
+    CHECK(padded.size() % 4 == 2);
+    padded.insert(padded.end(), {0, 0});
+    const uint32_t third = uint32_t(padded.size());
+    padded.insert(padded.end(), mus.begin() + second, mus.end());
+    CHECK(!stream.open(padded));
+    CHECK(stream.segments().size() == 2 && stream.segmentAt(third) == 1);
+    padded[third - 1] = 1;
+    CHECK(stream.open(padded));
+
     // A map of three sections: 0 goes to 1 (values 0-49) or 2 (50-100),
     // 1 to 0, 2 nowhere; one event; then the offsets, big-endian.
     Bytes map = {'P', 'F', 'D', 'x', 0, 0, 3, 16, 0, 0, 0, 2};
@@ -1160,6 +1263,7 @@ static const reluva::test::Suite kSuite("nfs.unit.formats",
                                             {"ref pack", [](const stdfs::path &) { testRefPack(); }},
                                             {"viv", [](const stdfs::path &) { testViv(); }},
                                             {"shapes", [](const stdfs::path &) { testShapes(); }},
+                                            {"shapes nfs2se", [](const stdfs::path &) { testShapesNfs2se(); }},
                                             {"cockpit", [](const stdfs::path &) { testCockpit(); }},
                                             {"text table", [](const stdfs::path &) { testTextTable(); }},
                                             {"font", [](const stdfs::path &) { testFont(); }},

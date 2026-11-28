@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Need for Speed engine, starting with Need for Speed III: Hot Pursuit
-// (docs/engines/nfs/games/nfs3/PLAN.md).
+// Need for Speed engine: Need for Speed III: Hot Pursuit and Need for
+// Speed II SE (docs/engines/nfs/README.md).
 //
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, public format documentation, or documented
 // reverse engineering of a legally owned copy. Never from leaked source
 // code. See CONTRIBUTING.md.
 //
-// The game is the retail nfs3.exe run in the x86 interpreter (host/),
-// shown in the window by the Play page (ui/play_page.h). Its data viewer
-// is reluva-viewer's (pages/viewer.cpp).
+// Each game is its retail program run in the x86 interpreter (host/):
+// NFS III's nfs3.exe, NFS II SE's nfs2sen.exe or (renderer=glide) its 3dfx
+// nfs2sea.exe, from the install or the CD, shown in the window by the Play
+// page (ui/play_page.h). Without either NFS II SE shows what was found of
+// it instead (nfs2se/status_page.h). The data viewer is reluva-viewer's
+// (pages/viewer.cpp).
 
 #include "engines/engine.h"
 #include "engines/nfs/games.h"
+#include "engines/nfs/nfs2se/files.h"
+#include "engines/nfs/nfs2se/status_page.h"
 #include "engines/nfs/ui/page.h"
 #include "engines/nfs/ui/play_page.h"
 
@@ -35,13 +40,24 @@ public:
     Error run() override {
         auto makePages = [this](const nfs::GameFolders &folders, audio::Mixer *mixer) {
             std::vector<std::unique_ptr<nfs::Page>> pages;
-            pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings));
+            if (_game.game == nfs::Game::kNfs3)
+                pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings));
+            else if (const auto program = nfs::nfs2se::playProgram(folders, glideChosen()); !program.empty())
+                pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings, program));
+            else
+                pages.push_back(std::make_unique<nfs::nfs2se::StatusPage>(folders));
             return pages;
         };
         return nfs::runPages(_sys, _target, _game, makePages, false);
     }
 
 private:
+    // reluva.ini's renderer=glide: for NFS II SE, its 3dfx program.
+    bool glideChosen() const {
+        const auto it = _target.settings.find("renderer");
+        return it != _target.settings.end() && it->second == "glide";
+    }
+
     System &_sys;
     GameTarget _target;
     const GameInfo &_game;
@@ -54,12 +70,19 @@ public:
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         auto found = detectFromTable(id(), nfs::detectionTable(), dir);
-        return found.empty() ? detectFromTable(id(), nfs::fallbackTable(), dir) : found;
+        if (found.empty())
+            found = detectFromTable(id(), nfs::fallbackTable(), dir);
+        // NFS II SE's CD has both its programs, which the fallback table
+        // knows it by: one game found, not two.
+        for (size_t i = 1; i < found.size(); ++i)
+            if (found[i].gameId == found[i - 1].gameId)
+                found.erase(found.begin() + static_cast<std::ptrdiff_t>(i--));
+        return found;
     }
 
     // The settings the game reads (ui/play_page.cpp, makePlayPage), for
     // every NFS game and each: the first choice of each is what the
-    // engine does when it's set nowhere. The others (cdpath, serial, modem,
+    // engine does when it's set nowhere. The others (cdpath, serial, modem, broadcast,
     // wheelpedals, glidedll, glideboard) name things of the machine's, and
     // are set in reluva.ini.
     std::vector<GameOption> engineOptions() const override {
@@ -75,8 +98,9 @@ public:
         return {
             choice("renderer", "Renderer the game is told of",
                    "The game draws as for a Voodoo 2 (with fog) through Reluva's own THRASH; or as for its "
-                   "Direct3D renderer; or its own Voodoo 2 renderer runs on the Glide stand-in.",
-                   {{"voodoo2", "Voodoo 2"}, {"direct3d", "Direct3D"}, {"glide", "Voodoo 2 on Glide"}}),
+                   "Direct3D renderer; or its own Voodoo renderer runs on the Glide stand-in. Need for Speed "
+                   "II SE: its 3dfx program on Glide, else its software program.",
+                   {{"voodoo2", "Voodoo 2"}, {"direct3d", "Direct3D"}, {"glide", "Voodoo on Glide"}}),
             choice("renderscale", "Picture size", "The game's 640x480 drawn at this many times its size on the GPU.",
                    {{"2", "2x"}, {"1", "1x"}, {"3", "3x"}, {"4", "4x"}}),
             choice("texturefilter", "Textures", "Filtered as the game's renderers ask, or point-sampled.",

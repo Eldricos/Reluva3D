@@ -35,6 +35,36 @@ void appendUtf8(std::string &out, uint32_t cp) {
     }
 }
 
+// NFS II SE's front-end layout: 12-byte records (the font's size, its
+// colour, picked colour and style: text_table.h; x and y as u16s; the
+// string's u32 offset), then the strings. The first string starts where the records end.
+bool parsePlacedTable(const std::vector<uint8_t> &data, TextTable &out) {
+    if (data.size() < 12)
+        return false;
+    const uint32_t tableEnd = le32(&data[8]);
+    if (tableEnd % 12 != 0 || tableEnd == 0 || tableEnd > data.size())
+        return false;
+    TextTable table;
+    for (size_t i = 0; i < tableEnd / 12; ++i) {
+        const uint8_t *r = &data[i * 12];
+        const uint32_t offset = le32(r + 8);
+        if (offset < tableEnd || offset > data.size())
+            return false;
+        const auto begin = data.begin() + offset;
+        table.strings.emplace_back(begin, std::find(begin, data.end(), 0));
+        TextTable::Place place;
+        place.fontSize = r[0];
+        place.colour = r[1];
+        place.pickedColour = r[2];
+        place.style = r[3];
+        place.x = r[4] | r[5] << 8;
+        place.y = r[6] | r[7] << 8;
+        table.places.push_back(place);
+    }
+    out = std::move(table);
+    return true;
+}
+
 } // namespace
 
 Error parseTextTable(const std::vector<uint8_t> &data, TextTable &out) {
@@ -45,7 +75,7 @@ Error parseTextTable(const std::vector<uint8_t> &data, TextTable &out) {
         return Error::fail("Not a valid text table: too short");
     const uint32_t tableEnd = le32(data.data());
     if (tableEnd % 4 != 0 || tableEnd == 0 || tableEnd > data.size())
-        return Error::fail("Not a valid text table: bad first offset");
+        return parsePlacedTable(data, out) ? Error::success() : Error::fail("Not a valid text table: bad first offset");
     const size_t count = tableEnd / 4;
     out.strings.reserve(count);
     for (size_t i = 0; i < count; ++i) {

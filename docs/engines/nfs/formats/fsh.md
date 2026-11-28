@@ -1,0 +1,343 @@
+# Need for Speed: `.fsh` pictures ("SHPI")
+
+> **Status:** decoded · **Code:** `src/engines/nfs/formats/fsh.cpp` · **Checked on:** every picture bank · **Confidence:** confirmed unless marked
+
+## Overview
+
+Banks of pictures ("shapes"), each a chain of blocks: the picture,
+then what's attached to it, such as a palette. They're on their own,
+inside `.viv` archives, or compressed as `.qfs` ([refpack.md](refpack.md)).
+NFS III and NFS II SE share the layout; NFS II SE adds a bank-wide
+palette, 4-bit pictures and a 16-bit 5:6:5 palette
+([NFS II SE](#nfs-ii-se)). Counts are NFS III's unless they say
+otherwise.
+
+## Layout
+
+All values are little-endian.
+
+### Header and directory
+
+| Offset | Size | Meaning |
+|---|---|---|
+| 0 | 4 | `SHPI` |
+| 4 | u32 | file size (equal to the file's in all 694) |
+| 8 | u32 | number of shapes |
+| 12 | 4 | directory id: `GIMX` in every NFS III and NFS II SE file |
+| 16 | 8 × n | per shape: 4-character name, u32 offset |
+
+### Blocks
+
+A shape is a chain of blocks. Each block starts with:
+
+- a type byte;
+- a 3-byte offset to the next block, 0 for the last block. The last
+  block runs to the next shape, or to the end of the file.
+
+The first block is the picture. Its header is 16 bytes:
+
+| Offset | Size | Meaning |
+|---|---|---|
+| 0 | 1 | type (below) |
+| 1 | 3 | offset to the next block |
+| 4 | u16 | width |
+| 6 | u16 | height |
+| 8 | s16 | centre x |
+| 10 | s16 | centre y |
+| 12 | s16 | screen x |
+| 14 | s16 | screen y |
+
+The centre (hot spot) and the screen position are used by front-end art
+and sprites. Both may be negative: a 640×480 picture cut into 256×256
+tiles gives its tiles centres of −256 and −512.
+
+The pixels follow: width × height of them, rows top to bottom, with no
+padding between rows. The block may have 0 to 7 bytes of padding at its
+end.
+
+Counts are over the install and the CD together.
+
+| Type | Pixels | Retail count |
+|---|---|---|
+| `0x7B` | 8-bit palette indices | 6,376 |
+| `0x7E` | 16-bit, bit 15 alpha, then 5:5:5 R, G, B | 7,114 |
+| `0x78` | 16-bit 5:6:5 R, G, B | 1,358 |
+| `0x7D` | 32-bit, bytes B, G, R, A | 1,140 |
+| `0x7F` | 24-bit, bytes B, G, R | 2 |
+
+Attached blocks after the picture:
+
+| Type | Meaning | Retail count |
+|---|---|---|
+| `0x2D` | palette, 16-bit 1:5:5:5; 16-byte header, width = number of colours (up to 256) | 6,306 |
+| `0x2A` | palette, 32-bit B, G, R, A | 70 |
+| `0x6F` | text: u32 length at offset 4, the text at 8 | 266 |
+| `0x7C` | a u32 count, then count (x, y) pairs of u32: the cockpit's gauges (below) | 96 |
+
+- **Palettes.** Every 8-bit picture has its own palette; no file has a
+  shared `!pal` entry. The alpha bit in 16-bit palettes varies from
+  colour to colour, so it carries transparency, as in 16-bit pictures.
+- **Text.** `<additive>` (sometimes `additive` or with a trailing CRLF)
+  marks textures drawn additively. Strings such as `A200 B45 R25 ROTATE`
+  or `A0 B45 R30 INFRONT NOADD` sit on the sun pictures of each track's
+  `sky.fsh` (`SUND`, `SUNN`, `SUNW`: day, night, weather) and on similar
+  sprites. On the sun, from the game's code ([hrz.md](../games/nfs3/formats/hrz.md), What the
+  game does with it):
+  - `A` and `B`, in degrees, place it at (cos A, cos B, sin A) × 3000;
+  - `R` × 10 is how far its corners are from its centre;
+  - `ROTATE` turns it as it crosses the screen, `NOADD` blends it
+    rather than adding it, and `INFRONT` draws it after the clouds.
+- **Gauges** (`0x7C`). On picture `0000` of each car's `dash.qfs`: 12
+  pairs, read by nfs3.exe (finder `0x4f2460`; the cockpit loader
+  `0x488ad0` copies 12 pairs to `0x792030` whatever the count; needles
+  drawn at `0x4880b0`). As 24 u32, in a 640×480 frame (scaled to the
+  screen):
+
+  | Values | Meaning |
+  |---|---|
+  | 0, 1 | a texel of the dash picture giving the needles' colour |
+  | 2 | the needle's width at its base (the tip is half) |
+  | 3 | not read |
+  | 4-13 | the speedometer: centre x, y; the hub's radius (the needle starts there); units (1 km/h, 0 mph); the lowest and highest reading; then p0 x, y and p1 x, y |
+  | 14-23 | the tachometer, the same; its units value isn't read, and its readings are thousands of rpm |
+
+  At the lowest reading the needle points from the centre toward p0, at
+  the highest toward p1, sweeping clockwise between them; its length is
+  the mean of the two distances. A gauge whose p0 equals p1 isn't drawn
+  (`merc` has all zeros: no gauges). Checked on all 17 cars: `amd7`'s
+  speedometer reads 0-170 mph about (384, 407), its tachometer 0-7
+  about (319, 407), and the colour texels are needle-coloured (white,
+  orange on `corv`, amber on `diab`). The F355's gear pictures (`geaR`
+  to `gea6`) carry 7 pairs too, the same on each; the game doesn't read
+  them. The `0x7C` finder (`0x4f2460`) has one caller, `0x488c36`, on
+  picture `0000`.
+- **The gear indicator** (`0x488c5d`). When `dash.qfs` has more than two
+  pictures (on the install, only the F355's), the cockpit loader loads
+  `geaR`, `geaN`, `gea1` ... `gea6` as eight textures (`0x4d4080`, slots
+  at `0x791c10`, 0x2C bytes each) and sets `0x55d6a4`. It places the
+  indicator from `geaR`'s header alone: its position fields (offset 12,
+  12-bit signed x and y; 312, 371 on the F355), kept as floats at
+  `0x55d69c` and `0x55d6a0`. Each frame (`0x4894f1`) it draws the picture
+  for the car's gear byte (+0x50B, an index into the eight in that order)
+  at that point, scaled by the screen's width / 640 and height / 480, at
+  that picture's own width and height.
+- **Drawing** (`0x489240`, read in nfs3.exe in October 2026): the dash
+  in 256×256 tiles, then the needles (`0x4880b0`), the gear (`0x4894f1`)
+  and last the steering wheel (`0x488470`), so the wheel covers the
+  needles. Every vertex takes the car's shading from the track
+  (`0x4206f0`, alpha 255; `FF7F7F7F` without it), which is why the
+  game's dash is darker than the picture.
+- **Needles** (set up at `0x488d8c`-`0x489232`). The two ends'
+  directions a0 and a1 are found in turns (atan2, `0x4ea9c0`), each in
+  [0, 1). When low < high and a1 < a0, a1 gains a turn (a clockwise
+  sweep); when low ≥ high and a0 < a1, a0 gains one. The needle's
+  direction is reading × scale + (a1 − high × scale), scale being
+  (a1 − a0) / (high − low): no clamp, so a reading past the range turns
+  on past its end. The speedometer reads the car's speed (+0x4F4, m/s,
+  its size), its limits turned into m/s (× 1/3.6 for km/h, × 0.44704726
+  for mph); the tachometer reads the rpm (+0x590) / 1000. The ranges
+  come from the dash alone, not `carp.txt`. A needle samples nothing of
+  its own: all four corners take the dash texel at the colour point
+  (the tile (x/256) × 2 + y/256, u = (x % 256) / 256 + 1/512, and so for
+  v), so it's a flat quad of that colour.
+
+  There is no idle or offset term: the reading is |+0x4F4| as it is
+  (`0x48810c`-`0x488150`). A car on the starting grid isn't quite
+  still, though. Watching `0x488505` (the wheel's copy of the same
+  speed) in `reluva-tool nfs host` gave the Corvette 0.10 to 0.24 m/s on
+  Hometown's grid (0.16 m/s at 67.8 s), while the HUD says 0 MPH. That
+  is about 0.36 mph, half a degree on the Corvette's speedometer
+  (1.49° a mph): the needle's tip falls one pixel further round than
+  at 0. The game's needle pixels match the formula's at 0.3-0.4 mph
+  exactly, and at 0 they differ by 4 pixels at the tip.
+- **The steering wheel** (picture `0001`) turns about its centre fields
+  (offset 8 and 10; `amd7` 155, 155) put at its position fields (offset
+  12; `amd7` 353, 455). Its angle in turns, clockwise on screen, is
+  steering × (0.5 − |speed| × 2.2369 / 800) / 256 (`0x488515`), steering
+  being the car's (+0x51C, following the controls' signed byte, −128 to
+  127; positive is right) and speed in m/s: a quarter turn at full lock standing still,
+  less as the car goes faster, none at about 400 mph. On a mirrored
+  track (`0x6fd4c4`) it's turned the other way. The corners are rotated
+  in 640×480 units (`0x496bf0`), then scaled to the screen.
+
+  Positive steering is right, so turning right turns the wheel
+  clockwise, as a real one. Found in `reluva-tool nfs host`: holding the right
+  arrow key from 80 s, a store watch on +0x51C (`-watchmem`, the
+  Corvette at `0x5e1120`) showed it climb by 16 a step (stored at
+  `0x4aa393`), 0 to 127 in about a quarter of a second; the frame at 80.2 s (+0x51C about 100) shows the
+  wheel turned about 70° clockwise (the badge's left wing up), and the
+  car turned right.
+
+  The Cockpits page draws all of these so (`needle`, `wheelTurns`), with
+  the readings and the steering swept or set by keys, and the F355's
+  gear chosen by key. Checked against a frame of the game in
+  `reluva-tool nfs host` (the Corvette in Hometown's starting grid, 0 mph, 900 rpm,
+  wheel straight): the dash, the wheel and both needles fall in the same
+  places; the game's picture is darker, by the shading above. The
+  speedometer needle sits a pixel further round in the game, by the
+  grid speed above. Key D (steering up) turns the page's wheel clockwise,
+  as the game's turns for right: at 95 it looks as the game's frame
+  at 80.2 s.
+- **Additive.** The picture loader (`0x4d40c3`, `0x4d42e8`) looks for
+  `<additive>`. The bare `additive` on picture `0064` of `tr000` and
+  `tr001` doesn't match it, so those aren't drawn additively (nor on the
+  Tracks page). The sun's
+  text is read only by the sky loader (`0x47a970`); it knows no
+  keywords but `A`, `B`, `R`, `ROTATE`, `NOADD` and `INFRONT`.
+- **`sky.fsh`'s other pictures.** `CLDD`, `CLDN`, `CLWD` and `CLWN` are
+  the cloud tiles. `CHRD`, `CHRN`, `CHRW` and `CHNW` are sphere maps, a
+  ball's worth of sky, ground and horizon: the cars' reflections. The
+  horizon picture is in the track's texture sheet ([hrz.md](../games/nfs3/formats/hrz.md)).
+
+Of the install's 16-bit 1:5:5:5 pictures, 2,897 are fully opaque, 636 mix opaque and
+clear pixels, and 24 are entirely clear.
+
+### NFS II SE
+
+Counted on NFS II SE's CD, which holds every bank: 311 banks, beside
+the three empty entries in `huddata.viv` (below), with 15,336 directory
+entries between them, 15,223 pictures and 113 bank palettes
+(`reluva-tool nfs fsh-info` on each bank, November 2026). The install
+has 278 of them: all but the tracks' 33, in `GameData/Tracks`.
+
+| Type | What | Count |
+|---|---|---|
+| `0x7B` | 8-bit palette indices (among them the pause screens' 156 without a palette) | 9,251 |
+| `0x78` | 16-bit 5:6:5 | 5,723 |
+| `0x7D` | 32-bit | 223 |
+| `0x7F` | 24-bit | 17 |
+| `0x7E` | 16-bit 1:5:5:5 | 1 |
+| `0x7A` | 4-bit palette indices | 8 |
+| `0x2A` as an entry | the bank's palette, 32-bit | 96 |
+| `0x24` as an entry | the bank's palette, 24-bit | 17 |
+
+The pictures' rows sum to 15,223, the two palettes' to 113.
+
+- **The bank's palette.** A directory entry may be a palette alone,
+  named `!pal` or `0000`: the palette's header, its width the number of
+  colours, then the colours. 113 banks have one, none more. An 8-bit
+  picture without a palette of its own uses it; one with its own attached
+  palette uses that, as in NFS III. 7,864 of the CD's pictures use the
+  bank's. The program finds the bank's palette by type, not by name: the
+  last entry whose first block is a palette (`nfs2sen.exe` 0x46bec0).
+  A picture's own palette is looked for first, and without one the
+  current palette is used (0x492448, 0x48bbd0).
+- **4-bit pictures** (`0x7A`): two pixels a byte, the low half first
+  (0x495db0: even x from the low 4 bits, odd from the high); each row
+  starts on a
+  byte, so a row is (width + 1) ÷ 2 bytes. The eight are the 6×6 `dot `
+  of the front end's track records (`FeData/pc/art/track/*rec.qfs`),
+  each with a 16-colour `0x24` palette.
+- **`0x24`**, attached: a 24-bit palette, **R, G, B**, unlike the
+  32-bit palettes and pictures (600 on the CD). The program converts it
+  so (0x49e794), and copies a `0x24` palette's bytes as they are where it
+  reverses a `0x2A`'s (0x46bec0). The files agree: in `main.qfs`, 10,785
+  of the `0x24` colours are colours of its `0x2A` palettes read so,
+  4,358 read the other way; and its car makers' and tracks' emblems come
+  out gold, as the hosted game's front end shows them, not blue.
+- **`0x29`**, attached: a 16-bit palette, 5:6:5 (0x4921d8: red bits 11
+  to 15, green 5 to 10; a colour of 0 is see-through). Read so,
+  `tr050.qfs`'s 16×16 `0033` is an even brown ground; read as 1:5:5:5 it
+  is yellow with green flecks, and with the bank's palette blue noise. Of
+  the ten on the CD, the eight on 16-bit pictures (`hisfer.qfs`,
+  `bar.fsh`) are all zeros, unused; the two others are on that picture,
+  in `tr050.qfs` and `tr050m.qfs`.
+- **The 3dfx program's see-through texels.** Its track pictures
+  (`Tracks/se/trNN0.qfs`) are 16-bit 5:6:5, with no alpha; their
+  see-through texels are `0x07C0`, a green found in no other picture
+  (1,677,495 texels of 1,360 pictures). `nfs2sea.exe`, run on Reluva's
+  Glide stand-in, uploads these pictures as ARGB 1555 (`grTexDownloadMipMap`,
+  format 11), each `0x07C0` texel made `0x0000` (alpha 0, black), and
+  draws with an alpha test keeping alpha above `0x10`
+  (`grAlphaTestFunction(GR_CMP_GREATER)`, `grAlphaTestReferenceValue(0x10)`):
+  that is what makes them see-through. It also turns Glide's chroma key
+  on and off in a race, at `0x00FF00` (`0` in the front end), but no
+  texel it uploads is that green (565 or 1555); what it keys, if
+  anything, isn't known. Counted over the uploads of a run into a race
+  at Proving Grounds (November 2026).
+- **Empty banks.** `huddata.viv` holds `hud.fsh`, `hud*.fsh` and
+  `mapdots.fsh` as empty entries; the game's are the loose files beside
+  it.
+
+## Behaviour
+
+### Track texture sets
+
+Each track has two sets of each texture file:
+
+- `trNNN.qfs` holds 16-bit 1:5:5:5 textures (plus one 32-bit one).
+- `trNNN_8.qfs` holds the same textures, at the same sizes and in the
+  same order (checked on `tr000`), as 8-bit pictures, each with its own
+  palette.
+
+The 8-bit sets are the software renderer's: with `softtria.dll` the game
+loads `trNNN_8.qfs` (the renderer's number decides, `0x7a3a58`; see
+[hrz.md](../games/nfs3/formats/hrz.md)). The Summit's two 8-bit sets are compressed with EA's
+Huffman scheme ([refpack.md](refpack.md)). The Tracks page shows them
+with `X`, after the two 16-bit sets.
+
+A track's polygons name their pictures by place in the sheet, not by
+name, and the names skip or repeat on most sheets ([frd.md](../games/nfs3/formats/frd.md),
+Textures).
+
+### NFS II SE's pause screens
+
+NFS II SE has two sets of its pause screens in `GameData/Pause`: the
+software program's (`pause??.qfs`, one per language) as 8-bit pictures,
+180, 156 of them with no palette; and the 3dfx program's (`paus3??.qfs`) as
+the same pictures in 16-bit 5:6:5. The software game draws its pause
+screens in the race's palette, `!pal` of
+`GameData/DashHud/pc/hud.fsh`: the hosted game, paused in a race,
+showed 306,117 of its 307,200 pixels as `pauseen.qfs`'s pictures
+through that palette exactly, and the rest are seams of the mirrored
+background, which the comparison left out. Four pictures (`logo`, `ps50` to `ps52`)
+carry palettes of their own (`0x2D`), which the game doesn't use: `logo`
+and `ps51` matched through the race's. The screen uses only 21 colours,
+which 30 of the CD's and install's palettes share, all of them races'
+(the HUD's, the dashboards', `dtexture.fsh`'s); the dashboards' differ
+from the HUD's in 45 to 54 others. The 3dfx set agrees: over the
+pictures of the same size, every pixel of an index has the HUD's colour
+for it, to within 4 of 255.
+
+## In Reluva
+
+Read by `parseShapeBank` and `decodeShape`
+(`src/engines/nfs/formats/fsh.cpp`). It reads all 694
+banks (15,990 pictures) in the NFS III install and on its CD, and all 311
+banks on NFS II SE's CD (its 15,336 entries; `reluva-tool nfs survey`
+counts them as 15,180 "pictures", the bank palettes among them, and the
+pause screens' 156 without a palette apart, as "lent a palette") and the install's 278
+(6,042 and 156), including those inside `.viv` archives and compressed
+as `.qfs` ([refpack.md](refpack.md)). A bank's
+palette entry is given to its 4- and 8-bit pictures without one
+(`Shape::bankPalette`).
+
+The data viewer's Textures and Cockpits pages show them. For NFS II SE,
+the Textures page shows the pause screens with `hud.fsh`'s palette
+(`nfs2se::racePalette`, `src/engines/nfs/nfs2se/files.cpp`), and says
+so; `reluva-tool nfs survey` counts them as "lent a palette".
+
+- `reluva-tool nfs fsh-info <file> [name in .viv]` lists the shapes.
+- `reluva-tool nfs fsh-dump ... <dir>` writes them as TGA files.
+
+## Sources and checks
+
+- **Where the facts come from:** the games' own files, `nfs3.exe`, and NFS II SE's `nfs2sen.exe` (its palettes and 4-bit pictures) and `nfs2sea.exe` run on Reluva's Glide stand-in (its see-through texels), read as each section above says, with the addresses it gives.
+- **How it was checked:** the reader run on every picture bank of both games to its end; the unit tests (`nfs.unit.formats`) and the game-files tests (`nfs.gamedata.formats`, `nfs.nfs2se.gamedata.formats`).
+
+Where the layout came from:
+
+- the NFS modding community's FSH notes, for the overall layout;
+- the record types, block sizes, palettes and attached blocks, counted on
+  the retail files with survey scripts (October 2026);
+- the colours, checked by eye on decoded pictures: the title screen, car
+  art, cockpits and track textures;
+- NFS II SE's palette entries, 4-bit pictures and `0x29` palettes, from
+  its CD's banks with survey scripts and `reluva-tool nfs fsh-info`
+  (November 2026): the types counted and the blocks measured; then how
+  `nfs2sen.exe` reads them, from its code (the bank's palette
+  `0x46bec0`, the 4-bit order `0x495db0`, `0x29`'s layout `0x4921d8`,
+  `0x24`'s order `0x49e794`), which the decoded pictures bear out
+  ([UNCONFIRMED.md](../games/nfs2se/UNCONFIRMED.md), Settled); the pause
+  screens' palette by comparing each index's colour in the 3dfx set
+  with every palette on the CD, then on the hosted game.

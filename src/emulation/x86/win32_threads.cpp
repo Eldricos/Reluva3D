@@ -10,6 +10,7 @@
 
 #include "emulation/x86/win32.h"
 
+#include <cstdio>
 #include <algorithm>
 #include <chrono>
 
@@ -220,6 +221,27 @@ void Win32Process::yield() {
         return;
     std::unique_lock<std::mutex> lock(_mutex);
     schedule(lock);
+}
+
+std::string Win32Process::describeThreads() const {
+    std::string out;
+    for (const auto &t : _threads) {
+        const bool running = t.get() == _running;
+        const char *state = t->finished       ? "finished"
+                            : running         ? "running"
+                            : t->suspendCount ? "suspended"
+                            : t->waitFor      ? "waiting"
+                                              : "ready";
+        const uint32_t at = running ? _cpu.eip : t->context.eip;
+        const std::string *native = _cpu.nativeName(at);
+        char line[200];
+        std::snprintf(line, sizeof line, "thread %u%s%s: priority %d, %s, %llu instructions, at %08x%s%s\n", t->id,
+                      t->name.empty() ? "" : " ", t->name.c_str(), t->priority, state,
+                      (unsigned long long)(t->instructions + (running ? _cpu.executed() - _turnStart : 0)), at,
+                      native ? " in " : "", native ? native->c_str() : "");
+        out += line;
+    }
+    return out;
 }
 
 void Win32Process::preempt() {
@@ -702,6 +724,8 @@ void Win32Process::addThreadStandIns() {
         c.write32(c.arg(0) + 4, 1000000); // wPeriodMax
         return 0u;
     });
+    // No joystick driver: games then leave the old joystick calls alone.
+    stdcall(w, "joyGetNumDevs", 0, [](Cpu &) { return 0u; });
     (void)kCurrentProcess;
 }
 

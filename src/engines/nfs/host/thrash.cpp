@@ -314,7 +314,7 @@ bool GameHost::nativeDraw(const std::string &name, const std::vector<uint32_t> &
         if (!_options.gpuThrash || _options.gpuAndSoftware)
             presentBuffer(buffer, int(pitch), x0, y0, width, height);
         if (_options.gpuThrash) {
-            ThrashFrame frame = _native->takeFrame();
+            nfs3::ThrashFrame frame = _native->takeFrame();
             // The rectangle the flip copies to the screen: elsewhere, what's
             // there stays (a loading screen's picture, drawn with DirectDraw).
             frame.flip[0] = x0;
@@ -338,7 +338,7 @@ bool GameHost::nativeDraw(const std::string &name, const std::vector<uint32_t> &
         return true; // nothing known to draw into: as if drawn
     const auto &[address, pitch, width, height] = buffer->second;
     _native->setTarget(address, int(pitch), int(width), int(height));
-    NativeThrash &n = *_native;
+    nfs3::NativeThrash &n = *_native;
     auto at = [&](uint32_t base, uint32_t i) { return base + 32 * i; };
     auto index = [&](uint32_t list, uint32_t i) { return _cpu->read32(list + 4 * i); };
     const uint32_t count = args.empty() ? 0 : std::min<uint32_t>(args[0], 65536);

@@ -29,6 +29,7 @@ int bytesPerPixel(uint8_t type) {
     case kShape16Bit565:
     case kShape16Bit1555:
     case kPalette16Bit1555:
+    case kPalette16Bit565:
         return 2;
     case kShape24Bit:
     case kPalette24Bit:
@@ -56,7 +57,8 @@ uint8_t expand6(unsigned v) {
 // One pixel of a picture or palette type as RGBA.
 void toRgba(uint8_t type, const uint8_t *p, uint8_t *out) {
     switch (type) {
-    case kShape16Bit565: {
+    case kShape16Bit565:
+    case kPalette16Bit565: {
         const unsigned v = le16(p);
         out[0] = expand5(v >> 11);
         out[1] = expand6((v >> 5) & 0x3f);
@@ -74,10 +76,15 @@ void toRgba(uint8_t type, const uint8_t *p, uint8_t *out) {
         break;
     }
     case kShape24Bit:
-    case kPalette24Bit:
         out[0] = p[2];
         out[1] = p[1];
         out[2] = p[0];
+        out[3] = 255;
+        break;
+    case kPalette24Bit: // R, G, B, unlike the others (nfs2sen.exe 0x49e794)
+        out[0] = p[0];
+        out[1] = p[1];
+        out[2] = p[2];
         out[3] = 255;
         break;
     case kShape32Bit:
@@ -94,8 +101,14 @@ void toRgba(uint8_t type, const uint8_t *p, uint8_t *out) {
 
 } // namespace
 
+bool isPaletteType(uint8_t type) {
+    return type == kPalette16Bit1555 || type == kPalette16Bit565 || type == kPalette24Bit || type == kPalette32Bit;
+}
+
 const char *shapeTypeName(uint8_t type) {
     switch (type) {
+    case kShape4Bit:
+        return "4-bit";
     case kShape8Bit:
         return "8-bit";
     case kShape16Bit565:
@@ -106,6 +119,14 @@ const char *shapeTypeName(uint8_t type) {
         return "24-bit";
     case kShape32Bit:
         return "32-bit";
+    case kPalette16Bit1555:
+        return "palette, 16-bit 1:5:5:5";
+    case kPalette16Bit565:
+        return "palette, 16-bit 5:6:5";
+    case kPalette24Bit:
+        return "palette, 24-bit";
+    case kPalette32Bit:
+        return "palette, 32-bit";
     default:
         return "unknown";
     }
@@ -150,11 +171,25 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
             const int w = le16(&data[pos + 4]);
             const int h = le16(&data[pos + 6]);
 
-            if (first) {
+            if (first && isPaletteType(type)) {
+                // A palette alone: the bank's, for its pictures without one.
                 const int bpp = bytesPerPixel(type);
-                if (bpp == 0 || type == kPalette16Bit1555 || type == kPalette24Bit || type == kPalette32Bit)
+                if (pos + 16 + static_cast<size_t>(w) * bpp > end)
+                    return bad("palette " + shape.name + " runs past its block");
+                shape.type = type;
+                shape.width = w;
+                shape.height = 1;
+                shape.palette.resize(static_cast<size_t>(w) * 4);
+                for (int c = 0; c < w; ++c)
+                    toRgba(type, &data[pos + 16 + c * bpp], &shape.palette[c * 4]);
+                first = false;
+            } else if (first) {
+                const int bpp = bytesPerPixel(type);
+                if (bpp == 0 && type != kShape4Bit)
                     return bad("shape " + shape.name + " has unknown type " + std::to_string(type));
-                const size_t bytes = static_cast<size_t>(w) * h * bpp;
+                // 4-bit rows start on a byte (NFS II SE's are 6 wide, 3 bytes a row).
+                const size_t bytes =
+                    type == kShape4Bit ? static_cast<size_t>((w + 1) / 2) * h : static_cast<size_t>(w) * h * bpp;
                 if (pos + 16 + bytes > end)
                     return bad("shape " + shape.name + "'s pixels run past its block");
                 shape.type = type;
@@ -166,7 +201,7 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
                 shape.y = static_cast<int16_t>(le16(&data[pos + 14]));
                 shape.pixels.assign(data.begin() + pos + 16, data.begin() + pos + 16 + bytes);
                 first = false;
-            } else if (type == kPalette16Bit1555 || type == kPalette24Bit || type == kPalette32Bit) {
+            } else if (isPaletteType(type)) {
                 // Width is the number of colours.
                 const int bpp = bytesPerPixel(type);
                 if (pos + 16 > end || pos + 16 + static_cast<size_t>(w) * bpp > end)
@@ -192,6 +227,17 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
         }
         out.shapes.push_back(std::move(shape));
     }
+
+    const auto entry =
+        std::find_if(out.shapes.begin(), out.shapes.end(), [](const Shape &s) { return isPaletteType(s.type); });
+    if (entry != out.shapes.end()) {
+        const std::vector<uint8_t> palette = entry->palette;
+        for (Shape &s : out.shapes)
+            if ((s.type == kShape8Bit || s.type == kShape4Bit) && s.palette.empty()) {
+                s.palette = palette;
+                s.bankPalette = true;
+            }
+    }
     return Error::success();
 }
 
@@ -214,12 +260,23 @@ Error decodeShape(const Shape &shape, image::Image &out) {
     out.h = shape.height;
     out.rgba.assign(static_cast<size_t>(out.w) * out.h * 4, 0);
     const size_t count = static_cast<size_t>(out.w) * out.h;
-    if (shape.type == kShape8Bit) {
+    if (isPaletteType(shape.type)) {
+        out.h = 1;
+        out.rgba = shape.palette;
+        return Error::success();
+    }
+    if (shape.type == kShape8Bit || shape.type == kShape4Bit) {
         if (shape.palette.empty())
             return Error::fail("shape " + shape.name + " has no palette");
         const size_t colours = shape.palette.size() / 4;
+        const size_t rowBytes = static_cast<size_t>(out.w + 1) / 2;
         for (size_t i = 0; i < count; ++i) {
-            const uint8_t index = shape.pixels[i];
+            // 4-bit: the low half of each byte first, as NFS II SE's dots look right only so.
+            const size_t x = i % static_cast<size_t>(out.w);
+            const size_t y = i / static_cast<size_t>(out.w);
+            const uint8_t index = shape.type == kShape8Bit ? shape.pixels[i]
+                                  : x % 2 == 0             ? shape.pixels[y * rowBytes + x / 2] & 0x0f
+                                                           : shape.pixels[y * rowBytes + x / 2] >> 4;
             if (index < colours)
                 std::memcpy(&out.rgba[i * 4], &shape.palette[index * 4], 4);
         }

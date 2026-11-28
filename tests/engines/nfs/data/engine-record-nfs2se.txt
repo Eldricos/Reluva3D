@@ -1,0 +1,18 @@
+# The record of nfs.engine (tests/engines/nfs/engine.cpp).
+# Written by `reluva-tests nfs.engine --update`; review its diff before committing.
+detect.install: nfs2se Need for Speed II SE (unknown release)
+detect.cd: nfs2se Need for Speed II SE (unknown release)
+folders.cd: NFS2SE-CD
+viewer.result: ok
+viewer.titles: Reluva - Need for Speed II SE - Status / Reluva - Need for Speed II SE - Play / Reluva - Need for Speed II SE - Tracks / Reluva - Need for Speed II SE - Cars / Reluva - Need for Speed II SE - Textures / Reluva - Need for Speed II SE - Strings / Reluva - Need for Speed II SE - Sounds / Reluva - Need for Speed II SE - Music / Reluva - Need for Speed II SE - Movies
+viewer.screens Reluva - Need for Speed II SE - Cars: 23 0162abcd729052fa
+viewer.screens Reluva - Need for Speed II SE - Movies: 19 745b7f9f1efa5159
+viewer.screens Reluva - Need for Speed II SE - Music: 22 5fa1bfadc7ec0e85
+viewer.screens Reluva - Need for Speed II SE - Play: 23 84ba334bac5c04b9
+viewer.screens Reluva - Need for Speed II SE - Sounds: 23 3ed62dcec0840aa0
+viewer.screens Reluva - Need for Speed II SE - Status: 41 cbd793d3493f8c57
+viewer.screens Reluva - Need for Speed II SE - Strings: 23 714ae8b6d089d225
+viewer.screens Reluva - Need for Speed II SE - Textures: 22 d19a389a71234e11
+viewer.screens Reluva - Need for Speed II SE - Tracks: 23 ad5903ad8f2610a2
+game.result: error: Couldn't start the game: Not an executable (no MZ header)
+game.without cd: error: Need for Speed II SE reads its tracks from its CD, and no copy of the CD's files was found: put one beside the install, or set cdpath=<folder> in this game's section of reluva.ini
