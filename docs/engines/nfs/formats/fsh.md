@@ -194,19 +194,24 @@ clear pixels, and 24 are entirely clear.
 
 ### NFS II SE
 
-Counted on NFS II SE's CD, which holds every bank (311, with 15,336
-pictures).
+Counted on NFS II SE's CD, which holds every bank: 311 banks, beside
+the three empty entries in `huddata.viv` (below), with 15,336 directory
+entries between them, 15,223 pictures and 113 bank palettes
+(`reluva-tool nfs fsh-info` on each bank, November 2026). The install
+has 278 of them: all but the tracks' 33, in `GameData/Tracks`.
 
 | Type | What | Count |
 |---|---|---|
-| `0x7B` | 8-bit palette indices | 9,251 |
-| `0x78` | 16-bit 5:6:5 | 5,706 |
+| `0x7B` | 8-bit palette indices (among them the pause screens' 156 without a palette) | 9,251 |
+| `0x78` | 16-bit 5:6:5 | 5,723 |
 | `0x7D` | 32-bit | 223 |
 | `0x7F` | 24-bit | 17 |
 | `0x7E` | 16-bit 1:5:5:5 | 1 |
 | `0x7A` | 4-bit palette indices | 8 |
 | `0x2A` as an entry | the bank's palette, 32-bit | 96 |
 | `0x24` as an entry | the bank's palette, 24-bit | 17 |
+
+The pictures' rows sum to 15,223, the two palettes' to 113.
 
 - **The bank's palette.** A directory entry may be a palette alone,
   named `!pal` or `0000`: the palette's header, its width the number of
@@ -279,7 +284,7 @@ Textures).
 
 NFS II SE has two sets of its pause screens in `GameData/Pause`: the
 software program's (`pause??.qfs`, one per language) as 8-bit pictures,
-156, most with no palette; and the 3dfx program's (`paus3??.qfs`) as
+180, 156 of them with no palette; and the 3dfx program's (`paus3??.qfs`) as
 the same pictures in 16-bit 5:6:5. The software game draws its pause
 screens in the race's palette, `!pal` of
 `GameData/DashHud/pc/hud.fsh`: the hosted game, paused in a race,
@@ -299,9 +304,11 @@ for it, to within 4 of 255.
 Read by `parseShapeBank` and `decodeShape`
 (`src/engines/nfs/formats/fsh.cpp`). It reads all 694
 banks (15,990 pictures) in the NFS III install and on its CD, and all 311
-banks on NFS II SE's CD (15,180 pictures and palette entries, and the 156
-pause pictures without a palette), including those inside `.viv`
-archives and compressed as `.qfs` ([refpack.md](refpack.md)). A bank's
+banks on NFS II SE's CD (its 15,336 entries; `reluva-tool nfs survey`
+counts them as 15,180 "pictures", the bank palettes among them, and the
+pause screens' 156 without a palette apart, as "lent a palette") and the install's 278
+(6,042 and 156), including those inside `.viv` archives and compressed
+as `.qfs` ([refpack.md](refpack.md)). A bank's
 palette entry is given to its 4- and 8-bit pictures without one
 (`Shape::bankPalette`).
 
@@ -315,8 +322,8 @@ so; `reluva-tool nfs survey` counts them as "lent a palette".
 
 ## Sources and checks
 
-- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
-- **How it was checked:** the reader run on every picture bank to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+- **Where the facts come from:** the games' own files, `nfs3.exe`, and NFS II SE's `nfs2sen.exe` (its palettes and 4-bit pictures) and `nfs2sea.exe` run on Reluva's Glide stand-in (its see-through texels), read as each section above says, with the addresses it gives.
+- **How it was checked:** the reader run on every picture bank of both games to its end; the unit tests (`nfs.unit.formats`) and the game-files tests (`nfs.gamedata.formats`, `nfs.nfs2se.gamedata.formats`).
 
 Where the layout came from:
 
@@ -326,7 +333,11 @@ Where the layout came from:
 - the colours, checked by eye on decoded pictures: the title screen, car
   art, cockpits and track textures;
 - NFS II SE's palette entries, 4-bit pictures and `0x29` palettes, from
-  its CD's banks with survey scripts (November 2026): the types counted,
-  the blocks measured, the 4-bit order and the `0x29` layout chosen by
-  which decoding looks right; the pause screens' palette by comparing
-  each index's colour in the 3dfx set with every palette on the CD.
+  its CD's banks with survey scripts and `reluva-tool nfs fsh-info`
+  (November 2026): the types counted and the blocks measured; then how
+  `nfs2sen.exe` reads them, from its code (the bank's palette
+  `0x46bec0`, the 4-bit order `0x495db0`, `0x29`'s layout `0x4921d8`,
+  `0x24`'s order `0x49e794`), which the decoded pictures bear out
+  ([UNCONFIRMED.md](../games/nfs2se/UNCONFIRMED.md), Settled); the pause
+  screens' palette by comparing each index's colour in the 3dfx set
+  with every palette on the CD, then on the hosted game.

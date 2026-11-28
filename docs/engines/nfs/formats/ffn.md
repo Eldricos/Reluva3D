@@ -4,8 +4,9 @@
 
 ## Overview
 
-The game's bitmap fonts: a header, a table of glyphs and a 4-bit
-atlas. The 8 retail fonts are:
+The games' bitmap fonts: a header, a table of glyphs and a 4-bit
+atlas. NFS II SE's 7 are laid out the same, with shorter glyph tables
+in two ([NFS II SE](#nfs-ii-se)). NFS III's 8 retail fonts are:
 
 - `FeData/text`: `arial10b`, `cred`, `cred10i`, `credi`, `sci20`;
 - `GameData/DashHud`: `cp16bi`, `cp1bi`, `small6`.
@@ -21,17 +22,18 @@ All values are little-endian.
 | 0 | 4 | `FNTF` |
 | 4 | u32 | size: 32 + 11 × glyphs + the atlas, without the padding before the atlas, so 11 short in `arial10b` and `sci20` (223 glyphs in room for 224). The game doesn't read it. |
 | 8 | u16 | 100 in all (a version?) |
-| 10 | u16 | number of glyphs (223 or 224) |
+| 10 | u16 | number of glyphs (223 or 224 in NFS III) |
 | 12 | u16 | 0, 1, 4 or 5; the game doesn't read it |
 | 14 | u16 | 0 in all. If bits 0-1 are 2 (or there are over 255 glyphs, or the first code is above 255), the game looks codes up as 16-bit |
 | 16 | s8, s8 | x and y added to the pen where drawing starts |
 | 18 | u8 | line height in pixels |
 | 19 | s8 | extra gap between lines: a new line moves down 18 + 19 |
-| 20 | u32 | offset of the glyph table: 32 in all |
-| 28 | u32 | offset of the atlas: 2496 in all (32 + 224 × 11) |
+| 20 | u32 | offset of the glyph table: 32 in all, in both games |
+| 28 | u32 | offset of the atlas: 2496 in all of NFS III's (32 + 224 × 11) |
 
 The other bytes are 0 in every font. Bytes 16, 17 and 19 are 0 in all 16
-retail fonts too; Reluva applies them anyway (`Font::draw`,
+of NFS III's retail fonts (8 in the install, 8 on the CD) and all 14 of
+NFS II SE's too; Reluva applies them anyway (`Font::draw`,
 `Font::lineStep`), on the Strings and Fonts pages and in `ffn-render`.
 
 The game's two loaders (`setfont` at `0x4ef520`, `FONT_create` at
@@ -50,7 +52,7 @@ The game's two loaders (`setfont` at `0x4ef520`, `FONT_create` at
 | 9 | s8 | x offset from the pen |
 | 10 | s8 | y offset from the line's top |
 
-The table always has room for 224 glyphs:
+In NFS III the table always has room for 224 glyphs:
 
 - In the 223-glyph fonts, the last slot holds filler (code `0xADAD`).
 - In some 224-glyph fonts, one record is all zeros.
@@ -65,18 +67,38 @@ The atlas is a picture block as in [.fsh](fsh.md) files, of type `0x7A`:
 4 bits per pixel, high nibble first. Each pixel is coverage, from 0
 (clear) to 15 (solid); Reluva scales it to 0-255.
 
+### NFS II SE
+
+Seven fonts in `FeData/pc/text`, the same files in the install and on
+the CD: `fixed14`, `swiss13`, `swiss16`, `swiss18`, `swiss24`, `swiss36`
+and `swiss36a` (a survey script and `reluva-tool nfs survey`, November
+2026). Each is laid out as above, with these differences:
+
+- **The glyph table is as long as the count:** 224 glyphs in five of
+  them, as NFS III's, but 96 in `swiss24` (its atlas at 1088, 32 + 96 ×
+  11) and 20 in `swiss36` (its atlas at 256, after 4 bytes of padding).
+  The atlas is where the header's offset at 28 says.
+- **Byte 12** is 0 or 1.
+- **The line height** (byte 18) is 24 to 79.
+
+Each atlas is a `0x7A` block, 4 bits a pixel, its size accounting for
+the rest of the file, as NFS III's. The fonts `nfs2sen.exe` draws its
+front end with, and which it never names, are in
+[text.md](text.md#nfs-ii-ses-front-end).
+
 ## In Reluva
 
 Read as `Font` (`src/engines/nfs/formats/ffn.cpp`), and checked on all
-8 retail fonts. The data viewer's Fonts page shows them.
+of NFS III's retail fonts and all 14 of NFS II SE's (7 in the install, 7
+on the CD). The data viewer's Fonts page shows them.
 
 `reluva-tool nfs ffn-render <file.ffn> <out.tga> [text]` draws every
 character, or the text given (as Windows-1252 bytes).
 
 ## Sources and checks
 
-- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
-- **How it was checked:** the reader run on every font to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+- **Where the facts come from:** the games' own files, and `nfs3.exe`'s loaders, read as each section above says, with the addresses it gives; NFS II SE's from its files alone.
+- **How it was checked:** the reader run on every font of both games to its end; the unit tests (`nfs.unit.formats`) and the game-files tests (`nfs.gamedata.formats`, `nfs.nfs2se.gamedata.formats`).
 
 Worked out from hex dumps of the retail fonts, October 2026:
 

@@ -4,9 +4,11 @@
 
 ## Overview
 
-EA's RefPack compression, as the game's `.qfs` files use it: a short
+EA's RefPack compression, as the games' `.qfs` files use it: a short
 header, then commands that copy literal bytes and runs from earlier in
-the output. Two files use EA's Huffman scheme instead (below).
+the output. Two of NFS III's files use EA's Huffman scheme instead
+([EA Huffman](#ea-huffman-30-fb-32-fb-34-fb)); NFS II SE uses it more
+([NFS II SE](#nfs-ii-se)).
 
 ## Layout
 
@@ -18,12 +20,12 @@ the output. Two files use EA's Huffman scheme instead (below).
 | 1 | 1 | `0xFB` |
 | 2 | 3 or 4 | (with flag `0x01`: the compressed size, then) the uncompressed size, big-endian |
 
-All 588 retail RefPack files start `10 FB`: 3-byte size, no compressed
-size.
+All 588 of NFS III's retail RefPack files start `10 FB`: 3-byte size,
+no compressed size.
 
 ### EA Huffman (`30 FB`, `32 FB`, `34 FB`)
 
-Two files, in the install and again on the CD, start `32 FB` instead:
+Two of NFS III's files, in the install and again on the CD, start `32 FB` instead:
 `trk007/tr070_8.qfs` and `tr071_8.qfs`, that track's 8-bit texture sets.
 They're read (`decompressEaHuffman`, `refpack.cpp`).
 
@@ -64,7 +66,8 @@ then z + 2 bits v; the number is v + 2^(z+2) − 4. So `1xx` is 0 to 3,
 `01xxx` is 4 to 11, and so on.
 
 Other second bytes `FB` (not RefPack, not these) are reported as
-"compressed with an EA scheme Reluva doesn't read yet"; none are in NFS III.
+"compressed with an EA scheme Reluva doesn't read yet"; none are in NFS
+III, and only one file in NFS II SE ([NFS II SE](#nfs-ii-se)).
 
 ### Commands
 
@@ -82,6 +85,22 @@ writing, which repeats a pattern.
 
 The literals follow the command's bytes.
 
+### NFS II SE
+
+NFS II SE compresses more of its files, and with EA's Huffman scheme
+more often (a survey script over the CD and the install, November
+2026; the install has the CD's picture banks but the tracks' 32):
+
+| Files | `10 FB` | `30 FB` | `32 FB` |
+|---|---|---|---|
+| Picture banks (`.qfs`), on the CD | 287 | 6 | 1 |
+| The same, in the install | 255 | 6 | 1 |
+| The cars' and simulation's data (`.qda`) | 6 | 30 | |
+| The AI's speed and line tables (`GameData/Tracks/Speeds`: `.qpl`, `.qps`, `.qas`, `.qal`) | 21 | 42 | 1 |
+
+One `.spl` file there starts `09 FB`, a header Reluva doesn't read.
+Where `nfs2sen.exe` decompresses them hasn't been traced.
+
 ## In Reluva
 
 Implemented in `src/engines/nfs/formats/refpack.cpp`
@@ -89,19 +108,14 @@ Implemented in `src/engines/nfs/formats/refpack.cpp`
 on all 588 compressed files in the NFS III install and on its CD. Each
 decompresses to exactly the size its header gives, uses up all its input,
 and gives an `.fsh` whose own size field matches. On NFS II SE's CD it
-reads every compressed picture bank (287 `10 FB`, 6 `30 FB`, 1 `32 FB`)
-and every `.qda` (30 `30 FB`, 6 `10 FB`), its cars' and simulation's
-data (`reluva-tool nfs survey` unpacks them).
-
-NFS II SE's AI speed tables in `GameData/Tracks/Speeds` (`.qpl`, `.qps`,
-`.qas`, `.qal`) are compressed the same ways, and one `.spl` file starts
-`09 FB`, a header Reluva doesn't read; they're for the plan's tracks
-phase.
+reads every compressed picture bank and every `.qda`
+([NFS II SE](#nfs-ii-se); `reluva-tool nfs survey` unpacks them). It has
+no reader for the AI's speed tables: the hosted game reads its own.
 
 ## Sources and checks
 
-- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
-- **How it was checked:** the reader run on every compressed file to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+- **Where the facts come from:** the games' own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
+- **How it was checked:** the reader run on every compressed file to its end, in both games; the unit tests (`nfs.unit.formats`) and the game-files tests (`nfs.gamedata.formats`, `nfs.nfs2se.gamedata.formats`).
 
 The layout is from the public descriptions of EA's RefPack (MultimediaWiki and the
 NFS modding community's QFS notes), checked against the retail files as

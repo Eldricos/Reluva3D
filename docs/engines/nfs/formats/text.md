@@ -19,14 +19,14 @@ All values are little-endian.
 - The strings, each ended by a 0. The last may run to the end of the
   file.
 
-Every retail table has **1,929** strings, so a string's number is the
+Every one of NFS III's retail tables has **1,929** strings, so a string's number is the
 same in every language. String 0 is `BAD TEXT INDEX 0`, or empty.
 
 The text is **Windows-1252**. `0x85` (…) and `0xA9` (©) are used, as
 are the accented letters of each language. The game's fonts
 ([ffn.md](ffn.md)) have glyphs for the same code page.
 
-### The files
+### NFS III's files
 
 | File | Language |
 |---|---|
@@ -107,8 +107,8 @@ as UTF-8.
 
 ## Sources and checks
 
-- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
-- **How it was checked:** the reader run on every language's table to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+- **Where the facts come from:** the games' own files, and NFS II SE's `nfs2sen.exe` (its front end's records), read as each section above says, with the addresses it gives.
+- **How it was checked:** the reader run on every language's table of both games to its end; the unit tests (`nfs.unit.formats`) and the game-files tests (`nfs.gamedata.formats`, `nfs.nfs2se.gamedata.formats`).
 
 Worked out from hex dumps of the retail tables, October 2026, and
 checked with a survey script: every table's offsets are in order and

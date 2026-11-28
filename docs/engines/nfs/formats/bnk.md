@@ -6,7 +6,10 @@
 
 EA's sound banks: a table of slots, each pointing to a PT header that
 describes one sound, then the audio, in PCM, EA-XA ADPCM or MicroTalk.
-The game's race sounds, engines and speech come from them (below).
+NFS III's race sounds, engines and speech come from them; most of this
+page is NFS III's, read in `nfs3.exe`. NFS II SE's banks are laid out
+alike, with fewer of the tags and no MicroTalk
+([NFS II SE](#nfs-ii-se)).
 
 ## Layout
 
@@ -25,7 +28,7 @@ All values are little-endian unless noted.
 | 16 | u32 | version 4: −1 in all 74 |
 | 20 | 4 × n | version 4: the slots, as above |
 
-The game's parser (`0x502620`) takes the slots from +0x14 for version 4
+`nfs3.exe`'s parser (`0x502620`) takes the slots from +0x14 for version 4
 and +0x0C for version 2 (`0x50265b`-`0x5026d9`; other versions get a
 warning and are read as 2). Checked in October 2026: so read,
 `Gen3d.bnk` (version 4) has its sounds in the same slots as `Gen.bnk`
@@ -114,8 +117,8 @@ install, alternatives included).
 
 ### Patch parameters
 
-From the routines above (random amounts come from `0x5224e0`, which
-gives −x to x):
+From `nfs3.exe`'s routines above (random amounts come from `0x5224e0`,
+which gives −x to x):
 
 | Parameter | Meaning |
 |---|---|
@@ -578,6 +581,30 @@ Reluva's decoder keeps them:
 - the adaptive codebook is read on into the frame being decoded;
 - a pitch lag over 216 in the first subframe reads into the decoder's
   state before the codebook.
+
+### NFS II SE
+
+NFS II SE's banks read as NFS III's version-2 banks do (`parseSoundBank`;
+`reluva-tool nfs survey` and `bnk-info`, every one):
+
+- **The sound effects:** 142 banks in `GameData/Audio/SFX/pc`, the same
+  files in the install and on the CD (the survey's 284 banks and 838
+  sounds count both copies). They hold 419 sounds: 211 16-bit PCM and
+  208 EA-XA, no MicroTalk; 40 are stereo.
+- **The speech:** on the CD, `FEDATA/PC/AUDIO/ENGLISH/ENGLISH.VIV`
+  (169 banks) and `SPANISH/SPANISH.VIV` (152), a bank per line with one
+  EA-XA sound, mono, 22,050 Hz. The archives' names have no `.bnk`, so
+  the survey's counts leave them out; `bnk-info` reads all 321.
+- **All version 2:** no slot table at +0x14.
+- **Fewer tags:** none has `0x81` (all 16-bit), `0x92` or `0x93` (no
+  DirectSound 3D). The patch parameters present are `0x06`, `0x07`,
+  `0x08`, `0x0A`, `0x0D`-`0x11` and `0x13`; `0x91` is 50 in 69 sounds.
+  Rates other than 22,050 Hz: 16,000 (39 sounds), 24,000 (3), 44,100
+  (3), 11,025 (1).
+
+The game plays them through iSND with an older `eacsnd.dll`, 6 exports
+to NFS III's 16 ([first-survey.md](../games/nfs2se/research/first-survey.md)).
+Where `nfs2sen.exe` parses the PT headers hasn't been traced.
 
 ## Behaviour
 
@@ -1201,7 +1228,16 @@ range moves a semitone at a time.
 
 ## Sources and checks
 
-October 2026:
+- **Where the facts come from:** NFS III's files and `nfs3.exe`, read
+  as each section says, with the addresses it gives; NFS II SE's from
+  its files, by `reluva-tool nfs survey`, `bnk-info` and a survey
+  script over its banks' PT headers (November 2026).
+- **How it was checked:** the reader run on every bank to its end, in
+  both games; the unit tests (`nfs.unit.formats`) and the game-files
+  tests (`nfs.gamedata.formats`, and `nfs.nfs2se.gamedata.formats` for
+  NFS II SE's loose banks).
+
+NFS III's, October 2026:
 
 - **Banks and PT headers.** Read off hex dumps, then checked with a
   survey script over every bank:

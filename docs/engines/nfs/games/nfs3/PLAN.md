@@ -1499,9 +1499,13 @@ Started. Done so far:
 
 Still to do:
 
-- **Played by hand** on a real GPU with speakers, a pad and a wheel. So
-  far it's been checked on software Vulkan and virtual controllers,
-  driven by scripts.
+- **Played by hand** on a real GPU with speakers, and with a real
+  wheel. So far it's been checked mostly on software Vulkan and virtual
+  controllers, driven by scripts; a real gamepad was tried by the user
+  (November 2026: driving and force feedback worked; Phase 5B's
+  Force feedback), and the game-files test passed on Windows 10
+  ([TESTING.md](TESTING.md#last-checked)). How the forces feel on a real
+  wheel is untested.
 - **Network play, the rest.**
   - Real machines over a LAN and the internet: so far only two copies
     on one machine have played.
@@ -1816,12 +1820,13 @@ What isn't known yet; the items that matter to how Reluva behaves are also in [U
   sparks and smoke, the wheels' spray in the wet and the snow, and a
   snow-bank hit near the Summit's town, but no wall hit's sparks near
   the camera and no hit that can be placed on a code-3 slice.
-- Which renderer the footage's game used. The `Rain` clip shows no fog
-  where Hometown's weather sky asks for density 50 and the 3dfx path
-  (nfs host, the Tracks page) draws a heavy haze; the game sends fog
-  only to the 3dfx renderers, so the clips are probably from `d3da` or
-  a Glide renderer without table fog ([hrz.md](formats/hrz.md),
-  The weather against footage).
+- Which renderer the eighteen YouTube day and night clips' game used
+  ([hrz.md](formats/hrz.md), Against footage of the game): not known.
+  Settled for the `Rain`, `Snow` and `Night` clips: the user recorded
+  them through Direct3D (`d3da.dll`), in a virtual machine (the
+  Classics release's item in these questions), so the `Rain` clip's missing fog is d3da's,
+  as the game sends fog only to the 3dfx renderers (hrz.md, The weather
+  against footage).
 - How a real Pro Logic decoder of the time (with its surround delay
   and 7 kHz low-pass) would place the voices behind; only the matrix's
   sums are measured. The moving objects' sounds and their fades are

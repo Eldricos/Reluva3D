@@ -44,13 +44,15 @@ A frame is an 8-byte header, then its bits:
 
 ## Sources and checks
 
-- **Where the facts come from:** the header's `0x3800` and version,
-  which mark the PlayStation's MDEC frames as they're publicly described;
-  MPEG-1's tables from the standard; and the files: the column order, the
-  DC's doubling and the AC's shift by 3 were settled by decoding NFS II
-  SE's movies until their pictures came out whole *(inferred)*, then
-  confirmed by the comparison below. FFmpeg's `mdec`
-  decoder (LGPL) was not read; its output was compared, below.
+- **Where the facts come from:** the frames were taken for MDEC's by
+  the header's `0x3800` and version, and `ffprobe` names NFS II SE's
+  movie streams MDEC ([dct.md](../../engines/nfs/games/nfs2se/formats/dct.md#sources-and-checks));
+  MPEG-1's tables are from the standard; the column order, the DC's
+  doubling and the AC's shift by 3 were found by decoding NFS II SE's
+  movies until their pictures came out whole, and confirmed against
+  FFmpeg's decoding ("How it was checked", in
+  [Sources and checks](#sources-and-checks)). FFmpeg's `mdec` decoder
+  (LGPL) was not read, only its output compared.
 - **How it was checked:** `common.unit.mdec` decodes frames built in code
   (the macroblocks' order, the DC's scale, an escaped AC term, bad
   frames). On NFS II SE's 15 movies (November 2026), every one of their

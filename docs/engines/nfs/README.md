@@ -2,10 +2,10 @@
 
 Engine id `nfs`, in `src/engines/nfs/`. It's meant for the family of
 Electronic Arts' Need for Speed games that share NFS III's files (VIV
-archives, FSH pictures, EA's audio), starting with Need for Speed III: Hot
-Pursuit, with Need for Speed II SE being added. Each game's own code is in
-a folder of its own (`nfs3/`, `nfs2se/`), the rest shared. It runs
-the retail game's own executable in Reluva's x86 emulator, with
+archives, FSH pictures, EA's audio): Need for Speed III: Hot Pursuit and
+Need for Speed II SE. Each game's own code is in a folder of its own
+(`nfs3/`, `nfs2se/`), the rest shared. It runs the retail game's own
+executable in Reluva's x86 emulator, with
 stand-ins for Windows, DirectX and the game's renderer and sound
 interfaces; `reluva-viewer` has a data viewer of the games' files.
 
@@ -14,7 +14,7 @@ interfaces; `reluva-viewer` has a data viewer of the games' files.
 | Game | Game id | Publisher, year | Platform | Releases recognised | State |
 |---|---|---|---|---|---|
 | [Need for Speed III: Hot Pursuit](games/nfs3/README.md) | `nfs3` | Electronic Arts, 1998 | Windows | US "Classics" CD (English) | Plays: the retail game hosted, every race type, single player and network; a data viewer of its files |
-| [Need for Speed II SE](games/nfs2se/README.md) | `nfs2se` | Electronic Arts, 1997 | Windows | US CD (English and Spanish set-up) | Plays: the retail game hosted, its software and 3dfx programs, every race type, single player and over a link; a data viewer of its files |
+| [Need for Speed II SE](games/nfs2se/README.md) | `nfs2se` | Electronic Arts, 1997 | Windows | US CD (English and Spanish set-up) | Plays: the retail game hosted, its software and 3dfx programs, every race type, single player and two players over IPX, a serial link or a modem; a data viewer of its files |
 
 ## Where it stands
 
@@ -62,8 +62,8 @@ found to share its format, then comes here
 | `formats/` | The files the games share: `.viv`, RefPack, `.fsh`, text, `.ffn`, `.col`, `.bnk`, `.mus` |
 | `ui/` | The window's pages and running them (`runPages`), and the Play page, which shows the game and passes it the input |
 | `pages/` | The data viewer, in `reluva-viewer` only: the folders found, pictures, text, sounds, movies, with the Play page and each game's own pages among them |
-| `host/` | The retail games hosted: `GameHost` (Windows, DirectX, sound, input, the network, serial links), on which `nfs3.exe` plays and `nfs2sen.exe` runs; NFS III's THRASH calls and sound mixer stood in for in its own methods (`thrash.cpp`, `native_sound.cpp`), where its code is as expected |
-| `nfs2se/` | NFS II SE's own, in `reluva::nfs::nfs2se`: its tracks, car models and programs found (`files.cpp`), its formats (`formats/`: `.trk`, `.col`, `.hrz`, `.can`, `.geo`, `.dct`), the host tool's road driver (`host/`), the viewer's Tracks, Cars and Movies pages (`pages/`), and the Status page, what was found of it (`status_page.cpp`), which an install without the software program shows |
+| `host/` | The retail games hosted: `GameHost` (Windows, DirectX, sound, input, the network, serial links), on which `nfs3.exe`, `nfs2sen.exe` and (on Reluva's Glide) `nfs2sea.exe` play; NFS III's THRASH calls and sound mixer stood in for in its own methods (`thrash.cpp`, `native_sound.cpp`), where its code is as expected |
+| `nfs2se/` | NFS II SE's own, in `reluva::nfs::nfs2se`: its tracks, car models and programs found (`files.cpp`), its formats (`formats/`: `.trk`, `.col`, `.hrz`, `.can`, `.geo`, `.dct`), the host tool's road driver (`host/`), the viewer's Tracks, Cars and Movies pages (`pages/`), and the Status page, what was found of it (`status_page.cpp`), shown when neither of its programs is found |
 | `nfs3/` | NFS III's own, in `reluva::nfs::nfs3`: its formats (`formats/`: `.fce`, `.frd`, `.hrz`, `.mad`), its tracks' particles and THRASH's frames on the GPU (`render/`), THRASH drawn natively (`host/`), and the viewer's Tracks and Cars pages (`pages/`) |
 | `tools/` | `reluva-tool nfs` commands (`reluva-tool help nfs` lists them) |
 

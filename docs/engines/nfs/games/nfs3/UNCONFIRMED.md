@@ -14,9 +14,9 @@ Open questions has the details of each.
 
 ## Seen running, not traced in the code
 
-- Which renderer the recorded footage's game used: its weather shows no
-  fog where the 3dfx path draws a heavy haze, so probably `d3da` or a Glide
-  renderer without table fog ([formats/hrz.md](formats/hrz.md)).
+- Which renderer the eighteen YouTube day and night clips' game used:
+  not known; by day without weather the fog's difference is slight
+  ([formats/hrz.md](formats/hrz.md#the-weather-against-footage-november-2026)).
 
 ## Inferred
 
@@ -34,3 +34,9 @@ Open questions has the details of each.
   decoded-instruction cache and JIT) to the same menus and races as on the
   branch's interpreter, checked with `reluva-tool nfs host` into a
   Hometown race, natively and on the Glide stand-in ([TESTING.md](TESTING.md)).
+- November 2026: the `Rain`, `Snow` and `Night` clips were recorded
+  through the Direct3D renderer (`d3da.dll`), from the user's own copy
+  of this CD in a virtual machine, as the user reported
+  ([PLAN.md](PLAN.md#open-questions)). So the `Rain` clip's missing fog,
+  where the 3dfx path draws a heavy haze, is d3da's: the game sends fog
+  only to the 3dfx renderers ([formats/hrz.md](formats/hrz.md#the-weather-against-footage-november-2026)).

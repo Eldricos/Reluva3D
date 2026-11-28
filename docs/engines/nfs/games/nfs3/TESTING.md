@@ -52,7 +52,8 @@ game, one step each:
 The records, in `tests/engines/nfs/data/gamedata/<release>/`, hold only
 counts and checksums. They were made on Linux with the US Classics CD's
 install (`classics`); the hosted steps' records depend on the system's
-maths library (docs/DEVELOPMENT.md, Engine tests).
+maths library (docs/DEVELOPMENT.md, Engine tests), and they matched on
+Windows 10 too ([Last checked](#last-checked), 28 November 2026).
 
 **A baseline of your own in `reluva-viewer`'s Tests window**
 ([DEVELOPMENT.md](../../../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
@@ -63,8 +64,34 @@ with **Make my baseline**, before making the changes it's to check.
 
 ### What the automated checks don't cover
 
-The sound as heard, the GPU's pictures, live input, force feedback and
-playing over a real network.
+These need a person, or real hardware the tests don't have:
+
+- **Two machines** racing over a LAN and over the internet: so far only
+  two copies on one machine have played
+  ([PLAN.md](PLAN.md#phase-5b-hosted-game-if-the-gate-passes), Still to
+  do).
+- **Playing by hand on a real system:** a real GPU with speakers, a pad
+  and a wheel; how the force feedback feels on a real wheel (a real pad
+  has been tried; PLAN.md, Force feedback and Still to do).
+- **Sounds as heard:** the wall hits' sounds, measured but not listened
+  to ([formats/col.md](formats/col.md#virtual-road-id-15-36-bytes-per-point)),
+  and not matched in footage
+  ([bnk.md](../../formats/bnk.md#seen-in-footage-november-2026)); the
+  thunder queued with each lightning bolt, not listened for
+  ([formats/hrz.md](formats/hrz.md#the-weather-against-footage-november-2026)).
+- **A real Pro Logic decoder** of the time placing the voices behind:
+  only the matrix's sums are measured ([UNCONFIRMED.md](UNCONFIRMED.md#inferred),
+  [PLAN.md](PLAN.md#open-questions)).
+- **A real Voodoo2's frames:** the Glide stand-in's dither and blend
+  rounding are choices that only a real card's frames can settle
+  ([systems/thrash.md](systems/thrash.md#dithering),
+  [docs/common/graphics/glide.md](../../../../common/graphics/glide.md#open-questions)).
+- **Other releases:** the original 1998 retail, the UK and German
+  releases and patched copies, each with its own hashes
+  ([UNCONFIRMED.md](UNCONFIRMED.md#guessed), [README.md](README.md)).
+- **The network under strain:** positional updates over a slow or lossy
+  link, and a joystick's analogue controls over the network, which no
+  run has used ([systems/net.md](systems/net.md#open-questions)).
 
 ## A playthrough by hand
 
@@ -85,5 +112,5 @@ playing over a real network.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 28 November 2026 | Classics (`27, 2.0`) | Windows 10 | `nfs.nfs3.gamedata` passed, after the host's changes for NFS II SE on `engine/nfs-nfs2se` (input delivered before the main thread's functions; a hook for file reads' time, not set for NFS III; the DirectX key, NFS II SE's only) |
+| 28 November 2026 | Classics (`27, 2.0`) | Windows 10 | `nfs.gamedata` passed, after the host's changes for NFS II SE (input delivered before the main thread's functions; a hook for file reads' time, not set for NFS III; the DirectX key, NFS II SE's only) |
 | 13 November 2026 | Classics (`27, 2.0`) | Linux, after the merge into main | The automated checks; `reluva-tool nfs host` into a Hometown race natively and with `-glide`; a two-copy TCP race; the Tracks page |
