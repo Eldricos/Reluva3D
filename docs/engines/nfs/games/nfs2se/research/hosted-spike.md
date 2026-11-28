@@ -97,8 +97,11 @@ of them its software renderer's (its PLAN.md, Phase 4).
   strip, or on the host's own clock.
 - **The registry** has no `Software\Microsoft\DirectX`: what the game
   does with the version `dsetup.dll` reports isn't known. (Since
-  settled: a check for DirectX 5, above.)
+  settled: a check for DirectX 5, [What it does](#what-it-does).)
 - **The drives** are labelled `NFS3`, NFS III's CD's label; the save
   folder the tool uses by default is named for NFS III.
 - **Sound** wasn't listened to, nor the 3dfx program (`nfs2sea.exe`)
-  tried.
+  tried. (Since done: the 3dfx program plays,
+  [PLAN.md](../PLAN.md#phases), Phase 7; the sound recorded through a
+  race, [TESTING.md](../TESTING.md#last-checked); the wall sounds heard,
+  [col.md](../formats/col.md).)

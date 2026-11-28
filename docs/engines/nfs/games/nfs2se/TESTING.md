@@ -10,7 +10,7 @@ tests build (`makeNfs2seInstall`, `makeNfs2seCd` in
 
 | Suite | What it checks |
 |---|---|
-| `nfs.unit.nfs2se` | NFS II's own formats on files built in the tests: a two-block track (vertices made absolute, the next block's included; levels and their second groups; meshes and placements; a polygon past its level, and a cut file, refused), a `.col` (textures, meshes, placements, the road, told from NFS III's), both kinds of sky and the lights, a car model (the 6 bytes after an odd vertex count; a vertex past its part, bytes left over, a cut file refused), the 3dfx program's fog by track and road point and its sky's ring colours; the paint (the colours' file; the program's paint tables read from a program built in the test, a car's run past the table and another program refused; colours turned to RGB, a palette entry recoloured below and above the threshold and whitened, other colours left); a movie (two frames around its sound; one without sound; frames of two sizes, a cut file and no frames refused) |
+| `nfs.unit.nfs2se` | NFS II's own formats on files built in the tests: a two-block track (vertices made absolute, the next block's included; levels and their second groups; meshes, placements, an obstacle and a placed sound; a polygon past its level, and a cut file, refused); a `.col` (a texture's picture, flags, turn, colour and animation; meshes and placements; a road point's edges, lanes and lane widths; told from NFS III's); an animation script (`.can`: its keys' offsets and turns, a cut file and part of a key refused); both kinds of sky and the lights (a short file refused); the software program's depth cueing (`TR00`'s curve giving the lights the game had in memory at their buckets, and a quad's bucket); the 3dfx program's fog by track and road point, `TR04`'s tunnels either way, and its sky's ring colours; the pictures' corners for each turn and mirror; a car model (the 6 bytes after an odd vertex count, a polygon's frames and picture; a vertex past its part, bytes left over, a cut file refused); the paint (the colours' file; HSV to RGB; which palette entries are paint; a palette entry recoloured below and above the threshold and whitened, other colours left; the program's paint tables read from a program built in the test, a car's run past the table and another program refused); a movie (two frames around its sound; one without sound; frames of two sizes, a cut file and no frames refused) |
 | `nfs.unit.host` (its `windows` case) | The host's Windows as `nfs2sen.exe` needs it, called as the program would: a key given to the keyboard hook first, and dropped when the hook keeps it; drawing into a flipping pair's front surface shown at its Unlock; `joyGetNumDevs` |
 | `common.unit.mdec` (`tests/common/mdec.cpp`) | MDEC frames built in the test: the macroblocks' order down the columns, the DC's scale and the colours, an escaped AC term, and bad frames refused |
 | `nfs.unit.formats` (`shapes nfs2se`, and in `text table` and `music`) | A bank's palette entry given to its pictures without one, a picture's own 5:6:5 palette winning over it, 4-bit pictures' order; the front end's text records with their places; zero padding between music streams, and other bytes there refused |
@@ -49,9 +49,9 @@ ctest --test-dir out\build\x64-release -L gamedata -R nfs2se
 | `release` | The release detection finds, and whether the CD's copy is beside the install |
 | `survey` | The game's files in the install and on the CD by name, size and MD5, as one checksum: not the CD's `REDIST` and `UTILITY` (DirectX's installers and tools, which a copy may leave out), nor the folders the game writes as it's played (`FeData/pc/config`, `stats`, `save`, `GameData/Prefs`, `TmpTrk`); the listing is left in the step's output folder as `files.txt`. And every file the engine reads, read and counted (`reluva-tool nfs survey`) |
 | `formats` | Every archive, picture, string table, font, track, model, sound, music section and movie frame decoded, each kind as a checksum (`nfs survey -hash`) |
-| `host_glide` | The same run with the 3dfx program (`nfs2sea.exe`, the install's or else the CD's) on Reluva's Glide stand-in as a Voodoo Graphics, drawn by its software rasterizer: about five minutes |
-| `drive` | `nfs2sen.exe` on the same clock, a knockout's first round at Proving Grounds (2 laps, 9 cars) driven to its end by the road driver (`-roaddrive`; [research/road-driver.md](research/road-driver.md)): each lap's place and the finishing place, its end state and its last frame: about four minutes |
 | `host` | `nfs2sen.exe` on a clock of instructions (`nfs host -deterministic 300000`, a file read taking a millisecond for each 2,000 bytes): the title movie skipped with Enter, the menu taken to RACE with four Downs, a race at Proving Grounds with Up held; its end state, its system calls and its last frame, as checksums |
+| `host_glide` | The same run with the 3dfx program (`nfs2sea.exe`, the install's or else the CD's) on Reluva's Glide stand-in as a Voodoo Graphics, drawn by its software rasterizer: about five minutes |
+| `drive` | `nfs2sen.exe` on the same clock as `host`, a knockout's first round at Proving Grounds (2 laps, 9 cars) driven to its end by the road driver (`-roaddrive`; [research/road-driver.md](research/road-driver.md)): each lap's place and the finishing place, its end state and its last frame: about four minutes |
 
 The records, `tests/engines/nfs/data/gamedata/nfs2se-en-windows/`, are
 the US CD's English install's, made on Linux and the same on Windows.
@@ -63,8 +63,42 @@ the same each time.
 
 ### What the automated checks don't cover
 
-That the real release is recognised by its hashes: checked by hand
-([Last checked](#last-checked)).
+What a person has to check, by hand or on real machines:
+
+- **The release recognised by its hashes:** the real files' hashes
+  aren't in the tests ([Last checked](#last-checked)).
+- **The Tracks and Cars pages:** the engine test opens them, but its
+  tracks are empty files and its car models stand-ins, so nothing is
+  drawn; nor does the game-files test draw them
+  ([A playthrough by hand](#a-playthrough-by-hand)).
+- **The placed sounds as heard:** the rule they're played by is read
+  from the code ([formats/trk.md](formats/trk.md), Sounds;
+  [UNCONFIRMED.md](UNCONFIRMED.md#read-from-the-code-not-seen-running)).
+- **Two copies on two real machines:** on a local network, over the
+  internet on the serial link or a modem, and IPX with `broadcast=` or
+  over a VPN ([README.md](README.md#using-it);
+  [research/network-play.md](research/network-play.md), Left open).
+- **Playing by hand** on a real GPU, with speakers and real controllers,
+  a force-feedback wheel among them: the runs here were on Mesa's
+  software Vulkan, the sound recorded to a file (`-wav`), and the wheel
+  the host's (`-joystick -wheel -ff`) ([PLAN.md](PLAN.md#phases),
+  Phases 6 and 7).
+- **The 3dfx program on a real 3dfx board**, a Voodoo2 in particular
+  ([UNCONFIRMED.md](UNCONFIRMED.md#inferred)).
+- **The CD itself:** its volume label
+  ([UNCONFIRMED.md](UNCONFIRMED.md#guessed)), and its files' dates, for
+  the `.can` files' word at 2
+  ([formats/can.md](formats/can.md#open-questions)).
+- **A PlayStation release:** whether a `.lgt` is beside its tracks
+  ([formats/hrz.md](formats/hrz.md)).
+- **DirectPlay** on a real Windows install: the program has DirectPlay's
+  names, but offered only IPX on the host, which has no DirectPlay
+  ([research/network-play.md](research/network-play.md), Left open).
+- **Other releases** than the US CD: not checked
+  ([README.md](README.md#releases)).
+- **macOS:** Reluva plays on it
+  ([the root README](../../../../../README.md)), but no check here was
+  made on it ([Last checked](#last-checked)).
 
 ## A playthrough by hand
 
@@ -94,7 +128,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 28 November 2026 | US CD and an install from it | Windows 10 | `nfs.nfs2se.gamedata` passed, its records as made on the branch (the DirectX key, file reads taking a disk's time, the road driver's latest) |
+| 28 November 2026 | US CD and an install from it | Windows 10 | `nfs.nfs2se.gamedata` passed, its records as in the repository (the DirectX key, file reads taking a disk's time, the road driver's latest) |
 | November 2026 | US CD and an install from it | Linux | The host delivering input before the main thread's functions only: 63 Downs and Enter on two copies on the real clock, none lost (4 of 64 before); late connects on the serial link, 15-25 s apart, all to the lobby with the copies started 3 s apart; a software and a 3dfx copy linked and racing; the game-files host records made again ([research/network-play.md](research/network-play.md)) |
 | November 2026 | US CD and an install from it | Linux | Two copies on the serial link, both driven (`-roaddrive`): Proving Grounds, 4 laps, to the race summary, the same on both; again with `-netdrop 10`; one copy killed mid-race (the other's race *aborted*); two copies of the 3dfx program linked and racing ([research/network-play.md](research/network-play.md)) |
 | November 2026 | US CD and an install from it | Linux | The road driver (`-roaddrive`) on the host, deterministic: Proving Grounds, a one-lap race 2nd of 8; the knockout's first round 7th of 9, the player advancing on the knockout standings ([research/road-driver.md](research/road-driver.md)) |

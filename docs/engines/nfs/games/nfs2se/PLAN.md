@@ -160,8 +160,7 @@ with what it found written on the game's pages in `formats/` and
      `src/engines/nfs/nfs3/`, so the Windows, DirectX, sound and network
      stand-ins serve both;
    - run `nfs2sen.exe` to its first front-end frame, logging its calls
-     (`reluva-tool nfs host`), and stand in for what it lacks (today it
-     stops in the generic `x86-run` at `VirtualQuery`);
+     (`reluva-tool nfs host`), and stand in for what it lacks;
    - measure the speed of a race in the software renderer;
    - gate: hosted if it plays at full speed, else what it would take.
 
@@ -183,15 +182,16 @@ with what it found written on the game's pages in `formats/` and
    instructions a frame, the emulator running faster than real time.
 
    **Gate: passed.** The game is hosted, as NFS III is.
-6. **Hosted play** (done, but for what's left open below): the front end, every race type, the iSND sound
+6. **Hosted play** (done): the front end, every race type, the iSND sound
    through its own `eacsnd.dll`, the CD music and movies, the attract
    mode (what `demo.0`-`demo.2` are), input and
    force feedback, saves in Reluva's save folder; the game-files test
    (its steps in `tests/engines/nfs/gamedata.cmake`, as `nfs.nfs2se`).
 
    Built: the launcher's Play page runs `nfs2sen.exe` when the install
-   has it, the viewer's too (`PlayPage::setProgram`); an install with
-   only the 3dfx program still shows the Status page. The menus take
+   has it, the viewer's too (`PlayPage::setProgram`), or else the 3dfx
+   program ([Phase 7](#phases)); with neither, the Status page shows.
+   The menus take
    every key: the host delivers input by the clock, its window thread
    running at once, as Windows does (the game reads its key buffer twice,
    `0x405900`, and lost the keys that came between). The game-files test
@@ -220,8 +220,9 @@ with what it found written on the game's pages in `formats/` and
      downloads its three effects but never starts them.
    - **`demo.0`-`demo.2`:** neither program names them, nor builds a
      name like theirs, nor does the set-up script; the attract mode
-     plays the `demoav*.dct` movies. Unused by the retail game, as far
-     as can be seen *(inferred)*.
+     plays the `demoav*.dct` movies. Unused by the retail game; that
+     they're of an earlier build is inferred
+     ([UNCONFIRMED.md](UNCONFIRMED.md#inferred)).
 
    - **A tournament to its end** (on the host, real clock): seven races,
      Proving Grounds, Outback, Last Resort, North Country, Pacific
@@ -320,7 +321,7 @@ with what it found written on the game's pages in `formats/` and
 | November 2026 | NFS II SE as a game of the `nfs` engine (`nfs2se`), not a new engine | The same toolchain, Win32 calls, sound interface and most file formats as NFS III ([Why a game of the `nfs` engine](#why-a-game-of-the-nfs-engine-not-a-new-engine)) |
 | November 2026 | Each game's own code in a folder of its own (`nfs3/`, `nfs2se/`) and namespace (`reluva::nfs::nfs3`...), the shared code at the engine's top, before NFS II SE's work begins | docs/ADDING_AN_ENGINE.md (Code layout) and the coding guide's namespaces, as `awe` and `netimmerse` do; the host waits for Phase 5, as `GameHost`'s NFS III parts are in its own methods, not files apart |
 | November 2026 | The data layer and viewer first, then a hosted spike with a gate | As NFS III; hosting keeps the game's own behaviour, and most of it already exists ([Two ways to play it](#two-ways-to-play-it)) |
-| November 2026 | Open-source readers (OpenNFS, FFmpeg's EA demuxer and decoders) and community write-ups of NFS II's formats read as references only, no code taken | CONTRIBUTING.md, as for NFS III |
+| November 2026 | Open-source readers (OpenNFS, FFmpeg's EA demuxer and decoders) and community write-ups of NFS II's formats allowed as references only, no code taken | CONTRIBUTING.md, as for NFS III |
 | November 2026 | NFS II SE's network play on NFS III's stand-ins, as they are | All three of its links raced with nothing changed ([research/network-play.md](research/network-play.md)) |
 | November 2026 | NFS II SE hosted, through the plan's gate | Its software program races at about 39 frames a second on the host with nothing of its own natively ([research/hosted-spike.md](research/hosted-spike.md)) |
 | November 2026 | Denis Auroux's NFS II track notes not used; the `.trk` and `.col` pages rest on the files alone | They forbid using their information commercially, which doesn't sit with the GPL; every fact they gave was worked out again from the files, and the meanings only they gave dropped |
