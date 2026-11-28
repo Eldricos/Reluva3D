@@ -87,7 +87,6 @@ DebriefingScreen::DebriefingScreen(const Archive &data, const TextObject &rules,
     _ambience = gameSound(data, kAmbience);
     if (_mixer && _ambience)
         _ambienceHandle = _mixer->play(_ambience, audio::SoundType::kEffects, audio::kMaxVolume, 0, true);
-    showLine(0);
 }
 
 DebriefingScreen::~DebriefingScreen() {
@@ -144,9 +143,15 @@ void DebriefingScreen::update(uint64_t now) {
     for (const float from : kFadeFrom)
         if (before < from && _time >= from && _mixer && _fadeSound)
             _mixer->play(_fadeSound, audio::SoundType::kEffects);
-    // The lines are typed once their panel's in (inferred).
+    // The first line's set, its voice-over with it, as the text's panel
+    // ends its fading in (its slot 0x130, 0x4895e9, 0x489cd0); till then
+    // nothing goes on (0x48acf9).
     if (shown(2) < 1.0f)
         return;
+    if (!_begun) {
+        _begun = true;
+        showLine(0);
+    }
     const double speed = _def ? _def->number("TextDisplay Text Speed").value_or(kDefaultSpeed) : kDefaultSpeed;
     const float typing = std::min(dt, _time - (kFadeFrom[2] + kFadeTime));
     _typed = std::min(float(_text.size()), _typed + typing * float(speed));
@@ -166,6 +171,8 @@ DebriefingScreen::Choice DebriefingScreen::handleEvent(const Event &ev, uint64_t
     int chosen = _buttons.handleEvent(ev, _mixer);
     if (ev.type == EventType::kKeyDown && ev.key == ' ')
         chosen = 0;
+    if (!_begun)
+        return Choice::kNone;
     if (chosen == 1) {
         showLine(0);
     } else if (chosen == 0) {

@@ -87,6 +87,7 @@ private:
     float _sinceVoice = 0.0f; // seconds since the voice-over ended
     float _time = 0.0f;       // seconds since it opened
     size_t _line = 0;
+    bool _begun = false; // the first line set, as the text's panel came in
     std::string _text;
     float _typed = 0.0f;
     uint64_t _last = 0;

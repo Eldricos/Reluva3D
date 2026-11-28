@@ -209,7 +209,10 @@ Rules.txt's `Debriefing Screen` (`CStarTrekDebriefingMenu`, made at
   speaker's portrait on its `Portrait Background`, with their
   voice-overs; CONTINUE and REPLAY on the panel, at their places on it.
   The text runs across the panel, `TextDisplay Text Pos`'s margin either
-  side (`0x48a1a1`). A line typed goes on to the next by itself once its
+  side (`0x48a1a1`). A panel ending its fading in calls its slot `0x130`
+  (`0x4895e9`); the text's sets the first line then, its voice-over
+  with it, and marks itself ready (`0x489cd0`, `0x489e0a`); till then
+  the lines don't go on (`0x48acf9`). A line typed goes on to the next by itself once its
   voice-over has been over half a second (`0x48ad4b`, 0.5 at
   `0x616fb0`), or at once without one; under the text, in its font, the
   prompt: "Press 'Space' to display all text" while typing, "Press
@@ -259,8 +262,9 @@ under the buttons as above. LOAD GAME opens the Load Game screen
 ([menus.md](menus.md#saved-games)).
 
 The debriefing (`ui/debriefing.cpp`) comes between a mission completed
-and the next, as above; its lines are typed once their panel's in
-*(inferred)*, and go on by themselves half a second after their
+and the next, as above; its first line, with its voice-over, is set as
+the text's panel ends its fading in, and nothing goes on before, as the
+program's, and they go on by themselves half a second after their
 voice-over, or at once without one; CONTINUE or Space shows a line
 whole, then the next, and after the last goes on; REPLAY starts the
 lines again. The text runs across the panel and its prompt is under

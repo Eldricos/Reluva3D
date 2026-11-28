@@ -39,8 +39,6 @@ None now.
   they stand while the enemy they're to shoot is out of range or sight;
   noise: an enemy's patrol carrying on where it left off after looking
   about ([systems/maps.md](systems/maps.md#open-questions)).
-- **Objectives:** the debriefing's lines typed only once their panel's
-  in ([systems/objectives.md](systems/objectives.md#open-questions)).
 - **Items:** the counts for -1
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** the enemies themselves not cutting the
