@@ -73,18 +73,22 @@ void MapScreen::chooseMelded() {
 }
 
 void MapScreen::breakMeld() {
-    // Its own mind back, on patrol (inferred: its AI is put back as it
-    // was), with the Break Meld Sound (0x5d5420).
+    // Its own mind put back (0x43b9d0), with the Break Meld Sound
+    // (0x5d5420): told to look where the one who took it stands, a
+    // CInvestigateMessage (0x438320); stunned meanwhile, it's left in its
+    // Stun state, lying as it was.
     if (_melded < 0)
         return;
     Enemy &e = _enemies[size_t(_melded)];
+    Officer &o = _officers[size_t(_melder)];
     _map.parts[e.part].category = _meldCategory;
     e.route.clear();
     e.foe = -1;
     e.target = -1;
-    if (e.alive())
-        setState(e, "Patrol");
-    Officer &o = _officers[size_t(_melder)];
+    if (e.alive() && e.stunned > 0.0f)
+        setState(e, "Stun");
+    else if (e.alive())
+        investigate(e, o.x, o.y);
     for (Officer::Held &h : o.items) {
         const auto def = _items.find(h.name);
         if (def == _items.end() || !def->second.psyche || !h.on)
@@ -100,16 +104,24 @@ void MapScreen::breakMeld() {
 }
 
 void MapScreen::orderMelded(float x, float y) {
-    // After the enemy clicked, else to the place (inferred: as an officer's
-    // orders).
+    // Given a CPlayerAI as the officers have (0x5d5204), it's ordered as
+    // they are: an enemy clicked, its weapon's process on it if it's in
+    // the weapon's reach, else nothing (0x5c6cd2); else to the place.
     Enemy &e = _enemies[size_t(_melded)];
     const int other = enemyAt(x, y);
     if (other == _melded)
         return;
+    if (other >= 0) {
+        const Enemy &f = _enemies[size_t(other)];
+        if (!e.weapon || !inItemRange(*e.weapon, e.x, e.y, f.x, f.y, e.weapon->range))
+            return;
+        e.route.clear();
+        e.foe = other;
+        return;
+    }
     e.route.clear();
-    e.foe = other;
-    if (other < 0)
-        e.route = route(e, x, y);
+    e.foe = -1;
+    e.route = route(e, x, y);
 }
 
 void MapScreen::updateMeld(float seconds) {
@@ -148,18 +160,16 @@ void MapScreen::updateMeld(float seconds) {
         return;
     }
     // Sent after an enemy: in its weapon's range and sight it turns and
-    // shoots, each Reuse Delay, else it goes to it (inferred: as an
-    // officer's attack).
+    // shoots, each Reuse Delay, till it's dead; out of either it waits
+    // where it is (inferred: as an officer's attack).
     const Enemy &f = _enemies[size_t(e.foe)];
     if (!f.alive() || !shown(f.part) || !e.weapon) {
         e.foe = -1;
         return;
     }
     const float distance = std::hypot(f.x - e.x, f.y - e.y);
-    if (distance > e.weapon->range || !clearSight(e.x, e.y, f.x, f.y)) {
-        walkTo(e, f.x, f.y, 1.0f, seconds, false);
+    if (distance > e.weapon->range || !clearSight(e.x, e.y, f.x, f.y))
         return;
-    }
     turnTo(e, angleOf(f.x - e.x, f.y - e.y), kTurnSpeed, seconds);
     if (e.reload > 0.0f || !hasShot(*e.weapon, e.energy))
         return;

@@ -1606,7 +1606,7 @@ void testMeld() {
     CHECK(screen.melded() == 0 && screen.melder() == 0 && screen.meldChosen() && !s.chosen);
     CHECK(enemies[0].state == "Controlled" && screen.map().parts[enemies[0].part].category == "Enemy,Team Member");
     const float sx = s.x;
-    // Sent after B, A walks into range and shoots it; its charge goes
+    // Sent after B, in its weapon's reach, A shoots it; its charge goes
     // down 3 a second.
     screen.orderMelded(800.0f, 500.0f);
     run(5000);
@@ -1622,9 +1622,11 @@ void testMeld() {
     hit.weaponDamage = 60.0f;
     screen.hurtEnemy(0, hit, -1, false);
     CHECK(enemies[0].health == 20.0f && s.health == 40.0f);
-    // Let go, A is on patrol again, an enemy as before.
+    // Let go, A's an enemy as before, told to look where Slovaak stands
+    // (0x438320).
     screen.breakMeld();
-    CHECK(screen.melded() == -1 && enemies[0].state == "Patrol" && !s.items[0].on);
+    CHECK(screen.melded() == -1 && enemies[0].state == "Investigate" && !s.items[0].on);
+    CHECK(enemies[0].heardX == s.x && enemies[0].heardY == s.y);
     CHECK(screen.map().parts[enemies[0].part].category == "Enemy");
     // Taken again, the charge runs out and it ends by itself.
     screen.choose(0);

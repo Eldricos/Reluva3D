@@ -265,10 +265,14 @@ on one already taken, of the team, or of the category `Immune to Psyche
 Displacement` (10 of the maps' enemies; `0x5d4ff0`); then its `Fail
 Sound` plays (`0x5d5304`). It needs a use's worth of charge, its `Energy
 Use` (3; `0x5d5145`). Taken over (`0x5d50e0`), the enemy gets a
-`CPsycheControlAI` in place of its own mind, and the team's category for
-the while (`0x5d522c`): the player chooses and orders it as one of the
-team, the enemies go after it as they would an officer, and Slovaak
-stands still. The charge goes down by its Energy Use a second while it
+`CPsycheControlAI`, a `CPlayerAI` as the officers have (`0x5d5204`),
+which puts its own `CBorgAI` aside (`0x43bc50`), any sight cone watching
+it turned off (`0x5b6c40`), and the team's category for the while
+(`0x5d522c`): the player chooses and orders it as one of the team, the
+enemies go after it as they would an officer, and Slovaak stands
+still. Let go (`0x43b9d0`), its `CBorgAI` is put back and told to look
+where Slovaak stands (a `CInvestigateMessage`, `0x438320`); stunned
+while it was held, its Stun state takes the stun over, lying it down. The charge goes down by its Energy Use a second while it
 lasts (about 33 seconds from full) and comes back by its `Energy
 Recharge` (0.03) a second.
 
@@ -465,10 +469,11 @@ neck pinch, a `CStarTrekHandWeaponInventoryItem`, has `Weapon Kills=0`
 where the others have a Weapon Setting, so it stuns.
 
 The Psychic Rack is as above. Out of range, nothing's done, as for any
-item's own process (`0x5c6cd2`). The enemy taken over is chosen in his place, chosen again
-with a click on it, and sent with a click: after an enemy clicked,
-shooting it in its weapon's range and sight, else to the place; let go,
-it's on patrol *(inferred)*. Its panel shows the meter's frame for the
+item's own process (`0x5c6cd2`). The enemy taken over is chosen in his
+place, chosen again with a click on it *(inferred)*, and sent with a
+click as an officer is: an enemy clicked in its weapon's reach is shot,
+in range and sight, till it's dead; out of reach, nothing; else to the
+place. Let go, it goes to look where Slovaak stands. Its panel shows the meter's frame for the
 charge left, BREAK CONTROL and CENTER while it's on, else its Text
 *(inferred)*; CENTER brings the view to the enemy.
 
