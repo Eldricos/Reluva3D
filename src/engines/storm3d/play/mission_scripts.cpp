@@ -112,14 +112,25 @@ public:
             return 0;
         }
         // Types longer than a letter can be referred to again by number.
-        if (_at - start > 1 && _remembered.size() < 10)
+        if (_at - start > 1 && _remembered.size() < 10) {
             _remembered.push_back(size);
+            _rememberedKinds.push_back(kindAt(start));
+        }
         return size;
     }
 
-    // What the next type is: a float, a bool, a string, else a word.
+    // What the next type is: a float, a bool, a string, else a word; a
+    // back reference, what the type it repeats is ("PADM0H": a string, a
+    // float, a string again, an integer).
     char kind() const {
-        const std::string_view rest = std::string_view(_s).substr(_at);
+        if (std::isdigit(static_cast<unsigned char>(peek()))) {
+            const size_t n = size_t(peek() - '0');
+            return n < _rememberedKinds.size() ? _rememberedKinds[n] : 'i';
+        }
+        return kindAt(_at);
+    }
+    char kindAt(size_t at) const {
+        const std::string_view rest = std::string_view(_s).substr(at);
         if (rest.starts_with("M"))
             return 'f';
         if (rest.starts_with("_N"))
@@ -154,6 +165,7 @@ private:
     size_t _at = 0;
     bool _failed = false;
     std::vector<uint32_t> _remembered;
+    std::vector<char> _rememberedKinds;
 };
 
 } // namespace

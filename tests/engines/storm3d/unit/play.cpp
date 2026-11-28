@@ -918,7 +918,10 @@ void testScriptSignatures() {
     auto goTo = MissionScripts::signatureOf("?Goto@@YAXHPADH@Z");
     CHECK(goTo && goTo->name == "Goto" && !goTo->member && goTo->argBytes == 12);
     auto build = MissionScripts::signatureOf("?BuildObject@@YAHPADH0H@Z");
-    CHECK(build && build->argBytes == 16);
+    CHECK(build && build->argBytes == 16 && build->kinds == "sisi");
+    // A back reference is the kind of what it repeats: the zoom-out shot's.
+    auto shot = MissionScripts::signatureOf("?CineractiveShot@@YAXPADM0H@Z");
+    CHECK(shot && shot->kinds == "sfsi");
     auto time = MissionScripts::signatureOf("?GetTime@@YAMXZ");
     CHECK(time && time->returnsFloat && time->argBytes == 0);
     auto step = MissionScripts::signatureOf("?add_step@script@@QAEXP6AHPAV1@@Z@Z");
