@@ -94,6 +94,7 @@ That the real release is recognised by its hashes: checked by hand
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 28 November 2026 | US CD and an install from it | Eldricos's machine | `nfs.nfs2se.gamedata` passed, its records as made on the branch (the DirectX key, file reads taking a disk's time, the road driver's latest) |
 | November 2026 | US CD and an install from it | Linux | The host delivering input before the main thread's functions only: 63 Downs and Enter on two copies on the real clock, none lost (4 of 64 before); late connects on the serial link, 15-25 s apart, all to the lobby with the copies started 3 s apart; a software and a 3dfx copy linked and racing; the game-files host records made again ([research/network-play.md](research/network-play.md)) |
 | November 2026 | US CD and an install from it | Linux | Two copies on the serial link, both driven (`-roaddrive`): Proving Grounds, 4 laps, to the race summary, the same on both; again with `-netdrop 10`; one copy killed mid-race (the other's race *aborted*); two copies of the 3dfx program linked and racing ([research/network-play.md](research/network-play.md)) |
 | November 2026 | US CD and an install from it | Linux | The road driver (`-roaddrive`) on the host, deterministic: Proving Grounds, a one-lap race 2nd of 8; the knockout's first round 7th of 9, the player advancing on the knockout standings ([research/road-driver.md](research/road-driver.md)) |
