@@ -2251,6 +2251,8 @@ void MissionView::stop() {
     _passages.clear();
     _scripted.clear();
     _picked.clear();
+    _avoiding = true;
+    _markers.clear();
     _cannotDie.clear();
     _missionEnd.reset();
     _computersOff = false;
@@ -2828,6 +2830,7 @@ void MissionView::draw(uint64_t millis) {
     pursue();
     fight(seconds);
     runWormholes(seconds);
+    runMarkers(seconds);
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
     // What each ship keeps clear of: every other unit standing, as it moves.
@@ -2874,8 +2877,11 @@ void MissionView::draw(uint64_t millis) {
         for (size_t j = 0; j < everyone.size(); ++j)
             if (j != i && everyone[j].radius > 0)
                 others.push_back(everyone[j]);
+        // None while a script has turned steering round others off
+        // (ObstacleAvoidence, 0x42d592), as through its cut scenes.
         const gfx::Vec3 push =
-            Movement::avoid(_ships[i], _scene.units()[i].middle(), ringHalfOf(_scene.units()[i]), others);
+            _avoiding ? Movement::avoid(_ships[i], _scene.units()[i].middle(), ringHalfOf(_scene.units()[i]), others)
+                      : gfx::Vec3{};
         const float pace2 = float(std::max(std::abs(_ships[i].speed), 10.0f) * seconds);
         _ships[i].at[0] += push[0] * pace2;
         _ships[i].at[2] += push[2] * pace2;
@@ -3010,6 +3016,8 @@ void MissionView::draw(uint64_t millis) {
     if (_dragging)
         Hud::drawBox(_overlay, _pressX, _pressY, _mouseX, _mouseY);
     Hud::Minimap minimap = minimapOf(_scene.map(), units, _moves, view, _overview.target[1]);
+    for (const Marker &m : _markers)
+        minimap.rings.push_back({m.x, m.z, m.now});
     // What the cover hides isn't on the minimap either: the original's
     // showed neither the computer's units nor its moon's mark under the fog.
     for (size_t i = minimap.marks.size(); i-- > 0;)

@@ -527,9 +527,23 @@ private:
     std::vector<std::pair<std::string, gfx::Vec3>> _mapObjects; // the map's objects: name, place
     std::set<size_t> _scripted;                                 // units the scripts order (SetSpecialForcesFlag)
     std::map<size_t, int> _picked;                              // targets units took up of themselves, by unit
-    std::set<size_t> _cannotDie;                                // CraftCannotDie
-    std::optional<std::pair<double, bool>> _missionEnd;         // when, in game seconds; whether failed
-    bool _computersOff = false;                                 // DisableAllAITeams
+    bool _avoiding = true;                                      // ships steer round each other (ObstacleAvoidence)
+    // An alert on the minimap (0x483c90): a ring shrinking a pixel each
+    // `shrink` seconds from `radius`, again till `life` is spent.
+    struct Marker {
+        float x = 0;
+        float z = 0;
+        float shrink = 0.2f;
+        float timer = 0;
+        float life = 0;
+        int radius = 10;
+        int now = 10;
+    };
+    std::vector<Marker> _markers;
+    void runMarkers(double seconds);
+    std::set<size_t> _cannotDie;                        // CraftCannotDie
+    std::optional<std::pair<double, bool>> _missionEnd; // when, in game seconds; whether failed
+    bool _computersOff = false;                         // DisableAllAITeams
     // The scripts' titles and subtitles (0x648928), by id: shown only in a
     // cut scene, fading in or out over a second.
     struct OverlayText {

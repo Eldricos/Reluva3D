@@ -850,6 +850,33 @@ void Hud::draw(Surface &screen, const Resources &resources, const std::vector<bo
                 p[3] = 255;
             }
         }
+    // The rings: each a circle of 20 straight lines, one pixel wider than
+    // its radius, kept to the minimap (0x483050, 0x5718b0).
+    if (across > 0 && down > 0)
+        for (const Minimap::Ring &ring : map.rings) {
+            const auto at = onMinimap(ring.x, ring.z);
+            const float r = float(ring.radius + 1);
+            constexpr int kSides = 20;
+            for (int side = 0; side < kSides; ++side) {
+                const float a0 = 2 * float(std::numbers::pi) * float(side) / kSides;
+                const float a1 = 2 * float(std::numbers::pi) * float(side + 1) / kSides;
+                const float x0 = at[0] + r * std::cos(a0);
+                const float y0 = at[1] + r * std::sin(a0);
+                const float x1 = at[0] + r * std::cos(a1);
+                const float y1 = at[1] + r * std::sin(a1);
+                const int steps = std::max(1, int(std::ceil(std::max(std::abs(x1 - x0), std::abs(y1 - y0)))));
+                for (int st = 0; st <= steps; ++st) {
+                    const float t = float(st) / float(steps);
+                    const int x = int(std::floor(x0 + (x1 - x0) * t + 0.5f));
+                    const int y = int(std::floor(y0 + (y1 - y0) * t + 0.5f));
+                    if (x < mx || y < my || x >= mx + display[2] || y >= my + display[3])
+                        continue;
+                    uint8_t *p = screen.row(y) + size_t(x) * 4;
+                    std::copy_n(ring.colour.begin(), 3, p);
+                    p[3] = 255;
+                }
+            }
+        }
 }
 
 } // namespace reluva::storm3d

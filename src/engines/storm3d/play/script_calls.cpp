@@ -350,6 +350,28 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         auto unit = unitOfHandle(args.integer(0));
         return unit && inWormholeQueue(*unit) ? 1u : 0u;
     }
+    if (name == "MinimapMessage") {
+        // A white ring at the unit, or a path's point, shrinking from `n`
+        // pixels a pixel each `f` seconds, once (0x437150, 0x437110).
+        std::optional<gfx::Vec3> at;
+        if (args.kinds.size() == 4)
+            at = pathPoint(args.text(0), args.integer(3));
+        else if (unitOfHandle(args.integer(0)))
+            at = placeOfHandle(args.integer(0));
+        if (at) {
+            Marker m;
+            m.x = (*at)[0];
+            m.z = (*at)[2];
+            m.radius = m.now = args.integer(1);
+            m.shrink = args.real(2);
+            _markers.push_back(m);
+        }
+        return 0u;
+    }
+    if (name == "ObstacleAvoidence") {
+        _avoiding = args.flag(0);
+        return 0u;
+    }
     if (name == "LinkWormHoles") {
         // Each the other's partner; their old partners keep their one-way
         // links (0x4516a0).
@@ -574,6 +596,28 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         return 0u;
     }
     return std::nullopt;
+}
+
+void MissionView::runMarkers(double seconds) {
+    // Each shrinks a pixel per `shrink` seconds; at nothing it's gone if
+    // its time is spent, else starts again (0x481c90).
+    for (size_t i = 0; i < _markers.size();) {
+        Marker &m = _markers[i];
+        m.timer += float(seconds);
+        m.life -= float(seconds);
+        while (m.shrink > 0 && m.timer > m.shrink) {
+            m.timer -= m.shrink;
+            --m.now;
+        }
+        if (m.now < 1) {
+            if (m.life <= 0) {
+                _markers.erase(_markers.begin() + std::ptrdiff_t(i));
+                continue;
+            }
+            m.now = m.radius;
+        }
+        ++i;
+    }
 }
 
 std::string MissionView::pathByName(const std::string &name) {

@@ -252,9 +252,20 @@ for what they take from Armada.exe.
     in its view screen's place until it ends, under the interface, as the
     original's player draws an open movie in every mode (0x47a410).
 
-  Not done yet: saving and loading a mission, the
-  minimap's messages, the shots along a heading, and the AI files other
-  missions load.
+  - **the minimap's messages** (`MinimapMessage`): a white ring at the
+    unit or the path's point, `n` pixels about it, one pixel wider as
+    the program draws it, a circle of 20 lines kept to the minimap,
+    shrinking a pixel each `f` seconds till it's gone (0x481c90,
+    0x483050); its colour, white, set at 0x575240. Federation 1's, (5,
+    0.2) every 2 seconds, shows a second of each two. The game's own
+    rings for its alerts (`events.odf`'s `Marker`) aren't made yet.
+  - **`ObstacleAvoidence(on)`** sets whether ships steer round each
+    other, which the program's steering (0x42d570) tests first: off from
+    the start of Federation 1's opening and its Premonition scene till
+    they end; on unless a script turns it off.
+
+  Not done yet: saving and loading a mission, the shots along a
+  heading, and the AI files other missions load.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make
@@ -282,6 +293,16 @@ for what they take from Armada.exe.
   run with DirectSound's position notifications. Before those were made
   in the emulator, the original's voices all ended at once and its
   opening ran 27 seconds.
+- **Federation 1 played through** with `engine-shot`, the player's
+  clicks given: the starbase and mining station built, the Dominion's
+  reinforcements and the second objectives; the Premonition's scene,
+  the Premonition and the Borg brought through the temporal gates
+  ([wormholes.md](wormholes.md)); Deming's call on the bridge and the
+  third objectives. Left alone, the Borg destroy the Premonition and
+  the mission is lost ("THE PREMONITION HAS BEEN DESTROYED", then
+  `FailMission`); with the Enterprise and its two escorts sent to it,
+  the Borg are beaten, the second bridge movie (`F1DEM2.bik`) plays,
+  and `SucceedMission` brings up the debriefing.
 
 ## Open questions
 

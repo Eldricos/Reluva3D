@@ -144,6 +144,14 @@ public:
         };
         std::vector<Icon> icons;
         std::vector<std::array<float, 2>> view; // where the screen's corners fall on the plane, x and z, in turn
+        /** An alert's ring, `radius` pixels about a place: a script's MinimapMessage. */
+        struct Ring {
+            float x = 0;
+            float z = 0;
+            int radius = 0;
+            std::array<uint8_t, 3> colour{255, 255, 255};
+        };
+        std::vector<Ring> rings;
     };
     /**
      * Draws it onto `screen` (an RGBA overlay, left clear where the map
