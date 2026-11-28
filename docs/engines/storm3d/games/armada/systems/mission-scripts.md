@@ -156,13 +156,14 @@ for what they take from Armada.exe.
     the game time reaches the time they give.
 
   - **the grid,** shown or not by `GridVisible`, as the player's grid
-    key does;
+    key does; `SetWarpSpeed` sets a ship's top speed, its definition's
+    `warpSpeed`, and `CineractiveEnd` puts it back;
   - **the cut scenes** as above (`Cineractive`, `play/cineractive.h`),
     run after the rules each frame, their flags for the next; Space
     skips one, and Esc still opens the menu.
 
   Not done yet: voices and music (`AudioMessage` is done at once), titles,
-  subtitles, the objectives box, the bridge, `SetWarpSpeed`, the
+  subtitles, the objectives box, the bridge, the
   minimap's messages, the shots along a heading, and the AI files other
   missions load.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run

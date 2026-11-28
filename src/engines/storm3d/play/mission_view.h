@@ -517,8 +517,10 @@ private:
     std::optional<std::pair<double, bool>> _missionEnd;         // when, in game seconds; whether failed
     bool _computersOff = false;                                 // DisableAllAITeams
     int _audioMessages = 0;
-    Cineractive _cine;                   // the scripts' cut scene
-    bool _gridShown = true;              // GridVisible, the same the player's grid key toggles (0x616c20)
+    Cineractive _cine; // the scripts' cut scene
+    bool _gridShown = true;
+    std::map<size_t, float>
+        _warpSpeeds; // the definitions' warp speeds of those SetWarpSpeed changed              // GridVisible, the same the player's grid key toggles (0x616c20)
     Cineractive::Locate locateForCine(); // where a unit or map object of a handle is, for it
     void runScripts(double seconds);
     std::optional<uint32_t> scriptCall(const std::string &name, const MissionScripts::Arguments &args);

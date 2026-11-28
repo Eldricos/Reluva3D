@@ -2211,6 +2211,7 @@ void MissionView::stop() {
     _audioMessages = 0;
     _cine = Cineractive{};
     _gridShown = true;
+    _warpSpeeds.clear();
     _recrewing.clear();
     _poolCarry.clear();
     _revealedUntil.clear();

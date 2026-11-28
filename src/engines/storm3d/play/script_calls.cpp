@@ -340,10 +340,18 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         return 0u;
     }
     if (name == "CineractiveStart" || name == "CineractiveEnd") {
-        if (name == "CineractiveStart")
+        if (name == "CineractiveStart") {
             _cine.start();
-        else
-            _cine.end();
+            return 0u;
+        }
+        // Its end puts every unit's speeds back to its definition's (0x4ed020).
+        if (_cine.on())
+            for (const auto &[unit, speed] : _warpSpeeds)
+                if (unit < _physics.size() && _physics[unit])
+                    _physics[unit]->topSpeed = speed;
+        if (_cine.on())
+            _warpSpeeds.clear();
+        _cine.end();
         return 0u;
     }
     if (name == "CineractiveShot") {
@@ -404,6 +412,15 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
     if (name == "FadeIn" || name == "FadeOut") {
         // Over its seconds, after its delay; the third not 0, white, else black.
         _cine.fade(name == "FadeOut", args.real(0), args.real(1), args.real(2) != 0);
+        return 0u;
+    }
+    if (name == "SetWarpSpeed") {
+        // Its warp speed, as its definition's warpSpeed (0x438d80).
+        auto unit = unitOfHandle(args.integer(0));
+        if (unit && *unit < _physics.size() && _physics[*unit]) {
+            _warpSpeeds.emplace(*unit, _physics[*unit]->topSpeed);
+            _physics[*unit]->topSpeed = args.real(1);
+        }
         return 0u;
     }
     if (name == "GridVisible") {
