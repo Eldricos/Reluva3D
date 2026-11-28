@@ -28,7 +28,6 @@ enum Type : uint8_t {
 // it hasn't had. A line lost is only lost if more than this many follow it
 // before the next state arrives.
 constexpr size_t kLinesSent = 16;
-constexpr size_t kMostChat = 200;
 
 class Writer {
 public:
@@ -128,8 +127,8 @@ void Session::refresh() {
 void Session::chooseMission(int number) {
     if (!_host || number == _mission)
         return;
+    // A countdown running goes on, to this mission (0x514060).
     _mission = number;
-    stopCountdown();
     _changed = true;
 }
 
@@ -161,12 +160,6 @@ void Session::start() {
         return;
     _countdownEnd = _now + kCountdownMs;
     _changed = true;
-}
-
-void Session::stopCountdown() {
-    if (_countdownEnd)
-        _changed = true;
-    _countdownEnd = 0;
 }
 
 void Session::leave() {
@@ -265,10 +258,10 @@ void Session::received(const net::Address &from, const std::vector<uint8_t> &dat
                 }
             }
         } else if (fromPeer && type == kBye) {
-            // The one who joined has gone: the game's open again.
+            // The one who joined has gone: the game's open again, unless
+            // counting, which goes on without them (0x51617a).
             _hasPeer = false;
             _players.resize(1);
-            stopCountdown();
             _changed = true;
         }
         return;
@@ -357,7 +350,6 @@ void Session::update(uint64_t nowMs) {
         if (_host) {
             _hasPeer = false;
             _players.resize(1);
-            stopCountdown();
         } else {
             _state = State::kLost;
         }

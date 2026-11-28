@@ -25,8 +25,6 @@ const char *const kCannotJoin =
 const char *const kMissionStarting = "Mission starting in %d seconds.";
 // The list of games looked for again every 20 seconds (0x51210b).
 constexpr uint64_t kRefreshMs = 20000;
-// The longest chat line typed (inferred: what the field shows).
-constexpr size_t kMostTyped = 60;
 
 // Choose Netgame's buttons, in the order they're added.
 enum ChooseButton { kCreate, kJoin, kRefresh, kCancel, kTcp, kIpx };
@@ -284,8 +282,8 @@ NetLobbyScreen::NetLobbyScreen(const Archive &data, const TextObject &rules, std
     _missionList = screenPicture(data, folder + "/Mission List Window");
     _missionDescription = screenPicture(data, folder + "/Mission Description Window");
     _texts = readStaticTexts(data, _def);
-    // Its Menu Font for the lists and the chat; the chosen mission in Small
-    // Blue (inferred).
+    // Its Menu Font for the lists and the chat (0x514f4a); the chosen
+    // mission in Small Blue (inferred: the list's own marking isn't traced).
     (void)_font.load(data, "Trek Small");
     (void)_chosenFont.load(data, "Small Blue");
     _buttonFonts.resize(3);
@@ -294,15 +292,12 @@ NetLobbyScreen::NetLobbyScreen(const Archive &data, const TextObject &rules, std
     // SEND is placed on the chat's field.
     const Point input = point(_def, "ChatInput Pos");
     addButton(_buttons, _buttonFonts, data, _def, folder, "SendChatButton", "Send", input.x, input.y);
-    // The host's lobby starts on the first mission (inferred).
-    if (_session->isHost() && !_missions.empty())
-        _session->chooseMission(_missions[0].number);
     enableButtons();
 }
 
 void NetLobbyScreen::enableButtons() {
-    // Only the host starts, once, a mission chosen (0x515c60; that only
-    // the host can is inferred).
+    // Only the host has START (0x5155de), on once a mission's chosen and
+    // not counting (0x5162b2).
     const bool canStart = _session->isHost() && _session->mission() != 0 && !_session->counting() &&
                           _session->state() == netplay::Session::State::kLobby;
     _buttons.button(kStart).setEnabled(canStart);
@@ -335,7 +330,7 @@ NetLobbyScreen::Choice NetLobbyScreen::handleEvent(const Event &ev, audio::Mixer
     }
     // The chat's field has the keys; Enter sends what's typed.
     if (ev.type == EventType::kTextInput) {
-        if (_typing.size() < kMostTyped)
+        if (_typing.size() < netplay::kMostChat)
             _typing += ev.text;
         enableButtons();
         return Choice::kNone;
@@ -375,7 +370,7 @@ NetLobbyScreen::Choice NetLobbyScreen::update(uint64_t now) {
     while (_session->nextChat(line)) {
         const std::vector<std::string> &players = _session->players();
         const std::string who = line.from >= 0 && line.from < int(players.size()) ? players[size_t(line.from)] : "?";
-        // Who said it before what they said (inferred).
+        // The host puts who said it before what they said (0x5c1080).
         _lines.push_back(who + ": " + line.text);
     }
     enableButtons();
@@ -439,7 +434,13 @@ void NetLobbyScreen::draw(Surface &screen, uint64_t now) const {
                               _missionDescription.w - 2 * descriptionText.x, _missions[i].description,
                               Font::Align::kLeft);
     }
-    _font.draw(screen, input.x + field.x, input.y + field.y, _typing + ((now / 500) % 2 ? "_" : ""));
+    // A line longer than the field shows its end, up to SEND (inferred).
+    std::string typing = _typing + ((now / 500) % 2 ? "_" : "");
+    const int fieldW = point(_def, "SendChatButton Pos").x - field.x;
+    size_t from = 0;
+    while (from < typing.size() && _font.width(typing.substr(from)) > fieldW)
+        ++from;
+    _font.draw(screen, input.x + field.x, input.y + field.y, typing.substr(from));
     if (_session->counting()) {
         char text[64];
         // Whole seconds, rounded up, as the program counts (0x5160a7).

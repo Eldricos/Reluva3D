@@ -60,10 +60,31 @@ script `Net Lobby Script` (`Levels/Net Game Descriptions.RDS`, an entry
 for each mission: its place, the mission, the team's size and its
 objectives).
 
+Only the host has START GAME: it's made only when the session was
+created here, not joined (`0x5155de`, the flag set at `0x512900` and
+cleared at `0x512a90`). The mission list, in the menu's font
+(`0x514f4a`), can be clicked only by the host (`0x515047`), and starts
+with none chosen: START GAME is on only once one is, and not while
+counting (`0x5162b2`).
+
 START GAME counts down: it's turned off, and "Mission starting in %d
 seconds." (`0x642368`) shows at `Countdown Pos` from 5 seconds
-(`0x515c6c`), counted in whole seconds (`0x5160a7`). EXIT TO MAIN MENU
-leaves.
+(`0x515c6c`), counted in whole seconds (`0x5160a7`). The host tells
+every player, itself too, the seconds left and the chosen mission as
+each second passes (`0x516111`), and each answers (`0x51414d`). Nothing
+stops the countdown: only making the lobby clears it (`0x5159b9`). A
+mission chosen meanwhile goes in the next second's message; a player
+who leaves isn't waited for. At nought the host waits for every player
+still there to have answered (`0x51617a`), tells them the mission
+(`0x5161f7`) and shuts the game to joining (`0x512c30`). Before that it
+shuts it with two players and opens it again with fewer (`0x516254`).
+EXIT TO MAIN MENU leaves.
+
+A chat line is sent to the host as typed (`0x515cc2`). The host puts
+the sayer's name and ": " (`0x63be40`) before it and sends it to every
+player, itself too (`0x5c1080`), and each adds it to its chat window
+(`0x515c10`). The field takes any length: the lobby doesn't set its
+limit (`0x515365`), and none is kept (`0x4e5202`, `0x4e5880`).
 
 The program keeps a table of two players (`0x72e738`, 44 bytes each):
 whether the place is taken, a number, and the name.
@@ -97,8 +118,9 @@ two screens, over `netplay::Session` (`game/netplay.cpp`). The main menu
 opens Choose Netgame with its network: sockets from `System::openUdp`,
 and games looked for at the local network's broadcasts and this machine.
 TCP/IP is the one protocol chosen; IPX can't be. The name typed is kept
-in the options' file. A chat line shows as who said it, a colon and what
-they said. As the countdown runs out, the lobby says Reluva can't play
+in the options' file. A chat line is at most 200 characters, Reluva's
+own limit, and while typed shows its end that fits before SEND. As the
+countdown runs out, the lobby says Reluva can't play
 missions over the network yet, and stays.
 
 ## Sources and checks
@@ -114,9 +136,8 @@ missions over the network yet, and stays.
 
 ## Open questions
 
-- Who can press START GAME: Reluva lets only the host *(inferred)*.
-- The chat's lines' form, the chosen game's and mission's marking (the
-  font Small Blue), the host starting on the first mission, a changed
-  mission or a player leaving stopping the countdown, and the longest
-  chat line (60) *(inferred)*.
+- The chosen game's and mission's marking: Reluva's is the font Small
+  Blue *(inferred)*.
+- How the field shows a line longer than it: Reluva shows its end
+  *(inferred)*.
 - The program's own messages as a player comes or goes aren't traced.

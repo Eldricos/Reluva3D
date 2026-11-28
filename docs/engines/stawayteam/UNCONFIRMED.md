@@ -25,9 +25,8 @@ None now.
 - **The remote mine's going:** at once on DETONATE, its Activate not
   shown, its model having no AI to play it
   ([systems/items.md](systems/items.md#in-reluva)).
-- **Network games:** only the host starting, the chat's lines' form,
-  the chosen game's and mission's font, the host starting on the first
-  mission, the countdown stopped by another mission or a player leaving
+- **Network games:** the chosen game's and mission's font, and a chat
+  line too long for its field showing its end
   ([systems/network.md](systems/network.md#open-questions)).
 - **Maps:** the `Trans` and `Warped` polygons not on the ground kept
   under the models; the middle mouse button, a line without a

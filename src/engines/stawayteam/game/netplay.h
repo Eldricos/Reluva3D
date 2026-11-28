@@ -25,6 +25,11 @@ constexpr uint16_t kDefaultPort = 23418;
 constexpr int kPlayers = 2;
 /** The longest name a player can type: its field takes 16 (0x511aae). */
 constexpr size_t kMostName = 16;
+/**
+ * The longest chat line, Reluva's: the program's field has no limit
+ * (0x515365), but Reluva's messages need one.
+ */
+constexpr size_t kMostChat = 200;
 /** The start's countdown, in ms (0x515c6c). */
 constexpr uint64_t kCountdownMs = 5000;
 
@@ -106,7 +111,6 @@ private:
     Session() = default;
     void received(const net::Address &from, const std::vector<uint8_t> &data);
     void sendState();
-    void stopCountdown();
 
     std::unique_ptr<net::UdpSocket> _socket;
     State _state = State::kBrowsing;

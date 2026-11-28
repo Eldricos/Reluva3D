@@ -102,7 +102,7 @@ void testSessions() {
     testSession(true);
 }
 
-void testCountdownStopped() {
+void testCountdownGoesOn() {
     auto network = net::LoopbackNetwork::create();
     auto host = Session::host(network->open(kDefaultPort), "Kirk");
     auto spock = Session::join(network->open(0), {0x7f000001u, kDefaultPort}, "Spock");
@@ -123,17 +123,17 @@ void testCountdownStopped() {
     host->start();
     run(1000);
     CHECK(spock->counting());
-    // Another mission chosen stops it; and the other leaving does, and
-    // opens the game again.
+    // Another mission chosen goes with it; the other leaving doesn't stop
+    // it, and the game stays shut till it's done.
     host->chooseMission(2);
     run(300);
-    CHECK(!host->counting() && !spock->counting());
-    host->start();
-    run(300);
+    CHECK(host->counting() && spock->counting() && spock->mission() == 2);
     spock->leave();
     spock.reset();
     run(300);
-    CHECK(!host->counting() && host->players().size() == 1);
+    CHECK(host->counting() && host->players().size() == 1);
+    run(kCountdownMs);
+    CHECK(host->state() == Session::State::kStarted);
 }
 
 TextObject netRules() {
@@ -190,7 +190,7 @@ void testScreens() {
     CHECK(choose.games().size() == 1 && choose.games()[0].gameName == "Kirk's Game");
     CHECK(choose.handleEvent(keyDown(key::kEscape), nullptr, now) == ChooseNetGameScreen::Choice::kCancel);
     // The lobby: what's typed, sent with Enter, comes back as the host's
-    // line; the host's lobby chooses the first mission it offers.
+    // line; no mission is chosen till the host picks one.
     auto spock = Session::join(network->open(0), {0x7f000001u, kDefaultPort}, "Spock");
     NetLobbyScreen hostLobby(data, rules, {{4, "Academy", "Detain Admiral Quay."}, {5, "Ship", ""}}, std::move(host));
     NetLobbyScreen spockLobby(data, rules, {{4, "Academy", ""}, {5, "Ship", ""}}, std::move(spock));
@@ -202,7 +202,10 @@ void testScreens() {
         }
     };
     run(500);
-    CHECK(hostLobby.session().mission() == 4 && spockLobby.session().mission() == 4);
+    CHECK(hostLobby.session().mission() == 0 && spockLobby.session().mission() == 0);
+    hostLobby.session().chooseMission(4);
+    run(500);
+    CHECK(spockLobby.session().mission() == 4);
     spockLobby.handleEvent(typed("Live long"), nullptr);
     spockLobby.handleEvent(keyDown(key::kReturn), nullptr);
     run(500);
@@ -224,9 +227,9 @@ void testScreens() {
 
 } // namespace
 
-static const reluva::test::Suite
-    kSuite("stawayteam.unit.network", {
-                                          {"sessions", [](const std::filesystem::path &) { testSessions(); }},
-                                          {"countdown", [](const std::filesystem::path &) { testCountdownStopped(); }},
-                                          {"screens", [](const std::filesystem::path &) { testScreens(); }},
-                                      });
+static const reluva::test::Suite kSuite("stawayteam.unit.network",
+                                        {
+                                            {"sessions", [](const std::filesystem::path &) { testSessions(); }},
+                                            {"countdown", [](const std::filesystem::path &) { testCountdownGoesOn(); }},
+                                            {"screens", [](const std::filesystem::path &) { testScreens(); }},
+                                        });
