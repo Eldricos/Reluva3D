@@ -4,7 +4,8 @@
 // Game controllers for SdlSystem: the first pad connected (SDL's gamepads),
 // or else the first racing wheel (a joystick SDL knows as one), and the
 // forces they're to give: a wheel's motor through SDL's haptics, a pad's
-// rumble otherwise.
+// rumble otherwise; and a second, another pad or else a wheel, for a second
+// player's joystick, its pedals found as they rest, with forces of its own.
 
 #include "backends/platform/sdl3/sdl_controller.h"
 
@@ -51,98 +52,34 @@ void apply(SDL_Haptic *haptic, int &id, const SDL_HapticEffect &e) {
     SDL_UpdateHapticEffect(haptic, id, &e);
 }
 
+// A pad's sticks, triggers, buttons and name, in GamepadState's layout.
+void readPad(SDL_Gamepad *pad, GamepadState &out) {
+    const SDL_GamepadAxis axes[6] = {SDL_GAMEPAD_AXIS_LEFTX,        SDL_GAMEPAD_AXIS_LEFTY,
+                                     SDL_GAMEPAD_AXIS_RIGHTX,       SDL_GAMEPAD_AXIS_RIGHTY,
+                                     SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER};
+    for (int i = 0; i < 6; ++i)
+        out.axes[i] = std::max(-1.0f, float(SDL_GetGamepadAxis(pad, axes[i])) / 32767.0f);
+    const SDL_GamepadButton buttons[kPadButtons] = {
+        SDL_GAMEPAD_BUTTON_SOUTH,         SDL_GAMEPAD_BUTTON_EAST,           SDL_GAMEPAD_BUTTON_WEST,
+        SDL_GAMEPAD_BUTTON_NORTH,         SDL_GAMEPAD_BUTTON_BACK,           SDL_GAMEPAD_BUTTON_GUIDE,
+        SDL_GAMEPAD_BUTTON_START,         SDL_GAMEPAD_BUTTON_LEFT_STICK,     SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+        SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_DPAD_UP,
+        SDL_GAMEPAD_BUTTON_DPAD_DOWN,     SDL_GAMEPAD_BUTTON_DPAD_LEFT,      SDL_GAMEPAD_BUTTON_DPAD_RIGHT};
+    for (int i = 0; i < kPadButtons; ++i)
+        if (SDL_GetGamepadButton(pad, buttons[i]))
+            out.buttons |= 1u << i;
+    if (const char *name = SDL_GetGamepadName(pad))
+        out.name = name;
+}
+
 } // namespace
 
-void SdlSystem::closeController() {
-    if (!_controller)
+// A controller's state: a pad's, or a wheel's by its axes.
+void SdlSystem::readState(Controller &c, GamepadState &out) {
+    if (c.gamepad) {
+        readPad(c.gamepad, out);
         return;
-    Controller &c = *_controller;
-    if (c.haptic)
-        SDL_CloseHaptic(c.haptic); // its effects with it
-    if (c.gamepad) {
-        SDL_RumbleGamepad(c.gamepad, 0, 0, 0);
-        SDL_CloseGamepad(c.gamepad);
     }
-    if (c.wheel)
-        SDL_CloseJoystick(c.wheel);
-    const int accelerator = c.accelerator;
-    const int brake = c.brake;
-    _controller = std::make_unique<Controller>();
-    _controller->accelerator = accelerator;
-    _controller->brake = brake;
-}
-
-void SdlSystem::setWheelPedals(int accelerator, int brake) {
-    if (!_controller)
-        _controller = std::make_unique<Controller>();
-    _controller->accelerator = accelerator;
-    _controller->brake = brake;
-    _controller->pedalAxis[0] = _controller->pedalAxis[1] = -1;
-}
-
-bool SdlSystem::readGamepad(GamepadState &out) {
-    out = GamepadState{};
-    if (!_controller)
-        _controller = std::make_unique<Controller>();
-    if ((_controller->gamepad || _controller->wheel) && !_controller->connected())
-        closeController();
-    Controller &c = *_controller;
-    if (!c.gamepad && !c.wheel) {
-        int count = 0;
-        if (SDL_JoystickID *ids = SDL_GetGamepads(&count)) {
-            if (count > 0)
-                c.gamepad = SDL_OpenGamepad(ids[0]);
-            SDL_free(ids);
-        }
-        if (!c.gamepad)
-            if (SDL_JoystickID *ids = SDL_GetJoysticks(&count)) {
-                for (int i = 0; i < count && !c.wheel; ++i)
-                    if (SDL_GetJoystickTypeForID(ids[i]) == SDL_JOYSTICK_TYPE_WHEEL)
-                        c.wheel = SDL_OpenJoystick(ids[i]);
-                SDL_free(ids);
-            }
-        if (!c.gamepad && !c.wheel)
-            return false;
-        SDL_Joystick *j = c.joystick();
-        c.isWheel = c.wheel || SDL_GetJoystickType(j) == SDL_JOYSTICK_TYPE_WHEEL;
-        if (SDL_IsJoystickHaptic(j) && (SDL_WasInit(SDL_INIT_HAPTIC) || SDL_InitSubSystem(SDL_INIT_HAPTIC)))
-            c.haptic = SDL_OpenHapticFromJoystick(j);
-        if (c.haptic) {
-            c.features = SDL_GetHapticFeatures(c.haptic);
-            if (c.features & SDL_HAPTIC_GAIN)
-                SDL_SetHapticGain(c.haptic, 100);
-        }
-        c.rumble = c.gamepad && SDL_GetBooleanProperty(SDL_GetGamepadProperties(c.gamepad),
-                                                       SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
-    }
-    out.wheel = c.isWheel;
-    out.forceFeedback = c.haptic || c.rumble;
-    // The rumble runs out unless sent again.
-    if (c.rumble && (c.rumbleLow || c.rumbleHigh) && SDL_GetTicks() - c.rumbleSentMs > 500) {
-        SDL_RumbleGamepad(c.gamepad, c.rumbleLow, c.rumbleHigh, 1000);
-        c.rumbleSentMs = SDL_GetTicks();
-    }
-
-    if (c.gamepad) {
-        const SDL_GamepadAxis axes[6] = {SDL_GAMEPAD_AXIS_LEFTX,        SDL_GAMEPAD_AXIS_LEFTY,
-                                         SDL_GAMEPAD_AXIS_RIGHTX,       SDL_GAMEPAD_AXIS_RIGHTY,
-                                         SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER};
-        for (int i = 0; i < 6; ++i)
-            out.axes[i] = std::max(-1.0f, float(SDL_GetGamepadAxis(c.gamepad, axes[i])) / 32767.0f);
-        const SDL_GamepadButton buttons[kPadButtons] = {
-            SDL_GAMEPAD_BUTTON_SOUTH,         SDL_GAMEPAD_BUTTON_EAST,           SDL_GAMEPAD_BUTTON_WEST,
-            SDL_GAMEPAD_BUTTON_NORTH,         SDL_GAMEPAD_BUTTON_BACK,           SDL_GAMEPAD_BUTTON_GUIDE,
-            SDL_GAMEPAD_BUTTON_START,         SDL_GAMEPAD_BUTTON_LEFT_STICK,     SDL_GAMEPAD_BUTTON_RIGHT_STICK,
-            SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_DPAD_UP,
-            SDL_GAMEPAD_BUTTON_DPAD_DOWN,     SDL_GAMEPAD_BUTTON_DPAD_LEFT,      SDL_GAMEPAD_BUTTON_DPAD_RIGHT};
-        for (int i = 0; i < kPadButtons; ++i)
-            if (SDL_GetGamepadButton(c.gamepad, buttons[i]))
-                out.buttons |= 1u << i;
-        if (const char *name = SDL_GetGamepadName(c.gamepad))
-            out.name = name;
-        return true;
-    }
-
     // A wheel by its axes: the wheel on the first; the pedals as set, or
     // the first two after it found resting at an end (pressed, they move
     // to the other). Each pedal 0 up to 1 pressed.
@@ -190,13 +127,176 @@ bool SdlSystem::readGamepad(GamepadState &out) {
     }
     if (const char *name = SDL_GetJoystickName(j))
         out.name = name;
+}
+
+void SdlSystem::closeController() {
+    closeSecond();
+    if (!_controller)
+        return;
+    Controller &c = *_controller;
+    closeDevices(c);
+    const int accelerator = c.accelerator;
+    const int brake = c.brake;
+    _controller = std::make_unique<Controller>();
+    _controller->accelerator = accelerator;
+    _controller->brake = brake;
+}
+
+void SdlSystem::setWheelPedals(int accelerator, int brake) {
+    if (!_controller)
+        _controller = std::make_unique<Controller>();
+    _controller->accelerator = accelerator;
+    _controller->brake = brake;
+    _controller->pedalAxis[0] = _controller->pedalAxis[1] = -1;
+}
+
+bool SdlSystem::readGamepad(GamepadState &out) {
+    out = GamepadState{};
+    if (!_controller)
+        _controller = std::make_unique<Controller>();
+    if ((_controller->gamepad || _controller->wheel) && !_controller->connected())
+        closeController();
+    Controller &c = *_controller;
+    if (!c.gamepad && !c.wheel) {
+        int count = 0;
+        if (SDL_JoystickID *ids = SDL_GetGamepads(&count)) {
+            if (count > 0)
+                c.gamepad = SDL_OpenGamepad(ids[0]);
+            SDL_free(ids);
+        }
+        if (!c.gamepad)
+            if (SDL_JoystickID *ids = SDL_GetJoysticks(&count)) {
+                for (int i = 0; i < count && !c.wheel; ++i)
+                    if (SDL_GetJoystickTypeForID(ids[i]) == SDL_JOYSTICK_TYPE_WHEEL)
+                        c.wheel = SDL_OpenJoystick(ids[i]);
+                SDL_free(ids);
+            }
+        if (!c.gamepad && !c.wheel)
+            return false;
+        SDL_Joystick *j = c.joystick();
+        c.isWheel = c.wheel || SDL_GetJoystickType(j) == SDL_JOYSTICK_TYPE_WHEEL;
+        openForces(c);
+    }
+    out.wheel = c.isWheel;
+    out.forceFeedback = c.haptic || c.rumble;
+    resendRumble(c);
+    readState(c, out);
+    return true;
+}
+
+void SdlSystem::closeSecond() {
+    if (!_second)
+        return;
+    closeDevices(*_second);
+    _second.reset();
+}
+
+void SdlSystem::setWheelPedals(int index, int accelerator, int brake) {
+    if (index == 0) {
+        setWheelPedals(accelerator, brake);
+        return;
+    }
+    if (index != 1)
+        return;
+    _secondAccelerator = accelerator;
+    _secondBrake = brake;
+    if (_second) {
+        _second->accelerator = accelerator;
+        _second->brake = brake;
+        _second->pedalAxis[0] = _second->pedalAxis[1] = -1;
+    }
+}
+
+bool SdlSystem::readGamepad(int index, GamepadState &out) {
+    if (index == 0)
+        return readGamepad(out);
+    out = GamepadState{};
+    if (index != 1)
+        return false;
+    // The first is opened first, so the second is another: the next pad,
+    // or else a racing wheel (the first is a wheel only when there's no pad).
+    GamepadState first;
+    readGamepad(first);
+    SDL_Joystick *firstJoystick = _controller ? _controller->joystick() : nullptr;
+    const SDL_JoystickID firstId = firstJoystick ? SDL_GetJoystickID(firstJoystick) : 0;
+    if (_second && (!_second->connected() || SDL_GetJoystickID(_second->joystick()) == firstId))
+        closeSecond();
+    if (!_second) {
+        auto second = std::make_unique<Controller>();
+        int count = 0;
+        if (SDL_JoystickID *ids = SDL_GetGamepads(&count)) {
+            for (int i = 0; i < count && !second->gamepad; ++i)
+                if (ids[i] != firstId)
+                    second->gamepad = SDL_OpenGamepad(ids[i]);
+            SDL_free(ids);
+        }
+        if (!second->gamepad)
+            if (SDL_JoystickID *ids = SDL_GetJoysticks(&count)) {
+                for (int i = 0; i < count && !second->wheel; ++i)
+                    if (ids[i] != firstId && SDL_GetJoystickTypeForID(ids[i]) == SDL_JOYSTICK_TYPE_WHEEL)
+                        second->wheel = SDL_OpenJoystick(ids[i]);
+                SDL_free(ids);
+            }
+        if (!second->gamepad && !second->wheel)
+            return false;
+        second->isWheel = second->wheel || SDL_GetJoystickType(second->joystick()) == SDL_JOYSTICK_TYPE_WHEEL;
+        second->accelerator = _secondAccelerator;
+        second->brake = _secondBrake;
+        openForces(*second);
+        _second = std::move(second);
+    }
+    out.wheel = _second->isWheel;
+    out.forceFeedback = _second->haptic || _second->rumble;
+    resendRumble(*_second);
+    readState(*_second, out);
     return true;
 }
 
 void SdlSystem::setGamepadForce(const GamepadForce &f) {
-    if (!_controller)
-        return;
-    Controller &c = *_controller;
+    if (_controller)
+        applyForce(*_controller, f);
+}
+
+void SdlSystem::setGamepadForce(int index, const GamepadForce &f) {
+    if (index == 0)
+        setGamepadForce(f);
+    else if (index == 1 && _second)
+        applyForce(*_second, f);
+}
+
+void SdlSystem::openForces(Controller &c) {
+    SDL_Joystick *j = c.joystick();
+    if (SDL_IsJoystickHaptic(j) && (SDL_WasInit(SDL_INIT_HAPTIC) || SDL_InitSubSystem(SDL_INIT_HAPTIC)))
+        c.haptic = SDL_OpenHapticFromJoystick(j);
+    if (c.haptic) {
+        c.features = SDL_GetHapticFeatures(c.haptic);
+        if (c.features & SDL_HAPTIC_GAIN)
+            SDL_SetHapticGain(c.haptic, 100);
+    }
+    c.rumble = c.gamepad &&
+               SDL_GetBooleanProperty(SDL_GetGamepadProperties(c.gamepad), SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
+}
+
+void SdlSystem::resendRumble(Controller &c) {
+    // The rumble runs out unless sent again.
+    if (c.rumble && (c.rumbleLow || c.rumbleHigh) && SDL_GetTicks() - c.rumbleSentMs > 500) {
+        SDL_RumbleGamepad(c.gamepad, c.rumbleLow, c.rumbleHigh, 1000);
+        c.rumbleSentMs = SDL_GetTicks();
+    }
+}
+
+void SdlSystem::closeDevices(Controller &c) {
+    if (c.haptic)
+        SDL_CloseHaptic(c.haptic); // its effects with it
+    if (c.gamepad) {
+        SDL_RumbleGamepad(c.gamepad, 0, 0, 0);
+        SDL_CloseGamepad(c.gamepad);
+    }
+    if (c.wheel)
+        SDL_CloseJoystick(c.wheel);
+}
+
+void SdlSystem::applyForce(Controller &c, const GamepadForce &f) {
     if (c.haptic) {
         if (c.features & SDL_HAPTIC_AUTOCENTER && f.autoCentre != c.autoCentre)
             SDL_SetHapticAutocenter(c.haptic, f.autoCentre ? 100 : 0);

@@ -834,7 +834,8 @@ Started. Done so far:
       by themselves. The stand-in answers no to `IKsPropertySet`, as a
       card without EAX does.
 
-    The stand-in (`host/sound3d.h`, `directx.cpp`) has both 3D
+    The stand-in (`directx.cpp`, with DirectSound 3D's model shared in
+    `src/emulation/x86/directx/sound3d.h`) has both 3D
     interfaces, with deferred settings and `CommitDeferredSettings`, and
     `DuplicateSoundBuffer` (the memory shared, freed with the last
     buffer). It mixes a 3D buffer in software, by DirectSound's model as

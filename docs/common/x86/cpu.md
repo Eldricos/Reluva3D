@@ -145,6 +145,25 @@ nearly all after operator new, free and Direct3D's calls; with them
 hardly any do, and the game's thread takes a tenth less time, on GCC's
 build too.
 
+The epoch is a 32-bit count, and blocks and the Jit's links are stamped
+with it: come round again, a stamp from before would pass for current,
+and code changed meanwhile would run as it was. It moves on about a
+million times a second in Jedi Knight (measured over a skim of the
+whole game: 2^28 at 4.5 minutes, faster in the credits and menus), so
+it would come round in an hour or so of play. So at 0xf0000000
+(`Cpu::codeEpochRenewal`) it's taken back to 1 (`Cpu::renewCodeEpoch`):
+every block's stamp set to 0, which no epoch is, and the Jit's code and
+links forgotten, at the top of `runCached`'s loop once no made code is
+under it (`Cpu::_jitDepth`, as the Jit's reset waits for). The test
+lowers the mark to 40 and rewrites a function, runs another until the
+epoch is back at the stamp the first was checked at, and calls it both
+from the host and from made code: without each part of the renewal, one
+of them runs the old code. With the mark at 2^20 (a renewal about every
+second), Jedi Knight played into Nar Shaddaa and on for half a minute,
+its threads, natives and every-frame updates as ever, and was skimmed
+through all 21 of the light side's levels to its ending and out, some
+1,500 renewals.
+
 Whether an address is in memory (`Cpu::valid`, asked by every load and
 store) is one compare with the size less the first page kept by itself:
 an address below 4096 wraps round to past it.

@@ -694,6 +694,14 @@ Draw Device::current() const {
 void Device::drawBatch() {
     if (_batch.empty())
         return;
+    if (DirectX::Scene *scene = capturing()) {
+        keep(*scene);
+        if (s->owner.sceneCapture == DirectX::SceneCapture::kInstead) {
+            cover();
+            _batch.clear();
+            return;
+        }
+    }
     double area = 0; // roughly, by bounding boxes
     for (const auto &t : _batch) {
         const auto [x0, x1] = std::minmax({t[0].x, t[1].x, t[2].x});
@@ -711,6 +719,114 @@ void Device::drawBatch() {
     if (!_queue)
         _queue = std::make_shared<DrawQueue>(mode);
     _queue->push(std::move(job.front()));
+}
+
+// Scenes kept for the engine.
+
+DirectX::Scene *Device::capturing() {
+    if (s->owner.sceneCapture == DirectX::SceneCapture::kNone || !target ||
+        !(target->d.caps[0] & (kCapsPrimarySurface | kCapsBackBuffer | kCapsFrontBuffer)))
+        return nullptr;
+    std::shared_ptr<DirectX::Scene> &scene = s->scenes[target->d.memory];
+    if (!scene) {
+        scene = std::make_shared<DirectX::Scene>();
+        scene->width = target->d.width;
+        scene->height = target->d.height;
+    }
+    return scene.get();
+}
+
+void Device::cover() {
+    // What was drawn there before is under the scene, as the triangles
+    // would be drawn over it; what's around them stays. (The bounds of
+    // Draw::rasterize, without the edges: a little more than drawn.)
+    const uint32_t key = sceneKey(target->d.format);
+    const int left = std::max(viewport.x, 0);
+    const int top = std::max(viewport.y, 0);
+    const int right = std::min(viewport.x + viewport.width, target->d.width);
+    const int bottom = std::min(viewport.y + viewport.height, target->d.height);
+    for (const auto &t : _batch) {
+        const auto [x0, x1] = std::minmax({t[0].x, t[1].x, t[2].x});
+        const auto [y0, y1] = std::minmax({t[0].y, t[1].y, t[2].y});
+        const int l = std::max(left, int(std::ceil(x0)));
+        const int r = std::min(right - 1, int(std::floor(x1)));
+        const int u = std::max(top, int(std::ceil(y0)));
+        const int d = std::min(bottom - 1, int(std::floor(y1)));
+        if (l <= r && u <= d)
+            target->fill({l, u, r + 1, d + 1}, key);
+    }
+}
+
+void Device::keep(DirectX::Scene &scene) {
+    DirectX::Scene::Step step;
+    step.first = uint32_t(scene.vertices.size());
+    step.count = uint32_t(_batch.size() * 3);
+    step.viewport[0] = viewport.x, step.viewport[1] = viewport.y;
+    step.viewport[2] = viewport.width, step.viewport[3] = viewport.height;
+    const PixelConfig &k = _cfg;
+    step.zTest = k.zTest, step.zWrite = k.zWrite, step.zFunc = k.zFunc;
+    step.alphaTest = k.alphaTest, step.alphaFunc = k.alphaFunc, step.alphaRef = k.alphaRef / 255;
+    step.blend = k.blend, step.srcBlend = k.srcBlend, step.destBlend = k.destBlend;
+    step.colorKey = k.colorKey, step.fog = k.fog, step.specular = k.specular;
+    step.fogColor = pack(k.fogColor.r, k.fogColor.g, k.fogColor.b, k.fogColor.a);
+    step.fogTable = k.fogTableMode;
+    step.cull = renderStates[kCullMode];
+    if (_stages > 0) {
+        const StageConfig &st = k.stage[0];
+        step.colorOp = st.colorOp, step.colorArg1 = st.colorArg1, step.colorArg2 = st.colorArg2;
+        step.alphaOp = st.alphaOp, step.alphaArg1 = st.alphaArg1, step.alphaArg2 = st.alphaArg2;
+        step.addressU = st.addressU, step.addressV = st.addressV;
+        step.linear = st.magFilter >= 2;
+        if (const DecodedTexture *t = _bound[0]; t && !t->levels.empty()) {
+            if (!t->scene) {
+                auto made = std::make_shared<DirectX::Scene::Texture>();
+                made->width = t->levels[0].width;
+                made->height = t->levels[0].height;
+                made->argb = t->levels[0].argb;
+                made->keyed = t->levels[0].keyed;
+                t->scene = std::move(made);
+            }
+            step.texture = t->scene;
+        }
+    }
+    scene.steps.push_back(std::move(step));
+    for (const auto &tri : _batch)
+        for (const ClipVertex &v : tri) {
+            // Flat shading takes each triangle's colours from its first corner.
+            const ClipVertex &lit = k.flat ? tri[0] : v;
+            scene.vertices.push_back({v.x, v.y, v.z, v.w,
+                                      pack(lit.diffuse.r, lit.diffuse.g, lit.diffuse.b, lit.diffuse.a),
+                                      pack(lit.specular.r, lit.specular.g, lit.specular.b, lit.specular.a),
+                                      _stages > 0 ? v.tex[0][0] : 0, _stages > 0 ? v.tex[0][1] : 0});
+        }
+}
+
+void Device::endScene() {
+    if (s->owner.sceneCapture != DirectX::SceneCapture::kAlso || !target)
+        return;
+    auto it = s->scenes.find(target->d.memory);
+    if (it == s->scenes.end() || !it->second)
+        return;
+    finishDraws();
+    DirectX::Scene &scene = *it->second;
+    scene.software.assign(size_t(target->d.width) * size_t(target->d.height), 0);
+    const ArgbConverter convert(target->d.format, target->paletteArgb());
+    for (int y = 0; y < target->d.height; ++y)
+        convert.row(s->cpu.memory().data() + target->d.memory + uint32_t(y * target->d.pitch), target->d.width,
+                    scene.software.data() + size_t(y) * size_t(target->d.width));
+}
+
+void Device::depthFilled(uint32_t value) {
+    DirectX::Scene *scene = capturing();
+    if (!scene || !depth)
+        return;
+    DirectX::Scene::Step step;
+    step.first = uint32_t(scene->vertices.size());
+    step.clearDepth = true;
+    step.depth = float(double(value & (depth->d.format.g ? depth->d.format.g : 0xffff)) /
+                       double(depth->d.format.g ? depth->d.format.g : 0xffff));
+    step.viewport[2] = target->d.width, step.viewport[3] = target->d.height;
+    scene->steps.push_back(step);
 }
 
 // Clips a triangle to the view volume, projects it, culls it by its
@@ -1325,6 +1441,7 @@ const DecodedTexture *Device::texture(int stage) {
             it = it->second.owner.expired() ? decoded.erase(it) : std::next(it);
     DecodedTexture &fill = decoded[t.get()];
     fill.owner = t;
+    fill.scene.reset();
     fill.levels.clear();
     fill.versions.clear();
     for (Surface *l : levels) {
@@ -1810,6 +1927,21 @@ RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const flo
 void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z) {
     Cpu &c = s->cpu;
     const Rect vp{viewport.x, viewport.y, viewport.x + viewport.width, viewport.y + viewport.height};
+    if (DirectX::Scene *scene = capturing(); scene && (flags & 3)) {
+        DirectX::Scene::Step step;
+        step.first = uint32_t(scene->vertices.size());
+        step.clearColor = (flags & 1) != 0;
+        step.clearDepth = (flags & 2) && depth;
+        step.color = color;
+        step.depth = std::clamp(z, 0.0f, 1.0f);
+        step.viewport[0] = viewport.x, step.viewport[1] = viewport.y;
+        step.viewport[2] = viewport.width, step.viewport[3] = viewport.height;
+        scene->steps.push_back(step);
+        if (s->owner.sceneCapture == DirectX::SceneCapture::kInstead && (flags & 1)) {
+            target->fill({vp.left, vp.top, vp.right, vp.bottom}, sceneKey(target->d.format));
+            flags &= ~1u;
+        }
+    }
     std::vector<Rect> areas;
     if (count && rects && c.valid(rects, 16 * count))
         for (uint32_t i = 0; i < count; ++i) {
@@ -1883,3 +2015,13 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
 }
 
 } // namespace reluva::x86::dx
+
+namespace reluva::x86 {
+
+void DirectX::State::depthFilled(dx::Surface &z, uint32_t value) {
+    for (dx::Device *device : devices)
+        if (device->depth.get() == &z)
+            device->depthFilled(value);
+}
+
+} // namespace reluva::x86

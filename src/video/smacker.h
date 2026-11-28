@@ -70,6 +70,12 @@ public:
     ///@}
     /** Takes the 16-bit samples decoded so far (interleaved if stereo). */
     std::vector<int16_t> takeAudio();
+    /**
+     * The last frame's chunk of track `track` (0 to 6) when it isn't the
+     * sound played: data a game puts there itself, such as Jedi Knight's
+     * subtitle numbers. Empty if the frame had none.
+     */
+    const std::vector<uint8_t> &trackData(int track) const;
 
 private:
     struct BigTree;
@@ -92,6 +98,7 @@ private:
     uint32_t _audioRates[7] = {};
     int _audioTrack = -1;
     std::vector<uint32_t> _frameSizes;
+    std::vector<std::vector<uint8_t>> _trackData = std::vector<std::vector<uint8_t>>(7);
     std::vector<uint8_t> _frameTypes;
     int64_t _nextFramePos = 0;
 

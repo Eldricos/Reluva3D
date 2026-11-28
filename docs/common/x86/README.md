@@ -16,7 +16,11 @@ documentation. It's all in `src/emulation/x86/`.
 | [jit.md](jit.md) | Native code for the cache's blocks, on x86-64 |
 | [windows.md](windows.md) | A Windows process: loading, KERNEL32, files, MSVCRT, USER32 and GDI32, the registry, COM, input, threads |
 | [directx.md](directx.md) | DirectDraw, Direct3D 7 (in software) and DirectInput |
+| [dsound.md](dsound.md) | DirectSound and DirectSound 3D, on Reluva's mixer |
+| [cdaudio.md](cdaudio.md) | MCI's CD audio, from a disc image's or ripped tracks |
 | [a3d.md](a3d.md) | Aureal A3D, on Reluva's mixer |
+| [dplay.md](dplay.md) | DirectPlay 3: sessions over TCP/IP between copies of Reluva |
+| [joystick.md](joystick.md) | WINMM's joysticks, from the player's game controller |
 | [msvcp60.md](msvcp60.md) | Visual C++ 6's C++ library, rebuilt with its layouts |
 | [disasm.md](disasm.md) | A disassembler, for studying a game's executable |
 
@@ -51,6 +55,8 @@ are in `tests/common/` (`common.unit.x86`, `common.unit.jit`,
   ([disasm.md](disasm.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`sith`**: Jedi Knight's whole program, in a trial of how far it gets
+  ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
 - **`nfs`**: Need for Speed III's whole program, with its threads, drives,
   DirectX of its own and its Voodoo renderers on the Glide stand-in
   ([its README](../../engines/nfs/games/nfs3/README.md)).

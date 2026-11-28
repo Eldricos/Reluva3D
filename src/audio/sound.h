@@ -29,6 +29,11 @@ struct Sound {
 
 /** Sound::format for MP3 sources (not a WAV tag in use: those are 16-bit). */
 constexpr int kFormatMp3 = 0x10055;
+/** Sound::format for Ogg Vorbis and FLAC sources (compressed.h). */
+///@{
+constexpr int kFormatVorbis = 0x10056;
+constexpr int kFormatFlac = 0x10057;
+///@}
 /** Sound::format for Electronic Arts' codecs (ea_audio.h). */
 ///@{
 constexpr int kFormatEaXa = 0x1ea07;

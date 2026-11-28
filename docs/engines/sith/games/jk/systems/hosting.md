@@ -1,0 +1,739 @@
+# Jedi Knight: running JK.EXE in the emulator
+
+> **Status:** partial · **Code:** `src/engines/sith/host/`, `src/engines/sith/tools/host.cpp` · **Checked against:** the retail `JK.EXE` run in Reluva's x86 emulator, and its code · **Confidence:** seen, not traced unless marked
+
+## Overview
+
+The plan's way B ([PLAN.md](../PLAN.md#two-ways-to-play-the-game)), the
+gate's choice: the retail `JK.EXE` run as it shipped in Reluva's x86
+emulator ([docs/common/x86/](../../../../../common/x86/README.md)), with
+`SMACKW32.DLL` from the install, played in Reluva's window. It gets
+through its start-up, reading its
+archives, strings, fonts and the menus' pictures, lists Direct3D's
+devices, sets the display mode, shows the opening's title and crawl,
+which it draws itself, and its menus, cut scenes and levels play, drawn
+by its own software renderer or through Direct3D, with its sound and the
+CDs' music, and multiplayer between copies of Reluva.
+
+## How it works
+
+### What it imports
+
+`JK.EXE` (1,387,520 bytes, linked 11 September 1997, by Visual C++ 5's
+linker, with no relocations) imports DirectDraw, DirectSound, DirectPlay
+(by ordinal 4), DirectInput, `smackw32.dll` (9 functions by ordinal),
+WINMM (timers, joysticks, the CD's audio through MCI, mixer volumes),
+ole32 and the usual KERNEL32, USER32, GDI32 and ADVAPI32. The interfaces
+it uses are DirectX 5's, by the identifiers in its data:
+
+| Part | Interfaces |
+|---|---|
+| DirectDraw | `IDirectDraw`, `IDirectDraw2`; surfaces 1 to 3 |
+| Direct3D | `IDirect3D`, `IDirect3D2`; devices 1 and 2; textures 1 and 2; the Ramp, RGB, MMX and HAL devices |
+| DirectSound | 3D buffers and listener |
+| DirectPlay | `IDirectPlay3`, `IDirectPlayLobby2A` |
+
+Not all those identifiers are asked for: they come with the table of
+them the program was built with. Its code asks `QueryInterface` for
+`IDirect3D` (`0x429326`), `IDirect3DTexture` (`0x42a553`, `0x42a70d`)
+and `IDirectDraw2` (`0x4296f0`, `0x42aa37`), and nothing refers to the
+identifiers of `IDirect3D2`, `IDirect3DDevice2`, `IDirect3DTexture2`,
+`IDirect3DViewport2`, `IDirect3DMaterial2` or `IDirectDrawSurface2`
+*(from the code)*: the game uses Direct3D 1, as the runs did.
+
+`SMACKW32.DLL` plays sound through WINMM's `waveOut`, and asks for
+0x400000 as `JK.EXE` does (it can be relocated; `JK.EXE` can't).
+
+The emulator stands in for every function the two import. Running
+another program (`WinExec`, for the joystick control panel) answers as
+Windows does when it fails, and dialog boxes are made but not drawn
+([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+
+### Its start-up, as run
+
+1. It writes `Version` under
+   `HKEY_LOCAL_MACHINE\Software\LucasArts Entertainment Company\JediKnight\v1.0`,
+   and reads `CD Path`, `InstallType` and `bHighResGraphicsInstall` there,
+   the names beside the key in its strings *(from the code)*.
+2. It registers its window class (`RegisterClassExA`) and the common
+   controls.
+3. It opens `Resource\Res1hi.gob` and `Resource\Res2.gob`. For each file
+   it wants, it first tries a loose file: at the install's root
+   (`C:\ui\jkstrings.uni`), in its `resource` folder, then on the CD
+   (`D:\gamedata\resource\ui\jkstrings.uni`); then the archives.
+4. It reads `ui\jkstrings.uni`, and says so for a debugger: `Premature
+   'END' found after only 787 lines in 'ui\jkstrings.uni'. Check number in
+   'MSG xxx' header.`: the count is a limit, as
+   [formats/uni.md](../formats/uni.md) has it.
+5. It reads the fonts (`small0.sft`, `small1.sft`...) and the menus'
+   pictures (`bkEsc.bm`, the arrows, sliders and buttons).
+6. At `0x429310` it asks its DirectDraw for `IDirect3D` and lists
+   Direct3D's devices with a callback at `0x42ba60`, which copies the
+   hardware description (204 bytes, DirectX 5's) if its colour model isn't
+   0, and the software one if it is *(from the code)*. With no `IDirect3D`
+   it returned 0, its list of devices (`0x421fc0`, `0x4273e0`; entries of
+   680 bytes) stayed empty, and it read through a null pointer at
+   `0x414396`.
+7. It picks the display mode nearest 640 by 480 in 8-bit colour from
+   those DirectDraw listed (`0x424340`), and says `ERR_NEED_256_COLOR`
+   ("Jedi Knight requires that your display is set to at least 256
+   Colors.") if the nearest isn't 8-bit *(from the code)*.
+8. It creates DirectPlay (`CoCreateInstance`, `IDirectPlay3`) and lists
+   its connections (`0x42fa40`), without checking the object was made.
+9. It sets up DirectInput's keyboard and mouse, and enters its main loop
+   (`0x50e8f0`): `PeekMessageA`, and between messages a step of its
+   state machine (`0x4037e0`). The machine stands still until the window
+   procedure (`0x50ecb0`) has had `WM_ACTIVATEAPP` and `WM_ACTIVATE`
+   *(from the code)*; the window is made with `WS_VISIBLE`, which
+   activates it.
+10. Active, it takes the focus, sets the display to 640 by 480 in 8-bit
+    colour, makes its primary surface and palette and clears the screen,
+    then makes an Arial font through GDI (`CreateFontA`, `0x422a0e`), for
+    text it could write on a surface through its device context
+    (`0x4240f0` to `0x4242ab`: `GetDC`, `SetBkMode`, `SetTextColor`,
+    `TextOutA`). Nothing calls that code: run through the menus, a level
+    and a cut scene, the game made its fonts four times and called
+    `TextOutA` never; all its text is drawn in its own fonts.
+11. It shows "A long time ago, in a galaxy far, far away....", in blue,
+    and then the opening crawl over a field of stars, drawn by its own
+    8-bit renderer into surfaces it locks, about 15 frames a second.
+    It runs on with no input, past 40 seconds.
+12. Esc ends the crawl. A first run asks for a player (*New Player*:
+    a name, and Easy, Medium or Hard), then shows the main menu
+    (*Single Player*, *Multiplayer*, *Quit*; *Players*, *Cutscenes*,
+    *Setup*, *Credits*). The menus are drawn in 8-bit colour from the
+    install's pictures and fonts, with no Direct3D; while they're up the
+    main loop waits for messages (`GetMessageA`) rather than polling, and
+    typing goes through `WM_CHAR`.
+13. The menus answer the mouse: *Single Player*, then *New Game*, plays
+    the first cut scene from CD 1 through `SMACKW32.DLL`, which streams
+    its sound into a DirectSound buffer, and Esc skips it.
+14. The first level loads and plays, drawn by the program's own 8-bit
+    software renderer into DirectDraw surfaces, with the HUD; Esc brings
+    up its in-game menu (*Objectives*, *Map*, *Jedi Powers*, *Return To
+    Game*, *Restart*, *Load*, *Save*, *Setup*, *Abort*). No Direct3D
+    device is made: software is the default, and Direct3D only draws when
+    it's chosen in *Setup* (step 17).
+15. Its sound is DirectSound's: the opening's soundtrack, the menus'
+    clicks, the cut scenes', the level's. It makes about 30 buffers,
+    plain ones (no DirectSound 3D buffers in the first level), setting
+    their volume and pan itself as things move. SMACKW32 streams a cut
+    scene's sound into a buffer of a quarter of a second, 16-bit stereo
+    at 22,050 Hz, a quarter (62 ms) at a time, written about three
+    quarters of the buffer ahead of the play position.
+16. Its music is the CD's audio tracks, through MCI's `cdaudio` device
+    *(from the code)*: at start-up (`0x4380d0`) it opens the device,
+    sets the TMSF time format, and finds the auxiliary device whose
+    technology is CD audio, for the music's volume. A level's script
+    starts a song (`PlaySong(start, end, loop)`): `0x438220` plays from
+    the start track to the start of the one after the end track, and if
+    that's past the disc's end, from the start track on. Every five
+    seconds (`0x4dafd0`) it asks the device's mode, and plays again if
+    it has stopped. The volume (`0x4382a0`) is the player's music volume
+    times the script's (`SetMusicVol`, `0x4ffaa0`), as left and right on
+    the auxiliary device. Nar Shaddaa (`01_soundtrack.cog`) plays tracks
+    2 and 3 from the start, at volume 0, and fades them in when Kyle
+    leaves the bar: the bar is quiet.
+17. With hardware drawing chosen in *Setup* (*Display*, *Enable 3D
+    Acceleration*: the modes then offered are 16-bit; there's no list of
+    devices to choose from, the game taking the HAL device), kept in the
+    registry as
+    `b3DAccel` 1, `displayDeviceGUID` (DirectDraw's, all zeros for the
+    display's own), `3DDeviceGUID` (one of the devices Direct3D listed)
+    and `displayMode` (an index into the modes it lists; 3 is 640 by 480
+    in 16-bit colour), a level is drawn through Direct3D 1. It asks its
+    back buffer for the chosen device (`QueryInterface` with the device's
+    identifier), lists the device's texture formats, makes a viewport
+    through `IDirect3D` and adds it to the device, and makes execute
+    buffers. Each frame's polygons go into them as vertices already
+    transformed and lit (`PROCESSVERTICES` copying them), triangles and
+    render states, then `Execute`; it never uses Direct3D 2's
+    `DrawPrimitive`. Its textures are surfaces it fills, and loads into
+    the device's with `IDirect3DTexture::Load`, naming them by
+    `GetHandle`. The render states it sets include modulated texture
+    blending, linear filtering and the depth test. Its vertices come on
+    the screen, x and y in whole pixels, with z half of 1/w: nearer is
+    greater, and it tests with `ZFUNC` greater, or always without
+    writing, never blending (seen running into Nar Shaddaa, every draw's
+    states logged). The menus stay 8-bit, drawn as before. If a GUID can't be
+    read, it goes back to software (`0x414424`) *(from the code)*.
+
+    A frame in play is, in order (seen running, every one of 1,583 frames
+    into Nar Shaddaa, its surface calls logged with their callers; the
+    code at each address read):
+    - the Z-buffer cleared over the view by `Blt` with
+      `DDBLT_DEPTHFILL` (`0x42ac06`) to 0, the far end, never locked;
+    - one scene: `BeginScene`, the 3D in execute buffers, `EndScene`;
+      new textures' system-memory surfaces locked and loaded in it
+      (`0x42a2f1`);
+    - the back buffer locked whole for the automap, drawn as lines while
+      the map is shown (`0x407d97`, `0x4d92c0`), unlocked;
+    - the two gauges copied into the bottom corners, each with its
+      transparent colour (`0x408c6f`, `0x408c9a`, through `0x4237b0` and
+      `0x424e80`), and text the same way through the fonts' copy
+      (`0x434d06`);
+    - `Flip`.
+
+    What's drawn after the scene only writes: the copies are plain or
+    skip the transparent colour (`0x425176` to `0x425188`), and nothing
+    in a frame of play reads the back buffer, copies from it, or locks
+    the front buffer or the Z-buffer. Only the menus and loading screens
+    copy from the back buffer to the front, a part at a time (`0x424ca3`),
+    and colour-fill it (`0x42656e`), with no scene drawn.
+18. **Multiplayer** goes through DirectPlay 3 (`IDirectPlay3A`, kept at
+    `0x55d608`), its calls at `0x42fa40` to `0x4305d2` *(from the code)*:
+    - It asks whether a lobby started it (`0x42f840`, from `0x4c993a`):
+      `DirectPlayLobbyCreateA` (`DPLAYX.dll`'s ordinal 4: no service
+      provider, no outer object, no data), `QueryInterface` for
+      `IDirectPlayLobby2` (the Unicode one, its identifier at
+      `0x5226b8`), and `GetConnectionSettings` of itself (application 0)
+      with no buffer, to learn the size. Any answer but
+      `DPERR_BUFFERTOOSMALL`, or the lobby not made, and it releases
+      the lobby and goes on as not lobbied. Lobbied, it would read the
+      settings, set `DPSESSION_KEEPALIVE` and `DPSESSION_NODATAMESSAGES`
+      and clear `DPSESSION_MIGRATEHOST` in them
+      (`SetConnectionSettings`), `Connect`, and ask what that gives for
+      `IDirectPlay3`.
+    - *Host Game* and *Join Game* list the connections
+      (`EnumConnections`, up to 16, by name) for *Choose a network
+      provider*, and the one chosen is initialized
+      (`InitializeConnection`). The service providers' identifiers in its
+      data (TCP/IP, IPX, modem, serial) are never used by its code.
+    - A host makes its session (`Open`, `DPOPEN_CREATE`) from the game's
+      settings: its name, the episode and level as `name:episode:level`
+      (`kyle's Game:JK1CTF:c1.jkl`), its players' limit, a password if
+      there's one, and the rank, score and time limits in the four user
+      words; it asks for keep-alives and no data-change messages, and
+      leaves host migration off. The settings it changes later go by
+      `SetSessionDesc`.
+    - *Join Game* asks for the sessions again and again without waiting
+      (`EnumSessions` with `DPENUMSESSIONS_ASYNC`, all sessions, those
+      with a password too), lists up to 32 by name, and shows the one
+      picked's episode, level, players and rank, and its players before
+      joining (`EnumPlayers` with `DPENUMPLAYERS_SESSION`); then it
+      joins (`Open`, `DPOPEN_JOIN`).
+    - Each end makes its player (`CreatePlayer`, the character's name, no
+      event) and asks the caps (`GetCaps`: the players, speed and
+      latency); teams are groups (`CreateGroup`, `AddPlayerToGroup`).
+    - Every message is sent unguaranteed (`Send`, flags 0): the game
+      resends what must arrive itself. It reads its messages with
+      `Receive` (any, `DPRECEIVE_ALL`) until `DPERR_NOMESSAGES`; of the
+      system's it acts on a player made (`DPSYS_CREATEPLAYERORGROUP`,
+      players only), a player gone (`DPSYS_DESTROYPLAYERORGROUP`) and
+      the session lost (`DPSYS_SESSIONLOST`), and passes over the rest.
+19. **Joysticks** are WINMM's *(from the code)*. At start-up
+    (`0x42df20`) it takes up to two of `joyGetNumDevs`, and for each that
+    `joyGetPos` finds plugged in reads `joyGetDevCapsA`: X's and Y's
+    ranges, Z, R, U and V's where `wCaps` says they're there, up to 12
+    buttons (`wMaxButtons`), and a hat (`JOYCAPS_HASPOV`). An axis's
+    middle is halfway along its range, with a dead zone of 5%. In play
+    (`0x42e799`), only while an axis is bound to a control, it reads each
+    joystick's `joyGetPosEx`: the axes, eight buttons, and the hat in
+    hundredths of a degree (`JOY_RETURNPOVCTS`), cut into four directions.
+    A new player's controls have the joystick disabled (`0x4d70d6` sets
+    bit `0x20` of `0x8bd020`, which the controls then skip, `0x4d6dad`):
+    *Setup*, *Controls*, *Joystick*, untick *Disable joystick*, and it
+    lists the axes and buttons with their default bindings (X turns, Y
+    moves forward and back, buttons 1 and 2 fire), which the player's file
+    keeps. It has no force feedback: its DirectInput devices are the
+    keyboard and mouse alone (`GUID_SysKeyboard` at `0x42dec6`,
+    `GUID_SysMouse` at `0x42e12f`), and the joystick's and force effects'
+    identifiers in its data are never used by its code.
+
+20. **Windowed** (`-windowGUI` on its command line, `0x40158c`, which
+    sets `0x860788`) *(from the code)*, it draws through GDI instead of
+    DirectDraw: its 8-bit frame is a DIB section (`CreateDIBSection`,
+    `0x436963`), its colours set with `SetDIBColorTable` (`0x436ad2`),
+    selected into a memory device context; where full screen flips
+    (`0x422920`), it blits the frame into its window's device context
+    (`BitBlt`, `0x422971`) after `GdiFlush`. Run so in the emulator, it
+    showed the opening, its menus answered the mouse, and the first level
+    loaded and played at the same speed as full screen.
+21. **On the graphics card:** since the game's 3D is never read back
+    (step 17), its scenes can be drawn on the GPU rather than by the
+    emulator (the *3D drawing* setting, which turns *Setup*'s 3D
+    acceleration on first where it's off: `GameProcess::useDirect3D`,
+    the registry values above, 640 by 480). The emulator keeps each scene
+    instead of drawing it, the pixels it would cover marked in the back
+    buffer, so the gauges, text and automap drawn after it lie over it
+    ([directx.md](../../../../../common/x86/directx.md#scenes-for-the-gpu)).
+    The engine draws the scene's triangles as given
+    (`render/scene_gpu.h`): on the screen, the depth from their z, the
+    test the other way round (its greater as the renderer's less, the
+    clear to 0 as the renderer's to the far end), half a pixel over
+    (Direct3D's pixel centres are on whole numbers), the texture times
+    the vertices' colour as the first stage has it, untextured
+    otherwise, the colour key's texels left out, then the vertices'
+    specular colour added, the alpha test (the function and reference as
+    given, on the alpha as a whole number 0 to 255), and vertex fog
+    (the specular colour's alpha), in Direct3D's order; table fog isn't
+    drawn. The back buffer is laid over it, its alpha 0 where the scene
+    shows. The display's gamma ramp, already through which the back
+    buffer is, is put on the scene as the nearest power curve (fitted to
+    the ramp's three channels), the renderer's brightness.
+
+    Windowed (`-windowGUI`) with 3D acceleration on, the game draws its
+    levels through Direct3D into a flipping chain as full screen does,
+    and only its menus through GDI: seen running into Nar Shaddaa, 746
+    of 1,279 frames came with a scene, the level drawn on the GPU under
+    the gauges.
+
+    The scene can be drawn larger than the game's 640 by 480 (*Picture
+    size*, 1 to 4 times): its coordinates stay the game's, scaled into
+    the renderer's frame with the viewports, so the 3D has that many
+    times the pixels while the picture is the same. The back buffer's 2D
+    is enlarged to match, each pixel to the nearest, as sharp as the game
+    drew it. The mouse's place and movement come in the larger frame's
+    pixels, and are divided back down, so the pointer lands where it
+    points and the view turns as fast as at 1 times.
+
+    Its polygons' edges can be smoothed (*Anti-aliasing*, 2 or 4 samples
+    a pixel, as many as the card has): the renderer's multisampling, set
+    each time its frame is made. Only the edges of polygons are smoothed;
+    the holes of textures with a transparent colour (grates, railings),
+    left out by the alpha test, keep their steps.
+
+    Checked against the emulator's own drawing, scene by scene
+    (`reluva-tool sith host -gpu`), at 640 by 480 on Mesa's software
+    Vulkan (llvmpipe), into Nar Shaddaa: of 440 scenes, where each
+    scene's triangles fall, 0.0001% of pixels differ by more than one
+    step of the game's 16-bit colours, the most in a scene 11 pixels;
+    the rest within a step,
+    from the GPU's own rounding and filtering. Drawn as play draws it
+    (`-gpuplay`), the gauges lie over the level as in software. Drawn at
+    twice the size (`-gpuscale 2`) and each 2x2 averaged back to one
+    pixel, 107 scenes differ from the software drawing by more than a
+    16-bit step at 3.2% of their pixels: at edges and in fine texture
+    detail, where the finer sampling sees more; the frames at 1280 by
+    960 show the same picture, the gauges over it. With 4 samples a
+    pixel (`-gpuaa 4`) at 640 by 480, 349 scenes differ by more than a
+    step at 2.1% of their pixels, along the polygons' edges, which are
+    smoothed; within them the pictures agree as without.
+
+    The pixels more than a step apart were found, by the triangles under
+    each (logged for a run of 223 scenes, 33 pixels), on the vertices and
+    edges where triangles meet at the same depth: two triangles of a draw
+    along an edge both have, or several triangles at a corner. The depth
+    test (greater) keeps the first, unless the second's depth there comes
+    out a little nearer, and that comes down to the last bits of each
+    renderer's interpolation. The game asks for the deepest Z-buffer the
+    emulator offers, 32 bits (of 16, 24 and 32), and its software
+    rasterizer compares the depths as floats; the GPU's are its own. A
+    16-bit depth buffer on the GPU, as cards of the time had, which would
+    make such depths equal, doesn't fit: the game's depths aren't 16-bit
+    here. Only interpolating as the rasterizer does, to the bit, would
+    take them away.
+22. **Timing** *(confirmed)*. The
+    game's clock is `timeGetTime`. Its world moves in steps (`0x4c4c00`): the step's
+    count kept at `0x8ee640`, the clock read (`0x4dd640`), then input,
+    things, physics, scripts and sound each given the step, in seconds
+    (`0x836c0c`) and milliseconds (`0x836c08`). The clock takes the
+    milliseconds since the last step, held to between 10 and 500, adds
+    them to the level's time (`0x836c14`, and in seconds `0x836c18`),
+    and keeps the step's reciprocal (`0x836c10`); a flag (`0x8ee66c`
+    bit `0x400`) takes a fifth of it, slow motion. Paused time is left
+    out (`0x4dd710`, `0x4dd730`).
+
+    Play's frame (`0x403d40`) moves the world only when more than 20 ms
+    have passed since it last did (`0x403d62` to `0x403d74`), then
+    draws (`0x404900`) and flips, whether it moved or not. So it shows a
+    new picture at most every 21 ms, about 47 a second, whatever the
+    display: at 60 frames a second, every other frame. Counted running
+    (each frame shown hashed, and the step's count read), a frame
+    differs from the one before only when a step was taken between
+    them, and never more than one step is. The time spent on the steps
+    and on drawing is added up at `0x552b5c` and `0x552b58`. Cut scenes
+    are timed by `SMACKW32.DLL`, which waits on `timeGetTime` itself.
+
+    Reluva shows at most 60 frames a second, as a 60 Hz display would.
+    Its *Frame rate* setting can instead have the world move at every
+    frame at least 10 ms after the last (`GameProcess::updateEveryFrame`:
+    the 20 at `0x403d69` made 9, where the bytes are the US release's),
+    at 60, 75, 85 or 100 frames a second: up to 100 steps a second,
+    since steps closer than 10 ms would be taken as 10 by the clock and
+    the game would run fast. The steps' lengths are measured, so the
+    world moves at the same speed at either rate: seen running, with
+    the player's position and velocity (the first thing's, `+0xb8` and
+    `+0x1d4`) logged at each step, about 42 and 79 steps a second gave
+    the same walking speed (0.279 against 0.279 units a second over the
+    same half second of game time, 0.297 against 0.294 over the next),
+    the same stop after letting go (1.514 against 1.511 seconds after
+    starting), and the same jump, to its highest point (-1.0150 from
+    -1.1299 both times). Over 12 seconds in Nar Shaddaa, turning
+    (`reluva-tool sith host -fps N [-everyframe]`), 618 frames at 60
+    as the game has it showed 335 new pictures; at 60 with every frame,
+    624 of 626; at 100, 988 of 1,043.
+
+    More than 100 a second, for displays of 120 Hz and up, would need
+    the clock's floor of 10 ms lowered too (the 10 compared and set at
+    `0x4dd655` and `0x4dd66f`, and in the same check at `0x4dd77b` and
+    `0x4dd78e`), with the threshold at `0x403d69` below it: a few bytes
+    more, guarded the same way. Left for now, as a possible option:
+    below 10 ms is a step the game was never given, so walking,
+    stopping and jumping would want measuring again as above, and whole
+    skims (the crash at the ending seen only with the world moved at
+    every frame among what they'd look for); the clock's whole
+    milliseconds would make steps of 6 and 7 ms at 144 Hz, 4 and 5 at
+    240; and the emulator would have that much more of the game to run
+    each second. Worth it only on a display faster than 100 Hz.
+23. **Saves** *(confirmed)* ([formats/jks.md](../formats/jks.md)): in
+    the player's folder, `save%04d.jks` from *Save*, `quicksave.jks`,
+    and an autosave as each level starts, `_JKAUTO_<level>.jks`. *Load
+    Game* leaves the autosaves out by their names, and any save whose
+    title (the level's name, `~`, the save's) has no `~`.
+24. **Widescreen** *(confirmed)*. The game takes its screen's size from
+    the display modes DirectDraw lists, and draws its 3D and status
+    gauges for whatever size it's given. Offered 1280 by 720 and 1920 by
+    1080 (16-bit, chosen for it as `displayMode`), `JK.EXE` played
+    through Direct3D at both, two levels at 1080 without a fault, its
+    gauges in the screen's bottom corners, its messages centred;
+    `JKM.EXE` the same at 1280 by 720. The menus and cut scenes are 640
+    by 480 pictures of their own.
+
+    `displayMode` is an index into the modes as the game keeps them,
+    sorted by their bits a pixel, then width, then height (`JKM.EXE`'s
+    `qsort` at `0x4258e0`, comparing with `0x427b00`), not as DirectDraw
+    listed them: a mode of 854 by 480, offered after the others, is the
+    sixth, between 800 by 600 and 1024 by 768, and the game, given the
+    index it would have unsorted, took 1024 by 768.
+
+    As it is, the view is cut down from above and below: the 3D's focal
+    length is half the view's width over the tangent of half its field
+    of view (`0x443670`; `JKM.EXE` `0x447db0`), so the field of view is
+    90° across whatever the width, and a wider screen shows less of the
+    height. Shown as much height as at 4:3, the view must be wider:
+    2·atan(tan(fov/2)·(aspect / (4/3))), 106.26° for 90° at 16:9. Both
+    programs set it through one function, held to between 5° and 179°
+    (`0x4434d0`; `JKM.EXE` `0x447c10`, the field of view at the canvas's
+    `+0x38`). `JK.EXE`'s cameras are made at 90° (the `push 0x42b40000`
+    at `0x415ce5` and `0x4c4deb` to `0x4c4eae`) and kept so; patched to
+    106.26°, the picture at 16:9 had the same height as at 4:3 and more
+    at the sides *(confirmed)*. `JKM.EXE` sets its field of view again
+    from its scripts' zoom (`0x513670`, from the verb at `0x558c90`, at
+    each level's start), two times the angle whose tangent is the view's
+    half width over the same times the zoom, 90.19° with the angle its
+    own approximation: the cameras' constants alone change nothing. A
+    trampoline at the setter, widening each field of view it's given by
+    the formula, gave `JKM.EXE` the same height as at 4:3 and more at the
+    sides (106.44° from 90.19°) *(confirmed)*. But the game reads the
+    field of view back (`JKM.EXE`'s zoom compares with it and goes on
+    from it, `0x5136c2` and `0x51386a`), and would widen it again.
+
+    Reluva's *Widescreen* setting (`GameProcess::useWidescreen`) widens
+    the focal length instead, leaving the field of view the game keeps
+    as it set it: the call of the tangent in the focal length's function
+    (`0x4436e6` to `0x432396`; `JKM.EXE` `0x447e26` to `0x436386`) goes
+    to a trampoline that multiplies what it returns by the screen's
+    width over 4/3 of its height, read at each call, 1 at 4:3 or
+    narrower. The clipping planes are worked out from the focal length
+    in the same function, so they follow. The mode it offers is 480
+    lines high, 854, 768 or 1120 wide (16:9, 16:10, 21:9): the gauges and
+    text keep the size they have at 640 by 480, and the menus and cut
+    scenes fill the screen's height, shown in the middle with black
+    beside them, the pointer moved by as much; on the graphics card the
+    3D is drawn larger as at 4:3 (step 21). Two modes are offered, in 8-
+    and 16-bit colour. With the 3D on the graphics card, or *Setup*'s 3D
+    acceleration on, it plays through Direct3D, *Setup*'s display values
+    set for it as `useDirect3D` sets them, `displayMode` the 16-bit
+    mode's index; otherwise by the game's own renderer, `displayMode` the
+    8-bit mode's. The values as they were before
+    are what's saved to the registry file, since without the setting
+    that index is another mode, or none.
+
+    The view's size (`viewSize`, 1 to 10) is the share of the screen the
+    3D takes: at the game's default, 5, a box of 72% of the width and
+    the height above the gauges, at 4:3 as at 16:9 (460 by 345 of 640 by
+    480; 614 by 345 of 854 by 480); at 8, 94% of the width; at 9 the
+    whole screen, the gauges over its bottom corners; at 10 the same
+    without them *(confirmed)*. At the game's default the black about the
+    box is what most shows on a wide screen, so in widescreen the view's
+    size is a value of its own, kept in the registry file under a name
+    the game never reads (`Reluva widescreen viewSize`): 9 until the
+    player changes it, then what they last had, while the `viewSize`
+    saved is the one for 4:3. Run in turn: a first widescreen session
+    started at 9, the game's *Decrease viewsize* took it to 8, and the
+    next one started at 8; a session without, at the player's 5
+    *(confirmed)*.
+
+    Both games, at 854 by 480: the
+    menus, the opening and the first level's cut scenes, the first
+    level played, drawn in software and on the graphics card, the
+    pointer's clicks landing in the menus *(confirmed)*.
+
+    Every level, at 16:9 from a new player with `-skim`: Jedi Knight's
+    light side, its 21 levels to the ending's cut scene, and Mysteries of
+    the Sith's 14 to its finale, nothing stopped; in a frame each 10
+    seconds of play (59 and 21), the 3D across the whole width and the
+    gauges in its corners, but where the level was black at an edge and
+    in two frames of the Maw seen through the level's own camera, which
+    draws no gauges *(confirmed)*.
+
+    Only Mysteries of the Sith zooms: the stormtrooper rifle's scope
+    (`weap_stscope_m.cog`, its second mode, weapon 13), at 4, 11 and 23
+    times through the scripts' zoom. At 4 times, at 16:9 and at 4:3 with
+    the view the whole screen, the field of view the game kept was 28.07°
+    in both and the focal length 1278.5 and 1278.0: the same height seen,
+    the 16:9 wider *(confirmed)*. Its green sight (`00SiteA16.bm`, the
+    one entry of a table of the HUD's bitmaps at `0x57eec0`, drawn at
+    `0x412760` while the view is the scope's) is loaded scaled by the
+    screen's width over 640 and its height over 480, each in thousandths
+    (`0x5b08e0` and `0x5b08e4`, worked out at `0x412449`, read at
+    `0x4124f1` and `0x4124f6` for the loader `0x430040`), and placed at
+    their middle:
+    at 16:9, a third wider than tall. In widescreen the host has the
+    loader read the height's scale both ways (`mov ecx, [0x5b08e0]` at
+    `0x4124f6` made `[0x5b08e4]`): at 16:10, 16:9 and 21:9 the sight was
+    126 by 30 pixels as at 4:3, in the screen's middle *(confirmed)*.
+    Nothing else reads the two. Jedi Knight has no sight.
+
+    The view's size is changed in play by `-` (*Decrease viewsize*) and
+    `=` (*Increase viewsize*) in both games, as the controls the games
+    ship bind those actions: from 9, `-` twice and `=` once left 8
+    *(confirmed)*.
+
+    The game's own renderer, in its 8-bit wide mode, draws each game's
+    first level across the whole screen with the gauges in its corners,
+    framed as through Direct3D, Mysteries of the Sith's scope's sight
+    its shape *(confirmed)*: the focal length's widening and the sight's
+    serve it too.
+25. **The console and `-devMode`** *(confirmed)*. The
+    game has one command line for its console, its cheats and, in
+    multiplayer, chat: T opens it in a level, and Enter (`0x408e50`)
+    sends what's typed as chat in a multiplayer game, and otherwise
+    tries it as a cheat (`0x41fd60`) and then as a console command
+    (`0x4da000`). Its commands are registered by name at start-up
+    (`0x4da140`): `version`, `team`, `framerate`, `dispstats`, `kill`
+    and `endlevel` (`0x41f17d` on), then `players`, `coords`,
+    `trackshots`, `ping`, `kick`, `tick` and `session` (`0x4edc10`). What
+    they print goes to the messages at the top of the screen, five
+    seconds a line (`0x41fb10`, `0x41fa50`). Typed in Nar Shaddaa,
+    `version` printed "Jedi Knight v1.0 Sep 8 1997 16:17:30", and
+    `coords` the player's position, angles and sector.
+
+    Another 22 are registered only if bit `0x100` of the flags word at
+    `0x8ee66c` is set at that moment (`0x4edc99`): `help`, `disableai`,
+    `notarget`, `outline`, `disablepuppet`, `cogtrace`, `coglist`,
+    `cogstatus`, `noaishots`, `aistatus`, `ailist`, `fly`, `mem`,
+    `dynamicmem`, `memdump`, `invul`, `cogpause`, `matlist`, `warp`,
+    `activate`, `slowmo` and `jump`. The word starts at 0, and only the
+    scripts' verbs write it (`0x506a90`, `0x506ab0`), after start-up:
+    in this release none of the 22 is ever there *(from the code)*.
+    `help` and `fly`, typed with `-devMode` or without, were "not
+    recognized".
+
+    `-devMode` (or `devMode`) on the command line (`0x401508`) sets
+    `0x860780` and `0x860784`; `-windowGUI` sets `0x860788`. With both,
+    the game makes its "Jedi Console" (`0x41f100`): a dialog (template
+    112, its procedure `0x420fd0`) whose box (control `0x400`) takes a
+    line on Enter, echoes it as `>%s` and runs it as a console command,
+    clears itself, and whose control `0x40d` keeps the last 50 lines
+    printed; closing it quits the game. It's the same console as T's,
+    with a scrolling record of what was printed. `-devMode` alone adds
+    "(Debug)" to *Single Player* (`GUI_DEBUG_PLAY`, three screens'
+    entries at `0x53600c` on, `0x41a47b`), which chooses any episode,
+    the multiplayer ones too, then any of its levels to start; and
+    *Advanced* to *Setup*'s display screen (`0x414a60`, "For advanced
+    users and debugging", its own settings marked as for LucasArts'
+    support).
+
+    *Advanced* (*Advanced Display Settings*, its warning to change them
+    only when told to by LucasArts' support) chooses the display device
+    (the primary, or a "DIBsection windowed display"), the 3D device
+    (*RenderDroid I*, the game's own; Direct3D's *RGB Emulation*; its
+    HAL), texturing (affine, perspective), geometry (vertex, wireframe,
+    solid, texture), lighting (full, none, diffuse, Gouraud), *Clear
+    Display* and *Disable Page Flip*. Each tried into Nar Shaddaa
+    (`host -args -devMode`, `-d3d` for the 3D devices'), the game went on
+    and drew the level *(confirmed)*: in its own renderer wireframe,
+    solid, affine with diffuse or no lighting, *Clear Display* and
+    *Disable Page Flip*; the windowed display at 320 by 200, its gauges
+    large; through Direct3D *RGB Emulation*, *RenderDroid I* and the two
+    switches. Two differ:
+    - Wireframe through Direct3D draws the gauges and no world: the game
+      gives the device no lines and no triangles then (counted in its
+      execute buffers), so nothing is lost on Reluva's side.
+    - *Vertex* geometry in the game's own renderer stops the game as the
+      level is drawn: it calls a drawing routine through a structure's
+      `+0x1e4` (`0x44c705`), which the program fills with one of eleven
+      routines or leaves 0 (as it clears it, `0x4d8b31`), and for vertex
+      geometry it's 0 *(inferred)*: a fault of the program's, which
+      Windows would stop as well.
+
+    `JKM.EXE` has the same *(confirmed)*: `-devMode` (`0x401545`) sets
+    `0x941d40` and `0x941d44`, which turn on "(Debug)" on *Single Player*
+    (`0x41cfd8`; its episodes *Mysteries of the Sith*, *Kill The Fool With
+    The Ysalamiri*, *Sith Multiplayer Duel* and *Sith Lightsaber
+    Training*), *Setup*'s *Advanced* (`0x4176ec`), and, with
+    `-windowGUI`'s `0x941d48`, the Jedi Console (`0x4224d1`). It also
+    shows *Cutscenes* on the main menu (`GUI_VIEWCUTSCENES`, `0x412bf8`),
+    which without it Mysteries of the Sith leaves out.
+
+    Reluva's *Level select* setting puts `-devMode` after the command
+    line (`sith::gameCommandLine`), once, for either game. In `reluva`,
+    from a new player, a level chosen this way started in both: the
+    third of each episode, `03katarn.jkl` and `s1l3_astcore.jkl`, each
+    with its autosave.
+
+On the real Windows of the time Direct3D always had its software
+devices, DirectPlay was installed with DirectX, and 8-bit modes were
+offered, so the program never met their absence.
+
+### Speed
+
+The 51 million instructions of the start-up ran in 0.1 to 0.2 seconds, 200 to 500
+million a second with the emulator's native code: well beyond the
+Pentiums of 1997 the program was written for.
+
+## In Reluva
+
+The game is played from the launcher: the engine (`src/engines/sith/sith.cpp`)
+runs `JK.EXE` on a thread of its own (`host/player.h`), shows each frame
+it presents in the window (with its scene drawn on the GPU under it,
+when *3D drawing* is on the graphics card: step 21) as soon as the game
+shows it, waiting for it between looks at the window's events, at most
+5 ms apart (`Player::waitForFrame`), and passes the keyboard and mouse
+on. A frame
+it draws windowed through GDI is shown the same way, and the pointer put
+where the player points on it, within the game's window
+([windows.md](../../../../../common/x86/windows.md)); `commandline` in
+`reluva.ini` gives the game its command line.
+
+- **The process** (`host/game_process.h`): the install as drive C, what
+  the game writes going to Reluva's folder for the game (its player
+  files and saves; it opens its archives for writing too, but only reads
+  them, so they're never copied); a CD's copy as drive D, for the cut
+  scenes and the music, CD 1 to start with; `SMACKW32.DLL` from the install; the registry's `CD Path` and
+  `Install Path`. Its threads run on threads of this machine.
+- **The registry:** what the game writes there (its *Setup* choices of
+  display and Direct3D device among it) is kept in `registry.txt` in the
+  game's save folder, and given back the next time it runs; `CD Path`
+  and `Install Path` are Reluva's, set each time. The game writes its
+  settings only as it ends (`0x4148f0`, in its end at `0x4013c5`), all of
+  them as binary values. Leaving Reluva closes the game's window
+  (`WM_CLOSE`): in the menus it then ends as on Windows, its window's
+  `WM_DESTROY` running its end, settings saved. In play the game takes
+  `WM_CLOSE` for itself and goes on (its handler at `0x41ede0` *(from
+  the code)*), as it would on Windows; after three seconds Reluva stops
+  it, then runs its own saving of the settings (`0x4148f0`, where its
+  bytes are the US release's), so a choice made in *Setup* isn't lost.
+- **Its devices:** DirectDraw, with the 8-bit modes the menus and the
+  software renderer use, Direct3D 1's devices on the emulator's
+  rasterizer ([directx.md](../../../../../common/x86/directx.md)),
+  DirectInput, DirectPlay ([dplay.md](../../../../../common/x86/dplay.md)),
+  DirectSound ([dsound.md](../../../../../common/x86/dsound.md)) and the
+  CD's audio
+  ([cdaudio.md](../../../../../common/x86/cdaudio.md)) are the
+  emulator's, the sound card's output and the music played through
+  Reluva's mixer. There's no `waveOut` device: the game is told so, as
+  on a machine without one. DirectPlay's lobby is there, and tells the
+  game no lobby started it, as when it's run from its own menu.
+- **The joysticks:** the player's game controller, connected when the
+  game starts or later, is its first joystick, and a second pad, or
+  else a racing wheel, its second ([joystick.md](../../../../../common/x86/joystick.md)): the
+  sticks, triggers, ten buttons and the D-pad as the hat. The game's
+  defaults bind only the first; its *Setup* binds the second's axes and
+  buttons like any other control. The `joystick` setting (*Game
+  controller* in the launcher) leaves them out.
+- **Multiplayer:** DirectPlay offers one connection, TCP/IP, over the
+  machine's network. *Join Game* finds sessions hosted by other copies
+  of Reluva on the local networks and on this machine, and at the host
+  the `joinaddress` setting names (`reluva.ini`, the game's section:
+  `host` or `host:port`), for a host beyond the local network; a host
+  listens on UDP port 47624, which a router has to pass on for players
+  from outside. Reluva answers the network as the game runs and while it
+  waits, so a host in its menus still lets players join.
+- **Changing CDs:** the episode's steps each name their CD (levels 9 on,
+  and their cut scenes, are on CD 2), and before one starts the game
+  checks for it (`0x40ebb0`, its argument the CD's number, 0 for either)
+  *(from the code)*: it reads `gamedata\resource\jk_.cd` through its CD
+  path and accepts that CD's marker (`0x69923284 | n << (n + 5)`: CD 1's
+  `c4 32 92 69`, CD 2's `84 33 92 69`), either for 0, or `0x69973284`
+  for any. Otherwise it closes its archives, asks "Insert Jedi Knight
+  CD #n and press Enter", and checks again. Reluva puts the CD in drive D
+  as the check starts: a jump at `0x40ebb0` (only where its bytes are the
+  US release's) to a trampoline that calls the engine with the CD's
+  number, runs the instruction the jump replaced and goes on. The game
+  never asks; the CD device gets the new disc's music
+  (`CdAudio::discChanged`).
+- **The CD's music:** the CD in drive D's audio tracks, those beside its
+  files: a cue sheet and its image's files, or the
+  tracks ripped as `track02.wav` and on. Without them the game has a CD
+  drive with no audio tracks, and plays without music, as it did with
+  its CD missing.
+- **Frames:** each one presented, no more often than a 60 Hz display's
+  vertical blank, as the game's flips waited for it.
+- **The mouse:** in the menus the game moves Windows' pointer, which it
+  doesn't draw itself, so the window shows the system's pointer and
+  passes its place on. In play it holds the mouse through DirectInput
+  (exclusively acquired) and reads its movement: the window holds the
+  mouse and passes the movement on, until the game lets go (its in-game
+  menu).
+- **Keys** go both to the window's messages, which the menus read, and to
+  DirectInput, which play reads.
+
+`reluva-tool sith host <install>` runs the same process without a
+window, for up to `-seconds` seconds, and says what it opened, wrote to
+the registry, printed for a debugger or showed in a message box, and
+where it stopped (registers, and the return addresses on the stack).
+`-d3d` writes *Setup*'s choice of Direct3D's hardware device and 640 by
+480 in 16-bit colour to the registry before it starts, as the game writes
+them. `-close <seconds>` closes the game's window then, as the player's
+closing Reluva's does. A run stopped at its time rather than ended by
+the game has its settings saved for it, as Reluva's player does
+(below). `-skim` goes through the game unattended: each level and cut scene is
+said as the game first looks for it; a cut scene is skipped after four
+seconds, and in a level the game's own cheats are typed through its chat
+key (T): `jediwannabe` (invulnerable) once it has loaded, then
+`thereisnotry` (the level ends) every half minute until the next level
+or cut scene comes; between levels the screens' *Ok* is clicked. For
+Mysteries of the Sith the words are its own, `boinga` and `gameover`,
+and as it plays a level's cut scenes from inside the level, the cheats
+go on after them ([../../mots/README.md](../../mots/README.md#its-cheats)).
+`-cheat <word>` types another cheat in each level (`sithlord`, the dark
+side's powers, takes the game down the dark side's branch), and
+`-frames <seconds> <folder>` saves a frame each so many seconds. The
+cheats are the game's: 18 words, each byte XOR `0xc5`, from `0x53c680`,
+each tied to a handler as the console starts (`0x41f240` to `0x41f5ff`)
+*(from the code)*. `-pad "<seconds>:<control>=<value>,..."` connects a game controller and
+moves it at those moments (`lx` `ly` `rx` `ry` -1 to 1, `lt` `rt` 0 to
+1, the buttons `a` `b` `x` `y` `lb` `rb` `back` `start` `ls` `rs` `up`
+`down` `left` `right` 1 or 0; `2.lx` and so on, a second controller's). `-net` gives the game the machine's network for multiplayer (and
+`-join <address>` a host to look for sessions at), and says what
+DirectPlay does: sessions made or joined, players come and gone, and the
+datagrams sent and received. `-png` saves the last frame, `-calls` lists every stand-in called and the
+last 40 in order, `-keys "<seconds>:<key>,..."` presses keys at those
+moments (letters, digits, `esc`, `enter`, `space`, `tab`, the arrows, and
+`click<x>x<y>` for the mouse's left button on the screen), `-wav`
+saves what the sound card played, `-write`
+names the folder for what it writes, and `-peek <address>` prints a word
+of the program's memory at the end.
+`-keys "8:esc,11:k,11.4:y,11.8:l,12.2:e,13:enter"` goes through the crawl
+and the first player's name to the main menu;
+`,16:click318x188,19:click294x108,25:esc` after it starts a new game and
+skips its cut scene, into the first level. For multiplayer, with a
+player who has a multiplayer character (*Multiplayer Characters*) and
+`-net`: `-keys "8:esc,10:click556x448,13:click318x248,16:click458x100,19:click200x190,20:click518x448,23:click518x448,26:click573x448"`
+hosts *The Duel* (*Players*' *Ok*, *Multiplayer*, *Host Game*, TCP/IP,
+*Ok*, the game's settings' *Ok*, the character's *Ok*);
+`-keys "8:esc,10:click556x448,13:click318x248,16:click180x100,19:click200x190,20:click518x448,28:click220x170,30:click518x448,33:click573x448"`
+in a second copy, with a save folder of its own, joins it. `reluva-tool sith disasm
+<JK.EXE> <address>` shows the program's instructions from an address.
+
+## Sources and checks
+
+- **Where the facts come from:** the runs of `reluva-tool sith host` on
+  the retail install with CD 1's copy; `JK.EXE`'s imports, and the
+  DirectX interface identifiers found in its data; its code at the
+  addresses above, read with `reluva-tool sith disasm`.
+- **Multiplayer:** two copies of `reluva-tool sith host -net` on one
+  machine, each with its own save folder: one hosted *The Duel*; the
+  other found "kyle's Game" (episode, level, "Players: 1 of 4" shown),
+  joined it and played, seeing the host's Kyle in the level, about 20
+  datagrams a second passing; each copy was told of the other's player,
+  and the host of the joiner's leaving, 15 seconds after it stopped.
+- **How it was checked:** each run's stop explained by the code where
+  it stopped, as above.
+
+## Open questions
+
+None.

@@ -18,14 +18,56 @@ headers' (`directx/interfaces.cpp`).
   - blits (stretching, colour keys, colour and depth fills) and flipping
     chains;
   - palettes and clippers;
+  - a surface's device context (`GetDC`), for GDI's text: colours become
+    the surface's pixels, a palettized surface's as its palette's nearest
+    entry;
   - the display's gamma ramp (`IDirectDrawGammaControl`, from any
     surface).
 
   What reaches the primary surface becomes `DirectX::frame()`, handed to
   the engine, through the gamma ramp. In a window, that's the window's
-  client area. With `DirectX::presentLate` a flip hands over the frame
+  client area. A program drawing its window through GDI instead
+  (`Win32Process::windowDrawn`) has each blit's picture handed over the
+  same way. A frame says where it is on the screen (`Frame::x`, `y`: the
+  client area's corner in a window, 0, 0 full screen), so the engine
+  can put the pointer where the player points on the picture. With `DirectX::presentLate` a flip hands over the frame
   before, once its draws are done, and the program goes on while this
   one's are drawn.
+- **Direct3D 1 and 2** (DirectX 3 and 5), on the same DirectDraw object:
+  `IDirect3D` and `IDirect3D2`, listing the same RGB emulation and HAL
+  devices with DirectX 5's `D3DDEVICEDESC` (204 bytes), a description for
+  hardware and one for software each. A software device's hardware
+  description has only its size: a colour model of 0 is how programs tell
+  the two kinds apart.
+- **Direct3D 1's device** (`IDirect3DDevice`), as DirectX 3 and 5
+  programs make it: asked of a 16- or 32-bit RGB surface by the device's
+  IID (`QueryInterface`, COM's aggregation), one a surface. It draws
+  through a Direct3D 7 device on the surface, so it draws as that does.
+  - **Execute buffers** (`IDirect3DExecuteBuffer`) in the program's
+    memory, their D3DEXECUTEDATA's vertices and instructions run by
+    `Execute`: `PROCESSVERTICES` into a pool of 65,536 vertices
+    (copied as `D3DTLVERTEX`; to be transformed as `D3DLVERTEX`; or
+    transformed and lit as `D3DVERTEX`), `TRIANGLE`, `LINE`, `POINT`,
+    `STATERENDER`, `STATETRANSFORM` and `STATELIGHT` (the material and
+    ambient light), `MATRIXLOAD`, `MATRIXMULTIPLY`, `TEXTURELOAD`,
+    `BRANCHFORWARD`, `SETSTATUS` and `EXIT`; `SPAN` isn't drawn.
+  - **Render states** are Direct3D 7's but for those it replaced with
+    texture stages: the texture handle, address, filters and border
+    colour go to the first stage, and `TEXTUREMAPBLEND` to its
+    operations as the DirectX 6 documentation maps the legacy blends
+    (DECAL and COPY the texture, MODULATE its colour times the vertex's
+    and its own alpha if it has one, DECALALPHA, MODULATEALPHA, ADD).
+    With no texture the vertex's colour is drawn. Culling starts off, as
+    Direct3D 1's did.
+  - **Matrices** by handle (`CreateMatrix`, `SetMatrix`), **viewports**
+    (`IDirect3DViewport` and `IDirect3DViewport2`: the area drawn to, and
+    `Clear` to the background material's colour), **materials** by handle,
+    and **lights** (kept, not lit with).
+  - **Textures:** a texture surface's `IDirect3DTexture` and
+    `IDirect3DTexture2` are its own: `GetHandle`, and `Load` copying
+    another's pixels and palette.
+- **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
+  blocks.
 - **Direct3D 7:** RGB emulation and HAL devices, vertex buffers and state
   blocks. The drawing is a software rasterizer (`directx/raster.cpp`):
   - the fixed-function pipeline: transforms, lighting, materials and their
@@ -44,6 +86,12 @@ headers' (`directx/interfaces.cpp`).
     `c_dfDIKeyboard` kinds, or its own).
   - Read either as an immediate state (relative or absolute axes) or as a
     buffer of changes (`DIPROP_BUFFERSIZE`, `GetDeviceData`).
+  - A key is its scan code, an extended key's with 0x80 (the up arrow,
+    0x48 extended, is `DIK_UP`, 0xc8), as DirectInput numbers them.
+  - `DirectInput::mouseHeld` tells the engine when the program has the
+    mouse acquired exclusively: it reads the mouse's movement then, and
+    Windows' pointer is hidden, so the engine holds the mouse in its
+    window for it.
 
 ## How it works
 
@@ -84,14 +132,56 @@ Alpha Team lock and blit surfaces as well as drawing into them, and doing
 both in one place keeps them consistent. It also lets the frames be
 checked without a GPU.
 
+### Scenes for the GPU
+
+An engine whose game allows it can have Direct3D's triangles kept for
+it instead (`DirectX::sceneCapture`, `kInstead`), to draw on the GPU.
+It's for a game that never reads back what Direct3D drew. Software stays
+the default, and is what every other game, the tests and the records
+use.
+
+- **What's kept:** for each buffer of the display's flipping chain
+  (its primary, back and front buffers), the scene drawn into it until
+  it's shown (`DirectX::Scene`). That's each draw's triangles as the
+  device had them after clipping, projection and culling: screen x and
+  y with pixel centres on whole numbers, z as the viewport maps it, 1/w,
+  the colours, and the first stage's texture coordinates. Each draw
+  also keeps its render states and its first stage's texture (its top
+  level, made once each time the texture changes, with the colour key's
+  texels marked) and its fog's colour and mode, as do the clears of the
+  target and Z-buffer, and a `Blt` depth fill of the Z-buffer, in order.
+  When it's shown, the scene takes the display's gamma ramp too, which
+  the frame's pixels have been through already. Draws into any other
+  surface (a texture, an off-screen buffer) are drawn in software as
+  before.
+- **The 2D over it:** a kept draw isn't drawn. Instead the pixels its
+  triangles span (each triangle's bounds within the viewport) are filled
+  with a key colour, the faintest red, green and blue together
+  (`dx::sceneKey`); a colour clear fills its viewport the same way. What
+  the program draws or copies there afterwards (gauges, text) replaces
+  the key; what it drew before is under the scene, as the triangles
+  would have drawn over it. When the buffer is shown, the frame
+  (`Frame::pixels`) has alpha 0 where the key is left, and `Frame::scene`
+  is the scene, for the engine to draw under the frame. A frame with no
+  key left has no scene.
+- **Comparing:** with `kAlso` the scene is kept and drawn in software
+  too, and at `EndScene` the target as drawn goes into the scene
+  (`Scene::software`), for the GPU's picture to be checked against.
+
 ## Sources and checks
 
 - **Where the facts come from:** the DirectX 7 documentation, and the SDK
-  headers for interfaces, method orders and IIDs.
+  headers for interfaces, method orders and IIDs; for Direct3D 1 and 2,
+  the DirectX 5 documentation and SDK headers (`directx/d3d5.cpp`).
 
 - `testDirectX` in `tests/common/windows.cpp` (`common.unit.windows`) checks these, called through
   the vtables: a clear, a Gouraud triangle, the depth test, a textured
-  quad with point sampling, and a flip.
+  quad with point sampling, and a flip; GDI's text through the back
+  buffer's device context; and Direct3D 1's device list, its
+  descriptions' sizes and colour models. `testDirect3D1` makes a version 1
+  device of a back buffer, clears its viewport to a material's colour,
+  draws a square of two triangles from an execute buffer of
+  pre-transformed vertices, and loads a texture by its handle.
 
 - `testInput` checks DirectInput's mouse (its state, its movement since
   the last read, its buffer) and keyboard.
@@ -103,3 +193,6 @@ checked without a GPU.
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
   It doesn't read DirectInput
   ([input.md](../../engines/netimmerse/games/legoalphateam/systems/input.md)).
+- **`sith`**: Jedi Knight's DirectDraw, Direct3D 1's devices (when its
+  Setup chooses 3D acceleration) and DirectInput, and the scenes kept for
+  the GPU ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).

@@ -7,6 +7,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstring>
+#include <vector>
 
 namespace reluva::x86 {
 
@@ -181,7 +182,7 @@ uint32_t Win32Process::Module::exportAddress(const std::string &function) const 
 }
 
 Win32Process::Win32Process(Cpu &cpu, std::string exeName, bool loadsExe, bool stackAtTop)
-    : _cpu(cpu), _exeName(std::move(exeName)) {
+    : _cpu(cpu), _exeName(std::move(exeName)), _loadsExe(loadsExe) {
     _arena = std::make_unique<Arena>(cpu, 0x10000, cpu.nativeBase() & ~0xfffu);
     _startMs = steadyMs();
     milliseconds = [this] { return uint32_t(steadyMs() - _startMs); };
@@ -503,11 +504,25 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
     if (pe.machine != 0x14c || pe.pe32Plus)
         return Error::fail(name + " isn't a 32-bit x86 image");
     const uint32_t size = (pe.imageSize + Cpu::kPageSize - 1) & ~(Cpu::kPageSize - 1);
+    // Windows loads the program before its DLLs, at its base. A DLL loaded
+    // here first that asks for the same place (JK.EXE's SMACKW32.DLL, both
+    // at 0x400000) is moved, as the program may not be relocatable.
+    constexpr uint32_t kProgramArea = 0x400000;
+    constexpr uint32_t kProgramAreaSize = 0xc00000;
+    const bool isDll = (pe.characteristics & 0x2000) != 0;
+    const bool programsPlace = _loadsExe && isDll && !module(_exeName) &&
+                               pe.imageBase < kProgramArea + kProgramAreaSize &&
+                               pe.imageBase + uint64_t(size) > kProgramArea;
     uint32_t base = 0;
-    if (pe.imageBase + uint64_t(size) <= _cpu.nativeBase() && _arena->claim(uint32_t(pe.imageBase), size))
+    if (!programsPlace && pe.imageBase + uint64_t(size) <= _cpu.nativeBase() &&
+        _arena->claim(uint32_t(pe.imageBase), size))
         base = uint32_t(pe.imageBase);
-    else if (pe.relocationCount || !(pe.characteristics & 1))
+    else if (pe.relocationCount || !(pe.characteristics & 1)) {
+        const bool kept = programsPlace && _arena->claim(kProgramArea, kProgramAreaSize);
         base = _arena->alloc(size, 0x10000);
+        if (kept)
+            _arena->free(kProgramArea);
+    }
     if (!base)
         return Error::fail("No room for " + name + " (" + std::to_string(size) + " bytes)");
     m->base = base;
@@ -619,6 +634,26 @@ void Win32Process::addStandIns() {
         std::memmove(c.memory().data() + p, c.memory().data() + old, oldSize);
         _arena->free(old);
         return p;
+    });
+    // LocalAlloc(flags, size): a fixed block of the heap's, whatever the
+    // flags; the handle of a movable one is its address, which LocalLock
+    // would give. New blocks are zeroed (LMEM_ZEROINIT) anyway.
+    stdcall(k, "LocalAlloc", 2, [this](Cpu &c) {
+        const uint32_t p = _arena->alloc(std::max(c.arg(1), 1u));
+        if (!p)
+            _lastError = 8; // ERROR_NOT_ENOUGH_MEMORY
+        return p;
+    });
+    // LocalFree(handle): 0 when freed, the handle when it isn't a block's.
+    stdcall(k, "LocalFree", 1, [this](Cpu &c) {
+        if (!c.arg(0))
+            return 0u;
+        if (!_arena->size(c.arg(0))) {
+            _lastError = 6; // ERROR_INVALID_HANDLE
+            return c.arg(0);
+        }
+        _arena->free(c.arg(0));
+        return 0u;
     });
     // VirtualAlloc(address, size, type, protection): anywhere, or at an
     // address asked for if nothing's there (else ERROR_INVALID_ADDRESS, and
@@ -808,7 +843,9 @@ void Win32Process::addStandIns() {
     addFileStandIns();
     addSystemStandIns();
     addUserStandIns();
+    addDialogStandIns();
     addRegistryStandIns();
+    addGdiStandIns();
 
     // Text: code page 1252, mapped to Unicode's first 256 characters (the
     // C runtime's locale tables are built from these; the "C" locale only
@@ -908,6 +945,37 @@ void Win32Process::addStandIns() {
             c.write16(c.arg(4) + 2 * uint32_t(i), uint16_t(mapCase(c.arg(1), c.read16(c.arg(2) + 2 * uint32_t(i)))));
         return uint32_t(n);
     });
+    // CompareStringA(locale, flags, text1, length1, text2, length2), and
+    // CompareStringW: CSTR_LESS_THAN (1), CSTR_EQUAL (2) or
+    // CSTR_GREATER_THAN (3); 0 for a missing string. A negative length
+    // reads to the NUL. Compared character by character, not by Windows'
+    // word sort: the locale is ignored, and so are the flags but
+    // NORM_IGNORECASE.
+    auto compareStrings = [this](Cpu &c, uint32_t unit) {
+        const uint32_t texts[2] = {c.arg(2), c.arg(4)};
+        const int32_t lengths[2] = {int32_t(c.arg(3)), int32_t(c.arg(5))};
+        if (!texts[0] || !texts[1]) {
+            _lastError = 87; // ERROR_INVALID_PARAMETER
+            return 0u;
+        }
+        const bool ignoreCase = c.arg(1) & 1;
+        std::vector<uint32_t> units[2];
+        for (int s = 0; s < 2; ++s)
+            for (uint32_t i = 0; lengths[s] < 0 ? i < (1u << 20) : i < uint32_t(lengths[s]); ++i) {
+                const uint32_t at = texts[s] + i * unit;
+                uint32_t ch = unit == 1 ? c.read8(at) : c.read16(at);
+                if (lengths[s] < 0 && !ch)
+                    break;
+                // Latin-1's lower-case letters, but for the division sign.
+                if (ignoreCase && ((ch >= 'a' && ch <= 'z') || (ch >= 0xe0 && ch <= 0xfe && ch != 0xf7)))
+                    ch -= 0x20;
+                units[s].push_back(ch);
+            }
+        const int order = units[0] < units[1] ? -1 : units[1] < units[0] ? 1 : 0;
+        return uint32_t(2 + order);
+    };
+    stdcall(k, "CompareStringA", 6, [compareStrings](Cpu &c) { return compareStrings(c, 1); });
+    stdcall(k, "CompareStringW", 6, [compareStrings](Cpu &c) { return compareStrings(c, 2); });
     // MultiByteToWideChar(codePage, flags, text, length, out, outLength)
     stdcall(k, "MultiByteToWideChar", 6, [](Cpu &c) {
         int32_t n = int32_t(c.arg(3));

@@ -18,7 +18,6 @@
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/nfs3/formats/hrz.h"
 #include "engines/nfs/host/force_effects.h"
-#include "engines/nfs/host/sound3d.h"
 #include "engines/nfs/nfs3/host/thrash_native.h"
 #include "engines/nfs/nfs2se/files.h"
 #include "engines/nfs/nfs3/formats/mad.h"

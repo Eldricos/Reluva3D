@@ -9,6 +9,7 @@ add_library(reluva_common STATIC
     archive.cpp
     config.cpp
     cue.cpp
+    iso9660.cpp
     dcl.cpp
     detection.cpp
     fs.cpp

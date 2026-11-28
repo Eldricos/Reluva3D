@@ -65,7 +65,10 @@ public:
     bool desktopMode(int &width, int &height, int &bits) override;
     void setRelativeMouse(bool on) override;
     bool readGamepad(GamepadState &out) override;
+    bool readGamepad(int index, GamepadState &out) override;
     void setGamepadForce(const GamepadForce &force) override;
+    void setGamepadForce(int index, const GamepadForce &force) override;
+    void setWheelPedals(int index, int accelerator, int brake) override;
     void setWheelPedals(int accelerator, int brake) override;
     bool confirmQuit(const std::string &text, bool toLauncher) override;
     void setDisplayOptions(const DisplayOptions &options) override;
@@ -104,6 +107,19 @@ private:
     struct Controller;
     std::unique_ptr<Controller> _controller;
     void closeController();
+    static void readState(Controller &c, GamepadState &out); // a pad's, or a wheel's by its axes
+    // A controller's forces: its haptics or rumble opened, a force given,
+    // the rumble sent again before it runs out; and its devices closed.
+    static void openForces(Controller &c);
+    static void applyForce(Controller &c, const GamepadForce &f);
+    static void resendRumble(Controller &c);
+    static void closeDevices(Controller &c);
+    // The second (readGamepad(1)): the next pad connected, or else a wheel,
+    // with forces of its own (setGamepadForce(1, ...)).
+    std::unique_ptr<Controller> _second;
+    int _secondAccelerator = -1; // its pedals as set (setWheelPedals(1, ...)), kept as it comes and goes
+    int _secondBrake = -1;
+    void closeSecond();
     SDL_Joystick *_joystick = nullptr; // the first connected, whose events are passed on
     SDL_JoystickID _joystickId = 0;
     bool _relativeMouse = false; // held by setRelativeMouse, held again when the window changes

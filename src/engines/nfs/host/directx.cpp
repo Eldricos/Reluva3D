@@ -12,7 +12,7 @@
 //   feedback effects (force_effects.h) when the controller can give them.
 // - DirectSound: buffers the sound DLL fills, played in time (their
 //   positions move as they would) and mixed for the speakers (mixSound),
-//   with DirectSound 3D's buffers and listener (sound3d.h) for the
+//   with DirectSound 3D's buffers and listener (emulation/x86/directx/sound3d.h) for the
 //   game's D3D/EAX sound setting.
 
 #include "engines/nfs/host/game_host.h"
@@ -1170,12 +1170,12 @@ void GameHost::mixSound(int16_t *out, int frames, int rate) {
         double step = double(b.rate) / double(rate);
         double muffle = 1;       // the rear's low-pass coefficient; 1 passes all
         if (b.flags & kCtrl3d) { // placed by DirectSound 3D, not panned
-            const Ds3dResult placed = spatialize(_listener, b.place);
+            const x86::Ds3dResult placed = x86::spatialize(_listener, b.place);
             left = gain * placed.left;
             right = gain * placed.right;
             step *= placed.doppler;
             if (placed.behind > 0)
-                muffle = lowPassCoefficient(rearCutoff(placed.behind), rate);
+                muffle = x86::lowPassCoefficient(x86::rearCutoff(placed.behind), rate);
         }
         auto sample = [&](uint32_t frame, int channel) {
             const uint8_t *p = memory + b.memory + frame * uint32_t(b.blockAlign) + uint32_t(channel * bytes);
@@ -1305,7 +1305,7 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
         return b == _soundBuffers.end() ? nullptr : &b->second;
     };
     // Changes a 3D buffer's parameters, now or deferred.
-    auto set = [placed](Cpu &c, uint32_t apply, const std::function<void(Ds3dSource &)> &change) {
+    auto set = [placed](Cpu &c, uint32_t apply, const std::function<void(x86::Ds3dSource &)> &change) {
         DsBuffer *b = placed(c);
         if (!b)
             return kInvalidParams;
@@ -1315,7 +1315,7 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
         return kOk;
     };
     // Reads a 3D buffer's parameters into the game's memory.
-    auto get = [placed](Cpu &c, const std::function<void(const Ds3dSource &)> &read) {
+    auto get = [placed](Cpu &c, const std::function<void(const x86::Ds3dSource &)> &read) {
         DsBuffer *b = placed(c);
         if (!b || !c.arg(1))
             return kInvalidParams;
@@ -1350,7 +1350,7 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
         // (+48), the least and most distances (+52), the mode (+60).
         {"GetAllParameters", 2,
          [get](Cpu &c) {
-             return get(c, [&](const Ds3dSource &s) {
+             return get(c, [&](const x86::Ds3dSource &s) {
                  const uint32_t p = c.arg(1);
                  writeVector(c, p + 4, s.position);
                  writeVector(c, p + 16, s.velocity);
@@ -1375,25 +1375,32 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
              return kOk;
          }},
         {"GetConeOrientation", 2,
-         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { writeVector(c, c.arg(1), s.coneOrientation); }); }},
+         [get](Cpu &c) {
+             return get(c, [&](const x86::Ds3dSource &s) { writeVector(c, c.arg(1), s.coneOrientation); });
+         }},
         {"GetConeOutsideVolume", 2,
          [get](Cpu &c) {
-             return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), uint32_t(s.coneOutsideVolume)); });
+             return get(c, [&](const x86::Ds3dSource &s) { c.write32(c.arg(1), uint32_t(s.coneOutsideVolume)); });
          }},
         {"GetMaxDistance", 2,
-         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), floatBits(s.maxDistance)); }); }},
+         [get](Cpu &c) {
+             return get(c, [&](const x86::Ds3dSource &s) { c.write32(c.arg(1), floatBits(s.maxDistance)); });
+         }},
         {"GetMinDistance", 2,
-         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), floatBits(s.minDistance)); }); }},
-        {"GetMode", 2, [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), s.mode); }); }},
+         [get](Cpu &c) {
+             return get(c, [&](const x86::Ds3dSource &s) { c.write32(c.arg(1), floatBits(s.minDistance)); });
+         }},
+        {"GetMode", 2,
+         [get](Cpu &c) { return get(c, [&](const x86::Ds3dSource &s) { c.write32(c.arg(1), s.mode); }); }},
         {"GetPosition", 2,
-         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { writeVector(c, c.arg(1), s.position); }); }},
+         [get](Cpu &c) { return get(c, [&](const x86::Ds3dSource &s) { writeVector(c, c.arg(1), s.position); }); }},
         {"GetVelocity", 2,
-         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { writeVector(c, c.arg(1), s.velocity); }); }},
+         [get](Cpu &c) { return get(c, [&](const x86::Ds3dSource &s) { writeVector(c, c.arg(1), s.velocity); }); }},
         {"SetAllParameters", 3,
          [set](Cpu &c) {
              if (!c.arg(1))
                  return kInvalidParams;
-             return set(c, c.arg(2), [&](Ds3dSource &s) {
+             return set(c, c.arg(2), [&](x86::Ds3dSource &s) {
                  const uint32_t p = c.arg(1);
                  readVector(c, p + 4, s.position);
                  readVector(c, p + 16, s.velocity);
@@ -1408,36 +1415,38 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
          }},
         {"SetConeAngles", 4,
          [set](Cpu &c) {
-             return set(c, c.arg(3), [&](Ds3dSource &s) {
+             return set(c, c.arg(3), [&](x86::Ds3dSource &s) {
                  s.insideCone = c.arg(1);
                  s.outsideCone = c.arg(2);
              });
          }},
         {"SetConeOrientation", 5,
-         [set](Cpu &c) { return set(c, c.arg(4), [&](Ds3dSource &s) { argVector(c, 1, s.coneOrientation); }); }},
+         [set](Cpu &c) { return set(c, c.arg(4), [&](x86::Ds3dSource &s) { argVector(c, 1, s.coneOrientation); }); }},
         {"SetConeOutsideVolume", 3,
-         [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.coneOutsideVolume = int32_t(c.arg(1)); }); }},
+         [set](Cpu &c) {
+             return set(c, c.arg(2), [&](x86::Ds3dSource &s) { s.coneOutsideVolume = int32_t(c.arg(1)); });
+         }},
         {"SetMaxDistance", 3,
-         [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.maxDistance = asFloat(c.arg(1)); }); }},
+         [set](Cpu &c) { return set(c, c.arg(2), [&](x86::Ds3dSource &s) { s.maxDistance = asFloat(c.arg(1)); }); }},
         {"SetMinDistance", 3,
-         [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.minDistance = asFloat(c.arg(1)); }); }},
-        {"SetMode", 3, [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.mode = c.arg(1); }); }},
+         [set](Cpu &c) { return set(c, c.arg(2), [&](x86::Ds3dSource &s) { s.minDistance = asFloat(c.arg(1)); }); }},
+        {"SetMode", 3, [set](Cpu &c) { return set(c, c.arg(2), [&](x86::Ds3dSource &s) { s.mode = c.arg(1); }); }},
         {"SetPosition", 5,
-         [set](Cpu &c) { return set(c, c.arg(4), [&](Ds3dSource &s) { argVector(c, 1, s.position); }); }},
+         [set](Cpu &c) { return set(c, c.arg(4), [&](x86::Ds3dSource &s) { argVector(c, 1, s.position); }); }},
         {"SetVelocity", 5,
-         [set](Cpu &c) { return set(c, c.arg(4), [&](Ds3dSource &s) { argVector(c, 1, s.velocity); }); }},
+         [set](Cpu &c) { return set(c, c.arg(4), [&](x86::Ds3dSource &s) { argVector(c, 1, s.velocity); }); }},
     };
     locked(b);
     _sound3dBufferVtable = makeVtable("IDirectSound3DBuffer", b);
 
     // The listener: one, the primary buffer's.
-    auto setListener = [this](uint32_t apply, const std::function<void(Ds3dListener &)> &change) {
+    auto setListener = [this](uint32_t apply, const std::function<void(x86::Ds3dListener &)> &change) {
         change(_deferredListener);
         if (!(apply & 1))
             _listener = _deferredListener;
         return kOk;
     };
-    auto getListener = [this](Cpu &c, const std::function<void(const Ds3dListener &)> &read) {
+    auto getListener = [this](Cpu &c, const std::function<void(const x86::Ds3dListener &)> &read) {
         if (!c.arg(1))
             return kInvalidParams;
         read(_deferredListener);
@@ -1460,7 +1469,7 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
         // top (+40), the distance, rolloff and Doppler factors (+52).
         {"GetAllParameters", 2,
          [getListener](Cpu &c) {
-             return getListener(c, [&](const Ds3dListener &s) {
+             return getListener(c, [&](const x86::Ds3dListener &s) {
                  const uint32_t p = c.arg(1);
                  writeVector(c, p + 4, s.position);
                  writeVector(c, p + 16, s.velocity);
@@ -1473,15 +1482,17 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
          }},
         {"GetDistanceFactor", 2,
          [getListener](Cpu &c) {
-             return getListener(c, [&](const Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.distanceFactor)); });
+             return getListener(c,
+                                [&](const x86::Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.distanceFactor)); });
          }},
         {"GetDopplerFactor", 2,
          [getListener](Cpu &c) {
-             return getListener(c, [&](const Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.dopplerFactor)); });
+             return getListener(c,
+                                [&](const x86::Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.dopplerFactor)); });
          }},
         {"GetOrientation", 3,
          [getListener](Cpu &c) {
-             return getListener(c, [&](const Ds3dListener &s) {
+             return getListener(c, [&](const x86::Ds3dListener &s) {
                  writeVector(c, c.arg(1), s.front);
                  if (c.arg(2))
                      writeVector(c, c.arg(2), s.top);
@@ -1489,21 +1500,22 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
          }},
         {"GetPosition", 2,
          [getListener](Cpu &c) {
-             return getListener(c, [&](const Ds3dListener &s) { writeVector(c, c.arg(1), s.position); });
+             return getListener(c, [&](const x86::Ds3dListener &s) { writeVector(c, c.arg(1), s.position); });
          }},
         {"GetRolloffFactor", 2,
          [getListener](Cpu &c) {
-             return getListener(c, [&](const Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.rolloffFactor)); });
+             return getListener(c,
+                                [&](const x86::Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.rolloffFactor)); });
          }},
         {"GetVelocity", 2,
          [getListener](Cpu &c) {
-             return getListener(c, [&](const Ds3dListener &s) { writeVector(c, c.arg(1), s.velocity); });
+             return getListener(c, [&](const x86::Ds3dListener &s) { writeVector(c, c.arg(1), s.velocity); });
          }},
         {"SetAllParameters", 3,
          [setListener](Cpu &c) {
              if (!c.arg(1))
                  return kInvalidParams;
-             return setListener(c.arg(2), [&](Ds3dListener &s) {
+             return setListener(c.arg(2), [&](x86::Ds3dListener &s) {
                  const uint32_t p = c.arg(1);
                  readVector(c, p + 4, s.position);
                  readVector(c, p + 16, s.velocity);
@@ -1516,30 +1528,30 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)>
          }},
         {"SetDistanceFactor", 3,
          [setListener](Cpu &c) {
-             return setListener(c.arg(2), [&](Ds3dListener &s) { s.distanceFactor = asFloat(c.arg(1)); });
+             return setListener(c.arg(2), [&](x86::Ds3dListener &s) { s.distanceFactor = asFloat(c.arg(1)); });
          }},
         {"SetDopplerFactor", 3,
          [setListener](Cpu &c) {
-             return setListener(c.arg(2), [&](Ds3dListener &s) { s.dopplerFactor = asFloat(c.arg(1)); });
+             return setListener(c.arg(2), [&](x86::Ds3dListener &s) { s.dopplerFactor = asFloat(c.arg(1)); });
          }},
         {"SetOrientation", 8,
          [setListener](Cpu &c) {
-             return setListener(c.arg(7), [&](Ds3dListener &s) {
+             return setListener(c.arg(7), [&](x86::Ds3dListener &s) {
                  argVector(c, 1, s.front);
                  argVector(c, 4, s.top);
              });
          }},
         {"SetPosition", 5,
          [setListener](Cpu &c) {
-             return setListener(c.arg(4), [&](Ds3dListener &s) { argVector(c, 1, s.position); });
+             return setListener(c.arg(4), [&](x86::Ds3dListener &s) { argVector(c, 1, s.position); });
          }},
         {"SetRolloffFactor", 3,
          [setListener](Cpu &c) {
-             return setListener(c.arg(2), [&](Ds3dListener &s) { s.rolloffFactor = asFloat(c.arg(1)); });
+             return setListener(c.arg(2), [&](x86::Ds3dListener &s) { s.rolloffFactor = asFloat(c.arg(1)); });
          }},
         {"SetVelocity", 5,
          [setListener](Cpu &c) {
-             return setListener(c.arg(4), [&](Ds3dListener &s) { argVector(c, 1, s.velocity); });
+             return setListener(c.arg(4), [&](x86::Ds3dListener &s) { argVector(c, 1, s.velocity); });
          }},
         // CommitDeferredSettings: the listener's and every buffer's.
         {"CommitDeferredSettings", 1,

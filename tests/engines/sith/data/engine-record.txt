@@ -1,0 +1,50 @@
+# The record of sith.engine (tests/engines/sith/engine.cpp).
+# Written by `reluva-tests sith.engine --update`; review its diff before committing.
+detect.empty: 0
+detect.games: 1
+detect.release: jk: Jedi Knight: Dark Forces II (unknown release)
+play.empty_program: Jedi Knight stopped: JK.EXE: Not an executable (no MZ header)
+play.window: 640x480
+folders.cd1: Disc 1 (folder beside the install)
+folders.cd2: install/cd2 (folder in the install)
+viewer.archives: 3
+viewer.colormaps: 1
+viewer.palettes: 1
+page.Levels.items: 1
+page.Levels.drawn: drawn
+page.Levels.after_keys: drawn
+page.Pictures.items: 1
+page.Pictures.drawn: b0e0b4e33cb02efd
+page.Pictures.after_keys: b07c94ffc181effd
+page.Materials.items: 2
+page.Materials.drawn: b9ed4dde52e5d395
+page.Materials.after_keys: 2a77bafa5be67233
+page.Colormaps.items: 1
+page.Colormaps.drawn: 1ed2a3af80c3f273
+page.Colormaps.after_keys: 1ed2a3af80c3f273
+page.Models.items: 1
+page.Models.drawn: drawn
+page.Models.after_keys: drawn
+page.Models.animated: drawn
+page.Sprites.items: 2
+page.Sprites.drawn: drawn
+page.Sprites.after_keys: drawn
+page.Fonts.items: 1
+page.Fonts.drawn: 5bf881c220088d7b
+page.Fonts.after_keys: 2faa2cda64ec595b
+page.Strings.items: 2
+page.Strings.drawn: cc68e743df00425f
+page.Strings.after_keys: 57d456c45b7b1952
+page.Sounds.items: 1
+page.Sounds.drawn: 990995832ec14beb
+page.Sounds.after_keys: 990995832ec14beb
+page.Sound classes.items: 1
+page.Sound classes.drawn: 900cad98b2de51ed
+page.Sound classes.after_keys: 2776fb0a765dff33
+page.Episodes.items: 1
+page.Episodes.drawn: fe042c74c78f9f4b
+page.Episodes.after_keys: 254fb22e96741f0b
+page.Cut scenes.items: 2
+page.Cut scenes.drawn: d552097b716ed53d
+page.Cut scenes.after_keys: f98274994a770779
+page.Cut scenes.played: moved 77764d41dffdc8d1

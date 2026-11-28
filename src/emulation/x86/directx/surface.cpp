@@ -284,6 +284,11 @@ const ComInterface *Surface::query(const std::string &iid) {
     for (ComInterface *f : {&i.surface7, &i.surface4, &i.surface3, &i.surface2, &i.surface, &i.gammaControl})
         if (iid == f->iid)
             return f;
+    // A texture's Direct3D 1 and 2 interfaces are the surface's own.
+    if (d.caps[0] & kCapsTexture)
+        for (ComInterface *f : {&i.texture, &i.texture2})
+            if (iid == f->iid)
+                return f;
     return nullptr;
 }
 
@@ -322,6 +327,8 @@ void writeDesc(Cpu &c, uint32_t p, const Surface &s, uint32_t surfaceAddress) {
 } // namespace
 
 std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cpu &c) {
+    if (&iface == &s->interfaces.texture || &iface == &s->interfaces.texture2)
+        return invokeTexture(iface, index, c);
     const std::string_view m = iface.methods[size_t(index)].name;
     // What reads or writes pixels (or what they're made of) waits for the
     // draws still drawing.
@@ -370,6 +377,67 @@ std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cp
     }
     // Lock(rect, desc, flags, event): the pixels' address (at the rectangle's
     // corner) and pitch in the description.
+    // GetDC(out): a device context drawing into the surface's pixels, with
+    // colours matched to its format (to its palette's nearest entry if it
+    // has one); one at a time, until ReleaseDC.
+    if (m == "GetDC") {
+        if (!c.valid(c.arg(1), 4))
+            return kDDErrInvalidParams;
+        if (dc)
+            return kDDErrSurfaceBusy;
+        Win32Process::GdiBitmap b;
+        b.memory = d.memory;
+        b.width = d.width;
+        b.height = d.height;
+        b.pitch = d.pitch;
+        b.bits = int(d.format.bits);
+        const PixelFormat format = d.format;
+        if (const uint32_t *argb = format.flags & kPfPaletteIndexed8 ? paletteArgb() : nullptr) {
+            std::array<uint32_t, 256> colors;
+            std::copy(argb, argb + 256, colors.begin());
+            b.pixelOf = [colors](uint32_t ref) {
+                const int r = int(ref & 0xff);
+                const int g = int((ref >> 8) & 0xff);
+                const int bl = int((ref >> 16) & 0xff);
+                uint32_t best = 0;
+                int bestDistance = 1 << 30;
+                for (uint32_t i = 0; i < 256; ++i) {
+                    const int dr = int((colors[i] >> 16) & 0xff) - r;
+                    const int dg = int((colors[i] >> 8) & 0xff) - g;
+                    const int db = int(colors[i] & 0xff) - bl;
+                    const int distance = dr * dr + dg * dg + db * db;
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = i;
+                    }
+                }
+                return best;
+            };
+            b.colorOf = [colors](uint32_t v) {
+                const uint32_t argb = colors[v & 0xff];
+                return (argb >> 16 & 0xff) | (argb & 0xff00) | (argb & 0xff) << 16;
+            };
+        } else {
+            b.pixelOf = [format](uint32_t ref) {
+                return format.fromArgb(0xff000000u | (ref & 0xff) << 16 | (ref & 0xff00) | (ref >> 16 & 0xff));
+            };
+            b.colorOf = [format](uint32_t v) {
+                const uint32_t argb = format.toArgb(v, nullptr);
+                return (argb >> 16 & 0xff) | (argb & 0xff00) | (argb & 0xff) << 16;
+            };
+        }
+        dc = s->process.createDeviceContext(std::move(b));
+        c.write32(c.arg(1), dc);
+        return kDDOk;
+    }
+    if (m == "ReleaseDC") {
+        if (!dc || c.arg(1) != dc)
+            return kDDErrInvalidParams;
+        s->process.deleteDeviceContext(dc);
+        dc = 0;
+        touched();
+        return kDDOk;
+    }
     if (m == "Lock") {
         const uint32_t rect = c.arg(1);
         const uint32_t desc = c.arg(2);
@@ -598,6 +666,8 @@ uint32_t Surface::blt(Cpu &c) {
         if (!c.valid(fx, 84))
             return kDDErrInvalidParams;
         fill(to, c.read32(fx + 80));
+        if ((flags & kBltDepthFill) && d.format.isZ())
+            s->depthFilled(*this, c.read32(fx + 80));
     } else {
         Surface *src = s->com.as<Surface>(srcPtr);
         if (!src)
@@ -765,6 +835,21 @@ void DirectX::State::present() {
     presentShown();
 }
 
+void DirectX::State::presentWindow(uint32_t window, const uint32_t *pixels, int width, int height) {
+    frame.width = width, frame.height = height;
+    frame.x = frame.y = 0;
+    if (auto area = process.clientArea(window))
+        frame.x = (*area)[0], frame.y = (*area)[1];
+    frame.scene.reset();
+    frame.pixels.resize(size_t(width) * size_t(height));
+    for (size_t i = 0; i < frame.pixels.size(); ++i)
+        frame.pixels[i] = 0xff000000u | (pixels[i] & 0xffffff);
+    applyGamma();
+    ++frame.number;
+    if (owner.presented)
+        owner.presented(frame);
+}
+
 void DirectX::State::presentShown() {
     auto p = primary.lock();
     if (!p)
@@ -779,6 +864,7 @@ void DirectX::State::presentShown() {
             w = (*area)[2], h = (*area)[3];
         }
     frame.width = w, frame.height = h;
+    frame.x = x0, frame.y = y0;
     frame.pixels.assign(size_t(w) * size_t(h), 0xff000000u);
     // The part of the window on the surface, a row at a time.
     const int from = std::max(0, -x0);
@@ -791,13 +877,38 @@ void DirectX::State::presentShown() {
             continue;
         convert.row(cpu.memory().data() + at, to - from, frame.pixels.data() + size_t(y) * size_t(w) + size_t(from));
     }
+    // The scene drawn into this buffer, if one was kept: shown through
+    // where the buffer still has the colour it was covered with.
+    frame.scene.reset();
+    if (auto it = scenes.find(p->d.memory); it != scenes.end()) {
+        std::shared_ptr<DirectX::Scene> scene = std::move(it->second);
+        scenes.erase(it);
+        bool through = owner.sceneCapture == DirectX::SceneCapture::kAlso;
+        if (owner.sceneCapture == DirectX::SceneCapture::kInstead) {
+            const uint32_t key = convert(dx::sceneKey(p->d.format));
+            for (uint32_t &px : frame.pixels)
+                if (px == key) {
+                    px &= 0xffffffu;
+                    through = true;
+                }
+        }
+        if (through) {
+            if (gamma != identityGamma())
+                scene->gamma.assign(gamma.begin(), gamma.end());
+            frame.scene = std::move(scene);
+        }
+    }
+    applyGamma();
+    ++frame.number;
+    if (owner.presented)
+        owner.presented(frame);
+}
+
+void DirectX::State::applyGamma() {
     if (gamma != identityGamma())
         for (uint32_t &px : frame.pixels)
             px = (px & 0xff000000u) | uint32_t(gamma[(px >> 16) & 0xff] >> 8) << 16 |
                  uint32_t(gamma[256 + ((px >> 8) & 0xff)] >> 8) << 8 | uint32_t(gamma[512 + (px & 0xff)] >> 8);
-    ++frame.number;
-    if (owner.presented)
-        owner.presented(frame);
 }
 
 } // namespace reluva::x86

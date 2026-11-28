@@ -279,9 +279,22 @@ public:
      * at the next instruction. Safe to call from any thread.
      */
     void requestStop() { _stop.store(true, std::memory_order_relaxed); }
+    /** Lets code run again after requestStop: for a call made once a run has stopped. */
+    void clearStop() { _stop.store(false, std::memory_order_relaxed); }
     // Whether instructions run through the decoded-instruction cache (on by
     // default; off runs each from its bytes, as a check).
     bool cacheOn = true;
+    /**
+     * Where the code epoch (a count, 32 bits, that blocks and the Jit's
+     * links are stamped with) is taken back to 1, well before it could
+     * come round to a stale stamp: every block's bytes are then checked
+     * again and the Jit's code made afresh, at the next point no native
+     * code is running. About a million a second in Jedi Knight: an hour or
+     * so of play. Lower in tests, to make it happen.
+     */
+    uint32_t codeEpochRenewal = 0xf0000000u;
+    /** The code epoch as it is (codeEpochRenewal). */
+    uint32_t codeEpoch() const { return _codeEpoch; }
     // Whether the cache's blocks run as native code (jit.h) where that can
     // be made; off, its loop calls each instruction's handler. Both run the
     // same handlers, so they agree to the instruction.
@@ -563,6 +576,9 @@ private:
     // The block for `at`, from _spare if it's there and its bytes are the
     // same, else made (build).
     void rebuild(Block &b, uint32_t at);
+    // The code epoch back to 1, no block's stamp left current and the Jit's
+    // code gone (codeEpochRenewal); with no native code running.
+    void renewCodeEpoch();
     static void jitMemoryFault(void *cpu, uint32_t address, uint32_t size); // for the Jit's code
     static int jitCallNative(void *cpu);
     void decode(Cached &e, uint32_t at);

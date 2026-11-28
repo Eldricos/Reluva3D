@@ -112,10 +112,10 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path &dir, std
             const std::string type = fs::toLower(w[2]);
             if (type != "binary" && type != "motorola")
                 return bad("FILE of type " + w[2] + " isn't supported, only BINARY and MOTOROLA");
+            // One that isn't there is only an error for an audio track
+            // (below): a data track's image may have been left out.
             const auto found = fs::findFile(dir, w[1]);
-            if (!found)
-                return bad("can't find " + w[1] + " in " + dir.string());
-            files.push_back({*found, type == "motorola"});
+            files.push_back({found ? *found : dir / w[1], type == "motorola"});
         } else if (cmd == "track") {
             if (w.size() < 3)
                 return bad("TRACK needs a number and a mode");
@@ -179,8 +179,16 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path &dir, std
         CueTrack track = tracks[i].track;
         std::error_code ec;
         const uint64_t fileSize = std::filesystem::file_size(track.file, ec);
+        if (ec && !track.audio) {
+            // A data track's image left out (its files copied from the CD
+            // instead): the audio tracks are still there.
+            track.offset = track.size = 0;
+            out.push_back(std::move(track));
+            continue;
+        }
         if (ec)
-            return Error::fail("can't read the size of " + track.file.string());
+            return Error::fail("can't find " + track.file.filename().string() + " in " +
+                               track.file.parent_path().string());
         track.offset = regionStart[i] + uint64_t(tracks[i].index1 - tracks[i].firstIndex) * uint64_t(track.sectorSize);
         const bool lastInFile = i + 1 == tracks.size() || tracks[i + 1].fileIndex != tracks[i].fileIndex;
         const uint64_t end = lastInFile ? fileSize : regionStart[i + 1];

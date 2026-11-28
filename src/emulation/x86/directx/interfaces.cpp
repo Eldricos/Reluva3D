@@ -20,6 +20,17 @@ const char *const kIidSurface7 = "{06675a80-3b9b-11d2-b92f-00609797ea5b}";
 const char *const kIidPalette = "{6c14db84-a733-11ce-a521-0020af0be560}";
 const char *const kIidClipper = "{6c14db85-a733-11ce-a521-0020af0be560}";
 const char *const kIidGammaControl = "{69c11c3e-b46b-11d1-ad7a-00c04fc29b4e}";
+const char *const kIidDirect3D = "{3bba0080-2421-11cf-a31a-00aa00b93356}";
+const char *const kIidDirect3D2 = "{6aae1ec1-662a-11d0-889d-00aa00bbb76a}";
+const char *const kIidDevice1 = "{64108800-957d-11d0-89ab-00a0c9054129}";
+const char *const kIidExecuteBuffer = "{4417c145-33ad-11cf-816f-0000c020156e}";
+const char *const kIidViewport = "{4417c146-33ad-11cf-816f-0000c020156e}";
+const char *const kIidViewport2 = "{93281500-8cf8-11d0-89ab-00a0c9054129}";
+const char *const kIidMaterial = "{4417c144-33ad-11cf-816f-0000c020156e}";
+const char *const kIidMaterial2 = "{93281503-8cf8-11d0-89ab-00a0c9054129}";
+const char *const kIidLight = "{4417c142-33ad-11cf-816f-0000c020156e}";
+const char *const kIidTexture = "{2cdcd9e0-25a0-11cf-a31a-00aa00b93356}";
+const char *const kIidRampDevice = "{f2086b20-259f-11cf-a31a-00aa00b93356}";
 const char *const kIidDirect3D7 = "{f5049e77-4861-11d2-a407-00a0c90629a8}";
 const char *const kIidDevice7 = "{f5049e79-4861-11d2-a407-00a0c90629a8}";
 const char *const kIidVertexBuffer7 = "{f5049e7d-4861-11d2-a407-00a0c90629a8}";
@@ -146,6 +157,77 @@ Interfaces::Interfaces() {
                      {"IsClipListChanged", 1},
                      {"SetClipList", 2},
                      {"SetHWnd", 2}})};
+    direct3d = {"IDirect3D", kIidDirect3D,
+                with({{"Initialize", 1},
+                      {"EnumDevices", 2},
+                      {"CreateLight", 2},
+                      {"CreateMaterial", 2},
+                      {"CreateViewport", 2},
+                      {"FindDevice", 2}})};
+    direct3d2 = {"IDirect3D2", kIidDirect3D2,
+                 with({{"EnumDevices", 2},
+                       {"CreateLight", 2},
+                       {"CreateMaterial", 2},
+                       {"CreateViewport", 2},
+                       {"FindDevice", 2},
+                       {"CreateDevice", 3}})};
+    device1 = {"IDirect3DDevice", kIidDevice1,
+               with({{"Initialize", 3},
+                     {"GetCaps", 2},
+                     {"SwapTextureHandles", 2},
+                     {"CreateExecuteBuffer", 3},
+                     {"GetStats", 1},
+                     {"Execute", 3},
+                     {"AddViewport", 1},
+                     {"DeleteViewport", 1},
+                     {"NextViewport", 3},
+                     {"Pick", 4},
+                     {"GetPickRecords", 2},
+                     {"EnumTextureFormats", 2},
+                     {"CreateMatrix", 1},
+                     {"SetMatrix", 2},
+                     {"GetMatrix", 2},
+                     {"DeleteMatrix", 1},
+                     {"BeginScene", 0},
+                     {"EndScene", 0},
+                     {"GetDirect3D", 1}})};
+    executeBuffer = {"IDirect3DExecuteBuffer", kIidExecuteBuffer,
+                     with({{"Initialize", 2},
+                           {"Lock", 1},
+                           {"Unlock", 0},
+                           {"SetExecuteData", 1},
+                           {"GetExecuteData", 1},
+                           {"Validate", 4},
+                           {"Optimize", 1}})};
+    const std::vector<ComInterface::Method> viewportMethods = with({{"Initialize", 1},
+                                                                    {"GetViewport", 1},
+                                                                    {"SetViewport", 1},
+                                                                    {"TransformVertices", 4},
+                                                                    {"LightElements", 2},
+                                                                    {"SetBackground", 1},
+                                                                    {"GetBackground", 2},
+                                                                    {"SetBackgroundDepth", 1},
+                                                                    {"GetBackgroundDepth", 2},
+                                                                    {"Clear", 3},
+                                                                    {"AddLight", 1},
+                                                                    {"DeleteLight", 1},
+                                                                    {"NextLight", 3},
+                                                                    {"GetViewport2", 1}, // IDirect3DViewport2
+                                                                    {"SetViewport2", 1}});
+    viewport = {"IDirect3DViewport", kIidViewport, first(viewportMethods, 16)};
+    viewport2 = {"IDirect3DViewport2", kIidViewport2, viewportMethods};
+    material = {"IDirect3DMaterial", kIidMaterial,
+                with({{"Initialize", 1},
+                      {"SetMaterial", 1},
+                      {"GetMaterial", 1},
+                      {"GetHandle", 2},
+                      {"Reserve", 0},
+                      {"Unreserve", 0}})};
+    material2 = {"IDirect3DMaterial2", kIidMaterial2, with({{"SetMaterial", 1}, {"GetMaterial", 1}, {"GetHandle", 2}})};
+    light = {"IDirect3DLight", kIidLight, with({{"Initialize", 1}, {"SetLight", 1}, {"GetLight", 1}})};
+    texture = {"IDirect3DTexture", kIidTexture,
+               with({{"Initialize", 2}, {"GetHandle", 2}, {"PaletteChanged", 2}, {"Load", 1}, {"Unload", 0}})};
+    texture2 = {"IDirect3DTexture2", kIidTexture2, with({{"GetHandle", 2}, {"PaletteChanged", 2}, {"Load", 1}})};
     direct3d7 = {"IDirect3D7", kIidDirect3D7,
                  with({{"EnumDevices", 2},
                        {"CreateDevice", 3},

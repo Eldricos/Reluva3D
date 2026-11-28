@@ -2,8 +2,9 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Tests for the SDL backend's game controllers (sdl_controller.cpp) against
-// SDL's virtual joysticks: a wheel read by its axes, and a pad's rumble from
-// the forces a game asks for. No window or real controller is needed.
+// SDL's virtual joysticks: a wheel read by its axes, a pad's rumble from
+// the forces a game asks for, and a second controller beside the first,
+// with forces of its own. No window or real controller is needed.
 
 #include "backends/platform/sdl3/sdl_system.h"
 #include "tests/support/test.h"
@@ -126,12 +127,119 @@ void testPadRumble() {
     SDL_DetachVirtualJoystick(id);
 }
 
-} // namespace
+// A pad and a wheel: the pad first, the wheel the second (a second
+// player's joystick), its pedals found as they rest; then a second pad
+// takes the wheel's place, and none is second once they're gone.
+void testSecond() {
+    CHECK(SDL_Init(SDL_INIT_GAMEPAD));
+    SdlSystem sys;
+    SDL_VirtualJoystickDesc pad;
+    SDL_INIT_INTERFACE(&pad);
+    pad.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+    pad.naxes = SDL_GAMEPAD_AXIS_COUNT;
+    pad.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+    pad.name = "Test Pad";
+    const SDL_JoystickID padId = SDL_AttachVirtualJoystick(&pad);
+    SDL_VirtualJoystickDesc wheel;
+    SDL_INIT_INTERFACE(&wheel);
+    wheel.type = SDL_JOYSTICK_TYPE_WHEEL;
+    wheel.naxes = 3;
+    wheel.nbuttons = 4;
+    wheel.name = "Test Wheel";
+    const SDL_JoystickID wheelId = SDL_AttachVirtualJoystick(&wheel);
+    CHECK(padId != 0 && wheelId != 0);
+    SDL_Joystick *w = SDL_OpenJoystick(wheelId);
+    SDL_SetJoystickVirtualAxis(w, 0, -16384);
+    SDL_SetJoystickVirtualAxis(w, 1, 32767); // the accelerator, up
+    SDL_SetJoystickVirtualAxis(w, 2, 32767); // the brake, up
+    SDL_UpdateJoysticks();
+    {
+        GamepadState first;
+        GamepadState second;
+        CHECK(sys.readGamepad(0, first) && first.name == "Test Pad" && !first.wheel);
+        CHECK(sys.readGamepad(1, second) && second.name == "Test Wheel" && second.wheel);
+        CHECK(near(second.axes[0], -0.5f) && second.axes[5] == 0 && second.axes[4] == 0);
+        // The accelerator pressed all the way.
+        SDL_SetJoystickVirtualAxis(w, 1, -32768);
+        SDL_SetJoystickVirtualButton(w, 1, true);
+        SDL_UpdateJoysticks();
+        CHECK(sys.readGamepad(1, second) && near(second.axes[5], 1.0f) && second.buttons == 1u << 1);
+        CHECK(sys.readGamepad(0, first) && first.axes[5] == 0); // the pad's own
+        // The second wheel's pedals set the other way about: the pedal
+        // pressed is now its brake.
+        sys.setWheelPedals(1, 2, 1);
+        CHECK(sys.readGamepad(1, second) && near(second.axes[4], 1.0f) && second.axes[5] == 0);
+        CHECK(!sys.readGamepad(2, second));
+    }
+    // With the wheel gone, a second pad is the second.
+    SDL_CloseJoystick(w);
+    SDL_DetachVirtualJoystick(wheelId);
+    pad.name = "Second Pad";
+    const SDL_JoystickID secondPadId = SDL_AttachVirtualJoystick(&pad);
+    SDL_UpdateJoysticks();
+    {
+        GamepadState second;
+        CHECK(sys.readGamepad(1, second) && second.name == "Second Pad" && !second.wheel);
+    }
+    SDL_DetachVirtualJoystick(secondPadId);
+    SDL_UpdateJoysticks();
+    {
+        GamepadState second;
+        CHECK(!sys.readGamepad(1, second));
+    }
+    SDL_DetachVirtualJoystick(padId);
+}
+
+// Two pads that rumble: each controller's forces go to it alone.
+void testSecondForces() {
+    CHECK(SDL_Init(SDL_INIT_GAMEPAD));
+    SdlSystem sys;
+    Rumble first;
+    Rumble second;
+    SDL_VirtualJoystickDesc desc;
+    SDL_INIT_INTERFACE(&desc);
+    desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+    desc.naxes = SDL_GAMEPAD_AXIS_COUNT;
+    desc.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+    desc.Rumble = rumble;
+    desc.name = "First Pad";
+    desc.userdata = &first;
+    const SDL_JoystickID firstId = SDL_AttachVirtualJoystick(&desc);
+    desc.name = "Second Pad";
+    desc.userdata = &second;
+    const SDL_JoystickID secondId = SDL_AttachVirtualJoystick(&desc);
+    CHECK(firstId != 0 && secondId != 0);
+    {
+        GamepadState s;
+        CHECK(sys.readGamepad(0, s) && s.name == "First Pad");
+        CHECK(sys.readGamepad(1, s) && s.name == "Second Pad" && s.forceFeedback);
+        GamepadForce f;
+        f.constant = 1;
+        sys.setGamepadForce(1, f);
+        CHECK(second.calls == 1 && second.low == 65535 && first.calls == 0);
+        GamepadForce half;
+        half.constant = 0.5f;
+        sys.setGamepadForce(0, half);
+        CHECK(first.calls == 1 && first.low > 32000 && first.low < 33000 && second.low == 65535);
+        sys.setGamepadForce(1, {});
+        CHECK(second.low == 0 && first.low > 32000);
+        sys.setGamepadForce(0, {});
+        sys.setGamepadForce(2, f); // no third: nothing
+        CHECK(first.low == 0 && second.low == 0);
+    }
+    SDL_DetachVirtualJoystick(secondId);
+    SDL_DetachVirtualJoystick(firstId);
+}
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.sdl_controller",
-                                        {
-                                            {"wheel", [](const std::filesystem::path &) { testWheel(); }},
-                                            {"pad rumble", [](const std::filesystem::path &) { testPadRumble(); }},
-                                        });
+} // namespace
+
+static const reluva::test::Suite
+    kSuite("common.unit.sdl_controller",
+           {
+               {"wheel", [](const std::filesystem::path &) { testWheel(); }},
+               {"pad rumble", [](const std::filesystem::path &) { testPadRumble(); }},
+               {"second", [](const std::filesystem::path &) { testSecond(); }},
+               {"second's forces", [](const std::filesystem::path &) { testSecondForces(); }},
+           });

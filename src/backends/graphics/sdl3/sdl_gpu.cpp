@@ -49,15 +49,16 @@ struct VertexUniforms {
     float fillDir[2][4];
     float matAmbient[4]; // w: 1 to light as Direct3D does
     float matEmissive[4];
-    float linearFog[4];                      // x, y: where the fog starts and is complete (y 0: none)
+    float linearFog[4]; // x, y: where the fog starts and is complete (y 0: none); z: 1 for screenDepth;
+                        // w: 1 for specularFromNormal
     float vlPos[gfx::kMaxVertexLights][4];   // xyz, radius
     float vlColor[gfx::kMaxVertexLights][4]; // rgb
     float vlParams[4];                       // count, scale, specular
 };
 struct FragmentUniforms {
     float params[4];
-    float fog[4];   // rgb, and DrawCall::tableFog
-    float blend[4]; // blendOut's factors (draw)
+    float fog[4];   // rgb, and DrawCall::tableFog (-1: vertex fog)
+    float blend[4]; // blendOut's factors (draw); z, w: AlphaTest::kCompare's function and reference (0-255)
     float lightCount[4];
     float lightPos[gfx::kMaxDynamicLights][4]; // xyz, radius
     float lightColor[gfx::kMaxDynamicLights][4];
@@ -100,7 +101,8 @@ void waitAndRelease(SDL_GPUDevice *device, SDL_GPUFence *&fence) {
 
 uint32_t packState(const gfx::DrawState &s) {
     return uint32_t(s.src) | uint32_t(s.dst) << 4 | uint32_t(s.depthTest) << 8 | uint32_t(s.depthWrite) << 9 |
-           uint32_t(s.cull) << 10 | uint32_t(s.depthEqual) << 12 | uint32_t(s.depthBias) << 13;
+           uint32_t(s.cull) << 10 | uint32_t(s.depthEqual) << 12 | uint32_t(s.depthBias) << 13 |
+           uint32_t(s.depthLess) << 14;
 }
 
 } // namespace
@@ -808,8 +810,8 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
 }
 
 SDL_GPUGraphicsPipeline *SdlGpuRenderer::pipeline(const gfx::DrawState &state) {
-    const uint32_t key = packState(state) | uint32_t(_stencilMode) << 14 | uint32_t(_mirrored) << 18 |
-                         uint32_t(_stencilWhole) << 19 | uint32_t(_passSamples) << 20;
+    const uint32_t key = packState(state) | uint32_t(_stencilMode) << 15 | uint32_t(_mirrored) << 19 |
+                         uint32_t(_stencilWhole) << 20 | uint32_t(_passSamples) << 21;
     if (auto it = _pipelines.find(key); it != _pipelines.end())
         return it->second;
 
@@ -859,7 +861,9 @@ SDL_GPUGraphicsPipeline *SdlGpuRenderer::pipeline(const gfx::DrawState &state) {
     }
     info.depth_stencil_state.enable_depth_test = state.depthTest;
     info.depth_stencil_state.enable_depth_write = state.depthWrite;
-    info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
+    info.depth_stencil_state.compare_op = state.depthEqual  ? SDL_GPU_COMPAREOP_EQUAL
+                                          : state.depthLess ? SDL_GPU_COMPAREOP_LESS
+                                                            : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     if (_stencilMode != StencilMode::kNone) {
         const bool level = _stencilMode == StencilMode::kLevelMark || _stencilMode == StencilMode::kLevelInside ||
                            _stencilMode == StencilMode::kOnce || _stencilMode == StencilMode::kUnmark;
@@ -1045,6 +1049,8 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     put(vu.matEmissive, call.materialEmissive);
     vu.linearFog[0] = call.fogNear;
     vu.linearFog[1] = call.fogFar;
+    vu.linearFog[2] = call.screenDepth ? 1.0f : 0.0f;
+    vu.linearFog[3] = call.specularFromNormal ? 1.0f : 0.0f;
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform &d = call.deforms[i];
         DeformUniforms &u = vu.deforms[i];
@@ -1069,8 +1075,10 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     fu.params[3] = call.fogDepth > 0 ? 1.0f : 0.0f;
     fu.blend[0] = blendSrc;
     fu.blend[1] = blendDst;
+    fu.blend[2] = float(call.alphaFunc);
+    fu.blend[3] = std::floor(std::clamp(call.alphaRef, 0.0f, 1.0f) * 255 + 0.5f);
     std::copy(call.tableFogColor.begin(), call.tableFogColor.end(), fu.fog);
-    fu.fog[3] = call.tableFog;
+    fu.fog[3] = call.vertexFog ? -1.0f : call.tableFog;
     std::copy(call.fogColor.begin(), call.fogColor.end(), fu.linearFogColor);
     if (call.texture == _frameTexture) {
         fu.params[1] = 2; // the brightness pass

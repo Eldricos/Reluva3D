@@ -4,22 +4,40 @@
 #include "common/detection.h"
 #include "common/fs.h"
 
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <optional>
 
 namespace reluva {
 
+FileLookup folderLookup(const std::filesystem::path &dir) {
+    return [dir](const std::string &name) -> std::optional<FoundFile> {
+        const auto path = fs::findFile(dir, name);
+        if (!path)
+            return std::nullopt;
+        std::error_code ec;
+        const auto size = std::filesystem::file_size(*path, ec);
+        if (ec)
+            return std::nullopt;
+        return FoundFile{size, [p = *path] { return fs::md5File(p, kDetectionHashBytes); }};
+    };
+}
+
 std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
                                           const std::filesystem::path &dir) {
-    // Many variants share files, so cache per-file results.
-    std::map<std::string, std::optional<std::filesystem::path>> found;
-    std::map<std::string, std::optional<std::string>> hashes;
+    return detectFromTable(engineId, table, folderLookup(dir));
+}
 
-    auto locate = [&](const std::string &name) -> const std::optional<std::filesystem::path> & {
+std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
+                                          const FileLookup &files) {
+    // Many variants share files, so cache per-file results.
+    std::map<std::string, std::optional<FoundFile>> found;
+    std::map<std::string, std::optional<std::string>> hashes;
+    auto locate = [&](const std::string &name) -> const std::optional<FoundFile> & {
         auto it = found.find(name);
         if (it == found.end())
-            it = found.emplace(name, fs::findFile(dir, name)).first;
+            it = found.emplace(name, files(name)).first;
         return it->second;
     };
 
@@ -27,24 +45,15 @@ std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std
     for (const GameVariant &variant : table) {
         bool matches = !variant.files.empty();
         for (const FileSignature &sig : variant.files) {
-            const auto &path = locate(sig.name);
-            if (!path) {
+            const auto &file = locate(sig.name);
+            if (!file || (sig.size >= 0 && static_cast<int64_t>(file->size) != sig.size)) {
                 matches = false;
                 break;
             }
-            if (sig.size >= 0) {
-                std::error_code ec;
-                auto size = std::filesystem::file_size(*path, ec);
-                if (ec || static_cast<int64_t>(size) != sig.size) {
-                    matches = false;
-                    break;
-                }
-            }
             if (!sig.md5.empty()) {
-                auto key = path->string();
-                auto it = hashes.find(key);
+                auto it = hashes.find(sig.name);
                 if (it == hashes.end())
-                    it = hashes.emplace(key, fs::md5File(*path, kDetectionHashBytes)).first;
+                    it = hashes.emplace(sig.name, file->md5()).first;
                 if (!it->second || *it->second != sig.md5) {
                     matches = false;
                     break;
@@ -85,6 +94,27 @@ Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
             if (progress && !progress(done, total)) {
                 std::filesystem::remove(part, ec);
                 return Error::fail("Import cancelled");
+            }
+        } else if (f.disc) {
+            IsoTrackReader in;
+            if (Error err = in.open(*f.disc))
+                return err;
+            std::ofstream out(part, std::ios::binary | std::ios::trunc);
+            if (!out)
+                return Error::fail("Couldn't write " + part.string());
+            for (uint64_t at = 0; at < f.size;) {
+                const size_t n = size_t(std::min<uint64_t>(buffer.size(), f.size - at));
+                if (Error err = in.read(f.discSector, at, buffer.data(), n))
+                    return err;
+                if (!out.write(buffer.data(), std::streamsize(n)))
+                    return Error::fail("Couldn't write " + part.string() + " (is the disk full?)");
+                at += n;
+                done += n;
+                if (progress && !progress(done, total)) {
+                    out.close();
+                    std::filesystem::remove(part, ec);
+                    return Error::fail("Import cancelled");
+                }
             }
         } else {
             std::ifstream in(f.from, std::ios::binary);

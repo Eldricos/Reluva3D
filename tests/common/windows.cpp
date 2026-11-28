@@ -8,9 +8,17 @@
 //   reluva-tests common.unit.windows
 
 #include "audio/mixer.h"
+#include "audio/wav.h"
 #include "common/fs.h"
+#include "common/net.h"
+#include "common/stream.h"
 #include "common/types.h"
 #include "emulation/x86/a3d.h"
+#include "emulation/x86/cdaudio.h"
+#include "emulation/x86/directx/dsound.h"
+#include "emulation/x86/directx/sound3d.h"
+#include "emulation/x86/dplay.h"
+#include "emulation/x86/joystick.h"
 #include "emulation/x86/com.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/directx/dinput.h"
@@ -19,6 +27,8 @@
 #include "emulation/x86/msvcp60.h"
 #include "emulation/x86/msvcrt.h"
 #include "emulation/x86/win32.h"
+#include "tests/common/data/tone440_flac.h"
+#include "tests/common/data/tone440_ogg.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
@@ -27,6 +37,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -414,6 +425,20 @@ static void testWindowsAndRegistry() {
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x102 &&
           cpu.read32(msg + 8) == 'q');
     CHECK((seen == std::vector<uint32_t>{0x100}));
+    // A mark and the keypad's digits type their characters too.
+    for (const auto &[vk, ch] : std::vector<std::pair<uint32_t, uint32_t>>{{0xbe, '.'}, {0xbd, '-'}, {0x67, '7'}}) {
+        process.postMessage(hwnd, 0x100, vk, 0);
+        CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1);
+        CHECK(!cpu.call(fn("USER32.dll", "TranslateMessage"), {msg}, r) && r == 1);
+        CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r == 1 &&
+              cpu.read32(msg + 4) == 0x102 && cpu.read32(msg + 8) == ch);
+    }
+    // GetMessageA takes what's queued, and says 0 for WM_QUIT.
+    process.postMessage(hwnd, 0x400, 7, 0); // WM_USER
+    CHECK(!cpu.call(fn("USER32.dll", "GetMessageA"), {msg, 0, 0, 0}, r) && r == 1 && cpu.read32(msg + 4) == 0x400 &&
+          cpu.read32(msg + 8) == 7);
+    process.postMessage(hwnd, 0x12, 5, 0); // WM_QUIT
+    CHECK(!cpu.call(fn("USER32.dll", "GetMessageA"), {msg, 0, 0, 0}, r) && r == 0 && cpu.read32(msg + 8) == 5);
     CHECK(!cpu.call(fn("USER32.dll", "PostQuitMessage"), {3}, r));
     CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, hwnd, 0, 0, 1}, r) && r == 1 &&
           cpu.read32(msg + 4) == 0x12 && cpu.read32(msg + 8) == 3);
@@ -421,6 +446,38 @@ static void testWindowsAndRegistry() {
     seen.clear();
     CHECK(!cpu.call(fn("USER32.dll", "DefWindowProcA"), {hwnd, 0x10, 0, 0}, r));
     CHECK((seen == std::vector<uint32_t>{0x2, 0x82}) && process.window(hwnd) == nullptr);
+    // Made visible (WS_VISIBLE), a window is shown and activated as by ShowWindow.
+    seen.clear();
+    CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"),
+                    {0, text("testclass"), text("Title"), 0x10cf0000, 0, 0, 640, 480, 0, 0, 0, 0}, r) &&
+          r != 0);
+    const uint32_t shown = r;
+    CHECK((seen == std::vector<uint32_t>{0x81, 0x1, 0x18, 0x1c, 0x6, 0x7}));
+    CHECK(!cpu.call(fn("USER32.dll", "GetActiveWindow"), {}, r) && r == shown);
+    CHECK(!cpu.call(fn("USER32.dll", "SetFocus"), {0}, r) && r == shown);
+    CHECK(!cpu.call(fn("USER32.dll", "GetFocus"), {}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "SetWindowLongA"), {shown, uint32_t(-21), 1234}, r) && r == 0);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {shown, uint32_t(-21)}, r) && r == 1234);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {shown, uint32_t(-4)}, r) && r == proc);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowLongA"), {shown, uint32_t(-16)}, r) && r == 0x10cf0000);
+    CHECK(!cpu.call(fn("USER32.dll", "IsWindow"), {shown}, r) && r == 1);
+    CHECK(!cpu.call(fn("USER32.dll", "GetWindowThreadProcessId"), {shown, 0}, r) && r != 0);
+    CHECK(!cpu.call(fn("USER32.dll", "GetDesktopWindow"), {}, r) && r != 0 && r != shown);
+    const uint32_t paint = process.memory().alloc(64);
+    CHECK(!cpu.call(fn("USER32.dll", "BeginPaint"), {shown, paint}, r) && r != 0 && cpu.read32(paint) == r);
+    // FILETIME to SYSTEMTIME: 2000-02-29 12:34:56.789 UTC, a Tuesday.
+    const uint32_t fileTime = process.memory().alloc(8);
+    const uint32_t systemTime = process.memory().alloc(16);
+    const uint64_t ticks = 125963012967890000ull;
+    cpu.write32(fileTime, uint32_t(ticks));
+    cpu.write32(fileTime + 4, uint32_t(ticks >> 32));
+    CHECK(!cpu.call(fn("KERNEL32.dll", "FileTimeToSystemTime"), {fileTime, systemTime}, r) && r == 1);
+    const uint16_t expected[8] = {2000, 2, 2, 29, 12, 34, 56, 789};
+    for (uint32_t i = 0; i < 8; ++i)
+        CHECK(cpu.read16(systemTime + 2 * i) == expected[i]);
+    const uint32_t copy = process.memory().alloc(16);
+    CHECK(!cpu.call(fn("KERNEL32.dll", "lstrcpyA"), {copy, text("copied")}, r) && r == copy &&
+          cpu.string(copy) == "copied");
 
     // The registry: a key made, a value set and read back; Windows' own
     // locale list enumerated.
@@ -511,6 +568,20 @@ static void testDirectX() {
                     {0, out, guid("{15e65ec0-3b9c-11d2-b92f-00609797ea5b}"), 0}, r) &&
           r == 0);
     const uint32_t dd = cpu.read32(out);
+    // Direct3D 1's devices, as DirectX 5 programs list them: software, then
+    // hardware, a description each for hardware and for software.
+    CHECK(call(dd, 0, {guid("{3bba0080-2421-11cf-a31a-00aa00b93356}"), out}) == 0);
+    const uint32_t d3d1 = cpu.read32(out);
+    std::vector<uint32_t> colorModels; // the hardware description's, for each device
+    const uint32_t listed = cpu.addNative("test!EnumDevices", [&](x86::Cpu &c) {
+        CHECK(c.read32(c.arg(3)) == 204 && c.read32(c.arg(4) + 8) == 2); // sizes; software always RGB
+        colorModels.push_back(c.read32(c.arg(3) + 8));
+        c.reg[x86::Cpu::EAX] = 1; // D3DENUMRET_OK
+        return 24u;
+    });
+    CHECK(call(d3d1, 4, {listed, 0}) == 0);
+    CHECK((colorModels == std::vector<uint32_t>{0, 2}));
+    call(d3d1, 2, {});                            // Release: the DirectDraw object stays
     CHECK(call(dd, 20, {0, 0x11}) == 0);          // SetCooperativeLevel: exclusive, fullscreen
     CHECK(call(dd, 21, {64, 48, 16, 0, 0}) == 0); // SetDisplayMode
     CHECK(call(dd, 21, {65, 48, 16, 0, 0}) != 0); // a mode not offered
@@ -530,6 +601,45 @@ static void testDirectX() {
     cpu.write32(caps, 0x4);                     // BACKBUFFER
     CHECK(call(primary, 12, {caps, out}) == 0); // GetAttachedSurface
     const uint32_t back = cpu.read32(out);
+    // GDI text through the back buffer's device context: red on what was
+    // there (black), left alone around it.
+    CHECK(call(back, 17, {out}) == 0); // GetDC
+    const uint32_t dc = cpu.read32(out);
+    CHECK(call(back, 17, {out}) != 0); // one at a time
+    auto gdi = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("GDI32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t text = mem(4);
+    cpu.writeString(text, "Hi", 4);
+    const uint32_t font = gdi("CreateFontA", {uint32_t(-9), 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    CHECK(gdi("SelectObject", {dc, font}) != 0);
+    CHECK(gdi("SetBkMode", {dc, 1}) == 2); // TRANSPARENT, from OPAQUE
+    CHECK(gdi("SetTextColor", {dc, 0x0000ff}) == 0);
+    CHECK(gdi("TextOutA", {dc, 2, 3, text, 2}) == 1);
+    const uint32_t extent = mem(8);
+    CHECK(gdi("GetTextExtentPoint32A", {dc, text, 2, extent}) == 1 && cpu.read32(extent) == 12 &&
+          cpu.read32(extent + 4) == 11);
+    CHECK(call(back, 26, {dc}) == 0); // ReleaseDC
+    const uint32_t lockDesc = mem(124);
+    cpu.write32(lockDesc, 124);
+    CHECK(call(back, 25, {0, lockDesc, 1, 0}) == 0); // Lock
+    {
+        const uint32_t pixels = cpu.read32(lockDesc + 36);
+        const uint32_t pitch = cpu.read32(lockDesc + 16);
+        int red = 0;
+        int other = 0;
+        for (uint32_t y = 0; y < 20; ++y)
+            for (uint32_t x = 0; x < 20; ++x) {
+                const uint16_t v = cpu.read16(pixels + y * pitch + 2 * x);
+                const bool inside = x >= 2 && x < 14 && y >= 3 && y < 14;
+                red += v == 0xf800 && inside;
+                other += v != 0 && (v != 0xf800 || !inside);
+            }
+        CHECK(red > 10 && other == 0);
+    }
+    CHECK(call(back, 32, {0}) == 0); // Unlock
+    gdi("DeleteObject", {font});
     // A 16-bit Z buffer, attached.
     clearDesc();
     cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x40); // CAPS, HEIGHT, WIDTH, ZBUFFERBITDEPTH
@@ -668,6 +778,40 @@ static void testDirectX() {
     const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::kOne);
     CHECK(scene(x86::DirectX::DrawThreads::kAlways) == one);
     CHECK(std::adjacent_find(one.begin(), one.end(), std::not_equal_to<>()) != one.end()); // something was drawn
+    // The scene kept for the engine instead of drawn (SceneCapture::kInstead):
+    // its Z clear and its triangle as given, the buffer showing it through
+    // under the triangle, and 2D drawn after it on top.
+    dx.drawThreads = x86::DirectX::DrawThreads::kOne;
+    dx.sceneCapture = x86::DirectX::SceneCapture::kInstead;
+    CHECK(call(device, 20, {27, 0}) == 0);                               // ALPHABLENDENABLE off
+    CHECK(call(device, 10, {0, 0, 2, 0xff000000u, bits(1.0f), 0}) == 0); // Clear Z
+    vertex(0, 0, 0, 0.25f, 0xffff0000u, 0, 0);
+    vertex(1, 32, 0, 0.25f, 0xffff0000u, 1, 0);
+    vertex(2, 0, 32, 0.25f, 0xffff0000u, 0, 1);
+    CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0);
+    const uint32_t fx = mem(100);
+    cpu.write32(fx, 100);
+    cpu.write32(fx + 80, 0xffff); // white
+    const uint32_t box = mem(16);
+    cpu.write32(box, 2), cpu.write32(box + 4, 2), cpu.write32(box + 8, 6), cpu.write32(box + 12, 6);
+    CHECK(call(back, 5, {box, 0, 0, 0x400, fx}) == 0); // Blt: a colour fill
+    CHECK(call(primary, 11, {0, 1}) == 0);             // Flip
+    CHECK(f.scene && f.scene->width == 64 && f.scene->steps.size() == 2);
+    if (f.scene && f.scene->steps.size() == 2) {
+        const x86::DirectX::Scene::Step &cleared = f.scene->steps[0];
+        CHECK(cleared.clearDepth && !cleared.clearColor && cleared.depth == 1.0f);
+        const x86::DirectX::Scene::Step &drawn = f.scene->steps[1];
+        CHECK(drawn.first == 0 && drawn.count == 3 && drawn.zTest && drawn.colorOp == 4 && drawn.texture &&
+              drawn.texture->width == 2 && drawn.linear);
+        CHECK(f.scene->vertices.size() == 3 && f.scene->vertices[1].x == 32 && f.scene->vertices[2].y == 32 &&
+              f.scene->vertices[0].z == 0.25f && f.scene->vertices[0].diffuse == 0xffff0000u &&
+              f.scene->vertices[2].v == 1);
+    }
+    CHECK(f.pixels[size_t(10 * f.width + 10)] >> 24 == 0);    // the scene, through
+    CHECK(f.pixels[size_t(3 * f.width + 3)] == 0xffffffffu);  // the fill, over it
+    CHECK(f.pixels[size_t(40 * f.width + 40)] >> 24 == 0xff); // around the triangle, as it was
+    CHECK(call(primary, 11, {0, 1}) == 0 && !f.scene);        // nothing drawn since
+    dx.sceneCapture = x86::DirectX::SceneCapture::kNone;
     // Release the device and the DirectDraw object's.
     CHECK(call(device, 2, {}) == 0);
 }
@@ -784,6 +928,12 @@ static void testInput() {
         cpu.write32(prop + 4 * i, bufferSize[i]);
     CHECK(call(mouse, 6, {1, prop}) == 0); // SetProperty: DIPROP_BUFFERSIZE
     CHECK(call(mouse, 7, {}) == 0);        // Acquire
+    // Held by the program once it's acquired exclusively (DISCL_EXCLUSIVE).
+    CHECK(!directInput.mouseHeld());
+    CHECK(call(mouse, 13, {0, 5}) == 0); // SetCooperativeLevel: exclusive, foreground
+    CHECK(directInput.mouseHeld());
+    CHECK(call(mouse, 8, {}) == 0 && !directInput.mouseHeld()); // Unacquire
+    CHECK(call(mouse, 7, {}) == 0 && directInput.mouseHeld());
     process.mouseMoveTo(140, 65);
     process.mouseButton(1, true);
     CHECK(call(mouse, 9, {16, state}) == 0);
@@ -818,6 +968,1629 @@ static void testInput() {
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0x80 && cpu.read8(state + 0x1f) == 0);
     process.key(0x41, 0x1e, false);
     CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0x1e) == 0);
+    // An extended key: the up arrow's scan code 0x48 is DIK_UP, 0xc8.
+    process.key(0x26, 0x148, true);
+    CHECK(call(keyboard, 9, {256, state}) == 0 && cpu.read8(state + 0xc8) == 0x80 && cpu.read8(state + 0x48) == 0);
+    process.key(0x26, 0x148, false);
+}
+
+// DirectSound 3D's model (directx/sound3d.h): distance, pan, cone and Doppler.
+static void testSound3d() {
+    using namespace x86;
+    auto near = [](double a, double b) { return std::fabs(a - b) < 1e-4; };
+    Ds3dListener listener;
+    Ds3dSource s;
+    // Ahead, within the minimum distance: as it is.
+    s.position[2] = 0.5f;
+    Ds3dResult r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1) && near(r.doppler, 1));
+    // Ahead at 2 and 4 times the minimum distance: -6 and -12 dB or so;
+    // twice the rolloff, faster; past the maximum distance, no quieter.
+    s.position[2] = 2;
+    CHECK(near(spatialize(listener, s).left, 0.5));
+    s.position[2] = 4;
+    CHECK(near(spatialize(listener, s).left, 0.25));
+    listener.rolloffFactor = 2;
+    CHECK(near(spatialize(listener, s).left, 1.0 / 7));
+    listener.rolloffFactor = 1;
+    s.maxDistance = 2;
+    CHECK(near(spatialize(listener, s).left, 0.5));
+    s.maxDistance = 1e9f;
+    // Straight to the right: the left speaker 20 dB down; to the left, the
+    // other way round; 30 degrees right, the left down by 10 dB.
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, 0.1));
+    s.position[0] = -1;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 0.1));
+    s.position[0] = 0.5f;
+    s.position[2] = std::sqrt(0.75f);
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, std::pow(10.0, -0.5)));
+    // The listener turned to face +x: a source at +x is ahead; one at +z is
+    // now to its left.
+    listener.front[0] = 1;
+    listener.front[2] = 0;
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1));
+    s.position[0] = 0;
+    s.position[2] = 1;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 0.1));
+    // Straight behind (-x for this listener): both speakers 3 dB down and
+    // muffled to 4 kHz; beside, neither.
+    s.position[0] = -1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.behind, 1) && near(r.left, std::pow(10.0, -0.15)) && near(r.right, r.left));
+    CHECK(near(rearCutoff(r.behind), 4000) && near(rearCutoff(0), 20000) && near(rearGain(0), 1));
+    CHECK(near(lowPassCoefficient(4000, 44100), 1 - std::exp(-2 * 3.14159265358979 * 4000 / 44100)));
+    // Head-relative: the position is the listener's own, whichever way it
+    // faces; disabled: as it is, wherever.
+    s.mode = 1;
+    s.position[0] = 1;
+    s.position[2] = 0;
+    r = spatialize(listener, s);
+    CHECK(near(r.right, 1) && near(r.left, 0.1));
+    s.mode = 2;
+    s.position[0] = 100;
+    r = spatialize(listener, s);
+    CHECK(near(r.left, 1) && near(r.right, 1));
+    s = Ds3dSource();
+    listener = Ds3dListener();
+    // A cone pointing away (-z) from a listener at the origin, the source
+    // ahead of it at z 1: outside, so -20 dB.
+    s.position[2] = 1;
+    s.insideCone = 90;
+    s.outsideCone = 180;
+    s.coneOrientation[2] = 1;
+    s.coneOutsideVolume = -2000;
+    CHECK(near(spatialize(listener, s).left, 0.1));
+    s.coneOrientation[2] = -1; // pointing at the listener: inside
+    CHECK(near(spatialize(listener, s).left, 1));
+    s = Ds3dSource();
+    // Doppler: a source 10 units ahead coming at the listener at a tenth of
+    // the speed of sound sounds higher, 1 / 0.9; going away, lower.
+    s.position[2] = 10;
+    s.velocity[2] = -34.33f;
+    CHECK(near(spatialize(listener, s).doppler, 1 / 0.9));
+    s.velocity[2] = 34.33f;
+    CHECK(near(spatialize(listener, s).doppler, 1 / 1.1));
+    listener.dopplerFactor = 0;
+    CHECK(near(spatialize(listener, s).doppler, 1));
+}
+
+// DirectSound called as a program calls it: a buffer streamed into as it
+// plays, as SMACKW32 does, its play position by the clock, and the card's
+// output; a 3D buffer placed off to one side.
+static void testDirectSound() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 1000;
+    process.milliseconds = [&] { return clock; };
+    x86::DirectSound sound(process);
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DSOUND.dll", "DirectSoundCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t ds = cpu.read32(out);
+    CHECK(call(ds, 6, {0, 2}) == 0); // SetCooperativeLevel: priority
+    // A quarter of a second of 16-bit stereo at 22050 Hz, as SMACKW32 makes it.
+    const uint32_t format = mem(18);
+    const uint16_t wave[9] = {1, 2, 22050 & 0xffff, 0, 0x5888, 1, 4, 16, 0};
+    for (uint32_t i = 0; i < 9; ++i)
+        cpu.write16(format + 2 * i, wave[i]);
+    const uint32_t desc = mem(20);
+    const uint32_t descFields[5] = {20, 0x8000 | 0x80, 22048, 0, format}; // GLOBALFOCUS, CTRLVOLUME
+    for (uint32_t i = 0; i < 5; ++i)
+        cpu.write32(desc + 4 * i, descFields[i]);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0); // CreateSoundBuffer
+    const uint32_t buffer = cpu.read32(out);
+    // Each frame's samples say which frame of the stream it is: left n,
+    // right -n (n counting from 1, wrapping at 32000).
+    int written = 0;
+    const uint32_t p1 = mem(4);
+    const uint32_t n1 = mem(4);
+    const uint32_t p2 = mem(4);
+    const uint32_t n2 = mem(4);
+    auto fill = [&](uint32_t offset, uint32_t bytes) {
+        CHECK(call(buffer, 11, {offset, bytes, p1, n1, p2, n2, 0}) == 0); // Lock
+        CHECK(cpu.read32(n1) + cpu.read32(n2) == bytes);
+        for (int part = 0; part < 2; ++part) {
+            const uint32_t at = cpu.read32(part ? p2 : p1);
+            for (uint32_t i = 0; i < cpu.read32(part ? n2 : n1); i += 4) {
+                const int16_t v = int16_t(written++ % 32000 + 1);
+                cpu.write16(at + i, uint16_t(v));
+                cpu.write16(at + i + 2, uint16_t(-v));
+            }
+        }
+        CHECK(call(buffer, 19, {cpu.read32(p1), cpu.read32(n1), cpu.read32(p2), cpu.read32(n2)}) == 0); // Unlock
+    };
+    fill(0, 22048);
+    CHECK(call(buffer, 12, {0, 0, 1}) == 0); // Play, looping
+    const uint32_t status = mem(4);
+    CHECK(call(buffer, 9, {status}) == 0 && cpu.read32(status) == 5); // PLAYING | LOOPING
+    // Streamed for two seconds: each 62 ms a quarter of the buffer behind
+    // the play position written again with what comes next, the card's
+    // output read a millisecond at a time, as an audio device takes it.
+    const std::shared_ptr<audio::OutputStream> card = sound.output();
+    std::vector<int16_t> heard;
+    uint32_t nextQuarter = 0;
+    const uint32_t play = mem(4);
+    const uint32_t write = mem(4);
+    for (int ms = 0; ms < 2000; ++ms) {
+        clock += 1;
+        CHECK(call(buffer, 4, {play, write}) == 0); // GetCurrentPosition
+        const uint32_t at = cpu.read32(play);
+        // The quarter just played is written again.
+        if ((at / 5512 + 4 - nextQuarter) % 4 >= 2) {
+            fill(nextQuarter * 5512, 5512);
+            nextQuarter = (nextQuarter + 1) % 4;
+        }
+        int16_t frames[2 * 23];
+        const int n = 22 + (ms % 20 == 0 ? 1 : 0); // 22.05 frames a millisecond
+        card->read(frames, n, 22050);
+        heard.insert(heard.end(), frames, frames + 2 * n);
+    }
+    // Heard in order, every frame once: n then n + 1, right the negative of
+    // left, after the first quarter of a second.
+    int outOfOrder = 0;
+    for (size_t i = 2 * 5512; i + 3 < heard.size(); i += 2) {
+        outOfOrder += heard[i + 1] != -heard[i];
+        const int next = heard[i] % 32000 + 1;
+        outOfOrder += heard[i + 2] != next;
+    }
+    CHECK(outOfOrder == 0);
+    CHECK(sound.buffersPlaying() == 1);
+    CHECK(call(buffer, 18, {}) == 0 && sound.buffersPlaying() == 0); // Stop
+
+    // A 3D buffer, mono, a constant 1000, put a unit to the listener's
+    // right: the left speaker 20 dB down (sound3d.h), the right as it is.
+    // Its 3D interface comes from QueryInterface; the listener from the
+    // primary buffer's.
+    const uint16_t mono[9] = {1, 1, 22050 & 0xffff, 0, 0xac44, 0, 2, 16, 0};
+    for (uint32_t i = 0; i < 9; ++i)
+        cpu.write16(format + 2 * i, mono[i]);
+    cpu.write32(desc + 4, 0x10 | 0x80); // CTRL3D, CTRLVOLUME
+    cpu.write32(desc + 8, 4410);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    const uint32_t placed = cpu.read32(out);
+    CHECK(call(placed, 11, {0, 4410, p1, n1, p2, n2, 0}) == 0);
+    for (uint32_t i = 0; i < 4410; i += 2)
+        cpu.write16(cpu.read32(p1) + i, 1000);
+    CHECK(call(placed, 19, {cpu.read32(p1), 4410, 0, 0}) == 0);
+    auto iid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    CHECK(call(placed, 0, {iid("{279afa86-4981-11ce-a521-0020af0be560}"), out}) == 0);
+    const uint32_t placed3d = cpu.read32(out);
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    CHECK(call(placed3d, 19, {bits(1), bits(0), bits(0), 0}) == 0); // SetPosition, at once
+    // The primary buffer's listener, deferred settings applied on Commit.
+    cpu.write32(desc + 4, 0x1 | 0x10); // PRIMARYBUFFER, CTRL3D
+    cpu.write32(desc + 8, 0);
+    cpu.write32(desc + 16, 0);
+    CHECK(call(ds, 3, {desc, out, 0}) == 0);
+    const uint32_t primary = cpu.read32(out);
+    CHECK(call(primary, 0, {iid("{279afa84-4981-11ce-a521-0020af0be560}"), out}) == 0);
+    const uint32_t listener = cpu.read32(out);
+    CHECK(call(listener, 14, {bits(0), bits(0), bits(0), 1}) == 0); // SetPosition, deferred
+    CHECK(call(listener, 17, {}) == 0);                             // CommitDeferredSettings
+    CHECK(call(placed, 12, {0, 0, 1}) == 0);                        // Play, looping
+    int16_t frames[2 * 100];
+    card->read(frames, 100, 22050);
+    CHECK(frames[198] >= 95 && frames[198] <= 105 && frames[199] >= 995 && frames[199] <= 1005);
+    // Behind a deferred SetPosition, uncommitted, it stays where it was.
+    CHECK(call(placed3d, 19, {bits(-1), bits(0), bits(0), 1}) == 0);
+    card->read(frames, 100, 22050);
+    CHECK(frames[199] >= 995 && frames[199] <= 1005);
+    CHECK(call(listener, 17, {}) == 0); // now it's on the left
+    card->read(frames, 100, 22050);
+    CHECK(frames[198] >= 995 && frames[198] <= 1005 && frames[199] >= 95 && frames[199] <= 105);
+}
+
+// MCI's cdaudio device driven as Jedi Knight drives it, on a disc of
+// ripped tracks: opened, set to TMSF, a track played from it to the next,
+// its mode as the clock moves, a track's length, a range off the disc's end;
+// the CD volume through the auxiliary device.
+static void testCdAudio(const std::filesystem::path &tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp);
+    // Tracks 2 to 4, half a second each, left n * 100 and right -n * 100.
+    for (int n = 2; n <= 4; ++n) {
+        audio::Sound track;
+        track.rate = 44100;
+        track.channels = 2;
+        for (int i = 0; i < 22050; ++i)
+            track.samples.insert(track.samples.end(), {int16_t(n * 100), int16_t(-n * 100)});
+        char name[16];
+        std::snprintf(name, sizeof name, "track%02d.wav", n);
+        CHECK(writeFile(tmp / name, audio::encodePcmWav(track)));
+    }
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t clock = 1000;
+    process.milliseconds = [&] { return clock; };
+    x86::CdAudio cd(process);
+    bool second = false; // the other disc in the drive: track 2 alone
+    cd.disc = [&] { return x86::CdAudio::discIn(second ? tmp / "second" : tmp); };
+    audio::Mixer mixer(44100);
+    cd.mixer = &mixer;
+    uint32_t r = 0;
+    auto mci = [&](uint32_t device, uint32_t message, uint32_t flags, uint32_t parms) {
+        CHECK(!cpu.call(process.provided("WINMM.dll", "mciSendCommandA"), {device, message, flags, parms}, r));
+        return r;
+    };
+    const uint32_t parms = process.memory().alloc(32);
+    const uint32_t type = process.memory().alloc(16);
+    cpu.writeString(type, "CDAudio", 16);
+    cpu.write32(parms + 8, type);
+    CHECK(mci(0, 0x803, 0x2000, parms) == 0 && cpu.read32(parms + 4) == 1); // MCI_OPEN, by its type
+    cpu.write32(parms + 4, 10);
+    CHECK(mci(1, 0x80d, 0x400, parms) == 0); // MCI_SET: TMSF
+    auto status = [&](uint32_t item, uint32_t flags = 0x100, uint32_t track = 0) {
+        cpu.write32(parms + 8, item);
+        cpu.write32(parms + 12, track);
+        CHECK(mci(1, 0x814, flags, parms) == 0);
+        return cpu.read32(parms + 4);
+    };
+    CHECK(status(3) == 4);                     // tracks, the data track among them
+    CHECK(status(1, 0x110, 3) == (37u << 16)); // track 3's length: 0:00 and 37 frames
+    CHECK(status(0x4001, 0x110, 1) == 0x441);  // track 1 isn't audio
+    // Track 2 to the start of 3: its sound, then stopped.
+    cpu.write32(parms + 4, 2);
+    cpu.write32(parms + 8, 3);
+    CHECK(mci(1, 0x806, 0xc, parms) == 0 && cd.trackPlaying() == 2);
+    CHECK(status(4) == 526); // MCI_MODE_PLAY
+    int16_t frames[2 * 64];
+    mixer.mix(frames, 64);
+    CHECK(frames[126] > 190 && frames[126] < 210 && frames[127] < -190 && frames[127] > -210);
+    clock += 600;
+    CHECK(status(4) == 525 && cd.trackPlaying() == 0); // MCI_MODE_STOP, at its end
+    // The volume through the CD's auxiliary device: 0, and nothing's heard.
+    CHECK(!cpu.call(process.provided("WINMM.dll", "auxGetNumDevs"), {}, r) && r == 1);
+    const uint32_t caps = process.memory().alloc(48);
+    CHECK(!cpu.call(process.provided("WINMM.dll", "auxGetDevCapsA"), {0, caps, 48}, r) && r == 0 &&
+          cpu.read16(caps + 40) == 1); // AUXCAPS_CDAUDIO
+    CHECK(!cpu.call(process.provided("WINMM.dll", "auxSetVolume"), {0, 0}, r) && r == 0);
+    cpu.write32(parms + 4, 3);
+    cpu.write32(parms + 8, 5); // the end of the disc
+    CHECK(mci(1, 0x806, 0xc, parms) == 0 && cd.trackPlaying() == 3);
+    mixer.mix(frames, 64);
+    CHECK(frames[126] == 0 && frames[127] == 0);
+    // Past the end, as the game asks after the last track: out of range.
+    cpu.write32(parms + 8, 6);
+    CHECK(mci(1, 0x806, 0xc, parms) == 282);
+    // Another disc put in: what played stops, and the device has the new one.
+    std::filesystem::create_directories(tmp / "second");
+    std::filesystem::copy_file(tmp / "track02.wav", tmp / "second" / "track02.wav");
+    second = true;
+    cd.discChanged();
+    CHECK(cd.trackPlaying() == 0 && status(3) == 2 && status(4) == 525);
+    CHECK(mci(1, 0x804, 0, parms) == 0);       // MCI_CLOSE
+    CHECK(mci(1, 0x814, 0x100, parms) == 257); // closed: no such device
+    cpu.writeString(type, "waveaudio", 16);
+    CHECK(mci(0, 0x803, 0x2000, parms) == 263);            // only the CD
+    CHECK(x86::CdAudio::discIn(tmp / "none").tracks == 0); // no disc
+    // Tracks ripped as Ogg Vorbis and FLAC: the 0.2 s tones.
+    std::filesystem::create_directories(tmp / "compressed");
+    CHECK(writeFile(tmp / "compressed" / "Track02.ogg",
+                    std::vector<uint8_t>(std::begin(kTone440Ogg), std::end(kTone440Ogg))));
+    CHECK(writeFile(tmp / "compressed" / "track03.flac",
+                    std::vector<uint8_t>(std::begin(kTone440Flac), std::end(kTone440Flac))));
+    const x86::CdAudio::Disc ripped = x86::CdAudio::discIn(tmp / "compressed");
+    CHECK(ripped.tracks == 3 && ripped.lengthMs(3) == 200 && ripped.lengthMs(2) >= 200);
+    const auto played = ripped.load(2);
+    CHECK(played && played->rate == 22050 && ripped.load(3) && ripped.load(1) == nullptr);
+    std::filesystem::remove_all(tmp);
+}
+
+// Direct3D 1 driven as a DirectX 5 program drives it: the device asked of
+// a 16-bit back buffer by its IID, a viewport, an execute buffer of
+// pre-transformed vertices copied in, a render state and two triangles,
+// executed; a texture's handle and Load; materials' handles for a clear.
+static void testDirect3D1() {
+    x86::Cpu cpu(32u << 20);
+    x86::Win32Process process(cpu);
+    x86::DirectX dx(process);
+    dx.modes.push_back({64, 48, 16});
+    dx.drawThreads = x86::DirectX::DrawThreads::kOne;
+    uint32_t r = 0;
+    auto mem = [&](uint32_t size) {
+        const uint32_t a = process.memory().alloc(size);
+        std::memset(cpu.memory().data() + a, 0, size);
+        return a;
+    };
+    auto guid = [&](const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    };
+    auto call = [&](uint32_t self, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), self);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(self) + 4 * uint32_t(index)), args, r));
+        return r;
+    };
+    auto bits = [](float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        return v;
+    };
+    const uint32_t out = mem(4);
+    CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreate"), {0, out, 0}, r) && r == 0);
+    const uint32_t dd = cpu.read32(out);    // IDirectDraw
+    CHECK(call(dd, 20, {0, 0x11}) == 0);    // SetCooperativeLevel
+    CHECK(call(dd, 21, {64, 48, 16}) == 0); // SetDisplayMode (IDirectDraw's: no refresh rate)
+    const uint32_t desc = mem(108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x20); // CAPS, BACKBUFFERCOUNT
+    cpu.write32(desc + 20, 1);
+    cpu.write32(desc + 104, 0x200 | 0x10 | 0x8 | 0x2000); // PRIMARY, FLIP, COMPLEX, 3DDEVICE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t primary = cpu.read32(out);
+    const uint32_t caps = mem(4);
+    cpu.write32(caps, 0x4);
+    CHECK(call(primary, 12, {caps, out}) == 0); // GetAttachedSurface: the back buffer
+    const uint32_t back = cpu.read32(out);
+    // The device, by the HAL's IID; and Direct3D, for a viewport and materials.
+    CHECK(call(back, 0, {guid("{84e63de0-46aa-11cf-816f-0000c020156e}"), out}) == 0);
+    const uint32_t device = cpu.read32(out);
+    CHECK(call(dd, 0, {guid("{3bba0080-2421-11cf-a31a-00aa00b93356}"), out}) == 0);
+    const uint32_t d3d = cpu.read32(out);
+    CHECK(call(d3d, 7, {out, 0}) == 0); // CreateViewport
+    const uint32_t viewport = cpu.read32(out);
+    CHECK(call(device, 9, {viewport}) == 0); // AddViewport
+    const uint32_t vp = mem(44);
+    const uint32_t vpFields[11] = {44, 0, 0, 64, 48, bits(32), bits(24), bits(1), bits(1), bits(0), bits(1)};
+    for (uint32_t i = 0; i < 11; ++i)
+        cpu.write32(vp + 4 * i, vpFields[i]);
+    CHECK(call(viewport, 5, {vp}) == 0); // SetViewport
+    // A blue material as the background, cleared to.
+    CHECK(call(d3d, 6, {out, 0}) == 0); // CreateMaterial
+    const uint32_t material = cpu.read32(out);
+    const uint32_t mat = mem(80);
+    cpu.write32(mat, 80);
+    cpu.write32(mat + 12, bits(1));                                  // diffuse blue
+    cpu.write32(mat + 16, bits(1));                                  // and alpha
+    CHECK(call(material, 4, {mat}) == 0);                            // SetMaterial
+    CHECK(call(material, 6, {device, out}) == 0 && cpu.read32(out)); // GetHandle
+    CHECK(call(viewport, 8, {cpu.read32(out)}) == 0);                // SetBackground
+    const uint32_t rect = mem(16);
+    const uint32_t rectFields[4] = {0, 0, 64, 48};
+    for (uint32_t i = 0; i < 4; ++i)
+        cpu.write32(rect + 4 * i, rectFields[i]);
+    CHECK(call(viewport, 12, {1, rect, 1}) == 0); // Clear: the target
+    // An execute buffer: four D3DTLVERTEXs (a red square from 16,12 to
+    // 48,36), then PROCESSVERTICES (copy), STATERENDER (no texture),
+    // TRIANGLE x 2, EXIT.
+    const uint32_t ebDesc = mem(20);
+    cpu.write32(ebDesc, 20);
+    cpu.write32(ebDesc + 4, 0x2);
+    cpu.write32(ebDesc + 12, 1024);
+    CHECK(call(device, 6, {ebDesc, out, 0}) == 0); // CreateExecuteBuffer
+    const uint32_t eb = cpu.read32(out);
+    CHECK(call(eb, 4, {ebDesc}) == 0); // Lock
+    const uint32_t data = cpu.read32(ebDesc + 16);
+    const float corners[4][2] = {{16, 12}, {48, 12}, {48, 36}, {16, 36}};
+    for (uint32_t i = 0; i < 4; ++i) {
+        const uint32_t v = data + 32 * i;
+        cpu.write32(v, bits(corners[i][0]));
+        cpu.write32(v + 4, bits(corners[i][1]));
+        cpu.write32(v + 8, bits(0.5f));
+        cpu.write32(v + 12, bits(1));
+        cpu.write32(v + 16, 0xffff0000u); // red
+    }
+    uint32_t at = data + 128;
+    auto instruction = [&](uint8_t op, uint8_t size, uint16_t count) {
+        cpu.write8(at, op);
+        cpu.write8(at + 1, size);
+        cpu.write16(at + 2, count);
+        at += 4;
+    };
+    instruction(9, 16, 1); // PROCESSVERTICES: copy, from 0 to 0, 4 of them
+    cpu.write32(at, 2);
+    cpu.write16(at + 4, 0);
+    cpu.write16(at + 6, 0);
+    cpu.write32(at + 8, 4);
+    at += 16;
+    instruction(8, 8, 1); // STATERENDER: TEXTUREHANDLE 0
+    cpu.write32(at, 1);
+    cpu.write32(at + 4, 0);
+    at += 8;
+    instruction(3, 8, 2); // TRIANGLE x 2
+    const uint16_t tris[2][4] = {{0, 1, 2, 0}, {0, 2, 3, 0}};
+    for (const auto &t : tris) {
+        for (uint32_t k = 0; k < 4; ++k)
+            cpu.write16(at + 2 * k, t[k]);
+        at += 8;
+    }
+    instruction(11, 0, 0);       // EXIT
+    CHECK(call(eb, 5, {}) == 0); // Unlock
+    const uint32_t exec = mem(48);
+    const uint32_t execFields[6] = {48, 0, 4, 128, at - data - 128, 0};
+    for (uint32_t i = 0; i < 6; ++i)
+        cpu.write32(exec + 4 * i, execFields[i]);
+    CHECK(call(eb, 6, {exec}) == 0);                // SetExecuteData
+    CHECK(call(device, 19, {}) == 0);               // BeginScene
+    CHECK(call(device, 8, {eb, viewport, 1}) == 0); // Execute
+    CHECK(call(device, 20, {}) == 0);               // EndScene
+    // Red inside, the blue background outside (565).
+    const uint32_t lock = mem(108);
+    cpu.write32(lock, 108);
+    CHECK(call(back, 25, {0, lock, 1, 0}) == 0); // Lock
+    const uint32_t pixels = cpu.read32(lock + 36);
+    const uint32_t pitch = cpu.read32(lock + 16);
+    CHECK(cpu.read16(pixels + 24 * pitch + 2 * 32) == 0xf800);
+    CHECK(cpu.read16(pixels + 2 * pitch + 2 * 2) == 0x001f);
+    CHECK(call(back, 32, {0}) == 0); // Unlock
+    // A texture: its IDirect3DTexture from the surface, a handle, and Load.
+    std::memset(cpu.memory().data() + desc, 0, 108);
+    cpu.write32(desc, 108);
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x1000); // CAPS, HEIGHT, WIDTH, PIXELFORMAT
+    cpu.write32(desc + 8, 2);
+    cpu.write32(desc + 12, 2);
+    cpu.write32(desc + 72, 32);
+    cpu.write32(desc + 76, 0x40); // RGB
+    cpu.write32(desc + 84, 16);
+    cpu.write32(desc + 88, 0xf800);
+    cpu.write32(desc + 92, 0x07e0);
+    cpu.write32(desc + 96, 0x001f);
+    cpu.write32(desc + 104, 0x1000 | 0x800); // TEXTURE, SYSTEMMEMORY
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t source = cpu.read32(out);
+    cpu.write32(desc + 104, 0x1000 | 0x4000); // TEXTURE, VIDEOMEMORY
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);
+    const uint32_t texSurface = cpu.read32(out);
+    CHECK(call(source, 25, {0, lock, 1, 0}) == 0);
+    cpu.write16(cpu.read32(lock + 36), 0x07e0); // green
+    CHECK(call(source, 32, {0}) == 0);
+    const char *textureIid = "{2cdcd9e0-25a0-11cf-a31a-00aa00b93356}";
+    CHECK(call(source, 0, {guid(textureIid), out}) == 0);
+    const uint32_t from = cpu.read32(out);
+    CHECK(call(texSurface, 0, {guid(textureIid), out}) == 0);
+    const uint32_t texture = cpu.read32(out);
+    CHECK(call(texture, 6, {from}) == 0);                                // Load
+    CHECK(call(texture, 4, {device, out}) == 0 && cpu.read32(out) != 0); // GetHandle
+    CHECK(call(texSurface, 25, {0, lock, 1, 0}) == 0 && cpu.read16(cpu.read32(lock + 36)) == 0x07e0);
+    CHECK(call(texSurface, 32, {0}) == 0);
+}
+
+// DirectPlay 3 created through COM, with no connections to offer.
+// One DirectPlay object in a process of its own, on the loopback network,
+// called as a program calls it.
+struct PlaySide {
+    x86::Cpu cpu{16u << 20};
+    x86::Win32Process process{cpu};
+    x86::DirectPlay directPlay{process};
+    uint32_t dp = 0;
+
+    explicit PlaySide(const std::shared_ptr<net::LoopbackNetwork> &network) {
+        directPlay.network.open = [network](uint16_t port) { return network->open(port); };
+        directPlay.network.search = {net::Address::broadcast(x86::kDirectPlayPort)};
+        const uint32_t clsid = guid("{d1eb6d20-8923-11d0-9d97-00a0c90a43cb}");
+        const uint32_t iid = guid("{133efe41-32dc-11d0-9cfb-00a0c90a43cb}"); // IDirectPlay3A
+        const uint32_t out = mem(4);
+        uint32_t r = 1;
+        CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"), {clsid, 0, 1, iid, out}, r) && r == 0);
+        dp = cpu.read32(out);
+    }
+    uint32_t mem(uint32_t size) { return process.memory().alloc(size); }
+    uint32_t guid(const char *g) {
+        const uint32_t a = mem(16);
+        x86::ComHost::writeGuid(cpu, a, g);
+        return a;
+    }
+    uint32_t text(const std::string &t) {
+        const uint32_t a = mem(uint32_t(t.size()) + 1);
+        cpu.writeString(a, t, uint32_t(t.size()) + 1);
+        return a;
+    }
+    // IDirectPlay3A's method `index`.
+    uint32_t call(int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), dp);
+        uint32_t r = 0xffffffffu;
+        CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * uint32_t(index)), args, r));
+        return r;
+    }
+    // A DPSESSIONDESC2 for the application "{11111111-...}".
+    uint32_t sessionDesc(const std::string &name, uint32_t flags = 0) {
+        const uint32_t d = mem(0x50);
+        for (uint32_t i = 0; i < 0x50; i += 4)
+            cpu.write32(d + i, 0);
+        cpu.write32(d, 0x50);
+        cpu.write32(d + 4, flags);
+        x86::ComHost::writeGuid(cpu, d + 0x18, "{11111111-2222-3333-4444-555555555555}");
+        cpu.write32(d + 0x28, 4);
+        cpu.write32(d + 0x30, text(name));
+        return d;
+    }
+    // Lists the connections and initializes the first: how many there were.
+    int connect() {
+        int listed = 0;
+        uint32_t copy = mem(256);
+        const uint32_t callback = cpu.addNative("test!EnumConnections", [&](x86::Cpu &c) {
+            if (!listed++)
+                for (uint32_t i = 0; i < std::min(c.arg(2), 256u); ++i)
+                    c.write8(copy + i, c.read8(c.arg(1) + i));
+            c.reg[x86::Cpu::EAX] = 1;
+            return 24u;
+        });
+        CHECK(call(35, {0, callback, 0, 0}) == 0); // EnumConnections
+        if (listed)
+            CHECK(call(38, {copy, 0}) == 0); // InitializeConnection
+        return listed;
+    }
+    // A DPNAME with a short name.
+    uint32_t name(const std::string &shortName) {
+        const uint32_t dpName = mem(16);
+        cpu.write32(dpName, 16);
+        cpu.write32(dpName + 4, 0);
+        cpu.write32(dpName + 8, text(shortName));
+        cpu.write32(dpName + 12, 0);
+        return dpName;
+    }
+    uint32_t createPlayer(const std::string &shortName, uint32_t event = 0) {
+        const uint32_t id = mem(4);
+        CHECK(call(6, {id, name(shortName), event, 0, 0, 0}) == 0); // CreatePlayer
+        return cpu.read32(id);
+    }
+    // Finds the first session `pump` lets answer, and joins it (Open, or
+    // SecureOpen without security).
+    void join(const std::function<void()> &pump, bool secure = false) {
+        const uint32_t foundAt = mem(0x50);
+        bool found = false;
+        const uint32_t sessions = cpu.addNative("test!EnumSessions", [&](x86::Cpu &c) {
+            if (c.arg(0) && !(c.arg(2) & 1)) {
+                for (uint32_t i = 0; i < 0x50; ++i)
+                    c.write8(foundAt + i, c.read8(c.arg(0) + i));
+                found = true;
+            }
+            c.reg[x86::Cpu::EAX] = 0;
+            return 16u;
+        });
+        const uint32_t wanted = sessionDesc("");
+        CHECK(call(13, {wanted, 0, sessions, 0, 0x52}) == 0); // EnumSessions, asynchronously
+        pump();
+        CHECK(call(13, {wanted, 0, sessions, 0, 0x52}) == 0 && found);
+        CHECK((secure ? call(39, {foundAt, 1, 0, 0}) : call(24, {foundAt, 1})) == 0);
+    }
+    // Receive: the message's bytes, its sender and receiver; false if there's none.
+    bool receive(std::vector<uint8_t> &data, uint32_t &from, uint32_t &to) {
+        const uint32_t fromAt = mem(4);
+        const uint32_t toAt = mem(4);
+        const uint32_t buffer = mem(512);
+        const uint32_t size = mem(4);
+        cpu.write32(size, 512);
+        const uint32_t r = call(25, {fromAt, toAt, 1, buffer, size});
+        if (r != 0)
+            return false;
+        from = cpu.read32(fromAt);
+        to = cpu.read32(toAt);
+        data.resize(cpu.read32(size));
+        for (size_t i = 0; i < data.size(); ++i)
+            data[i] = cpu.read8(buffer + uint32_t(i));
+        received = buffer;
+        return true;
+    }
+    uint32_t received = 0; // where the last message received is, for what it points to
+    // The next message, if it's the system's of `type`; it's in `received`.
+    bool system(uint32_t type) {
+        std::vector<uint8_t> data;
+        uint32_t from = 1;
+        uint32_t to = 0;
+        return receive(data, from, to) && from == 0 && cpu.read32(received) == type;
+    }
+    // Drops the messages waiting.
+    void drain() {
+        std::vector<uint8_t> data;
+        uint32_t from = 0;
+        uint32_t to = 0;
+        while (receive(data, from, to)) {}
+    }
+    // A Win32 event, auto-reset, unset; and a wait on it that doesn't wait.
+    uint32_t createEvent() {
+        uint32_t r = 0;
+        CHECK(!cpu.call(process.provided("KERNEL32.dll", "CreateEventA"), {0, 0, 0, 0}, r) && r != 0);
+        return r;
+    }
+    bool isSet(uint32_t event) {
+        uint32_t r = 0;
+        CHECK(!cpu.call(process.provided("KERNEL32.dll", "WaitForSingleObject"), {event, 0}, r));
+        return r == 0;
+    }
+    // A buffer for a Get method (buffer, size*): `size` bytes, said in sizeAt.
+    uint32_t sizeAt = 0;
+    uint32_t buffer(uint32_t size) {
+        sizeAt = mem(4);
+        cpu.write32(sizeAt, size);
+        return mem(size ? size : 4);
+    }
+    uint32_t send(uint32_t from, uint32_t to, const std::string &bytes, uint32_t flags = 0) {
+        return call(26, {from, to, flags, text(bytes), uint32_t(bytes.size())});
+    }
+};
+
+// DirectPlay without a network offers no connection; with the loopback
+// network, one process hosts a session, another finds it, joins and makes
+// a player; messages go both ways, to a player, to everyone and to a
+// group; the session's description follows the host's; and the host sees
+// the player come and go, as system messages.
+static void testDirectPlay() {
+    {
+        x86::Cpu cpu(16u << 20);
+        x86::Win32Process process(cpu);
+        x86::DirectPlay directPlay(process);
+        uint32_t r = 0;
+        const uint32_t out = process.memory().alloc(4);
+        const uint32_t clsid = process.memory().alloc(16);
+        const uint32_t iid = process.memory().alloc(16);
+        x86::ComHost::writeGuid(cpu, clsid, "{d1eb6d20-8923-11d0-9d97-00a0c90a43cb}");
+        x86::ComHost::writeGuid(cpu, iid, "{133efe40-32dc-11d0-9cfb-00a0c90a43cb}");
+        CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"), {clsid, 0, 1, iid, out}, r) && r == 0);
+        const uint32_t dp = cpu.read32(out);
+        int offered = 0;
+        const uint32_t callback = cpu.addNative("test!EnumConnections", [&](x86::Cpu &c) {
+            ++offered;
+            c.reg[x86::Cpu::EAX] = 1;
+            return 24u;
+        });
+        CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 35), {dp, 0, callback, 0, 0}, r) && r == 0 && offered == 0);
+        CHECK(!cpu.call(cpu.read32(cpu.read32(dp) + 4 * 2), {dp}, r) && r == 0); // Release
+    }
+
+    auto network = net::LoopbackNetwork::create();
+    PlaySide host(network);
+    PlaySide joiner(network);
+    joiner.directPlay.waiting = [&] { host.directPlay.update(); };
+    CHECK(host.connect() == 1 && joiner.connect() == 1);
+    CHECK(host.call(24, {host.sessionDesc("Bespin"), 2}) == 0); // Open: create
+    const uint32_t hostPlayer = host.createPlayer("Kyle");
+    CHECK(hostPlayer != 0);
+
+    // EnumSessions, asynchronously: asked, then answered.
+    std::string found;
+    uint32_t foundAt = joiner.mem(0x50);
+    const uint32_t sessions = joiner.cpu.addNative("test!EnumSessions", [&](x86::Cpu &c) {
+        if (c.arg(0) && !(c.arg(2) & 1)) {
+            found = c.string(c.read32(c.arg(0) + 0x30));
+            for (uint32_t i = 0; i < 0x50; ++i)
+                c.write8(foundAt + i, c.read8(c.arg(0) + i));
+            CHECK(c.read32(c.arg(0) + 0x2c) == 1); // its players
+        }
+        c.reg[x86::Cpu::EAX] = 0;
+        return 16u;
+    });
+    const uint32_t wanted = joiner.sessionDesc("");
+    CHECK(joiner.call(13, {wanted, 0, sessions, 0, 0x52}) == 0);
+    host.directPlay.update();
+    CHECK(joiner.call(13, {wanted, 0, sessions, 0, 0x52}) == 0);
+    CHECK(found == "Bespin");
+
+    // Its players, before joining.
+    std::vector<std::string> names;
+    const uint32_t players = joiner.cpu.addNative("test!EnumPlayers", [&](x86::Cpu &c) {
+        names.push_back(c.string(c.read32(c.arg(2) + 8)));
+        c.reg[x86::Cpu::EAX] = 1;
+        return 20u;
+    });
+    CHECK(joiner.call(12, {foundAt + 8, players, 0, 0x80}) == 0 && names == std::vector<std::string>{"Kyle"});
+
+    CHECK(joiner.call(24, {foundAt, 1}) == 0); // Open: join
+    names.clear();
+    CHECK(joiner.call(12, {0, players, 0, 0}) == 0 && names == std::vector<std::string>{"Kyle"});
+    const uint32_t joinerPlayer = joiner.createPlayer("Jerec");
+    CHECK(joinerPlayer != 0 && joinerPlayer != hostPlayer);
+    host.directPlay.update();
+
+    std::vector<uint8_t> data;
+    uint32_t from = 0;
+    uint32_t to = 0;
+    CHECK(host.receive(data, from, to) && from == 0 && data.size() >= 48);
+    CHECK(data[0] == 3 && data[4] == 1); // DPSYS_CREATEPLAYERORGROUP, a player
+    CHECK(uint32_t(data[8] | data[9] << 8 | data[10] << 16 | data[11] << 24) == joinerPlayer);
+
+    CHECK(joiner.send(joinerPlayer, hostPlayer, "hello") == 0);
+    host.directPlay.update();
+    CHECK(host.receive(data, from, to) && from == joinerPlayer && to == hostPlayer &&
+          std::string(data.begin(), data.end()) == "hello");
+    CHECK(host.send(hostPlayer, 0, "everyone", 1) == 0); // guaranteed
+    joiner.directPlay.update();
+    CHECK(joiner.receive(data, from, to) && from == hostPlayer && to == joinerPlayer &&
+          std::string(data.begin(), data.end()) == "everyone");
+    CHECK(!host.receive(data, from, to)); // not back to the sender
+
+    // A group of the host's with the joiner's player in it, and a message to it.
+    const uint32_t groupAt = host.mem(4);
+    CHECK(host.call(5, {groupAt, 0, 0, 0, 0}) == 0); // CreateGroup
+    const uint32_t group = host.cpu.read32(groupAt);
+    CHECK(host.call(3, {group, joinerPlayer}) == 0); // AddPlayerToGroup
+    CHECK(host.send(hostPlayer, group, "team") == 0);
+    joiner.directPlay.update();
+    CHECK(joiner.receive(data, from, to) && from == 0 && data[0] == 3 && data[4] == 0); // the group made
+    CHECK(joiner.receive(data, from, to) && from == 0 && data[0] == 7);                 // DPSYS_ADDPLAYERTOGROUP
+    CHECK(joiner.receive(data, from, to) && to == joinerPlayer && std::string(data.begin(), data.end()) == "team");
+
+    // The host renames the session; the joiner's description follows.
+    CHECK(host.call(31, {host.sessionDesc("Bespin 2"), 0}) == 0); // SetSessionDesc
+    joiner.directPlay.update();
+    const uint32_t descAt = joiner.mem(0x100);
+    const uint32_t descSize = joiner.mem(4);
+    joiner.cpu.write32(descSize, 0x100);
+    CHECK(joiner.call(22, {descAt, descSize}) == 0); // GetSessionDesc
+    CHECK(joiner.cpu.string(joiner.cpu.read32(descAt + 0x30)) == "Bespin 2");
+    CHECK(joiner.cpu.read32(descAt + 0x2c) == 2);
+    CHECK(joiner.call(31, {joiner.sessionDesc("mine"), 0}) != 0); // only the host may
+
+    CHECK(joiner.call(4, {}) == 0); // Close
+    host.directPlay.update();
+    CHECK(host.receive(data, from, to) && from == 0 && data[0] == 5); // DPSYS_DESTROYPLAYERORGROUP
+    CHECK(!host.receive(data, from, to));
+}
+
+// Dialog boxes from templates in memory: their controls, the procedure's
+// WM_INITDIALOG and WM_COMMAND, a modal one answered by its default
+// button or by the engine, a modeless one through IsDialogMessageA.
+static void testDialogs() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto user = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("USER32.dll", name), args, r));
+        return r;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    // A DLGTEMPLATE, or a DLGTEMPLATEEX, of words.
+    auto build = [&](bool extended) {
+        std::vector<uint16_t> w;
+        auto dword = [&](uint32_t v) {
+            w.push_back(uint16_t(v));
+            w.push_back(uint16_t(v >> 16));
+        };
+        auto string = [&](const std::string &s) {
+            for (char ch : s)
+                w.push_back(uint8_t(ch));
+            w.push_back(0);
+        };
+        auto align = [&] {
+            if (w.size() % 2)
+                w.push_back(0);
+        };
+        struct Item {
+            uint32_t style;
+            uint16_t id;
+            uint16_t atom;
+            const char *text;
+        };
+        const Item items[] = {{0x50000000, 100, 0x82, "Pick one"}, {0x50010000, 101, 0x81, "5"},
+                              {0x50010003, 102, 0x80, "Again"},    {0x50010000, 103, 0x83, ""},
+                              {0x50010001, 1, 0x80, "OK"},         {0x50010000, 2, 0x80, "Cancel"}};
+        if (extended) {
+            w = {1, 0xffff};
+            dword(0);
+            dword(0);
+            dword(0x80c80000);
+        } else {
+            dword(0x80c80000); // WS_POPUP, WS_CAPTION, WS_SYSMENU
+            dword(0);
+        }
+        w.push_back(uint16_t(std::size(items)));
+        for (uint16_t v : {10, 10, 200, 100})
+            w.push_back(v);
+        w.push_back(0); // no menu
+        w.push_back(0); // the dialogs' class
+        string("Choose");
+        for (const Item &it : items) {
+            align();
+            if (extended) {
+                dword(0);
+                dword(0);
+                dword(it.style);
+            } else {
+                dword(it.style);
+                dword(0);
+            }
+            for (uint16_t v : {5, 5, 50, 14})
+                w.push_back(v);
+            if (extended)
+                dword(it.id);
+            else
+                w.push_back(it.id);
+            w.push_back(0xffff);
+            w.push_back(it.atom);
+            string(it.text);
+            w.push_back(0); // no creation data
+        }
+        const uint32_t a = process.memory().alloc(uint32_t(w.size() * 2));
+        for (size_t k = 0; k < w.size(); ++k)
+            cpu.write16(a + 2 * uint32_t(k), w[k]);
+        return a;
+    };
+    // The procedure: fills the controls when made; OK ends with the edit's
+    // number, Cancel with 0.
+    uint32_t initParam = 0;
+    const uint32_t proc = cpu.addNative("test!DlgProc", [&](x86::Cpu &c) {
+        const uint32_t dlg = c.arg(0);
+        uint32_t v = 0;
+        c.reg[x86::Cpu::EAX] = 0;
+        if (c.arg(1) == 0x110) { // WM_INITDIALOG
+            initParam = c.arg(3);
+            CHECK(!c.call(process.provided("USER32.dll", "SetDlgItemTextA"), {dlg, 101, text("42")}, v) && v);
+            CHECK(!c.call(process.provided("USER32.dll", "CheckDlgButton"), {dlg, 102, 1}, v));
+            for (const char *s : {"red", "blue"})
+                CHECK(!c.call(process.provided("USER32.dll", "SendDlgItemMessageA"), {dlg, 103, 0x180, 0, text(s)}, v));
+            CHECK(!c.call(process.provided("USER32.dll", "SendDlgItemMessageA"), {dlg, 103, 0x186, 1, 0}, v));
+            c.reg[x86::Cpu::EAX] = 1;
+        } else if (c.arg(1) == 0x111) { // WM_COMMAND
+            const uint32_t id = c.arg(2) & 0xffff;
+            if (id == 1 || id == 2) {
+                uint32_t n = 0;
+                if (id == 1)
+                    CHECK(!c.call(process.provided("USER32.dll", "GetDlgItemInt"), {dlg, 101, 0, 0}, n));
+                CHECK(!c.call(process.provided("USER32.dll", "EndDialog"), {dlg, n}, v) && v);
+                c.reg[x86::Cpu::EAX] = 1;
+            }
+        }
+        return 16u;
+    });
+
+    // Modal, answered by its default button: OK, the edit's 42.
+    std::vector<x86::Win32Process::DialogShown> shown;
+    for (const bool extended : {false, true}) {
+        process.dialogBox = [&](const x86::Win32Process::DialogShown &d) {
+            shown.push_back(d);
+            return 0u;
+        };
+        CHECK(user("DialogBoxIndirectParamA", {0, build(extended), 0, proc, 77}) == 42);
+        CHECK(initParam == 77);
+    }
+    CHECK(shown.size() == 2 && shown[0].modal && shown[0].caption == "Choose" && shown[0].defaultButton == 1);
+    CHECK(shown.size() == 2 && shown[1].controls.size() == 6 && shown[1].controls[1].text == "42" &&
+          shown[1].controls[3].className == "ListBox");
+    // The engine pressing Cancel.
+    process.dialogBox = [](const x86::Win32Process::DialogShown &) { return 2u; };
+    CHECK(user("DialogBoxIndirectParamA", {0, build(false), 0, proc, 0}) == 0);
+
+    // Modeless: its controls read back; Enter, through IsDialogMessageA,
+    // presses OK.
+    const uint32_t dlg = user("CreateDialogIndirectParamA", {0, build(false), 0, proc, 5});
+    CHECK(dlg != 0);
+    const uint32_t list = user("GetDlgItem", {dlg, 103});
+    CHECK(list != 0 && user("GetDlgCtrlID", {list}) == 103);
+    CHECK(user("SendMessageA", {list, 0x18b, 0, 0}) == 2 && user("SendMessageA", {list, 0x188, 0, 0}) == 1);
+    const uint32_t buffer = process.memory().alloc(16);
+    CHECK(user("SendMessageA", {list, 0x189, 1, buffer}) == 4 && cpu.string(buffer) == "blue");
+    CHECK(user("IsDlgButtonChecked", {dlg, 102}) == 1);
+    CHECK(user("GetDlgItemTextA", {dlg, 101, buffer, 16}) == 2 && cpu.string(buffer) == "42");
+    CHECK(user("GetDlgItem", {dlg, 999}) == 0);
+    const uint32_t msg = process.memory().alloc(28);
+    cpu.write32(msg, list);
+    cpu.write32(msg + 4, 0x100); // WM_KEYDOWN
+    cpu.write32(msg + 8, 0x0d);  // VK_RETURN
+    CHECK(user("IsDialogMessageA", {dlg, msg}) == 1);
+    CHECK(process.window(dlg) && !process.window(dlg)->visible); // ended: hidden
+    CHECK(user("IsDialogMessageA", {0x1234, msg}) == 0);
+    CHECK(user("DestroyWindow", {dlg}) == 1 && process.window(list) == nullptr);
+
+    // No such resource.
+    CHECK(user("DialogBoxParamA", {0, 7, 0, proc, 0}) == 0xffffffffu);
+}
+
+// Names and data changed after a player or group is made reach the other
+// side with their system messages (and not with DPSESSION_NODATAMESSAGES);
+// this end's own data stays here; chat, groups in groups, the session's
+// description changed; a player's event set by a message for it; and the
+// methods a session without security or a lobby answers no to.
+static void testDirectPlayChanges() {
+    auto network = net::LoopbackNetwork::create();
+    PlaySide host(network);
+    PlaySide joiner(network);
+    joiner.directPlay.waiting = [&] { host.directPlay.update(); };
+    CHECK(host.connect() == 1 && joiner.connect() == 1);
+    CHECK(host.call(39, {host.sessionDesc("Bespin"), 2, joiner.mem(4), 0}) == 0x80004001u); // SecureOpen, secure
+    CHECK(host.call(39, {host.sessionDesc("Bespin"), 2, 0, 0}) == 0);                       // SecureOpen: create
+    const uint32_t hostPlayer = host.createPlayer("Kyle");
+    joiner.join([&] { host.directPlay.update(); }, true);
+    const uint32_t event = joiner.createEvent();
+    const uint32_t joinerPlayer = joiner.createPlayer("Jerec", event);
+    CHECK(!joiner.isSet(event));
+    host.directPlay.update();
+    host.drain();
+
+    // A name changed: the message, the event set by it, and the name read.
+    CHECK(host.call(30, {hostPlayer, host.name("Katarn"), 0}) == 0); // SetPlayerName
+    joiner.directPlay.update();
+    CHECK(joiner.isSet(event) && !joiner.isSet(event)); // set, then reset by the wait
+    CHECK(joiner.system(0x103) && joiner.cpu.read32(joiner.received + 8) == hostPlayer);
+    CHECK(joiner.cpu.string(joiner.cpu.read32(joiner.received + 12 + 8)) == "Katarn");
+    uint32_t buffer = joiner.buffer(0);
+    CHECK(joiner.call(21, {hostPlayer, buffer, joiner.sizeAt}) == 0x8877001eu); // GetPlayerName: too small
+    buffer = joiner.buffer(joiner.cpu.read32(joiner.sizeAt));
+    CHECK(joiner.call(21, {hostPlayer, buffer, joiner.sizeAt}) == 0);
+    CHECK(joiner.cpu.string(joiner.cpu.read32(buffer + 8)) == "Katarn");
+    CHECK(joiner.call(30, {hostPlayer, joiner.name("mine"), 0}) == 0x8877000au); // another's: DPERR_ACCESSDENIED
+    CHECK(joiner.call(30, {joinerPlayer, joiner.name("Jerec 2"), 0}) == 0);
+    host.directPlay.update();
+    CHECK(host.system(0x103) && host.cpu.string(host.cpu.read32(host.received + 12 + 8)) == "Jerec 2");
+
+    // Data: everyone's, then this end's own.
+    CHECK(host.call(29, {hostPlayer, host.text("abc"), 3, 0}) == 0); // SetPlayerData
+    joiner.directPlay.update();
+    CHECK(joiner.system(0x102) && joiner.cpu.read32(joiner.received + 16) == 3);
+    CHECK(joiner.cpu.string(joiner.cpu.read32(joiner.received + 12)).substr(0, 3) == "abc");
+    CHECK(joiner.call(29, {hostPlayer, joiner.text("mine"), 4, 1}) == 0); // DPSET_LOCAL, of another's
+    CHECK(joiner.call(29, {hostPlayer, joiner.text("mine"), 4, 0}) == 0x8877000au);
+    buffer = joiner.buffer(16);
+    CHECK(joiner.call(20, {hostPlayer, buffer, joiner.sizeAt, 0}) == 0 && joiner.cpu.read32(joiner.sizeAt) == 3);
+    CHECK(joiner.cpu.read8(buffer) == 'a' && joiner.cpu.read8(buffer + 2) == 'c');
+    buffer = joiner.buffer(16);
+    CHECK(joiner.call(20, {hostPlayer, buffer, joiner.sizeAt, 1}) == 0 && joiner.cpu.read32(joiner.sizeAt) == 4);
+    CHECK(joiner.cpu.read8(buffer) == 'm');
+    host.directPlay.update();
+    CHECK(!host.system(0x102)); // the local data stayed
+
+    // Flags, caps and address.
+    const uint32_t out = joiner.mem(0x28);
+    CHECK(host.call(46, {hostPlayer, out}) == 0 && host.cpu.read32(out) == 8); // GetPlayerFlags: DPPLAYER_LOCAL
+    CHECK(joiner.call(46, {hostPlayer, out}) == 0 && joiner.cpu.read32(out) == 0);
+    joiner.cpu.write32(out, 0x28);
+    CHECK(joiner.call(19, {hostPlayer, out, 0}) == 0 && joiner.cpu.read32(out + 4) == 2); // GetPlayerCaps: ISHOST
+    CHECK(joiner.call(19, {joinerPlayer, out, 0}) == 0 && joiner.cpu.read32(out + 4) == 0x800);
+    buffer = joiner.buffer(0);
+    CHECK(joiner.call(18, {hostPlayer, buffer, joiner.sizeAt}) == 0x8877001eu); // GetPlayerAddress
+    buffer = joiner.buffer(joiner.cpu.read32(joiner.sizeAt));
+    CHECK(joiner.call(18, {hostPlayer, buffer, joiner.sizeAt}) == 0);
+    CHECK(x86::ComHost::guid(joiner.cpu, buffer + 44) == "{36e95ee0-8577-11cf-960c-0080c7534e82}"); // TCP/IP
+    CHECK(x86::ComHost::guid(joiner.cpu, buffer + 60) == "{c4a54da0-e0af-11cf-9c4e-00a0c905425e}"); // DPAID_INet
+    CHECK(joiner.cpu.string(buffer + 80) == "127.0.0.1");
+    CHECK(joiner.call(18, {joinerPlayer, buffer, joiner.sizeAt}) == 0x887700fau); // its own: DPERR_UNAVAILABLE
+
+    // Chat, to everyone and to a player.
+    const uint32_t chat = host.mem(12);
+    host.cpu.write32(chat, 12);
+    host.cpu.write32(chat + 4, 0);
+    host.cpu.write32(chat + 8, host.text("hello there"));
+    CHECK(host.call(40, {hostPlayer, 0, 0, chat}) == 0); // SendChatMessage
+    joiner.directPlay.update();
+    CHECK(joiner.system(0x109) && joiner.cpu.read32(joiner.received + 8) == hostPlayer);
+    CHECK(joiner.cpu.read32(joiner.received + 12) == 0 && joiner.cpu.read32(joiner.received + 16) == 0);
+    CHECK(joiner.cpu.string(joiner.cpu.read32(joiner.cpu.read32(joiner.received + 20) + 8)) == "hello there");
+    const uint32_t reply = joiner.mem(12);
+    joiner.cpu.write32(reply, 12);
+    joiner.cpu.write32(reply + 4, 0);
+    joiner.cpu.write32(reply + 8, joiner.text("hi"));
+    CHECK(joiner.call(40, {joinerPlayer, hostPlayer, 0, reply}) == 0);
+    host.directPlay.update();
+    CHECK(host.system(0x109) && host.cpu.read32(host.received + 12) == hostPlayer);
+    CHECK(host.cpu.string(host.cpu.read32(host.cpu.read32(host.received + 20) + 8)) == "hi");
+
+    // Groups in groups.
+    const uint32_t ids = host.mem(12);
+    CHECK(host.call(5, {ids, host.name("Red"), 0, 0, 0}) == 0); // CreateGroup
+    const uint32_t red = host.cpu.read32(ids);
+    CHECK(host.call(33, {red, ids + 4, host.name("Red leaders"), 0, 0, 0}) == 0); // CreateGroupInGroup
+    const uint32_t leaders = host.cpu.read32(ids + 4);
+    CHECK(host.call(5, {ids + 8, host.name("Blue"), 0, 0, 0}) == 0);
+    const uint32_t blue = host.cpu.read32(ids + 8);
+    CHECK(host.call(32, {red, blue}) == 0); // AddGroupToGroup
+    joiner.directPlay.update();
+    CHECK(joiner.system(3) && joiner.system(3) && joiner.cpu.read32(joiner.received + 0x28) == red);
+    CHECK(joiner.system(3) && joiner.system(0x105));
+    CHECK(joiner.cpu.read32(joiner.received + 4) == red && joiner.cpu.read32(joiner.received + 8) == blue);
+    std::vector<std::pair<std::string, uint32_t>> listed;
+    const uint32_t groups = joiner.cpu.addNative("test!EnumGroups", [&](x86::Cpu &c) {
+        listed.emplace_back(c.string(c.read32(c.arg(2) + 8)), c.arg(3));
+        c.reg[x86::Cpu::EAX] = 1;
+        return 20u;
+    });
+    CHECK(joiner.call(11, {0, groups, 0, 0}) == 0); // EnumGroups: those not in another
+    CHECK(listed == (std::vector<std::pair<std::string, uint32_t>>{{"Red", 0x10}, {"Blue", 0x10}}));
+    listed.clear();
+    CHECK(joiner.call(36, {red, 0, groups, 0, 0}) == 0); // EnumGroupsInGroup
+    CHECK(listed == (std::vector<std::pair<std::string, uint32_t>>{{"Red leaders", 0x10}, {"Blue", 0x410}}));
+    CHECK(joiner.call(44, {leaders, out}) == 0 && joiner.cpu.read32(out) == red); // GetGroupParent
+    CHECK(joiner.call(44, {red, out}) == 0 && joiner.cpu.read32(out) == 0);
+    CHECK(host.call(43, {red, out}) == 0 && host.cpu.read32(out) == 8); // GetGroupFlags
+    CHECK(host.call(34, {red, blue}) == 0);                             // DeleteGroupFromGroup
+    CHECK(host.call(28, {red, host.name("Crimson")}) == 0);             // SetGroupName
+    CHECK(host.call(27, {red, host.text("x"), 1, 0}) == 0);             // SetGroupData
+    joiner.directPlay.update();
+    CHECK(joiner.system(0x106) && joiner.system(0x103) && joiner.cpu.read32(joiner.received + 4) == 0);
+    CHECK(joiner.system(0x102));
+    buffer = joiner.buffer(64);
+    CHECK(joiner.call(16, {red, buffer, joiner.sizeAt}) == 0 &&
+          joiner.cpu.string(joiner.cpu.read32(buffer + 8)) == "Crimson");                            // GetGroupName
+    CHECK(joiner.call(15, {red, buffer, joiner.sizeAt, 0}) == 0 && joiner.cpu.read8(buffer) == 'x'); // GetGroupData
+    CHECK(host.call(8, {red}) == 0); // DestroyGroup: the group made in it goes too
+    joiner.directPlay.update();
+    CHECK(joiner.system(5) && joiner.system(5) && joiner.call(44, {leaders, out}) == 0x8877009bu);
+
+    // The session's description changed, then with no data messages.
+    CHECK(host.call(31, {host.sessionDesc("Bespin 3"), 0}) == 0); // SetSessionDesc
+    joiner.directPlay.update();
+    CHECK(joiner.system(0x104) && joiner.cpu.string(joiner.cpu.read32(joiner.received + 4 + 0x30)) == "Bespin 3");
+    CHECK(host.call(31, {host.sessionDesc("Bespin 4", 0x80), 0}) == 0); // DPSESSION_NODATAMESSAGES
+    CHECK(host.call(30, {hostPlayer, host.name("Kyle"), 0}) == 0);
+    joiner.directPlay.update();
+    CHECK(joiner.system(0x104) && !joiner.system(0x103));
+    buffer = joiner.buffer(64);
+    CHECK(joiner.call(21, {hostPlayer, buffer, joiner.sizeAt}) == 0);
+    CHECK(joiner.cpu.string(joiner.cpu.read32(buffer + 8)) == "Kyle");
+
+    // What there's no such thing as here.
+    CHECK(host.call(23, {0}) == 0x88770005u);                             // Initialize: DPERR_ALREADYINITIALIZED
+    CHECK(host.call(45, {hostPlayer, 0, 0, host.mem(4)}) == 0x80004001u); // GetPlayerAccount: DPERR_UNSUPPORTED
+    CHECK(host.call(37, {0, blue, 0, host.mem(4)}) == 0x80004001u);       // GetGroupConnectionSettings
+    CHECK(host.call(41, {0, blue, 0}) == 0x80004001u);                    // SetGroupConnectionSettings
+    CHECK(host.call(42, {0, blue}) == 0x80004001u);                       // StartSession
+    CHECK(host.call(42, {0, 0x12345}) == 0x8877009bu);                    // DPERR_INVALIDGROUP
+}
+
+// Host migration: three ends of a session with DPSESSION_MIGRATEHOST; the
+// host leaves, the one who joined first hosts (DPSYS_HOST) and the third
+// plays on through it; a fourth joins the new host, which then leaves too.
+static void testDirectPlayMigration() {
+    auto network = net::LoopbackNetwork::create();
+    PlaySide host(network);
+    PlaySide first(network);
+    PlaySide second(network);
+    PlaySide third(network);
+    std::vector<PlaySide *> all = {&host, &first, &second, &third};
+    auto pump = [&] {
+        for (PlaySide *side : all)
+            side->directPlay.update();
+    };
+    for (PlaySide *side : all) {
+        side->directPlay.waiting = pump;
+        CHECK(side->connect() == 1);
+    }
+    CHECK(host.call(24, {host.sessionDesc("Hoth", 4), 2}) == 0); // DPSESSION_MIGRATEHOST
+    const uint32_t hostPlayer = host.createPlayer("Host");
+    first.join(pump);
+    const uint32_t firstPlayer = first.createPlayer("First");
+    second.join(pump);
+    const uint32_t secondPlayer = second.createPlayer("Second");
+    for (int i = 0; i < 3; ++i)
+        pump();
+    for (PlaySide *side : all)
+        side->drain();
+
+    CHECK(host.call(4, {}) == 0); // Close
+    pump();
+    pump();
+    CHECK(first.system(5) && first.cpu.read32(first.received + 8) == hostPlayer);
+    CHECK(first.system(0x101)); // DPSYS_HOST
+    CHECK(second.system(5) && !second.system(0x31) && !second.system(0x101));
+    const uint32_t caps = first.mem(0x28);
+    first.cpu.write32(caps, 0x28);
+    CHECK(first.call(14, {caps}) == 0 && first.cpu.read32(caps + 4) == 2); // GetCaps: ISHOST
+    second.cpu.write32(caps, 0x28);
+    CHECK(second.call(19, {firstPlayer, caps, 0}) == 0 && second.cpu.read32(caps + 4) == 2);
+
+    std::vector<uint8_t> data;
+    uint32_t from = 0;
+    uint32_t to = 0;
+    CHECK(second.send(secondPlayer, firstPlayer, "to the new host", 1) == 0);
+    pump();
+    CHECK(first.receive(data, from, to) && from == secondPlayer &&
+          std::string(data.begin(), data.end()) == "to the new host");
+    CHECK(first.send(firstPlayer, 0, "everyone") == 0);
+    pump();
+    CHECK(second.receive(data, from, to) && from == firstPlayer && to == secondPlayer);
+
+    // A newcomer finds the new host on DirectPlay's port, and plays with both.
+    third.join(pump);
+    std::vector<std::string> names;
+    const uint32_t players = third.cpu.addNative("test!EnumPlayers", [&](x86::Cpu &c) {
+        names.push_back(c.string(c.read32(c.arg(2) + 8)));
+        c.reg[x86::Cpu::EAX] = 1;
+        return 20u;
+    });
+    CHECK(third.call(12, {0, players, 0, 0}) == 0 && names == (std::vector<std::string>{"First", "Second"}));
+    const uint32_t thirdPlayer = third.createPlayer("Third");
+    pump();
+    pump();
+    CHECK(second.system(3) && second.cpu.read32(second.received + 8) == thirdPlayer);
+
+    // The new host leaves too: the second hosts, the third with it.
+    CHECK(first.call(4, {}) == 0);
+    pump();
+    pump();
+    CHECK(second.system(5) && second.system(0x101));
+    CHECK(third.system(5) && !third.system(0x31));
+    CHECK(third.send(thirdPlayer, secondPlayer, "still here", 1) == 0);
+    pump();
+    CHECK(second.receive(data, from, to) && from == thirdPlayer &&
+          std::string(data.begin(), data.end()) == "still here");
+}
+
+// The lobby, for a program no lobby started: not lobbied, no applications,
+// and addresses made, read and taken by InitializeConnection.
+static void testDirectPlayLobby() {
+    auto network = net::LoopbackNetwork::create();
+    PlaySide side(network);
+    x86::Cpu &cpu = side.cpu;
+    const uint32_t create = side.process.provided("DPLAYX.dll", "#4"); // DirectPlayLobbyCreateA
+    const uint32_t out = side.mem(4);
+    uint32_t r = 0;
+    CHECK(!cpu.call(create, {0, out, side.mem(4), 0, 0}, r) && r == 0x80040110u); // no aggregation
+    CHECK(!cpu.call(create, {0, out, 0, 0, 0}, r) && r == 0);
+    const uint32_t lobbyA = cpu.read32(out);
+    auto call = [&](uint32_t object, int index, std::vector<uint32_t> args) {
+        args.insert(args.begin(), object);
+        uint32_t result = 0xffffffffu;
+        CHECK(!cpu.call(cpu.read32(cpu.read32(object) + 4 * uint32_t(index)), args, result));
+        return result;
+    };
+    // As JK.EXE does: IDirectPlayLobby2, then its settings.
+    CHECK(call(lobbyA, 0, {side.guid("{0194c220-a303-11d0-9c4f-00a0c905425e}"), out}) == 0);
+    const uint32_t lobby = cpu.read32(out);
+    CHECK(call(lobbyA, 2, {}) == 1); // Release: the IDirectPlayLobby2 holds it
+    const uint32_t size = side.mem(4);
+    cpu.write32(size, 0);
+    CHECK(call(lobby, 8, {0, 0, size}) == 0x8877042eu);    // GetConnectionSettings: DPERR_NOTLOBBIED
+    CHECK(call(lobby, 3, {0, out, 0}) == 0x8877042eu);     // Connect
+    CHECK(call(lobby, 10, {0, out, 0, 0}) == 0x8877041au); // RunApplication: DPERR_UNKNOWNAPPLICATION
+    CHECK(call(lobby, 12, {0, 7, 0}) == 0x80070057u);      // SetConnectionSettings of no application
+
+    // An address of TCP/IP and a host.
+    const uint32_t tcpIp = side.guid("{36e95ee0-8577-11cf-960c-0080c7534e82}");
+    const uint32_t inet = side.guid("{c4a54da0-e0af-11cf-9c4e-00a0c905425e}");
+    CHECK(call(lobby, 4, {tcpIp, inet, side.text("10.0.0.2"), 9, 0, size}) == 0x8877001eu); // CreateAddress
+    CHECK(cpu.read32(size) == 24 + 36 + 29);
+    const uint32_t address = side.mem(cpu.read32(size));
+    CHECK(call(lobby, 4, {tcpIp, inet, side.text("10.0.0.2"), 9, address, size}) == 0);
+    std::vector<std::string> chunks;
+    const uint32_t each = cpu.addNative("test!EnumAddress", [&](x86::Cpu &c) {
+        chunks.push_back(x86::ComHost::guid(c, c.arg(0)) + ":" + std::to_string(c.arg(1)));
+        if (c.arg(1) == 9)
+            chunks.push_back(c.string(c.arg(2)));
+        c.reg[x86::Cpu::EAX] = 1;
+        return 16u;
+    });
+    CHECK(call(lobby, 5, {each, address, cpu.read32(size), 0}) == 0); // EnumAddress
+    CHECK(chunks == (std::vector<std::string>{"{1318f560-912c-11d0-9daa-00a0c90a43cb}:4",
+                                              "{07d916c0-e0af-11cf-9c4e-00a0c905425e}:16",
+                                              "{c4a54da0-e0af-11cf-9c4e-00a0c905425e}:9", "10.0.0.2"}));
+    // The same from its elements.
+    const uint32_t elements = side.mem(48);
+    x86::ComHost::writeGuid(cpu, elements, "{07d916c0-e0af-11cf-9c4e-00a0c905425e}");
+    cpu.write32(elements + 16, 16);
+    cpu.write32(elements + 20, tcpIp);
+    x86::ComHost::writeGuid(cpu, elements + 24, "{c4a54da0-e0af-11cf-9c4e-00a0c905425e}");
+    cpu.write32(elements + 40, 9);
+    cpu.write32(elements + 44, side.text("10.0.0.2"));
+    const uint32_t compound = side.mem(cpu.read32(size));
+    CHECK(call(lobby, 14, {elements, 2, compound, size}) == 0); // CreateCompoundAddress
+    bool same = true;
+    for (uint32_t i = 0; i < cpu.read32(size); ++i)
+        same = same && cpu.read8(compound + i) == cpu.read8(address + i);
+    CHECK(same);
+    std::vector<std::string> types;
+    const uint32_t eachType = cpu.addNative("test!EnumAddressTypes", [&](x86::Cpu &c) {
+        types.push_back(x86::ComHost::guid(c, c.arg(0)));
+        c.reg[x86::Cpu::EAX] = 1;
+        return 12u;
+    });
+    CHECK(call(lobby, 6, {eachType, tcpIp, 0, 0}) == 0); // EnumAddressTypes
+    CHECK(types == std::vector<std::string>{"{c4a54da0-e0af-11cf-9c4e-00a0c905425e}"});
+    CHECK(call(lobby, 6, {eachType, side.guid("{685bc400-9d2c-11cf-a9cd-00aa006886e3}"), 0, 0}) == 0x887700fau);
+
+    // DirectPlay takes the address as its connection.
+    CHECK(side.call(38, {address, 0}) == 0); // InitializeConnection
+    CHECK(call(lobby, 2, {}) == 0);
+}
+
+// WINMM's joysticks: none plugged in, then a game controller as the first,
+// its caps, axes, buttons and hat as JK.EXE reads them, and a second; the
+// Unicode caps, the registry's settings, thresholds and capture.
+static void testJoysticks() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    x86::Joysticks joysticks(process);
+    uint32_t r = 0;
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("WINMM.dll", name), args, r));
+        return r;
+    };
+    const uint32_t info = process.memory().alloc(52);
+    const uint32_t caps = process.memory().alloc(404);
+    CHECK(call("joyGetNumDevs", {}) == 16);
+    CHECK(call("joyGetPos", {0, info}) == 167);  // JOYERR_UNPLUGGED
+    CHECK(call("joyGetPos", {16, info}) == 165); // JOYERR_PARMS
+    CHECK(call("joyGetDevCapsA", {0, caps, 404}) == 167);
+
+    GamepadState pad;
+    pad.name = "Test pad";
+    const x86::Joysticks::Device device = x86::Joysticks::fromGamepad(pad);
+    joysticks.connect(0, &device);
+    CHECK(call("joyGetDevCapsA", {0, caps, 404}) == 0);
+    CHECK(cpu.string(caps + 4) == "Test pad" && cpu.read32(caps + 40) == 65535 && cpu.read32(caps + 76) == 65535);
+    CHECK(cpu.read32(caps + 96) == (0x1 | 0x2 | 0x4 | 0x10 | 0x40)); // Z, R, U and a hat by degrees
+    CHECK(cpu.read32(caps + 104) == 5 && cpu.read32(caps + 108) == 10);
+    CHECK(call("joyGetDevCapsA", {1, caps, 404}) == 167);
+
+    // The left stick right and up, the right trigger, B held, the D-pad
+    // down and left.
+    pad.axes[0] = 1;
+    pad.axes[1] = -1;
+    pad.axes[5] = 1;
+    pad.buttons = 1u << kPadEast | 1u << kPadDown | 1u << kPadLeft;
+    joysticks.set(0, x86::Joysticks::stateOf(pad));
+    cpu.write32(info, 52);
+    CHECK(call("joyGetPosEx", {0, info}) == 0);
+    CHECK(cpu.read32(info + 8) == 65535 && cpu.read32(info + 12) == 0 && cpu.read32(info + 16) == 65535);
+    CHECK(cpu.read32(info + 20) == x86::Joysticks::kCentre);
+    CHECK(cpu.read32(info + 32) == 2 && cpu.read32(info + 36) == 1);
+    CHECK(cpu.read32(info + 40) == 22500); // down and left: 225 degrees clockwise from ahead
+    CHECK(call("joyGetPos", {0, info}) == 0 && cpu.read32(info) == 65535 && cpu.read32(info + 12) == 2);
+    cpu.write32(info, 20);
+    CHECK(call("joyGetPosEx", {0, info}) == 165); // too small a structure
+
+    // A second, on its own: the first's state isn't its.
+    joysticks.connect(1, &device);
+    GamepadState second;
+    second.axes[0] = -1;
+    joysticks.set(1, x86::Joysticks::stateOf(second));
+    cpu.write32(info, 52);
+    CHECK(call("joyGetPosEx", {1, info}) == 0 && cpu.read32(info + 8) == 0 && cpu.read32(info + 32) == 0);
+    CHECK(call("joyGetPosEx", {0, info}) == 0 && cpu.read32(info + 8) == 65535);
+    CHECK(call("joyGetPos", {2, info}) == 167); // a third isn't offered
+
+    // The Unicode caps: the name in 16-bit characters, the numbers 32 bytes on.
+    const uint32_t wcaps = process.memory().alloc(728);
+    CHECK(call("joyGetDevCapsW", {0, wcaps, 404}) == 165);
+    CHECK(call("joyGetDevCapsW", {0, wcaps, 728}) == 0);
+    CHECK(cpu.read16(wcaps + 4) == 'T' && cpu.read16(wcaps + 6) == 'e' && cpu.read32(wcaps + 72) == 65535);
+    CHECK(cpu.read32(wcaps + 140) == 10 && cpu.read16(wcaps + 144) == 'R'); // wMaxButtons, szRegKey
+
+    // Its settings in the registry once update() has run, as Windows 95 keeps them.
+    joysticks.update(0);
+    const std::string current = "HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\MediaResources\\Joystick\\"
+                                "Reluva\\CurrentJoystickSettings";
+    const auto oemName = process.registryValue(current, "Joystick1OEMName");
+    CHECK(oemName && std::string(oemName->begin(), oemName->end()) == std::string("Test pad", 9));
+    uint32_t type = 0;
+    const auto config = process.registryValue(current, "Joystick1Configuration", &type);
+    CHECK(config && type == 3 && config->size() == 112 && (*config)[36] == 0xff && (*config)[37] == 0xff);
+    CHECK(process.registryValue("HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\MediaProperties\\"
+                                "PrivateProperties\\Joystick\\OEM\\Test pad",
+                                "OEMName"));
+
+    // Thresholds.
+    const uint32_t value = process.memory().alloc(4);
+    CHECK(call("joySetThreshold", {0, 1000}) == 0);
+    CHECK(call("joyGetThreshold", {0, value}) == 0 && cpu.read32(value) == 1000);
+    CHECK(call("joySetThreshold", {5, 1000}) == 165);
+
+    // Captured by a window: its messages each period, the moves only past
+    // the threshold.
+    const uint32_t proc = cpu.addNative("test!JoyProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    const uint32_t name = process.memory().alloc(8);
+    cpu.writeString(name, "Joy", 8);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, name);
+    CHECK(!cpu.call(process.provided("USER32.dll", "RegisterClassA"), {wc}, r) && r != 0);
+    CHECK(
+        !cpu.call(process.provided("USER32.dll", "CreateWindowExA"), {0, name, name, 0, 0, 0, 64, 64, 0, 0, 0, 0}, r) &&
+        r != 0);
+    const uint32_t hwnd = r;
+    const uint32_t msg = process.memory().alloc(28);
+    auto messages = [&] {
+        std::vector<std::array<uint32_t, 3>> got;
+        while (!cpu.call(process.provided("USER32.dll", "PeekMessageA"), {msg, 0, 0, 0, 1}, r) && r)
+            if (cpu.read32(msg + 4) >= 0x3a0 && cpu.read32(msg + 4) <= 0x3b8)
+                got.push_back({cpu.read32(msg + 4), cpu.read32(msg + 8), cpu.read32(msg + 12)});
+        return got;
+    };
+    messages();
+    joysticks.set(0, x86::Joysticks::State());
+    CHECK(call("joySetCapture", {0x1234, 0, 50, 1}) == 165); // no such window
+    CHECK(call("joySetCapture", {hwnd, 0, 50, 1}) == 0);
+    CHECK(call("joySetCapture", {hwnd, 0, 50, 1}) == 166); // captured already
+    GamepadState now;
+    now.buttons = 1u << kPadSouth;
+    now.axes[0] = 0.01f; // less than the threshold
+    joysticks.set(0, x86::Joysticks::stateOf(now));
+    joysticks.update(100);
+    auto got = messages();
+    CHECK(got.size() == 1 && got[0][0] == 0x3b5 && got[0][1] == (0x1 | 0x100)); // button 1 down, and changed
+    joysticks.update(120);                                                      // within the period: nothing
+    now.axes[0] = 1;
+    joysticks.set(0, x86::Joysticks::stateOf(now));
+    joysticks.update(130);
+    CHECK(messages().empty());
+    joysticks.update(150);
+    got = messages();
+    CHECK(got.size() == 1 && got[0][0] == 0x3a0 && got[0][1] == 1 && (got[0][2] & 0xffff) == 65535);
+    CHECK(call("joyReleaseCapture", {0}) == 0);
+    now.buttons = 0;
+    joysticks.set(0, x86::Joysticks::stateOf(now));
+    joysticks.update(300);
+    CHECK(messages().empty());
+
+    joysticks.connect(0, nullptr);
+    CHECK(call("joyGetPos", {0, info}) == 167);
+    CHECK(call("joyGetPos", {1, info}) == 0);
+}
+
+// A game windowed: an 8-bit DIB blitted into a window's device context
+// reaches the engine as the window's client area's pixels; and again
+// after the window grows.
+static void testWindowDrawing() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided(dll, name), args, r));
+        return r;
+    };
+    const uint32_t proc = cpu.addNative("test!DrawProc", [](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
+        return 16u;
+    });
+    const uint32_t wc = process.memory().alloc(40);
+    const uint32_t name = process.memory().alloc(8);
+    cpu.writeString(name, "Game", 8);
+    cpu.write32(wc + 4, proc);
+    cpu.write32(wc + 36, name);
+    call("USER32.dll", "RegisterClassA", {wc});
+    // A child-less popup without a frame: its client area is the window.
+    const uint32_t hwnd = call("USER32.dll", "CreateWindowExA", {0, name, name, 0x80000000, 10, 20, 4, 2, 0, 0, 0, 0});
+    CHECK(hwnd != 0);
+    int seenW = 0;
+    int seenH = 0;
+    std::vector<uint32_t> seen;
+    process.windowDrawn = [&](uint32_t window, const uint32_t *pixels, int w, int h) {
+        CHECK(window == hwnd);
+        seenW = w, seenH = h;
+        seen.assign(pixels, pixels + size_t(w) * size_t(h));
+    };
+    // A 2 by 1 DIB of 8 bits: red, then blue.
+    const uint32_t info = process.memory().alloc(40 + 256 * 4);
+    cpu.write32(info, 40);
+    cpu.write32(info + 4, 2);
+    cpu.write32(info + 8, 1);
+    cpu.write16(info + 12, 1);
+    cpu.write16(info + 14, 8);
+    cpu.write32(info + 32, 2);
+    cpu.write32(info + 40, 0x00ff0000); // RGBQUADs: blue, green, red
+    cpu.write32(info + 44, 0x000000ff);
+    const uint32_t bits = process.memory().alloc(4);
+    cpu.write8(bits, 0);
+    cpu.write8(bits + 1, 1);
+    const uint32_t dc = call("USER32.dll", "GetDC", {hwnd});
+    CHECK(call("GDI32.dll", "StretchDIBits", {dc, 1, 1, 2, 1, 0, 0, 2, 1, bits, info, 0, 0x00cc0020}) == 1);
+    CHECK(seenW == 4 && seenH == 2 && seen.size() == 8);
+    if (seen.size() == 8)
+        CHECK((seen[5] & 0xffffff) == 0xff0000 && (seen[6] & 0xffffff) == 0x0000ff && seen[0] == 0);
+    // Grown, its surface grows with it.
+    process.moveWindow(hwnd, 10, 20, 8, 4);
+    CHECK(call("GDI32.dll", "StretchDIBits", {dc, 0, 0, 2, 1, 0, 0, 2, 1, bits, info, 0, 0x00cc0020}) == 1);
+    CHECK(seenW == 8 && seenH == 4 && (seen[0] & 0xffffff) == 0xff0000);
+    // The desktop's device context draws nowhere.
+    seenW = 0;
+    call("GDI32.dll", "StretchDIBits",
+         {call("USER32.dll", "GetDC", {0}), 0, 0, 2, 1, 0, 0, 2, 1, bits, info, 0, 0x00cc0020});
+    CHECK(seenW == 0);
+}
+
+// GDI's bitmaps as a program uses them: an 8-bit DIB section blitted, mirrored
+// and stretched into a 32-bit one, read back with GetDIBits; palettes.
+static void testGdi() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided("GDI32.dll", name), args, r));
+        return r;
+    };
+    const uint32_t srccopy = 0x00cc0020;
+    // A 4 by 2 bottom-up DIB of 8 bits: black, red, green and blue.
+    const uint32_t info = process.memory().alloc(40 + 256 * 4);
+    cpu.write32(info, 40);
+    cpu.write32(info + 4, 4);
+    cpu.write32(info + 8, 2);
+    cpu.write16(info + 12, 1);
+    cpu.write16(info + 14, 8);
+    cpu.write32(info + 32, 4);
+    const uint32_t quads[4] = {0, 0x00ff0000, 0x0000ff00, 0x000000ff}; // RGBQUADs: blue, green, red
+    for (uint32_t i = 0; i < 4; ++i)
+        cpu.write32(info + 40 + 4 * i, quads[i]);
+    const uint32_t bitsOut = process.memory().alloc(4);
+    const uint32_t dc8 = call("CreateCompatibleDC", {0});
+    const uint32_t dib8 = call("CreateDIBSection", {dc8, info, 0, bitsOut, 0, 0});
+    CHECK(dib8 != 0 && cpu.read32(bitsOut) != 0);
+    const uint32_t pixels8 = cpu.read32(bitsOut);
+    cpu.write32(pixels8, 0x00000000);     // the bottom row
+    cpu.write32(pixels8 + 4, 0x00030201); // the top row: red, green, blue, black
+    const uint32_t first = call("SelectObject", {dc8, dib8});
+    CHECK(first != 0 && first != dib8);
+    // A 4 by 2 top-down one of 32 bits.
+    const uint32_t info32 = process.memory().alloc(40);
+    cpu.write32(info32, 40);
+    cpu.write32(info32 + 4, 4);
+    cpu.write32(info32 + 8, uint32_t(-2));
+    cpu.write16(info32 + 12, 1);
+    cpu.write16(info32 + 14, 32);
+    const uint32_t dc32 = call("CreateCompatibleDC", {dc8});
+    const uint32_t dib32 = call("CreateDIBSection", {dc32, info32, 0, bitsOut, 0, 0});
+    const uint32_t pixels32 = cpu.read32(bitsOut);
+    CHECK(dib32 != 0 && call("SelectObject", {dc32, dib32}) != 0);
+    auto row32 = [&](int y) {
+        std::vector<uint32_t> row;
+        for (uint32_t x = 0; x < 4; ++x)
+            row.push_back(cpu.read32(pixels32 + uint32_t(y) * 16 + 4 * x));
+        return row;
+    };
+    CHECK(call("BitBlt", {dc32, 0, 0, 4, 2, dc8, 0, 0, srccopy}) == 1);
+    CHECK((row32(0) == std::vector<uint32_t>{0xff0000, 0xff00, 0xff, 0}) &&
+          (row32(1) == std::vector<uint32_t>{0, 0, 0, 0}));
+    // Mirrored by a negative source width.
+    CHECK(call("StretchBlt", {dc32, 0, 0, 4, 2, dc8, 4, 0, uint32_t(-4), 2, srccopy}) == 1);
+    CHECK((row32(0) == std::vector<uint32_t>{0, 0xff, 0xff00, 0xff0000}));
+    // A colour of the DIB section's table changed.
+    const uint32_t yellow = process.memory().alloc(4);
+    cpu.write32(yellow, 0x00ffff00);
+    CHECK(call("SetDIBColorTable", {dc8, 1, 1, yellow}) == 1);
+    CHECK(call("BitBlt", {dc32, 0, 0, 1, 1, dc8, 0, 0, srccopy}) == 1 && cpu.read32(pixels32) == 0xffff00);
+    // Raster operations without a pattern; one with fails.
+    CHECK(call("BitBlt", {dc32, 0, 1, 4, 1, 0, 0, 0, 0x00ff0062}) == 1 && row32(1)[3] == 0xffffff); // WHITENESS
+    CHECK(call("BitBlt", {dc32, 0, 1, 4, 1, dc8, 0, 0, 0x008800c6}) == 1 &&                         // SRCAND
+          (row32(1) == std::vector<uint32_t>{0xffff00, 0xff00, 0xff, 0}));
+    CHECK(call("BitBlt", {dc32, 0, 0, 4, 2, 0, 0, 0, 0x00f00021}) == 0); // PATCOPY
+    // A 2 by 1 DIB of 24 bits, white and blue, stretched over the whole.
+    const uint32_t info24 = process.memory().alloc(40);
+    cpu.write32(info24, 40);
+    cpu.write32(info24 + 4, 2);
+    cpu.write32(info24 + 8, 1);
+    cpu.write16(info24 + 12, 1);
+    cpu.write16(info24 + 14, 24);
+    const uint32_t pixels24 = process.memory().alloc(8);
+    for (uint32_t i = 0; i < 3; ++i)
+        cpu.write8(pixels24 + i, 0xff);
+    cpu.write8(pixels24 + 3, 0xff); // blue, green, red: blue
+    CHECK(call("StretchDIBits", {dc32, 0, 0, 4, 2, 0, 0, 2, 1, pixels24, info24, 0, srccopy}) == 1);
+    CHECK((row32(0) == std::vector<uint32_t>{0xffffff, 0xffffff, 0xff, 0xff}) && row32(1) == row32(0));
+    CHECK(call("SetStretchBltMode", {dc32, 3}) == 1 && call("SetStretchBltMode", {dc32, 4}) == 3);
+    CHECK(call("SetStretchBltMode", {dc32, 9}) == 0);
+    // GetDIBits: the format, then the rows as 24 bits, bottom up.
+    const uint32_t asked = process.memory().alloc(52);
+    cpu.write32(asked, 40);
+    CHECK(call("GetDIBits", {dc32, dib32, 0, 2, 0, asked, 0}) == 1);
+    CHECK(cpu.read32(asked + 4) == 4 && cpu.read32(asked + 8) == 2 && cpu.read16(asked + 14) == 32 &&
+          cpu.read32(asked + 16) == 0);
+    cpu.write16(asked + 14, 24);
+    const uint32_t lines = process.memory().alloc(24);
+    cpu.write32(pixels32 + 16, 0x00123456); // the bottom row's first
+    CHECK(call("GetDIBits", {dc32, dib32, 0, 2, lines, asked, 0}) == 2);
+    CHECK(cpu.read8(lines) == 0x56 && cpu.read8(lines + 1) == 0x34 && cpu.read8(lines + 2) == 0x12 &&
+          cpu.read8(lines + 12) == 0xff && cpu.read8(lines + 15) == 0xff);
+    // A compatible bitmap of the context's depth.
+    const uint32_t compatible = call("CreateCompatibleBitmap", {dc32, 3, 3});
+    cpu.write32(asked + 14, 0);
+    CHECK(compatible != 0 && call("GetDIBits", {dc32, compatible, 0, 3, 0, asked, 0}) == 1 &&
+          cpu.read16(asked + 14) == 32 && cpu.read32(asked + 4) == 3);
+
+    // Palettes: black, a PC_RESERVED white, red.
+    const uint32_t logPalette = process.memory().alloc(16);
+    cpu.write16(logPalette, 0x300);
+    cpu.write16(logPalette + 2, 3);
+    cpu.write32(logPalette + 4, 0);
+    cpu.write32(logPalette + 8, 0x01ffffff);
+    cpu.write32(logPalette + 12, 0x000000ff);
+    const uint32_t palette = call("CreatePalette", {logPalette});
+    CHECK(palette != 0 && call("GetNearestPaletteIndex", {palette, 0x000010e0}) == 2);
+    CHECK(call("GetNearestPaletteIndex", {palette + 1, 0}) == 0xffffffffu);
+    const uint32_t greens = process.memory().alloc(12);
+    for (uint32_t i = 0; i < 3; ++i)
+        cpu.write32(greens + 4 * i, 0x0000ff00);
+    CHECK(call("AnimatePalette", {palette, 0, 3, greens}) == 1);
+    CHECK(call("GetNearestPaletteIndex", {palette, 0x0000ff00}) == 1 &&
+          call("GetNearestPaletteIndex", {palette, 0x000000ff}) == 2);
+    const uint32_t stock = call("SelectPalette", {dc8, palette, 0});
+    CHECK(stock != 0 && call("SelectPalette", {dc8, stock, 0}) == palette);
+    CHECK(call("SelectPalette", {dc8, palette, 0}) == stock);
+    CHECK(call("RealizePalette", {dc8}) == 0 && call("GetSystemPaletteUse", {dc8}) == 0);
+    process.screenBits = 8;
+    CHECK(call("RealizePalette", {dc8}) == 3 && call("GetSystemPaletteUse", {dc8}) == 1);
+
+    CHECK(call("SelectObject", {dc8, first}) == dib8);
+    CHECK(call("DeleteObject", {dib8}) == 1 && call("DeleteObject", {palette}) == 1);
+    CHECK(call("DeleteDC", {dc8}) == 1 && call("DeleteDC", {dc8}) == 0);
+}
+
+// KERNEL32's, USER32's and ADVAPI32's odds and ends: string comparison,
+// LocalAlloc, wsprintfA, a dialog that isn't there, programs that can't be had,
+// RegDeleteKeyA and DebugBreak.
+static void testOddsAndEnds() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    uint32_t r = 0;
+    auto call = [&](const char *dll, const char *name, const std::vector<uint32_t> &args) {
+        CHECK(!cpu.call(process.provided(dll, name), args, r));
+        return r;
+    };
+    auto text = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
+        cpu.writeString(a, s, uint32_t(s.size() + 1));
+        return a;
+    };
+    auto wide = [&](const std::string &s) {
+        const uint32_t a = process.memory().alloc(uint32_t(2 * s.size() + 2));
+        for (size_t i = 0; i <= s.size(); ++i)
+            cpu.write16(a + 2 * uint32_t(i), i < s.size() ? uint8_t(s[i]) : 0);
+        return a;
+    };
+    const char *k = "KERNEL32.dll";
+    const char *u = "USER32.dll";
+    const uint32_t minus = uint32_t(-1);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abc"), minus, text("abd"), minus}) == 1);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abc"), minus, text("ABC"), minus}) == 3);
+    CHECK(call(k, "CompareStringA", {0x409, 1, text("abc\xe9"), minus, text("ABC\xc9"), minus}) == 2);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abcX"), 3, text("abc"), minus}) == 2);
+    CHECK(call(k, "CompareStringA", {0x409, 0, text("abc"), minus, text("ab"), minus}) == 3);
+    CHECK(call(k, "CompareStringA", {0x409, 0, 0, minus, text("ab"), minus}) == 0);
+    CHECK(call(k, "CompareStringW", {0x409, 1, wide("Jedi"), minus, wide("JEDI"), 4}) == 2);
+    CHECK(call(k, "CompareStringW", {0x409, 0, wide("Jedi"), 2, wide("Jedi"), minus}) == 1);
+
+    const uint32_t block = call(k, "LocalAlloc", {0x40, 64});
+    CHECK(block != 0 && cpu.read32(block) == 0 && cpu.read32(block + 60) == 0);
+    CHECK(call(k, "LocalFree", {block}) == 0);
+
+    const uint32_t buffer = process.memory().alloc(2048);
+    CHECK(call(u, "wsprintfA", {buffer, text("%s=%d %04x %c"), text("n"), uint32_t(-5), 0xab, 'z'}) == 11 &&
+          cpu.string(buffer) == "n=-5 00ab z");
+    CHECK(call(u, "wsprintfA", {buffer, text("%s"), text(std::string(1500, 'x'))}) == 1023 &&
+          cpu.string(buffer, 4096).size() == 1023);
+
+    // What can't be had: other programs, and a dialog not in the resources.
+    std::string said;
+    process.output = [&](const std::string &s) { said += s; };
+    CHECK(call(k, "WinExec", {text("control joy.cpl"), 1}) == 2);
+    CHECK(said.find("control joy.cpl") != std::string::npos);
+    CHECK(call(k, "LoadModule", {text("SETUP.EXE"), 0}) == 2);
+    CHECK(call(u, "CreateDialogParamA", {0x400000, 101, 0, 0, 0}) == 0);
+    CHECK(call(u, "GetDlgItem", {0, 101}) == 0 && call(u, "SetDlgItemTextA", {0, 101, text("x")}) == 0);
+    cpu.write8(buffer, 'x');
+    CHECK(call(u, "GetDlgItemTextA", {0, 101, buffer, 16}) == 0 && cpu.read8(buffer) == 0);
+    CHECK(call(u, "IsDialogMessageA", {0, buffer}) == 0);
+
+    // A key with keys under it isn't deleted.
+    const uint32_t key = process.memory().alloc(4);
+    const char *a = "ADVAPI32.dll";
+    CHECK(call(a, "RegCreateKeyExA", {0x80000001u, text("Software\\Game\\Sub"), 0, 0, 0, 0, 0, key, 0}) == 0);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("Software\\Game")}) == 5);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("software\\game\\sub")}) == 0);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("Software\\Game\\Sub")}) == 2);
+    CHECK(call(a, "RegDeleteKeyA", {0x80000001u, text("Software\\Game")}) == 0);
+    CHECK(call(a, "RegOpenKeyExA", {0x80000001u, text("Software\\Game"), 0, 1, key}) == 2);
+
+    // DebugBreak ends the run.
+    const Error e = cpu.call(process.provided(k, "DebugBreak"), {}, r);
+    CHECK(e && e.message.find("DebugBreak") != std::string::npos);
 }
 
 // A3D created as a program creates it, a source made, filled through Lock,
@@ -995,5 +2768,18 @@ static const test::Suite
                {"directx", [](const std::filesystem::path &) { testDirectX(); }},
                {"input", [](const std::filesystem::path &) { testInput(); }},
                {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+               {"direct3d 1", [](const std::filesystem::path &) { testDirect3D1(); }},
+               {"directplay", [](const std::filesystem::path &) { testDirectPlay(); }},
+               {"directplay changes", [](const std::filesystem::path &) { testDirectPlayChanges(); }},
+               {"directplay migration", [](const std::filesystem::path &) { testDirectPlayMigration(); }},
+               {"directplay lobby", [](const std::filesystem::path &) { testDirectPlayLobby(); }},
+               {"dialogs", [](const std::filesystem::path &) { testDialogs(); }},
+               {"joysticks", [](const std::filesystem::path &) { testJoysticks(); }},
+               {"gdi", [](const std::filesystem::path &) { testGdi(); }},
+               {"window drawing", [](const std::filesystem::path &) { testWindowDrawing(); }},
+               {"odds and ends", [](const std::filesystem::path &) { testOddsAndEnds(); }},
+               {"cd audio", [](const std::filesystem::path &tmp) { testCdAudio(tmp / "cdaudio"); }},
+               {"directsound", [](const std::filesystem::path &) { testDirectSound(); }},
+               {"sound 3d", [](const std::filesystem::path &) { testSound3d(); }},
                {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
            });

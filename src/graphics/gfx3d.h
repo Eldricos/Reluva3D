@@ -83,8 +83,13 @@ enum class Blend : uint8_t {
 };
 /** Which faces are culled: none, the back ones or the front ones. */
 enum class Cull : uint8_t { kNone, kBack, kFront };
-/** Which fragments an alpha test keeps: all, alpha > 0, alpha < 0.5, alpha >= 0.5. */
-enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128 };
+/**
+ * Which fragments an alpha test keeps: all, alpha > 0, alpha < 0.5, alpha >=
+ * 0.5, or as DrawCall::alphaFunc and alphaRef say.
+ */
+enum class AlphaTest : uint8_t { kNone, kGt0, kLt128, kGe128, kCompare };
+/** A comparison of a value with a reference, as Direct3D numbers them less one (D3DCMPFUNC). */
+enum class Compare : uint8_t { kNever, kLess, kEqual, kLessEqual, kGreater, kNotEqual, kGreaterEqual, kAlways };
 
 /** How a draw call blends, tests depth and culls. */
 struct DrawState {
@@ -93,6 +98,7 @@ struct DrawState {
     Blend dst = Blend::kZero;
     bool depthTest = true;   // passes when nearer or equal
     bool depthEqual = false; // with depthTest: passes only when equal, for extra passes over drawn geometry
+    bool depthLess = false;  // with depthTest: passes only when nearer, not when equal
     bool depthWrite = true;
     bool depthBias = false; // pulled towards the camera, for decals on walls
     Cull cull = Cull::kBack;
@@ -288,6 +294,20 @@ struct DrawCall {
     // fogDistance measured by depth in the view instead (Direct3D's table
     // fog, as UE1's renderer uses).
     bool fogByViewDepth = false;
+    // The depth (0 near to 1 far) from each vertex's uv2[1] instead of the
+    // position, interpolated straight across the screen: for vertices
+    // given already on the screen with Direct3D's z.
+    bool screenDepth = false;
+    // AlphaTest::kCompare's test: the fragment's alpha, as a whole number
+    // 0 to 255, against alphaRef's (0 to 1, as 0 to 255).
+    Compare alphaFunc = Compare::kAlways;
+    float alphaRef = 0;
+    // Direct3D's specular colour for vertices given lit: each vertex's
+    // normal taken as a colour (0 to 1) and added after texturing.
+    bool specularFromNormal = false;
+    // Direct3D's vertex fog: uv2[0] is how much of the fragment's colour
+    // stays (1: all, 0: none), the rest tableFogColor; instead of tableFog.
+    bool vertexFog = false;
     // > 0: the fragment's colour is blended towards tableFogColor by a 3D
     // card's table fog, (1 - e^(-w / tableFog)) / (1 - e^(-52428.8 /
     // tableFog)) clamped to 0..1, w from the vertices' uv2[0] (their

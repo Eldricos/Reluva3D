@@ -42,7 +42,7 @@ using image::decode;
 using image::encodeTga;
 
 constexpr int kWidth = 320;
-constexpr int kHeight = 240;
+constexpr int kHeight = 320;
 constexpr int kCell = 80;
 constexpr Color kClear{16, 16, 16};
 
@@ -198,6 +198,10 @@ std::vector<Probe> probes() {
     add("stencil: not outside it", at(2, 2, 8, 8), 12, true);
     add("deform move: moved right", at(3, 2, 50, 40));
     add("deform move: left behind", at(3, 2, 10, 40));
+    add("specular: added to grey (192, 64, 64)", at(0, 3, 40, 40));
+    add("vertex fog: a quarter red, the rest blue (64, 0, 191)", at(1, 3, 40, 40));
+    add("alpha compare: 100 > 128 fails (magenta under)", at(2, 3, 20, 40));
+    add("alpha compare: 200 > 128 kept (yellow)", at(2, 3, 60, 40));
     return out;
 }
 
@@ -341,6 +345,36 @@ void drawFrame(gfx::Renderer3D &r, Scene &s) {
         c.deforms[0].vector = {30, 0, 0};
         c.deforms[0].wave = {gfx::WaveFunc::kSin, 1, 0, 0, 0};
         r.draw(c);
+    }
+
+    // (0,3) Direct3D's specular colour, from the normal: (0.5, 0, 0) added
+    // to grey.
+    {
+        gfx::DrawCall c = Scene::call(
+            s.quad(cx(0), cy(3), cx(1), cy(4), 0.5f, {kGrey, kGrey, kGrey, kGrey}, 0, 0, 1, 1, false, {0.5f, 0, 0}));
+        c.specularFromNormal = true;
+        r.draw(c);
+    }
+    // (1,3) Vertex fog: a quarter of the colour (uv2's u, 0.25 throughout)
+    // stays, the rest the fog's blue.
+    {
+        gfx::DrawCall c =
+            Scene::call(s.quad(cx(1), cy(3), cx(2), cy(4), 0.5f, {kRed, kRed, kRed, kRed}, 0.25f, 0, 0.25f, 1));
+        c.vertexFog = true;
+        c.tableFogColor = {0, 0, 1};
+        r.draw(c);
+    }
+    // (2,3) An alpha test of a function and reference: alpha (as 0 to 255)
+    // greater than 128 kept, over magenta: 100 on the left, 200 on the right.
+    {
+        r.draw(Scene::call(s.quad(cx(2), cy(3), cx(3), cy(4), 0.7f, kMagenta)));
+        for (const auto &[x0, alpha] : {std::pair{cx(2), uint8_t(100)}, std::pair{cx(2) + 40, uint8_t(200)}}) {
+            gfx::DrawCall c = Scene::call(s.quad(x0, cy(3), x0 + 40, cy(4), 0.5f, Rgba{255, 255, 0, alpha}));
+            c.state.alphaTest = gfx::AlphaTest::kCompare;
+            c.alphaFunc = gfx::Compare::kGreater;
+            c.alphaRef = 128.0f / 255;
+            r.draw(c);
+        }
     }
 }
 

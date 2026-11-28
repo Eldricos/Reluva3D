@@ -2,13 +2,16 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Windows programs' resources: a string table read from a DLL's
-// resources (readPeStrings), and Windows Help files (.hlp): topics, text
-// and pictures.
+// resources (readPeStrings, and LoadStringA in the x86 emulator), a
+// dialog from them (DialogBoxParamA), and
+// Windows Help files (.hlp): topics, text and pictures.
 //
 //   reluva-tests common.unit.windows_resources
 
 #include "common/pe.h"
 #include "common/winhelp.h"
+#include "emulation/x86/cpu.h"
+#include "emulation/x86/win32.h"
 #include "tests/support/test.h"
 
 #include <cstdint>
@@ -90,6 +93,123 @@ void testPeStrings() {
     CHECK(strings.size() == 2 && strings[529] == "Go!" && strings[543] == "F\xc3\xbcnf");
     pe.resourceRva = 0;
     CHECK(readPeStrings(dll, pe, strings));
+}
+
+// LoadStringA, as a program loaded in the emulator calls it.
+void testLoadString() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    const x86::Win32Process::Module *m = nullptr;
+    CHECK(!process.load("strings.dll", stringTableDll(), m) && m);
+    if (!m)
+        return;
+    const uint32_t buffer = process.memory().alloc(16);
+    uint32_t r = 0;
+    auto load = [&](uint32_t id, uint32_t size) {
+        CHECK(!cpu.call(process.provided("USER32.dll", "LoadStringA"), {m->base, id, buffer, size}, r));
+        return r;
+    };
+    CHECK(load(529, 16) == 3 && cpu.string(buffer) == "Go!");
+    CHECK(load(543, 16) == 4 && cpu.string(buffer) == "F\xfcnf"); // as Latin-1
+    CHECK(load(543, 3) == 2 && cpu.string(buffer) == "F\xfc");
+    CHECK(load(530, 16) == 0 && cpu.string(buffer).empty());
+    CHECK(load(5, 16) == 0);
+}
+
+// A DLL whose resources hold one dialog, named PICK: an OK button and a
+// Cancel one.
+std::vector<uint8_t> dialogDll() {
+    std::vector<uint8_t> f = stringTableDll();
+    std::fill(f.begin() + 0x200, f.end(), 0);
+    auto put16 = [&](size_t at, uint32_t v) {
+        f[at] = uint8_t(v);
+        f[at + 1] = uint8_t(v >> 8);
+    };
+    auto put32 = [&](size_t at, uint32_t v) {
+        put16(at, v & 0xffff);
+        put16(at + 2, v >> 16);
+    };
+    // The tree: type 5 -> the name "PICK" -> language 1033 -> a data entry.
+    const size_t r = 0x200;
+    put16(r + 14, 1);
+    put32(r + 16, 5);
+    put32(r + 20, 0x80000000 | 0x18);
+    put16(r + 0x18 + 12, 1);                 // a named entry
+    put32(r + 0x18 + 16, 0x80000000 | 0x70); // its name
+    put32(r + 0x18 + 20, 0x80000000 | 0x30);
+    put16(r + 0x30 + 14, 1);
+    put32(r + 0x30 + 16, 1033);
+    put32(r + 0x30 + 20, 0x48);
+    put32(r + 0x48, 0x1080); // the template's RVA
+    put32(r + 0x48 + 4, 0x80);
+    put16(r + 0x70, 4);
+    for (int k = 0; k < 4; ++k)
+        put16(r + 0x72 + 2 * size_t(k), uint8_t("PICK"[k]));
+    // The template: a caption, then two buttons, OK the default.
+    size_t at = r + 0x80;
+    auto word = [&](uint32_t v) {
+        put16(at, v);
+        at += 2;
+    };
+    auto dword = [&](uint32_t v) {
+        put32(at, v);
+        at += 4;
+    };
+    dword(0x80c80000);
+    dword(0);
+    word(2);
+    for (uint32_t v : {0, 0, 100, 50})
+        word(v);
+    word(0);
+    word(0);
+    for (char ch : std::string("Pick"))
+        word(uint8_t(ch));
+    word(0);
+    for (const auto &[style, id] : {std::pair<uint32_t, uint32_t>{0x50010001, 1}, {0x50010000, 2}}) {
+        at = (at + 3) & ~size_t(3);
+        dword(style);
+        dword(0);
+        for (uint32_t v : {5, 5, 40, 14})
+            word(v);
+        word(id);
+        word(0xffff);
+        word(0x80); // Button
+        for (char ch : std::string(id == 1 ? "OK" : "Cancel"))
+            word(uint8_t(ch));
+        word(0);
+        word(0);
+    }
+    return f;
+}
+
+// DialogBoxParamA from a module's resources, the template found by name
+// in any case, answered by its default button.
+void testDialogResource() {
+    x86::Cpu cpu(16u << 20);
+    x86::Win32Process process(cpu);
+    const x86::Win32Process::Module *m = nullptr;
+    CHECK(!process.load("dialog.dll", dialogDll(), m) && m);
+    if (!m)
+        return;
+    const uint32_t proc = cpu.addNative("test!PickProc", [&](x86::Cpu &c) {
+        uint32_t v = 0;
+        c.reg[x86::Cpu::EAX] = c.arg(1) == 0x110 ? 1 : 0;
+        if (c.arg(1) == 0x111) // WM_COMMAND: ends with 10 more than the button
+            CHECK(!c.call(process.provided("USER32.dll", "EndDialog"), {c.arg(0), 10 + (c.arg(2) & 0xffff)}, v));
+        return 16u;
+    });
+    std::string caption;
+    process.dialogBox = [&](const x86::Win32Process::DialogShown &d) {
+        caption = d.caption;
+        return 0u;
+    };
+    const uint32_t name = process.memory().alloc(8);
+    cpu.writeString(name, "pick", 8);
+    uint32_t r = 0;
+    CHECK(!cpu.call(process.provided("USER32.dll", "DialogBoxParamA"), {m->base, name, 0, proc, 0}, r) && r == 11);
+    CHECK(caption == "Pick");
+    CHECK(!cpu.call(process.provided("USER32.dll", "DialogBoxParamA"), {m->base, 1, 0, proc, 0}, r) &&
+          r == 0xffffffffu); // no dialog numbered 1
 }
 
 // A Windows Help file made here: its directory (a B+ tree of one leaf),
@@ -193,8 +313,11 @@ void testWinHelp() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.windows_resources",
-                                        {
-                                            {"string table", [](const std::filesystem::path &) { testPeStrings(); }},
-                                            {"help file", [](const std::filesystem::path &) { testWinHelp(); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("common.unit.windows_resources",
+           {
+               {"string table", [](const std::filesystem::path &) { testPeStrings(); }},
+               {"LoadStringA", [](const std::filesystem::path &) { testLoadString(); }},
+               {"dialog resource", [](const std::filesystem::path &) { testDialogResource(); }},
+               {"help file", [](const std::filesystem::path &) { testWinHelp(); }},
+           });

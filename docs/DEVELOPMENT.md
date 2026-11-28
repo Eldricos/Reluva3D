@@ -302,7 +302,10 @@ LEGO Alpha Team (`netimmerse`, `RELUVA_ALPHATEAM`, see
 [its TESTING.md](engines/netimmerse/games/legoalphateam/TESTING.md)), and
 Need for Speed III and II SE (`nfs`, `RELUVA_NFS3` and `RELUVA_NFS2SE`, see
 [NFS III's TESTING.md](engines/nfs/games/nfs3/TESTING.md) and
-[NFS II SE's](engines/nfs/games/nfs2se/TESTING.md)).
+[NFS II SE's](engines/nfs/games/nfs2se/TESTING.md)), and Jedi Knight and
+Mysteries of the Sith (`sith`, `RELUVA_JK` and `RELUVA_MOTS`, see
+[Jedi Knight's TESTING.md](engines/sith/games/jk/TESTING.md) and
+[Mysteries of the Sith's](engines/sith/games/mots/TESTING.md)).
 
 ### The basic engine test: no game files
 
@@ -501,8 +504,9 @@ renderer and compares them with the reference frames there:
 
 - **The frames.** The first is a grid of cells, each trying one feature:
   textures and filtering, vertex colours, blending, the alpha test, depth,
-  culling, lighting, mipmaps, texture-coordinate transforms, the stencil and
-  vertex deforms. The second tries the brightness pass.
+  culling, lighting, mipmaps, texture-coordinate transforms, the stencil,
+  vertex deforms, Direct3D's specular colour and vertex fog, and an alpha
+  test of a function and reference. The second tries the brightness pass.
 - **The comparison.** Probe points must match within a tolerance, and the
   whole frame must match in 4×4 blocks, but for a few at edges, which GPUs
   rasterize slightly differently.

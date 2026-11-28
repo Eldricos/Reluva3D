@@ -7,10 +7,13 @@
 # stand-in served to programs as glide2x.dll and glide3x.dll.
 add_library(reluva_emulation STATIC
     x86/a3d.cpp
+    x86/cdaudio.cpp
+    x86/joystick.cpp
     x86/com.cpp
     x86/cpu.cpp
     x86/cpu_cache.cpp
     x86/disasm.cpp
+    x86/dplay.cpp
     x86/format.cpp
     x86/fpu.cpp
     x86/jit.cpp
@@ -19,16 +22,21 @@ add_library(reluva_emulation STATIC
     x86/msvcrt.cpp
     x86/pokes.cpp
     x86/win32.cpp
+    x86/win32_dialog.cpp
     x86/win32_files.cpp
+    x86/win32_gdi.cpp
     x86/win32_registry.cpp
     x86/win32_system.cpp
     x86/win32_threads.cpp
     x86/win32_user.cpp
+    x86/directx/d3d5.cpp
     x86/directx/d3d7.cpp
     x86/directx/ddraw.cpp
     x86/directx/dinput.cpp
+    x86/directx/dsound.cpp
     x86/directx/interfaces.cpp
     x86/directx/raster.cpp
+    x86/directx/sound3d.cpp
     x86/directx/surface.cpp
     x86/glide/glide2_x86.cpp
     x86/glide/glide3_x86.cpp

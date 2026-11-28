@@ -5,17 +5,21 @@
 
 #include "audio/decode.h"
 #include "audio/mixer.h"
+#include "audio/compressed.h"
 #include "audio/mp3.h"
 #include "audio/stream.h"
 #include "audio/wav.h"
 #include "tests/common/data/smacker_videos.h"
+#include "tests/common/data/tone440_flac.h"
 #include "tests/common/data/tone440_mp3.h"
+#include "tests/common/data/tone440_ogg.h"
 #include "tests/common/data/x86_testdll.h"
 #include "common/archive.h"
 #include "image/bmp.h"
 #include "common/bytes.h"
 #include "common/config.h"
 #include "common/cue.h"
+#include "common/iso9660.h"
 #include "graphics/cursor.h"
 #include "common/dcl.h"
 #include "common/detection.h"
@@ -38,6 +42,7 @@
 #include "video/cinepak.h"
 #include "video/movie.h"
 #include "video/smacker.h"
+#include "video/smush.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/disasm.h"
 #include "emulation/x86/win32.h"
@@ -46,6 +51,7 @@
 #include "common/installshield.h"
 #include "common/wise.h"
 #include "tests/support/installshield_writer.h"
+#include "tests/support/iso_writer.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
@@ -282,6 +288,36 @@ static void testMp3() {
     Sound t;
     CHECK(!decodeSound(tagged, t) && t.samples == s.samples);
     CHECK(bool(decodeMp3(std::vector<uint8_t>(100, 0), t))); // no frames
+}
+
+// The same tone as Ogg Vorbis and as FLAC: their rate, length and
+// pitch, through decodeSound too; and something that isn't either refused.
+static void testVorbisAndFlac() {
+    using namespace reluva::audio;
+    auto crossings = [](const Sound &s) {
+        int n = 0;
+        for (size_t i = 1102; i < 3307 && i < s.samples.size(); ++i)
+            n += (s.samples[i - 1] < 0) != (s.samples[i] < 0);
+        return n;
+    };
+    const std::vector<uint8_t> ogg(std::begin(kTone440Ogg), std::end(kTone440Ogg));
+    Sound v;
+    CHECK(!decodeVorbis(ogg, v));
+    CHECK(v.format == kFormatVorbis && v.rate == 22050 && v.channels == 1);
+    CHECK(v.frames() >= 4410 && v.frames() <= 4410 + 2048);
+    CHECK(crossings(v) >= 84 && crossings(v) <= 92); // 440 Hz in the middle 0.1 s
+    Sound t;
+    CHECK(!decodeSound(ogg, t) && t.samples == v.samples);
+
+    const std::vector<uint8_t> flac(std::begin(kTone440Flac), std::end(kTone440Flac));
+    Sound f;
+    CHECK(!decodeFlac(flac, f));
+    CHECK(f.format == kFormatFlac && f.rate == 22050 && f.channels == 1 && f.frames() == 4410); // lossless: exact
+    CHECK(crossings(f) >= 84 && crossings(f) <= 92);
+    CHECK(!decodeSound(flac, t) && t.samples == f.samples);
+
+    const std::vector<uint8_t> junk(100, 7);
+    CHECK(bool(decodeVorbis(junk, t)) && bool(decodeFlac(junk, t)));
 }
 
 static void testMixer() {
@@ -540,6 +576,64 @@ static void testSearchSet(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
 }
 
+// A disc's data track read as ISO 9660, raw through a cue sheet and bare
+// as an .iso; its files taken off it by an import.
+static void testIso(const std::filesystem::path &tmp) {
+    std::filesystem::remove_all(tmp);
+    std::filesystem::create_directories(tmp);
+    std::vector<uint8_t> big(5000);
+    for (size_t i = 0; i < big.size(); ++i)
+        big[i] = uint8_t(i * 7);
+    const std::vector<test::IsoEntry> files = {{"README.TXT", test::toBytes("hello")},
+                                               {"GAMEDATA/EXE/GAME.EXE", big},
+                                               {"GAMEDATA/RESOURCE/VIDEO/A.SAN", {1, 2, 3}},
+                                               {"GAMEDATA/RESOURCE/VIDEO/B.SAN", {4}},
+                                               {"NOEXT", {9}}};
+    test::writeFile(tmp / "Disc (Track 1).bin", test::makeIsoImage(files, "SITH", true));
+    test::writeFile(tmp / "Disc (Track 2).bin", std::vector<uint8_t>(2352, 0));
+    const std::string sheet = "FILE \"Disc (Track 1).bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n"
+                              "FILE \"Disc (Track 2).bin\" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n";
+    test::writeFile(tmp / "Disc.cue", test::toBytes(sheet));
+    test::writeFile(tmp / "bare.iso", test::makeIsoImage(files, "BARE"));
+    CHECK(discImagesIn(tmp).size() == 2 && discImagesIn(tmp)[0].filename() == "bare.iso");
+
+    for (const char *name : {"Disc.cue", "bare.iso"}) {
+        IsoImage image;
+        CHECK(!image.openFile(tmp / name));
+        CHECK(image.volume() == (std::string(name) == "Disc.cue" ? "SITH" : "BARE"));
+        CHECK(image.files().size() == 5);
+        const IsoFile *exe = image.find("gamedata\\exe\\game.exe");
+        CHECK(exe && exe->path == "GAMEDATA/EXE/GAME.EXE" && exe->size == big.size());
+        CHECK(image.find("NOEXT") && !image.find("GAMEDATA/EXE") && !image.find("MISSING.TXT"));
+        const auto videos = image.filesIn("gamedata/resource/video/");
+        CHECK(videos.size() == 2 && videos[0]->path == "GAMEDATA/RESOURCE/VIDEO/A.SAN");
+        CHECK(image.filesIn("GAMEDATA").empty());
+        std::vector<uint8_t> bytes;
+        CHECK(exe && !image.readAll(*exe, bytes) && bytes == big);
+        CHECK(exe && image.readAll(*exe, bytes, 100));
+
+        // Copied off it whole by an import.
+        ImportPlan plan;
+        if (exe) {
+            ImportPlan::File f{image.track().file, "out/game.exe", exe->size, std::nullopt, std::nullopt};
+            f.disc = image.track();
+            f.discSector = exe->sector;
+            plan.files.push_back(f);
+        }
+        const std::filesystem::path dest = tmp / (std::string(name) + ".out");
+        CHECK(!runImport(plan, dest, nullptr));
+        std::ifstream in(dest / "out/game.exe", std::ios::binary);
+        CHECK(std::vector<uint8_t>(std::istreambuf_iterator<char>(in), {}) == big);
+    }
+
+    // Not an image, or a cue sheet without its data track.
+    IsoImage image;
+    CHECK(image.openFile(tmp / "Disc (Track 2).bin"));
+    test::writeFile(tmp / "lost.cue", test::toBytes("FILE \"gone.bin\" BINARY\n  TRACK 01 MODE1/2352\n"
+                                                    "    INDEX 01 00:00:00\n"));
+    CHECK(image.openFile(tmp / "lost.cue"));
+}
+
 static void testCue(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp);
@@ -594,6 +688,12 @@ static void testCue(const std::filesystem::path &tmp) {
         CHECK(writeCueTrackWav(tracks[0], tmp / "track01.wav")); // data, not audio
     }
     CHECK(parseCueSheet("FILE missing.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
+    // A data track's image left out, as with a CD's files copied instead:
+    // the audio tracks are still read.
+    CHECK(!parseCueSheet("FILE data.bin BINARY\nTRACK 01 MODE1/2352\nINDEX 01 00:00:00\n"
+                         "FILE b.bin BINARY\nTRACK 02 AUDIO\nINDEX 01 00:00:00\n",
+                         tmp, tracks));
+    CHECK(tracks.size() == 2 && tracks[0].size == 0 && tracks[1].audio && tracks[1].size == 2352);
     CHECK(parseCueSheet("FILE b.bin WAVE\nTRACK 01 AUDIO\nINDEX 01 00:00:00\n", tmp, tracks));
     CHECK(parseCueSheet("FILE b.bin BINARY\nTRACK 01 AUDIO\nINDEX 01 00:00:75\n", tmp, tracks));
     std::filesystem::remove_all(tmp);
@@ -823,6 +923,18 @@ static void testX86Dll() {
             CHECK(!cpu.call(again->exportAddress("testdll_run"), {13, kX86TestInputs[i][0], kX86TestInputs[i][1]}, r) &&
                   r == kX86TestExpected[13][i]);
     }
+
+    // Asking for the program's place (0x400000) before the program is
+    // loaded, it's put elsewhere. (Its header is changed, not its code, so
+    // it's only placed here, not run.)
+    std::vector<uint8_t> atProgram = file;
+    const uint32_t peHeader = uint32_t(atProgram[0x3c]) | uint32_t(atProgram[0x3d]) << 8;
+    writeLE32(&atProgram[peHeader + 0x34], 0x400000);
+    x86::Cpu cpu2(64u << 20);
+    x86::Win32Process withProgram(cpu2, "game.exe", true);
+    const x86::Win32Process::Module *moved = nullptr;
+    CHECK(!withProgram.load("early.dll", atProgram, moved));
+    CHECK(moved && (moved->base + moved->size <= 0x400000 || moved->base >= 0x1000000));
 }
 
 static void testStreams(const std::filesystem::path &tmp) {
@@ -1289,6 +1401,7 @@ static const reluva::test::Suite kFilesSuite(
         {"search set", [](const std::filesystem::path &tmp) { testSearchSet(tmp / "search"); }},
         {"streams", [](const std::filesystem::path &tmp) { testStreams(tmp / "streams"); }},
         {"serializer", [](const std::filesystem::path &) { testSerializer(); }},
+        {"disc images", [](const std::filesystem::path &tmp) { testIso(tmp / "iso"); }},
     });
 
 static const reluva::test::Suite
@@ -1346,6 +1459,7 @@ static const reluva::test::Suite
                     {"wav", [](const std::filesystem::path &) { testWav(); }},
                     {"ima without a header", [](const std::filesystem::path &) { testImaWithoutHeader(); }},
                     {"mp3", [](const std::filesystem::path &) { testMp3(); }},
+                    {"vorbis and flac", [](const std::filesystem::path &) { testVorbisAndFlac(); }},
                     {"mixer", [](const std::filesystem::path &) { testMixer(); }},
                     {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
                     {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
@@ -1717,10 +1831,116 @@ static void testBinkAudio() {
     }
 }
 
+// A SMUSH file of two 16x16 frames: a keyframe of runs with a table of
+// averages, then blocks of four kinds, a palette fade, sound split across
+// two IACT chunks and a subtitle.
+static void testSmush() {
+    auto put16 = [](std::vector<uint8_t> &v, int x) { v.insert(v.end(), {uint8_t(x), uint8_t(x >> 8)}); };
+    auto put32 = [](std::vector<uint8_t> &v, uint32_t x) {
+        v.insert(v.end(), {uint8_t(x), uint8_t(x >> 8), uint8_t(x >> 16), uint8_t(x >> 24)});
+    };
+    auto chunk = [](const char *tag, const std::vector<uint8_t> &data) {
+        std::vector<uint8_t> v(tag, tag + 4);
+        const uint32_t n = uint32_t(data.size());
+        v.insert(v.end(), {uint8_t(n >> 24), uint8_t(n >> 16), uint8_t(n >> 8), uint8_t(n)});
+        v.insert(v.end(), data.begin(), data.end());
+        if (n & 1)
+            v.push_back(0);
+        return v;
+    };
+    auto frameObject = [&](const std::vector<uint8_t> &codec) {
+        std::vector<uint8_t> v{48, 0};
+        for (int x : {0, 0, 16, 16, 0, 0})
+            put16(v, x);
+        v.insert(v.end(), codec.begin(), codec.end());
+        return chunk("FOBJ", v);
+    };
+    std::vector<uint8_t> header;
+    put16(header, 2);
+    put16(header, 2);
+    put16(header, 0);
+    for (int i = 0; i < 256; ++i)
+        header.insert(header.end(), {uint8_t(i), uint8_t(255 - i), uint8_t(i / 2)});
+    for (uint32_t x : {10u, 0u, 11025u, 0u, 0u})
+        put32(header, x);
+
+    // Frame 0: runs of literals (y * 16 + x), with averages (a + b) / 2.
+    std::vector<uint8_t> key{2, 1, 0, 0};
+    put32(key, 256);
+    key.insert(key.end(), {0, 0, 0, 0, 8, 0, 0, 0});
+    for (int i = 0; i < 256; ++i)
+        for (int j = i; j < 256; ++j)
+            key.push_back(uint8_t((i + j) / 2));
+    for (int half = 0; half < 2; ++half) {
+        key.push_back(0xfe);
+        for (int i = 0; i < 128; ++i)
+            key.push_back(uint8_t(half * 128 + i));
+    }
+    // A packet of sound: shifts 2 (left) and 1 (right); 3 and -2, then a
+    // whole sample and 1, the rest silent.
+    std::vector<uint8_t> packet{0x08, 0x03, 0x21, 3, 0xfe, 0x80, 0x12, 0x34, 1};
+    packet.resize(2 + 0x803, 0);
+    std::vector<uint8_t> iact;
+    for (int x : {8, 46, 0, 0, 1, 0, 0, 0, 0})
+        put16(iact, x);
+    std::vector<uint8_t> iact0 = iact;
+    iact0.insert(iact0.end(), packet.begin(), packet.begin() + 1000);
+    std::vector<uint8_t> iact1 = iact;
+    iact1.insert(iact1.end(), packet.begin() + 1000, packet.end());
+    std::vector<uint8_t> tres;
+    for (int x : {160, 20, 0, 0, 0, 641, 481, 0, 166})
+        put16(tres, x);
+    std::vector<uint8_t> frame0 = frameObject(key);
+    for (const auto &c : {chunk("IACT", iact0), chunk("TRES", tres)})
+        frame0.insert(frame0.end(), c.begin(), c.end());
+
+    // Frame 1: the palette set to black and faded by a step of 2; the
+    // blocks copied in place, moved 8 left, sixteen 50s, and one colour
+    // averaged with its neighbours.
+    std::vector<uint8_t> xpal{0, 0, 0, 2};
+    for (int i = 0; i < 768; ++i)
+        put16(xpal, 256);
+    xpal.resize(xpal.size() + 768, 0);
+    std::vector<uint8_t> blocks{3, 1, 1, 0};
+    put32(blocks, 0);
+    blocks.insert(blocks.end(), {0, 0, 0, 0, 4, 0, 0, 0});
+    blocks.insert(blocks.end(), {0x00, 0xfe, 0xf8, 0xff, 0xfa});
+    blocks.insert(blocks.end(), 16, 50);
+    blocks.insert(blocks.end(), {0xff, 100});
+    std::vector<uint8_t> frame1;
+    for (const auto &c :
+         {chunk("XPAL", xpal), chunk("XPAL", {0, 0, 0, 1, 0, 0}), frameObject(blocks), chunk("IACT", iact1)})
+        frame1.insert(frame1.end(), c.begin(), c.end());
+
+    std::vector<uint8_t> anim = chunk("AHDR", header);
+    for (const auto &c : {chunk("FRME", frame0), chunk("FRME", frame1)})
+        anim.insert(anim.end(), c.begin(), c.end());
+    const std::vector<uint8_t> file = chunk("ANIM", anim);
+
+    smush::Decoder dec;
+    CHECK(!dec.load({1, 2, 3}));
+    CHECK(dec.load(file));
+    CHECK(dec.width() == 16 && dec.height() == 16 && dec.frameCount() == 2 && dec.frameMicros() == 100000);
+    CHECK(dec.audioRate() == 11025 && dec.palette()[3] == 1 && dec.palette()[4] == 254);
+    CHECK(dec.decodeNextFrame());
+    const Surface &s = dec.surface();
+    CHECK(s.row(3)[5] == 53 && s.row(15)[15] == 255 && dec.subtitle() == 166);
+    CHECK(dec.takeAudio().empty()); // the packet isn't whole yet
+    CHECK(dec.decodeNextFrame() && dec.endOfVideo() && !dec.decodeNextFrame());
+    CHECK(dec.palette()[0] == 2 && dec.palette()[767] == 2 && dec.subtitle() == -1);
+    CHECK(s.row(3)[5] == 53 && s.row(3)[13] == 53 && s.row(9)[3] == 50);
+    // 100 averaged: with 119 above (row 7, column 15) and 50 to the left.
+    CHECK(s.row(14)[14] == 100 && s.row(8)[8] == 66 && s.row(8)[10] == 82 && s.row(10)[8] == 64);
+    CHECK(s.row(12)[14] == 104 && s.row(14)[12] == 87);
+    const std::vector<int16_t> sound = dec.takeAudio();
+    CHECK(sound.size() == 2048 && sound[0] == 12 && sound[1] == -4 && sound[2] == 0x1234 && sound[3] == 2);
+}
+
 static const reluva::test::Suite
     kVideoSuite("common.unit.video",
                 {
                     {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
+                    {"smush", [](const std::filesystem::path &) { testSmush(); }},
                     {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
                     {"cinepak movie", [](const std::filesystem::path &tmp) { testCinepakMovie(tmp); }},
                     {"avi", [](const std::filesystem::path &) { testAvi(); }},

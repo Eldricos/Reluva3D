@@ -1,0 +1,310 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// reluva-tool's Sith commands for the files in a game's archives.
+
+#include "audio/wav.h"
+#include "common/fs.h"
+#include "devtools/tool.h"
+#include "engines/sith/formats/bitmap.h"
+#include "engines/sith/formats/colormap.h"
+#include "engines/sith/formats/episode.h"
+#include "engines/sith/formats/font.h"
+#include "engines/sith/formats/material.h"
+#include "engines/sith/formats/keyframe.h"
+#include "engines/sith/formats/level.h"
+#include "engines/sith/formats/model.h"
+#include "engines/sith/formats/puppet.h"
+#include "engines/sith/formats/sprite.h"
+#include "engines/sith/formats/sound_class.h"
+#include "engines/sith/formats/strings.h"
+#include "engines/sith/game_files.h"
+
+#include <cstdio>
+#include <map>
+#include <string>
+#include <vector>
+
+namespace {
+
+using namespace reluva::tool;
+using reluva::Error;
+namespace sith = reluva::sith;
+
+// A kind's decoded contents as a checksum (FNV-1a, 64 bits), its files in
+// the archives' order: what changes when a reader does, with nothing of the
+// game's own in it.
+struct Checksum {
+    uint64_t hash = 0xcbf29ce484222325ull;
+    void add(const void *data, size_t size) {
+        const auto *b = static_cast<const uint8_t *>(data);
+        for (size_t i = 0; i < size; ++i)
+            hash = (hash ^ b[i]) * 0x100000001b3ull;
+    }
+    template<typename T>
+    void add(const std::vector<T> &v) {
+        add(v.data(), v.size() * sizeof(T));
+    }
+    void add(const std::string &text) { add(text.data(), text.size()); }
+};
+
+// What a file of one kind is, in a line, with what it decodes to beyond
+// the line (pixels, samples) added to `sum`; an error if it can't be read.
+using Describe = Error (*)(const std::vector<uint8_t> &, std::string &, Checksum &sum);
+
+void addCels(Checksum &sum, const sith::Bitmap &bm) {
+    for (const sith::Bitmap::Cel &cel : bm.cels)
+        sum.add(cel.pixels);
+    if (bm.palette)
+        sum.add(bm.palette->data(), sizeof(*bm.palette));
+}
+
+Error describeColormap(const std::vector<uint8_t> &data, std::string &line, Checksum &sum) {
+    sith::Colormap cmp;
+    if (Error err = sith::parseColormap(data, cmp))
+        return err;
+    sum.add(cmp.palette.data(), sizeof(cmp.palette));
+    sum.add(cmp.light);
+    sum.add(cmp.blend);
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "tint %.2f %.2f %.2f%s", cmp.tint[0], cmp.tint[1], cmp.tint[2],
+                  cmp.blend.empty() ? "" : ", blend table");
+    line = buf;
+    return Error::success();
+}
+
+Error describeBitmap(const std::vector<uint8_t> &data, std::string &line, Checksum &sum) {
+    sith::Bitmap bm;
+    if (Error err = sith::parseBitmap(data, bm))
+        return err;
+    addCels(sum, bm);
+    line = std::to_string(bm.bitsPerPixel) + "-bit, " + std::to_string(bm.cels.size()) + " cels of " +
+           std::to_string(bm.cels.empty() ? 0 : bm.cels[0].w) + "x" +
+           std::to_string(bm.cels.empty() ? 0 : bm.cels[0].h) + ", flags " + std::to_string(bm.flags);
+    return Error::success();
+}
+
+Error describeMaterial(const std::vector<uint8_t> &data, std::string &line, Checksum &sum) {
+    sith::Material mat;
+    if (Error err = sith::parseMaterial(data, mat))
+        return err;
+    for (const sith::Material::Texture &tex : mat.textures)
+        for (const std::vector<uint8_t> &mip : tex.mips)
+            sum.add(mip);
+    line = std::to_string(mat.cels.size()) + " cels, " + std::to_string(mat.textures.size()) + " textures";
+    if (!mat.textures.empty())
+        line += " of " + std::to_string(mat.textures[0].w) + "x" + std::to_string(mat.textures[0].h) + ", " +
+                std::to_string(mat.textures[0].mips.size()) + " mips" +
+                (mat.textures[0].transparent ? ", transparent" : "");
+    return Error::success();
+}
+
+Error describeFont(const std::vector<uint8_t> &data, std::string &line, Checksum &sum) {
+    sith::Font font;
+    if (Error err = sith::parseFont(data, font))
+        return err;
+    addCels(sum, font.strip);
+    line = std::to_string(font.glyphs.size()) + " glyphs, " + std::to_string(font.strip.bitsPerPixel) + "-bit, " +
+           std::to_string(font.strip.cels[0].h) + " high";
+    return Error::success();
+}
+
+Error describeStrings(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::StringTable table;
+    if (Error err = sith::parseStrings(data, table))
+        return err;
+    line = std::to_string(table.entries.size()) + " strings (MSGS " + std::to_string(table.declaredCount) + ")";
+    return Error::success();
+}
+
+Error describeSoundClass(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::SoundClass snd;
+    if (Error err = sith::parseSoundClass(data, snd))
+        return err;
+    line = std::to_string(snd.entries.size()) + " sounds";
+    return Error::success();
+}
+
+Error describeWav(const std::vector<uint8_t> &data, std::string &line, Checksum &sum) {
+    reluva::audio::Sound sound;
+    if (Error err = reluva::audio::decodeWav(data, sound))
+        return err;
+    sum.add(sound.samples);
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%d Hz, %d channel%s, %.2f s%s", sound.rate, sound.channels,
+                  sound.channels == 1 ? "" : "s", double(sound.frames()) / sound.rate, sound.loopEnd ? ", loops" : "");
+    line = buf;
+    return Error::success();
+}
+
+Error describeEpisode(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::Episode episode;
+    if (Error err = sith::parseEpisode(data, episode))
+        return err;
+    line = "\"" + episode.title + "\", type " + std::to_string(episode.type) + ", " +
+           std::to_string(episode.steps.size()) + " steps (SEQ " + std::to_string(episode.declaredSteps) + ")";
+    return Error::success();
+}
+
+Error describeModel(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::Model model;
+    if (Error err = sith::parseModel(data, model))
+        return err;
+    size_t faces = 0;
+    for (const sith::Model::Mesh &m : model.geosets[0])
+        faces += m.faces.size();
+    line = std::to_string(model.geosets.size()) + " geometry sets, " + std::to_string(model.geosets[0].size()) +
+           " meshes, " + std::to_string(faces) + " faces, " + std::to_string(model.nodes.size()) + " nodes, " +
+           std::to_string(model.materials.size()) + " materials";
+    return Error::success();
+}
+
+Error describeKeyframes(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::Keyframes key;
+    if (Error err = sith::parseKeyframes(data, key))
+        return err;
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%d frames at %.0f fps, %zu nodes, %zu markers", key.frames, double(key.fps),
+                  key.nodes.size(), key.markers.size());
+    line = buf;
+    return Error::success();
+}
+
+Error describePuppet(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::Puppet pup;
+    if (Error err = sith::parsePuppet(data, pup))
+        return err;
+    size_t actions = 0;
+    for (const sith::Puppet::Mode &m : pup.modes)
+        actions += m.actions.size();
+    line = std::to_string(pup.modes.size()) + " modes, " + std::to_string(actions) + " actions, " +
+           std::to_string(pup.joints.size()) + " joints";
+    return Error::success();
+}
+
+Error describeSprite(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::Sprite spr;
+    if (Error err = sith::parseSprite(data, spr))
+        return err;
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%s, %.3f x %.3f", spr.material.c_str(), double(spr.width), double(spr.height));
+    line = buf;
+    return Error::success();
+}
+
+Error describeParticles(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::Particles par;
+    if (Error err = sith::parseParticles(data, par))
+        return err;
+    line = par.material + ", " + std::to_string(par.points.size()) + " points";
+    return Error::success();
+}
+
+Error describeLevel(const std::vector<uint8_t> &data, std::string &line, Checksum &) {
+    sith::Level level;
+    if (Error err = sith::parseLevel(data, level))
+        return err;
+    line = std::to_string(level.sectors.size()) + " sectors, " + std::to_string(level.surfaces.size()) + " surfaces, " +
+           std::to_string(level.adjoins.size()) + " adjoins, " + std::to_string(level.vertices.size()) + " vertices, " +
+           std::to_string(level.materials.size()) + " materials, " + std::to_string(level.templates.size()) +
+           " templates, " + std::to_string(level.things.size()) + " things, " + std::to_string(level.cogs.size()) +
+           " cogs";
+    return Error::success();
+}
+
+const std::map<std::string, Describe> kKinds = {
+    {".jkl", describeLevel},    {".spr", describeSprite}, {".par", describeParticles}, {".key", describeKeyframes},
+    {".pup", describePuppet},   {".3do", describeModel},  {".cmp", describeColormap},  {".bm", describeBitmap},
+    {".mat", describeMaterial}, {".sft", describeFont},   {".uni", describeStrings},   {".snd", describeSoundClass},
+    {".wav", describeWav},      {".jk", describeEpisode},
+};
+
+// Every colormap, picture, material, model, animation, puppet, sprite,
+// particle cloud, level, font, string table, sound, sound class and
+// episode in the install's archives read, a line each (-q: only the
+// failures), and a count of each kind (-hash: with its checksum).
+int cmdFormats(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool sith formats <install> [-q] [-hash]\n");
+        return 2;
+    }
+    bool quiet = false;
+    bool hash = false;
+    for (int i = 3; i < argc; ++i) {
+        quiet |= std::string(argv[i]) == "-q";
+        hash |= std::string(argv[i]) == "-hash";
+    }
+    sith::GameFiles files;
+    if (Error err = files.open(argv[2])) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    std::map<std::string, std::pair<int, int>> counts; // extension -> read, failed
+    std::map<std::string, Checksum> sums;
+    for (const auto &gob : files.archives())
+        for (const auto &entry : gob->entries()) {
+            const std::string name = reluva::fs::toLower(entry.name);
+            const size_t dot = name.rfind('.');
+            auto kind = dot == std::string::npos ? kKinds.end() : kKinds.find(name.substr(dot));
+            if (kind == kKinds.end())
+                continue;
+            std::vector<uint8_t> data;
+            std::string line;
+            Error err = gob->read(entry.name, data);
+            if (!err)
+                err = kind->second(data, line, sums[kind->first]);
+            if (!err)
+                sums[kind->first].add(line);
+            auto &[read, failed] = counts[kind->first];
+            ++(err ? failed : read);
+            if (err)
+                std::printf("%s: %s: FAILED: %s\n", gob->describe().c_str(), entry.name.c_str(), err.message.c_str());
+            else if (!quiet)
+                std::printf("%s: %s: %s\n", gob->describe().c_str(), entry.name.c_str(), line.c_str());
+        }
+    int failures = 0;
+    for (const auto &[ext, n] : counts) {
+        if (hash)
+            std::printf("%s: %d read, %d failed, checksum %016llx\n", ext.c_str(), n.first, n.second,
+                        (unsigned long long)sums[ext].hash);
+        else
+            std::printf("%s: %d read, %d failed\n", ext.c_str(), n.first, n.second);
+        failures += n.second;
+    }
+    return failures ? 1 : 0;
+}
+
+// One string table's strings, a key and its string a line.
+int cmdStrings(int argc, char **argv) {
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: reluva-tool sith strings <install> <file.uni>\n");
+        return 2;
+    }
+    sith::GameFiles files;
+    std::vector<uint8_t> data;
+    sith::StringTable table;
+    Error err = files.open(argv[2]);
+    if (!err)
+        err = files.read(argv[3], data);
+    if (!err)
+        err = sith::parseStrings(data, table);
+    if (err) {
+        std::fprintf(stderr, "%s\n", err.message.c_str());
+        return 1;
+    }
+    for (const auto &[key, value] : table.entries)
+        std::printf("%s = %s\n", key.c_str(), value.c_str());
+    return 0;
+}
+
+const Commands kCommands("sith",
+                         {
+                             {"formats", "<install> [-q] [-hash]",
+                              "read every colormap, picture, material, model, animation, puppet, sprite, particle "
+                              "cloud, level, font, string table, sound, sound class and episode in the archives "
+                              "(-hash: each kind's decoded contents as a checksum)",
+                              cmdFormats},
+                             {"strings", "<install> <file.uni>", "a string table's keys and strings", cmdStrings},
+                         });
+
+} // namespace

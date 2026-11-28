@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <ctime>
 
 namespace reluva::x86 {
@@ -112,6 +113,23 @@ std::string lower(std::string s) {
 struct FileObject : KernelObject {
     std::FILE *file = nullptr;
     std::string path; // the Windows path
+    // Opened for writing but not written yet: `file` is the drive's own,
+    // read only, and this makes the writable copy and opens it.
+    std::function<std::FILE *()> makeWritable;
+    /** Moves to the writable copy, if it isn't there yet, where `file` was; false if it can't. */
+    bool writable() {
+        if (!makeWritable)
+            return true;
+        const long at = std::ftell(file);
+        std::FILE *copy = makeWritable();
+        makeWritable = nullptr;
+        if (!copy)
+            return false;
+        std::fclose(file);
+        file = copy;
+        std::fseek(file, at, SEEK_SET);
+        return true;
+    }
     ~FileObject() override {
         if (file)
             std::fclose(file);
@@ -412,8 +430,17 @@ void Win32Process::addDriveStandIns() {
                 _lastError = kAccessDenied;
                 return kInvalidHandle;
             }
-            const stdfs::path host = writableCopy(name, !truncate);
-            f->file = std::fopen(host.string().c_str(), truncate || !stdfs::exists(host, ec) ? "w+b" : "r+b");
+            if (exists && !truncate && hostPath(name, true) != existing) {
+                // Programs open files for writing that they only read (Jedi
+                // Knight its archives): the copy waits for the first write.
+                f->file = std::fopen(existing.string().c_str(), "rb");
+                f->makeWritable = [writableCopy, name] {
+                    return std::fopen(writableCopy(name, true).string().c_str(), "r+b");
+                };
+            } else {
+                const stdfs::path host = writableCopy(name, !truncate);
+                f->file = std::fopen(host.string().c_str(), truncate || !stdfs::exists(host, ec) ? "w+b" : "r+b");
+            }
         } else {
             f->file = std::fopen(existing.string().c_str(), "rb");
         }
@@ -537,6 +564,10 @@ void Win32Process::addDriveStandIns() {
             return ok ? 1u : 0u;
         } else {
             auto f = object<FileObject>(handle);
+            if (f && !f->writable()) {
+                _lastError = kAccessDenied;
+                return 0u;
+            }
             std::FILE *file = f ? f->file : nullptr;
             if (!f)
                 if (OpenFile *o = this->file(handle)) // the C runtime's (mapPath)
@@ -591,7 +622,7 @@ void Win32Process::addDriveStandIns() {
     });
     stdcall(k, "SetEndOfFile", 1, [this](Cpu &c) {
         auto f = object<FileObject>(c.arg(0));
-        if (!f)
+        if (!f || !f->writable())
             return 0u;
         std::fflush(f->file);
         const long at = std::ftell(f->file);

@@ -11,11 +11,13 @@
 #include "emulation/x86/win32.h"
 
 #include "common/events.h"
+#include "emulation/x86/format.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 
 namespace reluva::x86 {
 
@@ -26,6 +28,7 @@ enum : uint32_t {
     kWmDestroy = 0x2,
     kWmActivate = 0x6,
     kWmSetFocus = 0x7,
+    kWmKillFocus = 0x8,
     kWmClose = 0x10,
     kWmQuit = 0x12,
     kWmShowWindow = 0x18,
@@ -37,12 +40,17 @@ enum : uint32_t {
     kWmSysCommand = 0x112
 };
 constexpr uint32_t kScClose = 0xf060;
+constexpr uint32_t kErrorCallNotImplemented = 120;
+constexpr uint32_t kErrorInvalidWindowHandle = 1400;
 constexpr uint32_t kWsBorder = 0x00800000;
 constexpr uint32_t kWsDlgFrame = 0x00400000;
 constexpr uint32_t kWsCaption = 0x00c00000;
 constexpr uint32_t kWsThickFrame = 0x00040000;
 constexpr uint32_t kWsVisible = 0x10000000;
 constexpr uint32_t kWsChild = 0x40000000;
+// GetCurrentProcessId's, and the main thread's GetCurrentThreadId.
+constexpr uint32_t kProcessId = 0x100;
+constexpr uint32_t kMainThreadId = 0x104;
 constexpr uint32_t kCwUseDefault = 0x80000000u;
 constexpr int kCaption = 19;
 constexpr int kMenu = 19;
@@ -53,7 +61,7 @@ constexpr int kBorder = 1;
 // objects, device contexts.
 constexpr uint32_t kResourceHandles = 0x20000;
 constexpr uint32_t kStockObjects = 0x28000;
-constexpr uint32_t kDeviceContext = 0x30000;
+constexpr uint32_t kDesktopWindow = 0x10004; // below the windows the program makes
 
 std::string lower(std::string s) {
     for (char &c : s)
@@ -304,9 +312,10 @@ void Win32Process::addUserStandIns() {
     };
 
     // Classes and windows.
-    // RegisterClassA(WNDCLASSA*): the procedure is at +4, the name at +36.
-    stdcall(u, "RegisterClassA", 1, [this](Cpu &c) {
-        const uint32_t p = c.arg(0);
+    // RegisterClassA(WNDCLASSA*) and RegisterClassExA(WNDCLASSEXA*), which
+    // is the same after a size: the style, the procedure, then the name 32
+    // bytes on.
+    auto registerClass = [this](Cpu &c, uint32_t p) {
         if (!c.valid(p, 40))
             return 0u;
         const std::string name = lower(c.string(c.read32(p + 36)));
@@ -314,10 +323,36 @@ void Win32Process::addUserStandIns() {
             return 0u;
         _classes[name] = {c.read32(p + 4), c.read32(p)};
         return uint32_t(0xc000 + _classes.size()); // an atom
+    };
+    stdcall(u, "RegisterClassA", 1, [registerClass](Cpu &c) { return registerClass(c, c.arg(0)); });
+    stdcall(u, "RegisterClassExA", 1, [registerClass](Cpu &c) { return registerClass(c, c.arg(0) + 4); });
+    // GetClassInfoA(instance, name, WNDCLASSA*): its style and procedure.
+    stdcall(u, "GetClassInfoA", 3, [this](Cpu &c) {
+        const uint32_t p = c.arg(2);
+        auto it = _classes.find(c.arg(1) >= 0x10000 ? lower(c.string(c.arg(1))) : std::string());
+        if (it == _classes.end() || !c.valid(p, 40)) {
+            setLastError(1411); // ERROR_CLASS_DOES_NOT_EXIST
+            return 0u;
+        }
+        std::memset(c.memory().data() + p, 0, 40);
+        c.write32(p, it->second.style);
+        c.write32(p + 4, it->second.proc);
+        c.write32(p + 16, c.arg(0));
+        c.write32(p + 36, c.arg(1));
+        return 1u;
     });
+    // A top-level window shown the first time is activated, and the
+    // application with it, as the foreground window's is.
+    auto activate = [this](uint32_t handle) {
+        _active = handle;
+        sendMessage(handle, kWmActivateApp, 1, 0);
+        sendMessage(handle, kWmActivate, 1, 0); // WA_ACTIVE
+        _focus = handle;
+        sendMessage(handle, kWmSetFocus, 0, 0);
+    };
     // CreateWindowExA: WM_NCCREATE then WM_CREATE go to the procedure, with
     // a CREATESTRUCTA; either saying no destroys the window again.
-    stdcall(u, "CreateWindowExA", 12, [this](Cpu &c) {
+    stdcall(u, "CreateWindowExA", 12, [this, activate](Cpu &c) {
         const uint32_t exStyle = c.arg(0);
         const uint32_t className = c.arg(1);
         const uint32_t title = c.arg(2);
@@ -351,6 +386,9 @@ void Win32Process::addUserStandIns() {
         win.style = style & ~kWsVisible;
         win.exStyle = exStyle;
         win.x = x, win.y = y, win.width = w, win.height = h;
+        win.parent = parent;
+        if (style & kWsChild)
+            win.id = menu;
 
         const uint32_t create = memory().alloc(48); // CREATESTRUCTA
         const uint32_t fields[12] = {param,       instance,    menu,  parent, uint32_t(h), uint32_t(w),
@@ -364,17 +402,37 @@ void Win32Process::addUserStandIns() {
             _windows.erase(handle);
             return 0u;
         }
-        if (style & kWsVisible)
+        // Made visible, it's shown and activated as ShowWindow does it.
+        if (style & kWsVisible) {
             _windows[handle].visible = true;
+            sendMessage(handle, kWmShowWindow, 1, 0);
+            if (!(style & kWsChild))
+                activate(handle);
+        }
         return handle;
     });
+    // DestroyWindow(window): its children first, as Windows does.
     stdcall(u, "DestroyWindow", 1, [this](Cpu &c) {
         const uint32_t handle = c.arg(0);
         if (!_windows.count(handle))
             return 0u;
-        sendMessage(handle, kWmDestroy, 0, 0);
-        sendMessage(handle, kWmNcDestroy, 0, 0);
-        _windows.erase(handle);
+        std::vector<uint32_t> gone{handle};
+        for (size_t k = 0; k < gone.size(); ++k)
+            for (const auto &[h, w] : _windows)
+                if (w.parent == gone[k] && (w.style & kWsChild))
+                    gone.push_back(h);
+        for (auto it = gone.rbegin(); it != gone.rend(); ++it) {
+            if (!_windows.count(*it))
+                continue;
+            sendMessage(*it, kWmDestroy, 0, 0);
+            sendMessage(*it, kWmNcDestroy, 0, 0);
+            _windows.erase(*it);
+            _dialogs.erase(*it);
+            if (_focus == *it)
+                _focus = 0;
+            if (_active == *it)
+                _active = 0;
+        }
         return 1u;
     });
     // FindWindowA(class, title): either may be 0, matching any.
@@ -386,10 +444,9 @@ void Win32Process::addUserStandIns() {
                 return handle;
         return 0u;
     });
-    // ShowWindow: the first time it's shown, the window is activated and the
-    // application with it (WM_ACTIVATEAPP, WM_ACTIVATE, WM_SETFOCUS), as the
-    // foreground window's is. Returns whether it was visible.
-    stdcall(u, "ShowWindow", 2, [this](Cpu &c) {
+    // ShowWindow: the first time it's shown, the window is activated (WM_ACTIVATEAPP,
+    // WM_ACTIVATE, WM_SETFOCUS). Returns whether it was visible.
+    stdcall(u, "ShowWindow", 2, [this, activate](Cpu &c) {
         auto it = _windows.find(c.arg(0));
         if (it == _windows.end())
             return 0u;
@@ -399,14 +456,155 @@ void Win32Process::addUserStandIns() {
         it->second.visible = show;
         if (show != was)
             sendMessage(handle, kWmShowWindow, show, 0);
-        if (show && !was && !(it->second.style & kWsChild)) {
-            sendMessage(handle, kWmActivateApp, 1, 0);
-            sendMessage(handle, kWmActivate, 1, 0); // WA_ACTIVE
-            sendMessage(handle, kWmSetFocus, 0, 0);
-        }
+        if (show && !was && !(it->second.style & kWsChild))
+            activate(handle);
         return was ? 1u : 0u;
     });
     stdcall(u, "UpdateWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "IsWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "InvalidateRect", 3, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "GetActiveWindow", 0, [this](Cpu &) { return _active; });
+    stdcall(u, "SetActiveWindow", 1, [this](Cpu &c) {
+        if (!_windows.count(c.arg(0)))
+            return 0u;
+        return std::exchange(_active, c.arg(0));
+    });
+    stdcall(u, "GetDesktopWindow", 0, [](Cpu &) { return kDesktopWindow; });
+    // Nothing is ever waiting to be painted: the engine shows what's drawn.
+    stdcall(u, "ValidateRect", 2, [](Cpu &) { return 1u; });
+    stdcall(u, "GetUpdateRect", 3, [](Cpu &c) {
+        if (c.arg(1) && c.valid(c.arg(1), 16))
+            std::memset(c.memory().data() + c.arg(1), 0, 16);
+        return 0u;
+    });
+    // BeginPaint(window, PAINTSTRUCT*): the window's device context, and
+    // nothing to paint.
+    stdcall(u, "BeginPaint", 2, [this](Cpu &c) {
+        const uint32_t dc = kWindowDeviceContexts + (c.arg(0) & 0xffff);
+        if (!_windows.count(c.arg(0)) || !c.valid(c.arg(1), 64))
+            return 0u;
+        std::memset(c.memory().data() + c.arg(1), 0, 64);
+        c.write32(c.arg(1), dc);
+        return dc;
+    });
+    stdcall(u, "EndPaint", 2, [](Cpu &) { return 1u; });
+    stdcall(u, "GetFocus", 0, [this](Cpu &) { return _focus; });
+    // SetFocus(window): WM_KILLFOCUS to the one losing it, WM_SETFOCUS to the
+    // one gaining it; returns the one that had it.
+    stdcall(u, "SetFocus", 1, [this](Cpu &c) {
+        const uint32_t handle = c.arg(0);
+        const uint32_t was = _focus;
+        if (handle && !_windows.count(handle))
+            return 0u;
+        if (handle == was)
+            return was;
+        _focus = handle;
+        if (was)
+            sendMessage(was, kWmKillFocus, handle, 0);
+        if (handle)
+            sendMessage(handle, kWmSetFocus, was, 0);
+        return was;
+    });
+    // GetWindowThreadProcessId(window, process id out): every window is the
+    // main thread's.
+    stdcall(u, "GetWindowThreadProcessId", 2, [this](Cpu &c) {
+        if (!_windows.count(c.arg(0)))
+            return 0u;
+        if (c.arg(1) && c.valid(c.arg(1), 4))
+            c.write32(c.arg(1), kProcessId);
+        return kMainThreadId;
+    });
+    // GetWindowLongA and SetWindowLongA: GWL_WNDPROC -4, GWL_ID -12,
+    // GWL_STYLE -16, GWL_EXSTYLE -20, GWL_USERDATA -21. Setting returns the
+    // value before.
+    auto windowLong = [](Window &w, int32_t index) -> uint32_t * {
+        switch (index) {
+        case -4:
+            return &w.proc;
+        case -12:
+            return &w.id;
+        case -16:
+            return &w.style;
+        case -20:
+            return &w.exStyle;
+        case -21:
+            return &w.userData;
+        default:
+            return nullptr;
+        }
+    };
+    stdcall(u, "GetWindowLongA", 2, [this, windowLong](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        if (int32_t(c.arg(1)) == -16) // with WS_VISIBLE, which `style` leaves out
+            return it->second.style | (it->second.visible ? kWsVisible : 0);
+        const uint32_t *v = windowLong(it->second, int32_t(c.arg(1)));
+        return v ? *v : 0u;
+    });
+    stdcall(u, "SetWindowLongA", 3, [this, windowLong](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        if (int32_t(c.arg(1)) == -16) {
+            const uint32_t was = it->second.style | (it->second.visible ? kWsVisible : 0);
+            it->second.style = c.arg(2) & ~kWsVisible;
+            it->second.visible = c.arg(2) & kWsVisible;
+            return was;
+        }
+        uint32_t *v = windowLong(it->second, int32_t(c.arg(1)));
+        if (!v)
+            return 0u;
+        const uint32_t was = *v;
+        *v = c.arg(2);
+        return was;
+    });
+    // CallWindowProcA(procedure, window, message, wParam, lParam)
+    stdcall(u, "CallWindowProcA", 5, [](Cpu &c) {
+        uint32_t result = 0;
+        if (Error e = c.call(c.arg(0), {c.arg(1), c.arg(2), c.arg(3), c.arg(4)}, result))
+            return 0u;
+        return result;
+    });
+    // GetWindow(window, relation): GW_HWNDFIRST 0, GW_HWNDLAST 1,
+    // GW_HWNDNEXT 2, GW_HWNDPREV 3, GW_OWNER 4, GW_CHILD 5, among the
+    // window's siblings in the order they were made.
+    stdcall(u, "GetWindow", 2, [this](Cpu &c) {
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
+            return 0u;
+        const uint32_t relation = c.arg(1);
+        if (relation == 4) // the owner: top-level windows here have none
+            return it->second.style & kWsChild ? 0u : it->second.parent;
+        std::vector<uint32_t> group;
+        for (const auto &[handle, w] : _windows)
+            if (relation == 5 ? w.parent == c.arg(0) : w.parent == it->second.parent)
+                group.push_back(handle);
+        if (group.empty())
+            return 0u;
+        const auto at = std::find(group.begin(), group.end(), c.arg(0));
+        switch (relation) {
+        case 0:
+        case 5:
+            return group.front();
+        case 1:
+            return group.back();
+        case 2:
+            return at + 1 < group.end() ? *(at + 1) : 0u;
+        case 3:
+            return at > group.begin() && at < group.end() ? *(at - 1) : 0u;
+        default:
+            return 0u;
+        }
+    });
+    // GetTopWindow(window): its first child; with none given, the first
+    // top-level window.
+    stdcall(u, "GetTopWindow", 1, [this](Cpu &c) {
+        for (const auto &[handle, w] : _windows)
+            if (w.parent == c.arg(0))
+                return handle;
+        return 0u;
+    });
     // SetWindowPos(window, after, x, y, cx, cy, flags): SWP_NOSIZE 1,
     // SWP_NOMOVE 2, SWP_SHOWWINDOW 0x40, SWP_HIDEWINDOW 0x80.
     stdcall(u, "SetWindowPos", 7, [this](Cpu &c) {
@@ -530,6 +728,36 @@ void Win32Process::addUserStandIns() {
             _messages.erase(it);
         return 1u;
     });
+    // GetMessageA(out, window, first, last): PeekMessageA's, waiting for a
+    // message. Returns 0 for WM_QUIT, and when the process is ending.
+    stdcall(u, "GetMessageA", 4, [this](Cpu &c) {
+        const uint32_t out = c.arg(0);
+        const uint32_t hwnd = c.arg(1);
+        const uint32_t first = c.arg(2);
+        const uint32_t last = c.arg(3);
+        auto matches = [&](const Message &m) {
+            return (hwnd == 0 || m.window == hwnd || m.message == kWmQuit) &&
+                   ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
+        };
+        auto found = [&] { return std::find_if(_messages.begin(), _messages.end(), matches) != _messages.end(); };
+        while (!found()) {
+            runThreads();
+            if (idle)
+                idle();
+            if (!found() && !wait(found, 10) && ending())
+                return 0u;
+        }
+        auto it = std::find_if(_messages.begin(), _messages.end(), matches);
+        if (!c.valid(out, 28))
+            return uint32_t(-1);
+        const uint32_t fields[7] = {it->window,     it->message,       it->wParam,       it->lParam,
+                                    milliseconds(), uint32_t(cursorX), uint32_t(cursorY)};
+        for (int i = 0; i < 7; ++i)
+            c.write32(out + 4 * uint32_t(i), fields[i]);
+        const bool quit = it->message == kWmQuit;
+        _messages.erase(it);
+        return quit ? 0u : 1u;
+    });
     stdcall(u, "DispatchMessageA", 1, [this](Cpu &c) {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16))
@@ -537,17 +765,26 @@ void Win32Process::addUserStandIns() {
         return sendMessage(c.read32(m), c.read32(m + 4), c.read32(m + 8), c.read32(m + 12));
     });
     // TranslateMessage: a key that types a character (letters, digits,
-    // space, Enter, Backspace, Escape, Tab) queues WM_CHAR for it.
+    // marks, the keypad's, space, Enter, Backspace, Escape, Tab) queues
+    // WM_CHAR for it, unshifted, as on a US keyboard.
     stdcall(u, "TranslateMessage", 1, [this](Cpu &c) {
         const uint32_t m = c.arg(0);
         if (!c.valid(m, 16) || c.read32(m + 4) != kWmKeyDown)
             return 0u;
         const uint32_t key = c.read32(m + 8);
+        static const std::map<uint32_t, char> kMarks = {
+            {0xba, ';'},  {0xbb, '='}, {0xbc, ','},  {0xbd, '-'}, {0xbe, '.'}, {0xbf, '/'}, {0xc0, '`'}, {0xdb, '['},
+            {0xdc, '\\'}, {0xdd, ']'}, {0xde, '\''}, {0x6a, '*'}, {0x6b, '+'}, {0x6d, '-'}, {0x6e, '.'}, {0x6f, '/'},
+        };
         uint32_t ch = 0;
         if (key >= 'A' && key <= 'Z')
             ch = key - 'A' + 'a';
         else if ((key >= '0' && key <= '9') || key == ' ' || key == 8 || key == 9 || key == 13 || key == 27)
             ch = key;
+        else if (key >= 0x60 && key <= 0x69) // the keypad's digits
+            ch = '0' + (key - 0x60);
+        else if (auto mark = kMarks.find(key); mark != kMarks.end())
+            ch = uint8_t(mark->second);
         if (!ch)
             return 0u;
         postMessage(c.read32(m), kWmChar, ch, c.read32(m + 12));
@@ -571,6 +808,87 @@ void Win32Process::addUserStandIns() {
         }
         return 0u;
     });
+    // MessageBoxW: MessageBoxA's, its UTF-16 text taken as Latin-1 ('?'
+    // beyond); answered OK.
+    stdcall(u, "MessageBoxW", 4, [this](Cpu &c) {
+        auto wide = [&c](uint32_t at) {
+            std::string out;
+            for (uint32_t i = 0; at && i < 8192 && c.valid(at + i, 2); i += 2) {
+                const uint16_t ch = c.read16(at + i);
+                if (!ch)
+                    break;
+                out.push_back(ch < 256 ? char(ch) : '?');
+            }
+            return out;
+        };
+        const std::string text = wide(c.arg(1));
+        const std::string caption = c.arg(2) ? wide(c.arg(2)) : std::string("Error");
+        if (messageBox)
+            messageBox(caption, text);
+        else if (output)
+            output("[" + caption + "] " + text + "\n");
+        return 1u; // IDOK
+    });
+    stdcall(u, "MessageBeep", 1, [](Cpu &) { return 1u; });
+
+    // LoadStringA(instance, id, buffer, size): from the module's string
+    // table resources (RT_STRING, 6: blocks of 16 strings, block n holding
+    // the ids (n - 1) * 16 on, each a length and that many UTF-16 units),
+    // taken as Latin-1 ('?' beyond), cut to fit with its NUL. The
+    // characters copied; 0 if there's no such string.
+    stdcall(u, "LoadStringA", 4, [this](Cpu &c) {
+        const uint32_t buffer = c.arg(2);
+        const uint32_t size = c.arg(3);
+        if (!size || !c.valid(buffer, size))
+            return 0u;
+        c.write8(buffer, 0);
+        const Module *m = moduleAt(c.arg(0) ? c.arg(0) : exeBase());
+        if (!m || !m->image.resourceRva)
+            return 0u;
+        const uint32_t resources = m->base + m->image.resourceRva;
+        // A directory's entry (16 bytes of header, the named and id
+        // entries' counts at 12 and 14, then 8-byte entries of an id and an
+        // offset from the resources' start), for `id`, or its first if
+        // `any`; the offset, 0 if there's none.
+        auto entry = [&c, resources](uint32_t directory, uint32_t id, bool any) {
+            const uint32_t at = resources + (directory & 0x7fffffff);
+            const uint32_t count = uint32_t(c.read16(at + 12)) + c.read16(at + 14);
+            for (uint32_t i = 0; i < count && i < 4096; ++i)
+                if (any || c.read32(at + 16 + i * 8) == id)
+                    return c.read32(at + 20 + i * 8);
+            return 0u;
+        };
+        const uint32_t id = c.arg(1) & 0xffff;
+        const uint32_t type = entry(0, 6, false);
+        const uint32_t block = type & 0x80000000 ? entry(type, id / 16 + 1, false) : 0;
+        const uint32_t language = block & 0x80000000 ? entry(block, 0, true) : 0;
+        if (!language || language & 0x80000000)
+            return 0u;
+        // The data entry: the strings' RVA.
+        uint32_t at = m->base + c.read32(resources + language);
+        for (uint32_t k = 0; k < id % 16; ++k)
+            at += 2 + 2 * uint32_t(c.read16(at));
+        const uint32_t length = std::min<uint32_t>(c.read16(at), size - 1);
+        for (uint32_t i = 0; i < length; ++i) {
+            const uint16_t ch = c.read16(at + 2 + 2 * i);
+            c.write8(buffer + i, ch < 256 ? uint8_t(ch) : uint8_t('?'));
+        }
+        c.write8(buffer + length, 0);
+        return length;
+    });
+    // wsprintfA(buffer, format, ...), cdecl: printf's formatting, which
+    // takes all of wsprintf's; at most 1024 bytes are written, as Windows
+    // writes. The characters written, without the NUL.
+    provideCdecl(u, "wsprintfA", [](Cpu &c) {
+        std::string text = formatPrintf(c, c.arg(1), c.reg[Cpu::ESP] + 4 + 4 * 2);
+        if (text.size() > 1023)
+            text.resize(1023);
+        if (!c.writeString(c.arg(0), text, uint32_t(text.size() + 1)))
+            return 0u;
+        return uint32_t(text.size());
+    });
+    // InitCommonControls, by its ordinal: the controls' classes are there.
+    stdcall("COMCTL32.dll", "#17", 0, [](Cpu &) { return 0u; });
     // MessageBoxA(window, text, caption, type): reported, and answered with
     // the button that lets the program go on: OK, Yes, or Cancel/Abort
     // where there's no OK.
@@ -633,7 +951,7 @@ void Win32Process::addUserStandIns() {
     stdcall(u, "GetAsyncKeyState", 1, keyState);
 
     // Device contexts.
-    stdcall(u, "GetDC", 1, [](Cpu &c) { return kDeviceContext + (c.arg(0) & 0xffff); });
+    stdcall(u, "GetDC", 1, [](Cpu &c) { return kWindowDeviceContexts + (c.arg(0) & 0xffff); });
     stdcall(u, "ReleaseDC", 2, [](Cpu &) { return 1u; });
     // GetDeviceCaps(dc, index): the desktop's.
     stdcall(g, "GetDeviceCaps", 2, [this](Cpu &c) {

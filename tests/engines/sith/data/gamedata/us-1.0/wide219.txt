@@ -1,0 +1,5 @@
+wide219: c98fd70dd3648104 | 5553 files opened
+wide219.reached: cut scene 01-02a.smk
+wide219.reached: cut scene 03-04a.smk
+widescreen: 1120x480 by Direct3D, the view widened: yes, the scope's sight kept its shape: no sight
+frame sizes: 640x480 1120x480

@@ -27,6 +27,7 @@ Each engine is a module that can run a family of games.
 | `unreal` | Star Trek: Deep Space Nine - The Fallen (Windows); later, other Unreal Engine 1 games | Playable: the intro, the title and its menus, New Game into the missions; every level with its scripts, HUD, saves and sound; being checked against a recording of the original | [docs/engines/unreal](docs/engines/unreal/README.md) |
 | `age` | Midtown Madness 2 (English, Windows); later, Midtown Madness | Playable: races, Crash Course and cruising in both cities from the game's menus, city life, multiplayer between copies of Reluva; the handling not yet checked against the original; a data viewer of its files | [docs/engines/age](docs/engines/age/README.md) |
 | `botf` | Star Trek: Birth of the Federation (English retail, Windows) | The main menu and its screens (options, loading and saving, Hall of Fame, multiplayer setup) and the start of a new game (game setup, empire selection); a data viewer of its files | [docs/engines/botf](docs/engines/botf/README.md) |
+| `sith` | Jedi Knight: Dark Forces II (US retail, two CDs); later, Mysteries of the Sith | Recognised and imported from its CDs; played through its menus, cut scenes and levels by its own program in the x86 emulator, with its sound, the CDs' music and multiplayer between copies of Reluva; a data viewer of its pictures, materials, fonts, strings, sounds, episodes and cut scenes | [docs/engines/sith](docs/engines/sith/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements
@@ -330,7 +331,7 @@ tests/               the tests (reluva-tests) and their data: shared code's in c
                      engine's in engines/<engine>/
 tools/               scripts for working on Reluva (docs checks, moving files)
 third_party/         outside code built in, each with its licence (minimp3, stb_image,
-                     stb_truetype)
+                     stb_truetype, stb_vorbis, dr_flac)
 docs/                documentation: shared in docs/common/, each engine's in docs/engines/<engine>/
 ```
 

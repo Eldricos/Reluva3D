@@ -531,6 +531,8 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
     Block *const blocks = _blocks.data();
     const uint8_t *const memory = _memory.data();
     do {
+        if (_codeEpoch >= codeEpochRenewal && _jitDepth == 0) [[unlikely]]
+            renewCodeEpoch();
         if (_stop.load(std::memory_order_relaxed)) { // counted, as step() counts the one it stops at
             _instructionStart = eip;
             if (_executed + 1 > end)
@@ -792,6 +794,16 @@ void Cpu::compileBlock(Block &b) {
     }
     b.jit = code;
     b.jitGeneration = code ? _jit->generation() : 0;
+}
+
+void Cpu::renewCodeEpoch() {
+    // 0 is no stamp's after this (the epoch starts at 1 again), and links
+    // stamped in the old count go with the Jit's code.
+    for (Block &b : _blocks)
+        b.epoch = 0;
+    _codeEpoch = 1;
+    if (_jit)
+        _jit->reset();
 }
 
 void Cpu::jitMemoryFault(void *cpu, uint32_t address, uint32_t size) {

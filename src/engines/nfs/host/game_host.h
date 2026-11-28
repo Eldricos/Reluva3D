@@ -13,7 +13,7 @@
 #include "emulation/x86/win32.h"
 #include "engines/nfs/folders.h"
 #include "engines/nfs/host/force_effects.h"
-#include "engines/nfs/host/sound3d.h"
+#include "emulation/x86/directx/sound3d.h"
 #include "engines/nfs/nfs3/host/thrash_native.h"
 
 #include <cstdint>
@@ -625,8 +625,8 @@ private:
         uint32_t flags = 0;      // DSBCAPS_ as created; DSBCAPS_CTRL3D (0x10): placed by `place`
         // Its 3D parameters: those in force, and those set with
         // DS3D_DEFERRED, for CommitDeferredSettings.
-        Ds3dSource place;
-        Ds3dSource deferredPlace;
+        x86::Ds3dSource place;
+        x86::Ds3dSource deferredPlace;
         uint32_t position(uint64_t nowMs);
     };
     // Sound memory, by address: how many buffers share it (a buffer and its
@@ -638,8 +638,8 @@ private:
     uint32_t _listenerObject = 0;
     // The listener (the primary buffer's IDirectSound3DListener), as in
     // force and as deferred.
-    Ds3dListener _listener;
-    Ds3dListener _deferredListener;
+    x86::Ds3dListener _listener;
+    x86::Ds3dListener _deferredListener;
     std::mutex _soundMutex; // _soundBuffers, between the game and the audio thread
     std::vector<int32_t> _soundMix;
     SoundStats _soundStats;

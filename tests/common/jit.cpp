@@ -464,12 +464,53 @@ static void testX86Dll(bool cached) {
 // time, getting its turn when the main thread sleeps and it's due; one
 // returns, which ends it.
 
-static const test::Suite
-    kSuite("common.unit.jit",
-           {
-               {"instructions, cached and native", [](const std::filesystem::path &) { testX86Instructions(true); }},
-               {"instructions, interpreted", [](const std::filesystem::path &) { testX86Instructions(false); }},
-               {"test dll, cached and native", [](const std::filesystem::path &) { testX86Dll(true); }},
-               {"test dll, interpreted", [](const std::filesystem::path &) { testX86Dll(false); }},
-               {"cache and interpreter agree", [](const std::filesystem::path &) { testX86CacheAgreement(); }},
-           });
+// The code epoch taken back to 1 (codeEpochRenewal, here made to happen
+// every 40 runs, where the cache runs): a function run, and called from
+// another, rewritten by the host (which the cache sees only by the epoch),
+// then left while a third runs k times, then reached both ways again. One k brings the epoch round to the stamp
+// it was checked at; renewed, no stamp from before is current, and the new
+// code runs.
+static void testCodeEpochRenewal(bool jit) {
+    auto at = [](x86::Cpu &cpu, uint32_t address, uint32_t v) {
+        const uint8_t code[] = {0xb8, uint8_t(v), uint8_t(v >> 8), 0, 0, 0xc3}; // mov eax, v; ret
+        std::copy(std::begin(code), std::end(code), cpu.memory().begin() + address);
+        uint32_t result = 0;
+        return cpu.call(address, {}, result) ? 0xffffffffu : result;
+    };
+    bool right = true;
+    uint32_t most = 0;
+    for (int k = 0; k < 90; ++k) {
+        x86::Cpu cpu(16u << 20);
+        cpu.jitOn = jit;
+        cpu.setStack(0x100000);
+        cpu.codeEpochRenewal = 40;
+        at(cpu, 0x2000, 1);
+        // call 0x2000; ret: the way to it from code made, by the Jit's links.
+        const uint8_t caller[] = {0xe8, 0xfb, 0xdf, 0xff, 0xff, 0xc3};
+        std::copy(std::begin(caller), std::end(caller), cpu.memory().begin() + 0x4000);
+        uint32_t result = 0;
+        for (int i = 0; i < 2; ++i) // their code made, on the second run
+            cpu.call(0x4000, {}, result);
+        const uint8_t now[] = {0xb8, 2, 0, 0, 0, 0xc3};
+        std::copy(std::begin(now), std::end(now), cpu.memory().begin() + 0x2000);
+        for (int i = 0; i < k; ++i)
+            at(cpu, 0x3000, 7);
+        right = right && !cpu.call(0x4000, {}, result) && result == 2;
+        right = right && !cpu.call(0x2000, {}, result) && result == 2;
+        most = std::max(most, cpu.codeEpoch());
+    }
+    CHECK(right);
+    CHECK(most <= 41); // renewed each time it got there
+}
+
+static const test::Suite kSuite(
+    "common.unit.jit",
+    {
+        {"instructions, cached and native", [](const std::filesystem::path &) { testX86Instructions(true); }},
+        {"instructions, interpreted", [](const std::filesystem::path &) { testX86Instructions(false); }},
+        {"test dll, cached and native", [](const std::filesystem::path &) { testX86Dll(true); }},
+        {"test dll, interpreted", [](const std::filesystem::path &) { testX86Dll(false); }},
+        {"cache and interpreter agree", [](const std::filesystem::path &) { testX86CacheAgreement(); }},
+        {"code epoch renewed, cached and native", [](const std::filesystem::path &) { testCodeEpochRenewal(true); }},
+        {"code epoch renewed, cached", [](const std::filesystem::path &) { testCodeEpochRenewal(false); }},
+    });

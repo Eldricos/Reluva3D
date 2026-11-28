@@ -87,6 +87,16 @@ struct PixelFormat {
     uint32_t fromArgb(uint32_t argb) const;
     ///@}
 };
+
+/**
+ * The value a buffer is filled with where a scene kept for the engine
+ * shows through (DirectX::SceneCapture::kInstead): the faintest red,
+ * green and blue together, a colour programs rarely draw.
+ */
+inline uint32_t sceneKey(const PixelFormat &f) {
+    return (f.r & (~f.r + 1)) | (f.g & (~f.g + 1)) | (f.b & (~f.b + 1));
+}
+
 /**
  * PixelFormat::toArgb for many pixels of one format: each channel's
  * position worked out once, its scaling to 8 bits a table.
@@ -221,7 +231,13 @@ public:
 
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
+    /** A Direct3D 1 device asked of the surface by the device's IID (d3d5.cpp). */
+    std::shared_ptr<ComObject> aggregate(const std::string &iid, const ComInterface *&iface) override;
+    /** IDirect3DTexture's and IDirect3DTexture2's methods on the surface (d3d5.cpp). */
+    std::optional<uint32_t> invokeTexture(const ComInterface &iface, int index, Cpu &c);
     ~Surface() override;
+    std::shared_ptr<ComObject> legacyDevice; // the Direct3D 1 device on it, once asked for
+    uint32_t textureHandle = 0;              // its D3DTEXTUREHANDLE, once asked for
 
     /**
      * A pixel's value as stored, and one stored; unchecked against the
@@ -288,6 +304,8 @@ public:
     const ComInterface *query(const std::string &iid) override;
     /** IDirect3D7's methods (d3d7.cpp), as ComObject::invoke runs them. */
     std::optional<uint32_t> invoke3d(const ComInterface &iface, int index, Cpu &c);
+    /** IDirect3D's and IDirect3D2's methods (d3d5.cpp), as ComObject::invoke runs them. */
+    std::optional<uint32_t> invoke3d5(const ComInterface &iface, int index, Cpu &c) const;
 
 private:
     uint32_t createSurface(Cpu &c, const ComInterface &iface);
@@ -309,6 +327,17 @@ struct Interfaces {
     ComInterface palette;
     ComInterface clipper;
     ComInterface gammaControl;
+    ComInterface direct3d;
+    ComInterface direct3d2;
+    ComInterface device1;
+    ComInterface executeBuffer;
+    ComInterface viewport;
+    ComInterface viewport2;
+    ComInterface material;
+    ComInterface material2;
+    ComInterface light;
+    ComInterface texture;
+    ComInterface texture2;
     ComInterface direct3d7;
     ComInterface device7;
     ComInterface vertexBuffer7;
@@ -329,6 +358,17 @@ extern const char *const kIidSurface7;
 extern const char *const kIidPalette;
 extern const char *const kIidClipper;
 extern const char *const kIidGammaControl;
+extern const char *const kIidDirect3D;
+extern const char *const kIidDirect3D2;
+extern const char *const kIidDevice1;
+extern const char *const kIidExecuteBuffer;
+extern const char *const kIidViewport;
+extern const char *const kIidViewport2;
+extern const char *const kIidMaterial;
+extern const char *const kIidMaterial2;
+extern const char *const kIidLight;
+extern const char *const kIidTexture;
+extern const char *const kIidRampDevice;
 extern const char *const kIidDirect3D7;
 extern const char *const kIidDevice7;
 extern const char *const kIidVertexBuffer7;
@@ -387,6 +427,15 @@ struct DirectX::State {
     uint32_t videoUsed = 0;
     std::weak_ptr<dx::Surface> primary;
     std::shared_ptr<dx::DirectDraw> directDraw;
+    // Direct3D 1 and 2's handles, which the program passes in render states
+    // and execute buffers: textures (D3DTEXTUREHANDLE) and materials
+    // (D3DMATERIALHANDLE), from 1.
+    std::map<uint32_t, std::weak_ptr<dx::Surface>> textureHandles;
+    std::map<uint32_t, std::weak_ptr<ComObject>> materialHandles;
+    uint32_t nextHandle = 1;
+    // With DirectX::sceneCapture: the scene being drawn into each buffer of
+    // the flipping chain (by its memory), until it's shown.
+    std::map<uint32_t, std::shared_ptr<DirectX::Scene>> scenes;
 
     /** The state of `o`, whose objects live in `p`. */
     State(DirectX &o, Win32Process &p) : owner(o), process(p), cpu(p.cpu()), com(p) {}
@@ -400,7 +449,14 @@ struct DirectX::State {
     ///@{
     void present();
     void presentShown();
+    // A window's picture drawn through GDI (Win32Process::windowDrawn), as
+    // a frame: how a game windowed shows its frames.
+    void presentWindow(uint32_t window, const uint32_t *pixels, int width, int height);
+    // The gamma ramp (IDirectDrawGammaControl's) on the frame.
+    void applyGamma();
     ///@}
+    /** A Z buffer filled with `value` (Blt's depth fill): the scenes kept that use it clear their depth. */
+    void depthFilled(dx::Surface &z, uint32_t value);
 
     /** Makes a surface's memory, setting its pitch; 0 if there's no room. */
     uint32_t allocate(dx::SurfaceData &d);

@@ -1,0 +1,4 @@
+wide219: b91ca7b7fccc3295 | 6721 files opened
+wide219.reached: cut scene jkmintro.san
+widescreen: 1120x480 by Direct3D, the view widened: yes, the scope's sight kept its shape: yes
+frame sizes: 640x480 1120x480

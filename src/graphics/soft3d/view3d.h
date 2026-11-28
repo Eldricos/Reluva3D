@@ -51,6 +51,10 @@ struct ViewVertex {
     float u;
     float v;
     float s = 1; // light level
+    // a colour to light by, each channel 0 to 1
+    float r = 1;
+    float g = 1;
+    float b = 1;
 };
 
 /**
@@ -89,7 +93,7 @@ struct OrbitCamera {
     Vec directionToView(Vec n) const { return {dot(n, right), dot(n, up), dot(n, forward)}; }
     /** A view-space point on the screen; z must be above 0 (clipNear first). */
     ScreenVertex project(const ViewVertex &p) const {
-        return {halfW + focal * p.x / p.z, halfH - focal * p.y / p.z, 1.0f / p.z, p.u, p.v, p.s};
+        return {halfW + focal * p.x / p.z, halfH - focal * p.y / p.z, 1.0f / p.z, p.u, p.v, p.s, p.r, p.g, p.b};
     }
 };
 
@@ -106,7 +110,8 @@ inline std::vector<ViewVertex> clipNear(const std::vector<ViewVertex> &in, float
         if (aIn != bIn) {
             const float t = (nearZ - a.z) / (b.z - a.z);
             out.push_back({a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, nearZ, a.u + (b.u - a.u) * t,
-                           a.v + (b.v - a.v) * t, a.s + (b.s - a.s) * t});
+                           a.v + (b.v - a.v) * t, a.s + (b.s - a.s) * t, a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
+                           a.b + (b.b - a.b) * t});
         }
     }
     return out;

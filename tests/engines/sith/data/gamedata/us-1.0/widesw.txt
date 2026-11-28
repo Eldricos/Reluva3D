@@ -1,0 +1,5 @@
+widesw: 5ec9b6f38e3c8ee6 | 5553 files opened
+widesw.reached: cut scene 01-02a.smk
+widesw.reached: cut scene 03-04a.smk
+widescreen: 854x480 by the game's renderer, the view widened: yes, the scope's sight kept its shape: no sight
+frame sizes: 640x480 854x480

@@ -120,7 +120,8 @@ def main():
     pattern = FILES
     if paths is not None:
         sources = [p for p in paths if p.endswith(".cpp")]
-        headers = [p for p in paths if p.endswith(".h")]
+        # Reluva's own headers: not third_party/'s, which nothing includes by that path.
+        headers = [p for p in paths if p.endswith(".h") and p.startswith(("src/", "tests/"))]
         if headers:
             # Its own .cpp, and else every file including it.
             for h in headers:
@@ -129,7 +130,10 @@ def main():
                     sources.append(own)
                 else:
                     inc = h.split("/", 1)[1] if h.startswith("src/") else h
-                    sources += git("grep", "-l", f'#include "{inc}"', "--", "src", "tests").splitlines()
+                    # git grep fails when it finds none.
+                    found = subprocess.run(["git", "grep", "-l", f'#include "{inc}"', "--", "src", "tests"],
+                                           capture_output=True, text=True)
+                    sources += found.stdout.splitlines()
         folders = [p.rstrip("/") + "/" for p in paths if os.path.isdir(p)]
         sources = sorted(set(sources))
         if not sources and not folders:

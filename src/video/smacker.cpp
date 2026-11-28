@@ -216,6 +216,8 @@ void Decoder::close() {
     _curFrame = -1;
     _audioTrack = -1;
     _audio.clear();
+    for (std::vector<uint8_t> &d : _trackData)
+        d.clear();
 }
 
 bool Decoder::load(std::unique_ptr<SeekableReadStream> stream) {
@@ -289,6 +291,11 @@ bool Decoder::audioStereo() const {
     return _audioTrack >= 0 && (_audioRates[_audioTrack] & kAudioStereo);
 }
 
+const std::vector<uint8_t> &Decoder::trackData(int track) const {
+    static const std::vector<uint8_t> kNone;
+    return track >= 0 && track < 7 ? _trackData[size_t(track)] : kNone;
+}
+
 std::vector<int16_t> Decoder::takeAudio() {
     std::vector<int16_t> out;
     out.swap(_audio);
@@ -319,6 +326,8 @@ bool Decoder::decodeNextFrame() {
         p += chunk;
         _paletteChanged = true;
     }
+    for (std::vector<uint8_t> &d : _trackData)
+        d.clear();
     for (int track = 0; track < 7; track++) {
         if (!(type & (2 << track)))
             continue;
@@ -329,6 +338,8 @@ bool Decoder::decodeNextFrame() {
             return false;
         if (track == _audioTrack)
             decodeAudio(p + 4, chunk - 4);
+        else
+            _trackData[size_t(track)].assign(p + 4, p + chunk);
         p += chunk;
     }
     return decodeVideo(p, uint32_t(end - p));

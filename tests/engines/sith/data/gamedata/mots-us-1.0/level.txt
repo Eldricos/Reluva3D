@@ -1,0 +1,5 @@
+level: 2de804dac64fbf5c | 12520 files opened
+level.reached: cut scene jkmintro.san
+level.reached: level s1l1_rebelbase.jkl
+level.reached: cut scene s1l1ocs.san
+level.reached: cut scene s1l1ecs.san

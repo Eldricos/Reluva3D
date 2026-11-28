@@ -59,6 +59,23 @@ void testWin32Files() {
     CHECK(h != 0xffffffffu);
     call("CloseHandle", {h});
     CHECK(stdfs::exists(root / "save" / "GameData" / "exist.nam"));
+    // A file of the game's opened for writing is read from where it is
+    // until it's written; then it's copied, with what was read kept.
+    cpu.writeString(mem, "C:\\GameData\\Config.txt", 64);
+    const uint32_t config = call("CreateFileA", {mem, 0xc0000000u, 0, 0, 3, 0x80, 0}); // OPEN_EXISTING
+    const uint32_t buffer = mem + 128;
+    const uint32_t done = mem + 192;
+    CHECK(config != 0xffffffffu && call("ReadFile", {config, buffer, 1, done, 0}) == 1 && cpu.read8(buffer) == 'x');
+    CHECK(!stdfs::exists(root / "save" / "GameData" / "Config.TXT"));
+    cpu.write8(buffer, 'y');
+    CHECK(call("WriteFile", {config, buffer, 1, done, 0}) == 1);
+    call("CloseHandle", {config});
+    std::string copied;
+    std::ifstream(root / "save" / "GameData" / "Config.TXT") >> copied;
+    CHECK(copied == "xy");
+    std::string original;
+    std::ifstream(root / "game" / "GameData" / "Config.TXT") >> original;
+    CHECK(original == "x");
     stdfs::remove_all(root);
 }
 // A serial port the host provides (Win32Process::openSerialPort): plain

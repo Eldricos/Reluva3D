@@ -20,10 +20,15 @@ C++ library have pages of their own ([directx.md](directx.md),
   memory (`stackAtTop`, LEGO Alpha Team's), so an EXE without relocations
   can have 0x400000. The KERNEL32
   functions a Visual C++ 6 C runtime calls are stood in for:
-  - the heap and pages;
+  - the heap and pages, and `LocalAlloc`'s blocks, all fixed (a movable
+    block's handle is its address) and zeroed;
   - the version: Windows XP, so the runtime uses the system's heap;
   - the command line, environment and start-up details;
   - text conversion for code page 1252;
+  - `CompareStringA` and `CompareStringW`, character by character
+    rather than by Windows' word sort: the locale is ignored, and of the
+    flags only `NORM_IGNORECASE` (Latin-1's letters) counts, so "abc"
+    sorts after "ABC" as it wouldn't on Windows;
   - the standard handles, whose output is passed on.
 
   An import nothing stands in for is bound to a function that fails the
@@ -57,32 +62,130 @@ C++ library have pages of their own ([directx.md](directx.md),
 - **`win32_system.cpp`: the system.** System information (one Pentium
   II-class processor, 256 MB), the performance counter (microseconds),
   `MulDiv`, the computer's name, and `GetDateFormatA`/`GetTimeFormatA` with
-  English (United States) pictures. There's one thread, so critical
+  English (United States) pictures. The time and the time zone are the
+  host's (`GetLocalTime`, `GetSystemTime`, `GetTimeZoneInformation`,
+  `FileTimeToLocalFileTime`, `FileTimeToSystemTime`). No console can be
+  made; what's written to one goes to `output`. The environment stays
+  empty: `SetEnvironmentVariableA` is accepted, not kept. There's one thread, so critical
   sections do nothing, `Sleep` returns at once and a wait on an event finds
-  it signalled.
+  it signalled. No other program can be run: `WinExec` and `LoadModule`
+  fail with `ERROR_FILE_NOT_FOUND`, as for a program that isn't there,
+  saying so to `output`. `DebugBreak` ends the run, naming it, there being
+  no debugger.
 - **`win32_user.cpp`: USER32 and GDI32.** Window classes and windows, kept
   as records (procedure, place, size, visibility) that the engine can show
-  as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing it
-  first activates it (`WM_ACTIVATEAPP`, `WM_ACTIVATE`, `WM_SETFOCUS`).
-  Other pieces:
+  as it likes. Making one sends `WM_NCCREATE` and `WM_CREATE`. Showing a
+  top-level window the first time activates it (`WM_ACTIVATEAPP`,
+  `WM_ACTIVATE`, `WM_SETFOCUS`), whether by `ShowWindow` or by making it
+  with `WS_VISIBLE`, as Windows does: Jedi Knight makes its window visible
+  and waits for the activation before it starts. Other pieces:
+  - the active window and the focus (`SetFocus`, with `WM_KILLFOCUS` and
+    `WM_SETFOCUS`), and window longs (`GetWindowLongA`, `SetWindowLongA`:
+    the procedure, style, identifier and user data);
+  - `GetWindow` and `GetTopWindow` among windows in the order they were
+    made, and `GetClassInfoA` for a class's style and procedure;
   - one message queue, which the engine posts its input to and
-    `PeekMessageA` reads, calling `idle` when it's empty;
-  - `DispatchMessageA` and `TranslateMessage`;
+    `PeekMessageA` reads, calling `idle` when it's empty; `GetMessageA`
+    waits for a message (calling `idle`, and letting other threads run),
+    and gives up when the process is ending;
+  - `DispatchMessageA` and `TranslateMessage` (a key that types makes
+    `WM_CHAR`: letters, digits, the marks and the keypad's, unshifted, as
+    on a US keyboard);
   - `DefWindowProcA` destroys a window it's asked to close;
   - frames and captions are Windows 98's sizes;
   - the mouse pointer, and the desktop's size and colour depth, which the
     engine sets;
-  - `MessageBoxA` is reported and answered so the program goes on.
+  - `MessageBoxA` and `MessageBoxW` are reported and answered so the
+    program goes on;
+  - nothing is ever waiting to be painted (`GetUpdateRect`, `BeginPaint`),
+    and the desktop is a window of its own (`GetDesktopWindow`);
+  - COMCTL32's `InitCommonControls`, by its ordinal, does nothing;
+  - `LoadStringA` reads the module's string table resources, from its
+    image in memory, as Latin-1 ('?' beyond);
+  - `wsprintfA` formats as MSVCRT's `sprintf` does (a superset of its
+    conversions: it would print no floating point), at most 1024 bytes;
+  - a window's text: `SetWindowTextA`, `GetWindowTextA`,
+    `GetWindowTextLengthA`; `GetParent`; `DestroyWindow` destroys a
+    window's children with it.
+- **`win32_dialog.cpp`: dialog boxes.** Made from their templates
+  (`DLGTEMPLATE` and `DLGTEMPLATEEX`), a resource of the module's
+  (`CreateDialogParamA`, `DialogBoxParamA`) or in memory (their
+  `Indirect` forms), as windows of class `#32770` with their controls
+  (buttons, edits, statics, list and combo boxes) as child windows; the
+  program's dialog procedure gets `WM_INITDIALOG` and `WM_COMMAND`, and
+  reads and sets the controls: `GetDlgItem`, `GetDlgCtrlID`,
+  `SendDlgItemMessageA`, `Set`/`GetDlgItemTextA`, `Set`/`GetDlgItemInt`,
+  `CheckDlgButton`, `IsDlgButtonChecked`, `CheckRadioButton`, and the
+  controls' messages (text, `BM_GETCHECK` and `BM_SETCHECK`, list and
+  combo boxes' strings and choice). Dialog units are pixels by MS Sans
+  Serif's average size where the template names a font (6 by 13), the
+  system font's otherwise (8 by 16).
+  - Nothing is drawn. The engine is told of each dialog, its caption and
+    controls (`Win32Process::dialogBox`); unset, they go to `output`.
+  - A modal dialog (`DialogBoxParamA`) is answered at once: by the
+    button `dialogBox` names, else its default button (the one marked
+    `BS_DEFPUSHBUTTON`, or IDOK), as a player pressing Enter would; if
+    that doesn't end it, IDCANCEL; if nor that, it ends as cancelled. It
+    returns what the procedure gave `EndDialog`.
+  - A modeless one runs as the program runs: `IsDialogMessageA` takes
+    the messages for it and its controls, Enter pressing its default
+    button and Escape IDCANCEL; `EndDialog` hides it.
+- **`win32_gdi.cpp`: GDI's device contexts, fonts and text, bitmaps and
+  palettes.** A device context draws into a bitmap in the program's
+  memory: DirectDraw's surfaces hand them out (`GetDC`), through
+  `createDeviceContext`, with how a colour becomes a pixel and back
+  (`GdiBitmap`). A window's (`GetDC`, `BeginPaint`) draws into a surface
+  of 32 bits a pixel the size of its client area, made anew when the
+  window's size changes; after each blit into it (`BitBlt`, `StretchBlt`,
+  `StretchDIBits`) the engine is given the client area's pixels
+  (`Win32Process::windowDrawn`): a game windowed shows its frames so. The
+  desktop's (`GetDC(0)`) draws nowhere and reads as black. Fonts
+  (`CreateFontA`) keep their height; `TextOutA` draws in Reluva's built-in
+  bitmap font scaled to it, in the text colour, over the background colour
+  unless the mode is transparent, and `GetTextExtentPoint32A` measures in
+  the same font. The letters' shapes aren't the font's: no font of
+  Windows is at hand. Besides:
+  - memory device contexts (`CreateCompatibleDC`, `DeleteDC`) draw into
+    the bitmap selected into them;
+  - bitmaps are of 8, 16, 24 or 32 bits: `CreateDIBSection` (BI_RGB, or
+    BI_BITFIELDS's masks; its colour table as RGBQUADs or, with
+    DIB_PAL_COLORS, indices into the context's palette), and
+    `CreateCompatibleBitmap`, as the context's bitmap is, else of the
+    desktop's depth (16 bits being 5-6-5). A memory context that has no
+    bitmap yet gives the desktop's depth too, where Windows would make a
+    monochrome bitmap. A file mapping given to `CreateDIBSection` isn't
+    shared: the pixels are in memory of their own;
+  - `BitBlt`, `StretchBlt` and `StretchDIBits` (a bottom-up DIB's source
+    measured from its lower left corner) convert between depths and
+    colour tables, scale by the nearest pixel whatever
+    `SetStretchBltMode` keeps, and mirror where the signs of the widths or
+    heights differ. Raster operations are the ternary table, but those
+    that use a brush's pattern fail, there being no brushes;
+  - `GetDIBits` gives a bitmap's format, or its scan lines in 16, 24 or
+    32 bits (8 only from an 8-bit bitmap: colours aren't reduced to a
+    table);
+  - palettes: `CreatePalette`, `SelectPalette`, `GetNearestPaletteIndex`,
+    `AnimatePalette` (only PC_RESERVED entries change) and an 8-bit DIB
+    section's `SetDIBColorTable`. `RealizePalette` maps every entry on a
+    desktop of 8 bits and none above, where `GetSystemPaletteUse` says
+    SYSPAL_ERROR; at 8 bits it's SYSPAL_STATIC. A palette realized
+    doesn't change how a DirectDraw surface's context matches colours.
 - **`win32_registry.cpp`: the registry and COM.** An in-memory registry,
   seeded with the installed locales. The engine can add an installer's
-  values and hear of the program's writes. `CoCreateInstance` asks the
-  engine's `createComObject`; with none, no class is registered.
+  values and hear of the program's writes. `RegDeleteKeyA` deletes a key
+  and its values as Windows NT does, not one with keys under it
+  (`ERROR_ACCESS_DENIED`); the engine isn't told of a deletion.
+  `CoCreateInstance` asks the engine's `createComObject`; with none, no
+  class is registered.
 - **`com.h`, `com.cpp`: COM objects.** An interface is a table of method
   names and argument counts. `ComHost` builds its vtable of native
   functions in the program's memory, and makes the interface pointers,
   each dispatching to a C++ `ComObject`.
   - QueryInterface, AddRef and Release are done here: an object is freed
     when its count reaches 0.
+  - An object can hand out another for an interface it hasn't
+    (`ComObject::aggregate`), as COM's aggregation does: Direct3D 1's
+    device asked of a DirectDraw surface.
   - A method an object doesn't stand in for ends the run, naming it.
 - **Input** (`win32_user.cpp`): the engine passes the mouse and keyboard
   to the process with `mouseMoveTo`, `mouseButton`, `mouseWheel` and
@@ -122,7 +225,9 @@ a host folder:
 - names are matched ignoring case;
 - what the program writes can be kept in a folder of its own
   (`Drive::writable`), so the game's folder stays as it was; a file
-  changed is copied there first, and a search lists both;
+  changed is copied there at its first write, and a search lists both. A
+  file opened for writing that's never written isn't copied: Jedi Knight
+  opens its 150 MB of archives so, and only reads them;
 - a CD drive is read-only, with its label and serial;
 - the stand-ins cover files (`CreateFileA` with each disposition's errors,
   a new file only in a folder that's there, `NUL`), searches, folders,
@@ -158,6 +263,10 @@ executable's entry point on the main thread until it ends the process.
 ### Executables
 
 - an EXE is loaded at 0x400000, which is kept clear (`loadsExe`);
+- a DLL loaded before the EXE (one it imports) that asks for the EXE's
+  place is put elsewhere, as Windows loads the program first: Jedi
+  Knight's `SMACKW32.DLL` asks for 0x400000, as `JK.EXE` does, which has
+  no relocations;
 - its name, folder and command line are set by the engine (`setProgram`,
   `setCommandLine`);
 - zero-filled sections are left as zeros whatever raw size the file
@@ -193,6 +302,19 @@ executable's entry point on the main thread until it ends the process.
 - `testInput` checks the messages input becomes, double clicks, key
   states and `ClipCursor`. It also checks DirectInput's mouse (its state,
   its movement since the last read, its buffer) and keyboard.
+- `testGdi` blits an 8-bit DIB section into a 32-bit one, mirrored, with
+  raster operations and a changed colour table, stretches a 24-bit DIB
+  over it, reads it back with `GetDIBits`, and checks palettes.
+  `testOddsAndEnds` checks `CompareStringA` and `CompareStringW`,
+  `LocalAlloc`, `wsprintfA`, a dialog that isn't there and programs that
+  fail, `RegDeleteKeyA` and `DebugBreak`. `testDialogs` makes a dialog
+  from a `DLGTEMPLATE` and a `DLGTEMPLATEEX` in memory, its procedure
+  filling and reading its controls, modal (answered by its default
+  button, then by the engine's Cancel) and modeless (Enter through
+  `IsDialogMessageA`, then destroyed with its controls).
+  `tests/common/windows_resources.cpp` (`common.unit.windows_resources`)
+  loads a module with a string table and checks `LoadStringA`, and one
+  with a dialog found by its name.
 - **Confidence:** published unless marked.
 
 - `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'
@@ -207,5 +329,8 @@ executable's entry point on the main thread until it ends the process.
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`sith`**: Jedi Knight's whole program, on drives, with host threads,
+  in a trial of how far it gets
+  ([hosting.md](../../engines/sith/games/jk/systems/hosting.md)).
 - **`nfs`**: Need for Speed III's whole program, on drives, with host
   threads ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).

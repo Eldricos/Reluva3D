@@ -111,17 +111,38 @@ public:
         return false;
     }
     /**
+     * Controller `index`: 0 is readGamepad's, 1 the next pad connected or
+     * else a racing wheel other than the first, for a game with a second
+     * player's joystick; false when there's none.
+     */
+    virtual bool readGamepad(int index, GamepadState &out) {
+        if (index == 0)
+            return readGamepad(out);
+        out = GamepadState{};
+        return false;
+    }
+    /**
      * The forces the controller readGamepad gives is to give, until called
      * again: a wheel's motor, or a pad's rumble (roughly: its pushes and
      * vibration). A GamepadForce{} stops them.
      */
     virtual void setGamepadForce(const GamepadForce &force) { (void)force; }
+    /** The forces controller `index` (readGamepad(index, ...)) is to give: 0 is setGamepadForce's. */
+    virtual void setGamepadForce(int index, const GamepadForce &force) {
+        if (index == 0)
+            setGamepadForce(force);
+    }
     /**
      * For a wheel SDL has no layout for: which of its axes are the
      * accelerator and brake (-1 for either: the first two, after the wheel,
      * that rest at an end of their travel).
      */
     virtual void setWheelPedals(int accelerator, int brake) { (void)accelerator, (void)brake; }
+    /** The pedals of controller `index`'s wheel (readGamepad(index, ...)): 0 is setWheelPedals's. */
+    virtual void setWheelPedals(int index, int accelerator, int brake) {
+        if (index == 0)
+            setWheelPedals(accelerator, brake);
+    }
     /**
      * The window for a game's video mode: the whole screen, or a window of
      * width x height (when it fits on the screen; the frame is letterboxed

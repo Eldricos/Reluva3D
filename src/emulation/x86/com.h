@@ -46,6 +46,16 @@ public:
     virtual std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) = 0;
     /** The interface QueryInterface finds for `iid` (as guid() writes it), or null if the object hasn't it. */
     virtual const ComInterface *query(const std::string &iid) = 0;
+    /**
+     * Another object QueryInterface hands out for `iid` when this one hasn't
+     * the interface (COM's aggregation: Direct3D's device asked of a
+     * DirectDraw surface), with its interface; null if there's none.
+     */
+    virtual std::shared_ptr<ComObject> aggregate(const std::string &iid, const ComInterface *&iface) {
+        (void)iid;
+        iface = nullptr;
+        return nullptr;
+    }
     uint32_t refs = 1; // the reference count AddRef and Release keep
 };
 
@@ -111,6 +121,7 @@ constexpr uint32_t kEInvalidArg = 0x80070057u;
 constexpr uint32_t kEOutOfMemory = 0x8007000eu;
 constexpr uint32_t kENotImpl = 0x80004001u;
 constexpr uint32_t kEFail = 0x80004005u;
+constexpr uint32_t kClassNotRegistered = 0x80040154u; // REGDB_E_CLASSNOTREG
 ///@}
 
 } // namespace reluva::x86

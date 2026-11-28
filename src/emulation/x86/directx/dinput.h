@@ -26,6 +26,12 @@ public:
     explicit DirectInput(Win32Process &process);
     ~DirectInput();
 
+    /**
+     * Whether the program holds the mouse: a mouse device acquired
+     * exclusively, whose movement it reads, Windows' pointer hidden.
+     */
+    bool mouseHeld() const;
+
     struct State;
 
 private:

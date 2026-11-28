@@ -19,6 +19,7 @@ namespace reluva::x86 {
 
 namespace {
 
+constexpr uint32_t kErrorFileNotFound = 2;
 constexpr uint32_t kErrorBufferOverflow = 111;
 constexpr uint32_t kErrorInsufficientBuffer = 122;
 constexpr uint32_t kEventHandles = 0x7fd00000;
@@ -120,6 +121,31 @@ std::string formatPicture(const std::string &picture, const SystemTime &t) {
     }
     return out;
 }
+
+// The host's local time against UTC, in seconds (daylight saving as now).
+int64_t localOffset() {
+    const std::time_t t = std::time(nullptr);
+    std::tm utc{};
+#ifdef _WIN32
+    gmtime_s(&utc, &t);
+#else
+    gmtime_r(&t, &utc);
+#endif
+    utc.tm_isdst = -1;
+    return int64_t(t) - int64_t(std::mktime(&utc));
+}
+
+// SYSTEMTIME's eight words: year, month, day of the week (0 Sunday), day,
+// hour, minute, second, milliseconds.
+void writeSystemTime(Cpu &c, uint32_t p, const std::tm &t, int milliseconds) {
+    const int fields[8] = {t.tm_year + 1900, t.tm_mon + 1, t.tm_wday, t.tm_mday,
+                           t.tm_hour,        t.tm_min,     t.tm_sec,  milliseconds};
+    for (uint32_t i = 0; i < 8; ++i)
+        c.write16(p + 2 * i, uint16_t(fields[i]));
+}
+
+// FILETIME's 100 ns units since 1601, from and to the Unix epoch.
+constexpr uint64_t kUnixEpochTicks = 116444736000000000ull;
 
 } // namespace
 
@@ -251,6 +277,112 @@ void Win32Process::addSystemStandIns() {
         return 0u;
     });
 
+    // The time: the host's clock and time zone. FILETIMEs are UTC.
+    stdcall(k, "GetLocalTime", 1, [](Cpu &c) {
+        const std::time_t t = std::time(nullptr);
+        std::tm tm{};
+#ifdef _WIN32
+        localtime_s(&tm, &t);
+#else
+        localtime_r(&t, &tm);
+#endif
+        if (c.valid(c.arg(0), 16))
+            writeSystemTime(c, c.arg(0), tm, 0);
+        return 0u;
+    });
+    stdcall(k, "GetSystemTime", 1, [](Cpu &c) {
+        const std::time_t t = std::time(nullptr);
+        std::tm tm{};
+#ifdef _WIN32
+        gmtime_s(&tm, &t);
+#else
+        gmtime_r(&t, &tm);
+#endif
+        if (c.valid(c.arg(0), 16))
+            writeSystemTime(c, c.arg(0), tm, 0);
+        return 0u;
+    });
+    // GetTimeZoneInformation(TIME_ZONE_INFORMATION*): the bias (UTC less
+    // local, in minutes) and no names or changes; TIME_ZONE_ID_UNKNOWN.
+    stdcall(k, "GetTimeZoneInformation", 1, [](Cpu &c) {
+        if (!c.valid(c.arg(0), 172))
+            return 0xffffffffu;
+        std::memset(c.memory().data() + c.arg(0), 0, 172);
+        c.write32(c.arg(0), uint32_t(int32_t(-localOffset() / 60)));
+        return 0u;
+    });
+    stdcall(k, "FileTimeToLocalFileTime", 2, [](Cpu &c) {
+        if (!c.valid(c.arg(0), 8) || !c.valid(c.arg(1), 8))
+            return 0u;
+        const uint64_t utc = uint64_t(c.read32(c.arg(0) + 4)) << 32 | c.read32(c.arg(0));
+        const uint64_t local = utc + uint64_t(localOffset() * 10000000);
+        c.write32(c.arg(1), uint32_t(local));
+        c.write32(c.arg(1) + 4, uint32_t(local >> 32));
+        return 1u;
+    });
+    // FileTimeToSystemTime(FILETIME*, SYSTEMTIME*), by the civil calendar.
+    stdcall(k, "FileTimeToSystemTime", 2, [](Cpu &c) {
+        if (!c.valid(c.arg(0), 8) || !c.valid(c.arg(1), 16))
+            return 0u;
+        const uint64_t ticks = uint64_t(c.read32(c.arg(0) + 4)) << 32 | c.read32(c.arg(0));
+        if (ticks < kUnixEpochTicks) {
+            std::memset(c.memory().data() + c.arg(1), 0, 16);
+            c.write16(c.arg(1), 1601);
+            c.write16(c.arg(1) + 2, 1);
+            c.write16(c.arg(1) + 6, 1);
+            return 1u;
+        }
+        const uint64_t ms = (ticks - kUnixEpochTicks) / 10000;
+        const std::time_t t = std::time_t(ms / 1000);
+        std::tm tm{};
+#ifdef _WIN32
+        gmtime_s(&tm, &t);
+#else
+        gmtime_r(&t, &tm);
+#endif
+        writeSystemTime(c, c.arg(1), tm, int(ms % 1000));
+        return 1u;
+    });
+
+    // The environment stays empty: a variable set is accepted, not kept.
+    stdcall(k, "SetEnvironmentVariableA", 2, [](Cpu &) { return 1u; });
+    // lstrcpyA(to, from)
+    auto copyString = [](Cpu &c) {
+        for (uint32_t i = 0; i < (1u << 20); ++i) {
+            const uint8_t ch = c.read8(c.arg(1) + i);
+            c.write8(c.arg(0) + i, ch);
+            if (!ch)
+                break;
+        }
+        return c.arg(0);
+    };
+    stdcall(k, "lstrcpyA", 2, copyString);
+
+    // No console can be made; what's written to one goes to `output`.
+    stdcall(k, "AllocConsole", 0, [](Cpu &) { return 0u; });
+    stdcall(k, "FreeConsole", 0, [](Cpu &) { return 1u; });
+    stdcall(k, "FlushConsoleInputBuffer", 1, [](Cpu &) { return 1u; });
+    stdcall(k, "SetConsoleTitleA", 1, [](Cpu &) { return 1u; });
+    for (const char *name : {"SetConsoleTextAttribute", "SetConsoleCursorInfo", "SetConsoleCursorPosition"})
+        stdcall(k, name, 2, [](Cpu &) { return 1u; });
+    stdcall(k, "GetConsoleScreenBufferInfo", 2, [](Cpu &) { return 0u; });
+    stdcall(k, "FillConsoleOutputCharacterA", 5, [](Cpu &c) {
+        if (c.arg(4) && c.valid(c.arg(4), 4))
+            c.write32(c.arg(4), c.arg(2));
+        return 1u;
+    });
+    // WriteConsoleA(console, text, count, written out, reserved)
+    stdcall(k, "WriteConsoleA", 5, [this](Cpu &c) {
+        const uint32_t count = std::min(c.arg(2), 1u << 16);
+        if (!c.valid(c.arg(1), count))
+            return 0u;
+        if (output)
+            output(std::string(reinterpret_cast<const char *>(c.memory().data() + c.arg(1)), count));
+        if (c.arg(3) && c.valid(c.arg(3), 4))
+            c.write32(c.arg(3), count);
+        return 1u;
+    });
+
     // GetDateFormatA and GetTimeFormatA (locale, flags, time or 0 for now,
     // picture or 0 for the default, buffer, its size): the characters
     // written with the terminator, or with a size of 0 those needed.
@@ -289,6 +421,24 @@ void Win32Process::addSystemStandIns() {
                 picture += " tt";
         }
         return formatted(c, formatPicture(picture, t));
+    });
+
+    // No other program can be run. WinExec(command, show) and
+    // LoadModule(name, parameters) say so as Windows does when the file
+    // isn't there: ERROR_FILE_NOT_FOUND, which is below 32, so a failure.
+    // Jedi Knight's "control joy.cpl", to calibrate a joystick, ends here.
+    auto cannotRun = [this](const std::string &what) {
+        if (output)
+            output("not run (no other program can be): " + what + "\n");
+        _lastError = kErrorFileNotFound;
+        return kErrorFileNotFound;
+    };
+    stdcall(k, "WinExec", 2, [cannotRun](Cpu &c) { return cannotRun(c.string(c.arg(0))); });
+    stdcall(k, "LoadModule", 2, [cannotRun](Cpu &c) { return cannotRun(c.string(c.arg(0))); });
+    // A breakpoint for a debugger, which there isn't: the run ends there.
+    stdcall(k, "DebugBreak", 0, [](Cpu &c) {
+        c.abort("the program called DebugBreak");
+        return 0u;
     });
 }
 

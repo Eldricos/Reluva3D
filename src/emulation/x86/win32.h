@@ -544,6 +544,13 @@ public:
         int height = 0;
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
+        uint32_t parent = 0;
+        uint32_t id = 0;       // a child's identifier (CreateWindowExA's menu)
+        uint32_t userData = 0; // GWL_USERDATA
+        // A dialog's control's state (win32_dialog.cpp).
+        uint32_t checked = 0;           // a button's: BST_CHECKED 1
+        std::vector<std::string> items; // a list box's or combo box's
+        int selection = -1;             // which item is chosen, -1 none
     };
     /** The window with that handle, or null. */
     const Window *window(uint32_t handle) const;
@@ -560,6 +567,8 @@ public:
     // The mouse pointer, on the screen.
     int cursorX = 0;
     int cursorY = 0;
+    /** Whether the program shows the mouse pointer (ShowCursor's count isn't below 0). */
+    bool cursorShown() const { return _cursorShown >= 0; }
     // Called when the program looks for a message and none is queued.
     std::function<void()> idle;
     // Input, as the engine passes it on.
@@ -593,6 +602,30 @@ public:
     // What MessageBoxA shows: by default, passed to `output`.
     std::function<void(const std::string &caption, const std::string &text)> messageBox;
 
+    /** A dialog box the program has made, as the engine is told of it. */
+    struct DialogShown {
+        uint32_t window = 0;
+        std::string caption;
+        /** Its controls: identifier, class (Button, Edit, Static...) and text. */
+        struct Control {
+            uint32_t id = 0;
+            std::string className;
+            std::string text;
+        };
+        std::vector<Control> controls;
+        /** The button Enter presses: the one marked default, else IDOK (1). */
+        uint32_t defaultButton = 1;
+        /** Made by DialogBoxParamA, which waits for its answer. */
+        bool modal = false;
+    };
+    /**
+     * Told of each dialog box made, once its procedure has set it up; for
+     * a modal one, returns the button to press, 0 for its default. Unset,
+     * the dialog is passed to `output` and the default pressed, as a
+     * player pressing Enter would (docs/common/x86/windows.md).
+     */
+    std::function<uint32_t(const DialogShown &dialog)> dialogBox;
+
     // The registry (ADVAPI32).
 
     /**
@@ -610,6 +643,41 @@ public:
                                                       uint32_t *type = nullptr) const;
     ///@}
     std::function<void(const std::string &key, const std::string &name)> registryWritten;
+
+    // GDI's device contexts (win32_gdi.cpp).
+
+    /**
+     * A bitmap a device context draws into: pixels in the process's memory,
+     * the top row's at `memory`, rows `pitch` bytes apart (negative for a
+     * bitmap stored bottom up).
+     */
+    struct GdiBitmap {
+        uint32_t memory = 0;
+        int width = 0;
+        int height = 0;
+        int pitch = 0;
+        int bits = 0; // 8, 16, 24 or 32 per pixel
+        /** A COLORREF (0x00bbggrr) as a pixel's value in the bitmap. */
+        std::function<uint32_t(uint32_t colorRef)> pixelOf;
+        /** A pixel's value as a COLORREF; without it, blits copy only between bitmaps of the same depth. */
+        std::function<uint32_t(uint32_t pixel)> colorOf;
+    };
+    /**
+     * A device context drawing into `bitmap`, as DirectDraw's surfaces hand
+     * them out (GetDC), and its end.
+     */
+    ///@{
+    uint32_t createDeviceContext(GdiBitmap bitmap);
+    void deleteDeviceContext(uint32_t dc);
+    ///@}
+    /**
+     * A program's drawing reaching a window through GDI: a blit (BitBlt,
+     * StretchBlt, StretchDIBits) into a device context GetDC or BeginPaint
+     * gave for it. The window's client area's pixels follow, 0x00rrggbb, a
+     * row after another, top first; what a game windowed draws its frames
+     * with.
+     */
+    std::function<void(uint32_t window, const uint32_t *pixels, int width, int height)> windowDrawn;
 
     // COM (ole32).
 
@@ -638,6 +706,7 @@ private:
     int _current = -1;          // the thread running (-1: the main one)
     uint32_t _threadReturn = 0; // where a thread's function returns to: a native that ends it
     std::string _exeName;
+    bool _loadsExe = false;
     std::string _programFolder = "C:\\STVEF\\";
     uint32_t _commandLine = 0;
     uint32_t _environment = 0;
@@ -651,6 +720,71 @@ private:
     void addSystemStandIns();
     void addUserStandIns();
     void addRegistryStandIns();
+    void addGdiStandIns();
+    void addDialogStandIns();
+    // A dialog box: its procedure (DLGPROC), and its end (EndDialog).
+    struct Dialog {
+        uint32_t proc = 0;
+        uint32_t defaultButton = 1;
+        bool ended = false;
+        uint32_t result = 0;
+        int baseX = 8; // pixels for 4 dialog units across, 8 down
+        int baseY = 16;
+    };
+    std::map<uint32_t, Dialog> _dialogs;
+    uint32_t _dialogProc = 0;  // the dialogs' window procedure: DefDlgProc's work
+    uint32_t _controlProc = 0; // the controls': buttons, edits, lists
+    // A module's resource of a type and a name (a string) or id (below
+    // 0x10000): its address, and its size in `size`; 0 if there's none.
+    uint32_t findResource(uint32_t module, uint32_t type, uint32_t name, uint32_t *size);
+    // Makes a dialog from its template (DLGTEMPLATE or DLGTEMPLATEEX in
+    // memory) and runs its WM_INITDIALOG; the window, 0 if it can't.
+    uint32_t makeDialog(uint32_t dialogTemplate, uint32_t parent, uint32_t proc, uint32_t param);
+    // Tells dialogBox (or `output`) of a dialog: the button it answers.
+    uint32_t showDialog(uint32_t dialog, bool modal);
+    struct DeviceContext {
+        std::optional<GdiBitmap> target; // none: a window's, drawn nowhere
+        uint32_t font = 0;
+        uint32_t textColor = 0;
+        uint32_t backColor = 0xffffff;
+        uint32_t backMode = 2;    // OPAQUE
+        bool memory = false;      // CreateCompatibleDC's, which takes bitmaps
+        uint32_t bitmap = 0;      // the bitmap selected into a memory one; 0: its first
+        uint32_t palette = 0;     // SelectPalette's; 0: the default
+        uint32_t stretchMode = 1; // BLACKONWHITE
+    };
+    // CreateCompatibleBitmap's and CreateDIBSection's.
+    struct GdiBitmapObject {
+        GdiBitmap bitmap;
+        uint32_t block = 0; // its pixels' memory, freed with it
+        // An 8-bit one's colours (COLORREFs), shared with its pixelOf and colorOf.
+        std::shared_ptr<std::vector<uint32_t>> colors;
+        bool dibSection = false;
+    };
+    struct GdiFont {
+        int height = 16; // its cell's, in pixels
+        int weight = 400;
+        std::string face;
+    };
+    std::map<uint32_t, DeviceContext> _deviceContexts;
+    std::map<uint32_t, GdiFont> _fonts;
+    std::map<uint32_t, GdiBitmapObject> _bitmaps;
+    // CreatePalette's PALETTEENTRYs: red in the low byte, the flags in the high.
+    std::map<uint32_t, std::vector<uint32_t>> _palettes;
+    // A bitmap of 8, 16, 24 or 32 bits: in `memory`, or in a block of its own.
+    GdiBitmapObject makeBitmap(int width, int height, int bits, bool bottomUp, std::array<uint32_t, 3> masks,
+                               std::vector<uint32_t> colors, uint32_t memory = 0);
+    uint32_t _nextGdiObject = 0x48000;
+    // A device context, made as it's first used; a window's (GetDC's)
+    // draws into its client area's surface.
+    DeviceContext &deviceContext(uint32_t dc);
+    // GetDC's and BeginPaint's device contexts: this and the window's low
+    // 16 bits.
+    static constexpr uint32_t kWindowDeviceContexts = 0x30000;
+    // The windows' surfaces, 32 bits a pixel, each its client area's size.
+    std::map<uint32_t, GdiBitmapObject> _windowSurfaces;
+    // After a blit into `dc`: windowDrawn told, if it's a window's.
+    void drawnOn(uint32_t dc);
     struct WindowClass {
         uint32_t proc = 0;
         uint32_t style = 0;
@@ -669,6 +803,8 @@ private:
     }
     std::map<uint32_t, Window> _windows;
     uint32_t _nextWindow = 0x10010;
+    uint32_t _focus = 0;  // the window with the keyboard's focus
+    uint32_t _active = 0; // the active top-level window
     struct Message {
         uint32_t window;
         uint32_t message;
