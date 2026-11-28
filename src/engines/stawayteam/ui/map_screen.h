@@ -340,6 +340,8 @@ public:
     const std::vector<Thrown> &thrown() const { return _thrown; }
     /** A thrown thing as an action's instigator: kThrownInstigator less its id. */
     static constexpr int kThrownInstigator = -1000000;
+    /** A part an enemy's shot may meet, a decoy: kPartTarget less its part. */
+    static constexpr int kPartTarget = -2000000;
     /** A beam shot, from muzzle to target, up off the ground as drawn. */
     /**
      * A beam weapon's shot as it's drawn, the program's CPhaserShot line
@@ -1141,6 +1143,8 @@ private:
     std::vector<Deployed> _deployed;
     // How much of something put down shows as its death fades it out.
     float deathShown(size_t part) const;
+    // A decoy put down hurt by `weapon`, shot by `shooter`.
+    void hurtDecoy(size_t part, const ItemDefinition &weapon, int shooter);
     // A part's sequence played once through from its start, then `then`,
     // then `done` run (a door opening, then Open, then After Opened).
     void playSequence(size_t part, const std::string &sequence, const std::string &then, const TextObject *done,

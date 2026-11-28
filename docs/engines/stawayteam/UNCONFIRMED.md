@@ -56,10 +56,6 @@ None now.
   ([systems/items.md](systems/items.md#open-questions)).
 - **The interface's buttons:** the enemies themselves not cutting the
   sight drawn ([systems/maps.md](systems/maps.md#open-questions)).
-- **The gadgets:** an enemy's shot hurting a hologram as it's fired
-  rather than as it meets it, and what's put down running its model's
-  AIs as a map's part
-  ([systems/items.md](systems/items.md#open-questions)).
 - **The triggers:** a thrown thing found after the characters in a
   touching trigger, and a collide trigger going as one comes into the
   part's shape rather than as their movement meets it

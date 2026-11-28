@@ -591,8 +591,19 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
         return true;
     spendShot(*e.weapon, e.energy);
     e.reload = e.weapon->reuseDelay;
-    shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, p.x, p.y, kEnemyInstigator - int(&e - _enemies.data()));
+    const int self = kEnemyInstigator - int(&e - _enemies.data());
+    shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, p.x, p.y, self);
     e.shooting = 1e-6f;
+    // Its bolt meets what's first in its way, the decoy among them, as it
+    // flies (0x535df6); a strike hurts it at once.
+    if (e.weapon->dischargeAction == "CStrikeTargetAction")
+        hurtDecoy(part, *e.weapon, self);
+    else
+        fireBolt(*e.weapon, e.x, e.y, p.x, p.y, self, self, e.stuns);
+    return true;
+}
+
+void MapScreen::hurtDecoy(size_t part, const ItemDefinition &weapon, int shooter) {
     // Hurt as any character is (0x495220), with its Pain Sound; at its
     // model's Hit Points it dies by its Default Death Type: the
     // hologram's Holo Death takes its Collideable and fades it out in half
@@ -603,14 +614,13 @@ bool MapScreen::fightDecoy(Enemy &e, float seconds) {
             if (_mixer)
                 if (auto sound = gameSound(_data, d.painSound))
                     _mixer->play(sound, audio::SoundType::kEffects);
-            d.health -= e.weapon->weaponDamage;
+            d.health -= weapon.weaponDamage;
             if (d.health <= 0.0f) {
                 d.fading = 0.0f;
                 _partStates[part].collideable = false;
-                runDeathBehaviors(part, kEnemyInstigator - int(&e - _enemies.data()));
+                runDeathBehaviors(part, shooter);
             }
         }
-    return true;
 }
 
 float MapScreen::deathShown(size_t part) const {

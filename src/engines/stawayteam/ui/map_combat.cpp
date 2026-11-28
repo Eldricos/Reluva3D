@@ -548,6 +548,13 @@ int MapScreen::firstOnStretch(float x0, float y0, float x1, float y1, int shoote
             (e.stunned <= 0.0f || aimed(e.x, e.y)))
             consider(e.x, e.y, kEnemyInstigator - int(i));
     }
+    // A decoy standing, a Team Member, in an enemy's way.
+    if (shooter < 0)
+        for (const Deployed &d : _deployed) {
+            const MapPart &p = _map.parts[d.part];
+            if (d.fading < 0.0f && d.health > 0.0f && shown(d.part) && inCategory(p.category, "Decoy"))
+                consider(p.x, p.y, kPartTarget - int(d.part));
+        }
     return best;
 }
 
@@ -556,6 +563,8 @@ void MapScreen::hitWith(int who, const ItemDefinition &weapon, int shooter, bool
         hurtOfficer(size_t(who), weapon, stun);
     else if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size())
         hurtEnemy(size_t(kEnemyInstigator - who), weapon, shooter, stun);
+    else if (who <= kPartTarget && size_t(kPartTarget - who) < _map.parts.size())
+        hurtDecoy(size_t(kPartTarget - who), weapon, shooter);
 }
 
 bool MapScreen::hasShot(const ItemDefinition &weapon, float energy) {

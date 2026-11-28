@@ -390,8 +390,9 @@ their hurts are, up to their whole
 none left, it can't be used. The bar shows each item's uses left in its
 corner *(inferred)*.
 
-A mine chosen is put down where's clicked, the officer walking there
-first (its `CDropItemAI`'s `Move Behavior`, `Do Path Finding`), or at
+A mine chosen is put down where's clicked if that's in its Item Range
+(`0x5c6cd2`), the officer walking there first (its `CDropItemAI`'s `Move
+Behavior`, `Do Path Finding`), or at
 the nearest good spot to it as above; drawn on the ground, Deploy then
 Idle. Reluva has the officer stop within 30 of the place, not on it
 *(inferred)*. A proximity mine arms after its model's
@@ -440,10 +441,10 @@ action goes through it as a part's process does: a `CDropItemAI` walking
 till the place is in its Item Range and sight, a
 `CGotoPointAndDoActionAI` to the place, then their actions where it's
 used, the officer the instigator *(inferred)*. What's put down becomes a
-part of the map from its model's Default Entity: named, its sequence
-played from its start once, then Idle, each frame's Trigger actions run
-as it's reached, its triggers watched, its processes there to use, its
-`CActionAI`s run at once *(inferred)*. The actions they need are there:
+part of the map, its model's Default Entity copied with its AIs
+(`0x50fce0`): named, its sequence played from its start once, then Idle,
+each frame's Trigger actions run as it's reached, its triggers watched,
+its processes there to use, its `CActionAI`s run at once. The actions they need are there:
 putting down (at the place, or in front of the officer), using up and
 giving items, holding someone to a `CWaitAI` or `CDoNothingAI` and
 letting them go (`CSendAIDoneMessage`), warping away, setting a part's
@@ -454,7 +455,8 @@ nearer than any officer seen is gone after. Its model's Default Entity
 is a `CEntityStationaryCharacter` with `Has Hit Points` and the model's
 35 `Hit Points`, whose `CActionAI` deletes it after 15 seconds. Hurt as
 any character (`0x495220`), with its Pain Sound, at its hit points it
-dies by its `Default Death Type`, `Holo Death`: its Collideable taken
+dies by its `Default Death Type`, `Holo Death` (Reluva's enemies' bolts
+meet it as they fly, as they meet anyone): its Collideable taken
 and faded out in half a second (`CEntityBehaviorFade`), no one's target
 from then, still there till its 15 seconds are out. A `CEveryTouchingOvalTriggerAI` answers to the enemies
 its Triggered by names too *(inferred)*. Held, an officer or enemy does
@@ -584,6 +586,5 @@ system ([particles.md](particles.md)).
 
 - **Using items:** how a thrown item turns off what it meets, and
   whether its speed is held to its model's Max Velocity.
-- **Gadgets:** how an enemy's shot reaches a hologram (Reluva hurts it
-  as the shot's fired), how the player orders an enemy taken over, and
-  how its own mind comes back.
+- **Gadgets:** whether the enemy taken over is chosen in Slovaak's
+  place; what a count of -1 gives an item that has Rounds.

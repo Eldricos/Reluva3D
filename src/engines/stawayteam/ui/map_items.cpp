@@ -163,7 +163,10 @@ bool MapScreen::useItem(float x, float y) {
         return true;
     }
     if (mine) {
-        // Put down where's clicked (CDropItemAI, inferred: walked to first).
+        // Put down where's clicked, in its Item Range (0x5c6cd2), its
+        // CDropItemAI walking them there first.
+        if (!inItemRange(*def, o.x, o.y, x, y, def->range * enhancement(_selected)))
+            return true;
         o.task = Officer::Task::kPlace;
         o.taskX = x;
         o.taskY = y;
@@ -428,14 +431,17 @@ void MapScreen::updateItems(float seconds) {
             continue;
         }
         // The item's own process is given only to one with the place in
-        // its Item Range (0x5c6cd2): put down, scanned, taken over or
-        // thrown at once, or not at all; they don't walk up to it. Used on
-        // an officer, they walk up, its CStrikeTargetAI (inferred).
+        // its Item Range (0x5c6cd2): scanned, taken over or thrown at
+        // once, or not at all. Put down, its CDropItemAI then walks them to
+        // the place (its Move Behavior, Do Path Finding). Used on an
+        // officer, they walk up, its CStrikeTargetAI (inferred).
         float x = o.taskX;
         float y = o.taskY;
         bool near = false;
         const float range = def->range * enhancement(int(i));
-        if (o.task == Officer::Task::kPlace || o.task == Officer::Task::kThrow) {
+        if (o.task == Officer::Task::kPlace) {
+            near = std::hypot(x - o.x, y - o.y) <= kUseReach;
+        } else if (o.task == Officer::Task::kThrow) {
             if (!inItemRange(*def, o.x, o.y, x, y, range)) {
                 o.task = Officer::Task::kNone;
                 continue;
