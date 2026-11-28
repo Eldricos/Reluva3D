@@ -3593,7 +3593,11 @@ void testStunning() {
         ItemDefinition stunner;
         stunner.stunDuration = 2.0f;
         screen.hurtOfficer(0, stunner, true);
+        // Stunned by Ann (a stun with no instigator doesn't put it down,
+        // 0x42cdd6).
         screen.hurtEnemy(0, stunner, -1, true);
+        CHECK(screen.enemies()[0].stunned == 0.0f);
+        screen.hurtEnemy(0, stunner, 0, true);
         const float expected = difficulty == 1 ? 3.32f : difficulty == 2 ? 2.0f : 1.5f;
         CHECK(std::abs(screen.officers()[0].stunned - expected) < 0.001f);
         CHECK(std::abs(screen.enemies()[0].stunned - expected) < 0.001f);

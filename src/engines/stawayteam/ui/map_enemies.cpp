@@ -1052,10 +1052,11 @@ bool MapScreen::fightFoe(size_t self, float seconds) {
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;
     const size_t victim = size_t(e.foe);
+    const int shooter = kEnemyInstigator - int(self);
     if (e.weapon->dischargeAction == "CStrikeTargetAction")
-        hurtEnemy(victim, *e.weapon, -1, e.stuns);
+        hurtEnemy(victim, *e.weapon, shooter, e.stuns);
     else
-        fireBolt(*e.weapon, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()), -1, e.stuns);
+        fireBolt(*e.weapon, e.x, e.y, f.x, f.y, shooter, shooter, e.stuns);
     Enemy &v = _enemies[victim];
     if (int(victim) != _melded && v.alive() && v.foe < 0 && v.target < 0 &&
         inCategory(_map.parts[e.part].category, v.validTargets)) {

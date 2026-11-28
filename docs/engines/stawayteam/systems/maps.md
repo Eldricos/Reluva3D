@@ -810,8 +810,10 @@ In all the maps' 776 enemies:
   Target` for 746.
 - **How they choose:** the AI keeps a place to go to, and two flags: it
   has one, and it's a body's. Attacking or alerted, the target's place
-  is taken (`0x429610`, `0x42a67e`); stunned, where the shot came from,
-  the target dropped (`0x42cdd8`); a body seen, its place, and the body
+  is taken (`0x429610`, `0x42a67e`); stunned, where the stun's
+  instigator stands, whoever it is, the target dropped (`0x42cdd8`); a
+  stun with no instigator leaves it as it is, not even stunned
+  (`0x42cdd6`); a body seen, its place, and the body
   put in the AI's `Dead Bodies` (`CDeadBodyInfo`) so as not to be
   looked at again. `Got a Target` (`0x42e1d0`), with a target in its cone (`0x42e237`)
   and in sight (`0x42e260`), its reaction time past, not dead, and in its

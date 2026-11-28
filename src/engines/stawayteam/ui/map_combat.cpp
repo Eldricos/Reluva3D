@@ -433,23 +433,23 @@ void MapScreen::hurtEnemy(size_t enemy, const ItemDefinition &weapon, int attack
     // maps' enemies: the Borg's), which it then does (inferred).
     const bool stunnable = readText(e.ai, "Stun State") != "Attack";
     if (stun && stunnable) {
-        // Its target dropped, and where the shot came from taken as its
-        // place to go to (0x42cdd8, 0x42cdf9): up again, its Next State
-        // goes there.
-        // Its Stun state's stun AI given the stun's time (0x42cdb7).
+        // Its Stun state's stun AI given the stun's time (0x42cdb7), its
+        // target dropped, and where its instigator stands, whoever it is,
+        // taken as its place to go to (0x42cdd8, 0x42cdf9): up again, its
+        // Next State goes there. With no instigator it isn't put in its
+        // Stun state at all.
+        float px = e.x;
+        float py = e.y;
+        if (!placeOfInstigator(attacker, px, py))
+            return;
         standUp(e);
         e.stunLength = stunLength(weapon);
         e.stunTotal = e.stunned = stunTotal(_map.parts[e.part].model, e.stunLength);
         e.route.clear();
         setState(e, "Stun");
         e.target = -1;
-        if (attacker >= 0 && size_t(attacker) < _officers.size()) {
-            e.seenX = _officers[size_t(attacker)].x;
-            e.seenY = _officers[size_t(attacker)].y;
-        } else {
-            e.seenX = e.x;
-            e.seenY = e.y;
-        }
+        e.seenX = px;
+        e.seenY = py;
         return;
     }
     const float damage = stun ? 0.0f : weapon.weaponDamage * enhancement(attacker);
@@ -555,7 +555,7 @@ void MapScreen::hitWith(int who, const ItemDefinition &weapon, int shooter, bool
     if (who >= 0 && size_t(who) < _officers.size())
         hurtOfficer(size_t(who), weapon, stun);
     else if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size())
-        hurtEnemy(size_t(kEnemyInstigator - who), weapon, shooter >= 0 ? shooter : -1, stun);
+        hurtEnemy(size_t(kEnemyInstigator - who), weapon, shooter, stun);
 }
 
 bool MapScreen::hasShot(const ItemDefinition &weapon, float energy) {
@@ -851,6 +851,26 @@ void MapScreen::updateCombat(float seconds) {
             }
         }
     }
+}
+
+bool MapScreen::placeOfInstigator(int who, float &x, float &y) const {
+    if (who >= 0 && size_t(who) < _officers.size()) {
+        x = _officers[size_t(who)].x;
+        y = _officers[size_t(who)].y;
+        return true;
+    }
+    if (who <= kEnemyInstigator && size_t(kEnemyInstigator - who) < _enemies.size()) {
+        x = _enemies[size_t(kEnemyInstigator - who)].x;
+        y = _enemies[size_t(kEnemyInstigator - who)].y;
+        return true;
+    }
+    for (const Thrown &t : _thrown)
+        if (who == kThrownInstigator - t.id) {
+            x = t.x;
+            y = t.y;
+            return true;
+        }
+    return false;
 }
 
 void MapScreen::standUp(Enemy &e) {

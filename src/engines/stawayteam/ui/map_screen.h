@@ -707,6 +707,9 @@ private:
     bool runItemProcess(size_t officer, float seconds);
     // Where part `part` stands: an enemy where it's got to.
     void placeOf(size_t part, float &x, float &y) const;
+    // Where instigator `who` stands: an officer, an enemy or a thrown
+    // thing; false for none.
+    bool placeOfInstigator(int who, float &x, float &y) const;
     // Its Got a Target state's choice, made at once (map_enemies.cpp).
     void gotATarget(Enemy &e);
     // `e` goes after officer `officer`: attacking, its Attack's Start Action run.

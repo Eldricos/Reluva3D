@@ -63,8 +63,7 @@ None now.
   ([systems/items.md](systems/items.md#open-questions)).
 - **The item panels' layout:** sequences placed from the panel's middle
   ([systems/items.md](systems/items.md#an-items-panel)).
-- **The enemies' states:** where one stunned by something other than
-  an officer goes to look, one running away giving up with no way to
+- **The enemies' states:** one running away giving up with no way to
   its spot, and End Recharge's AI before its patrol
   ([systems/maps.md](systems/maps.md#open-questions)).
 - **The triggers:** a thrown thing found after the characters in a

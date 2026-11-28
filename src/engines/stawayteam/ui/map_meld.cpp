@@ -167,7 +167,7 @@ void MapScreen::updateMeld(float seconds) {
     e.reload = e.weapon->reuseDelay;
     shoot(*e.weapon, _map.parts[e.part].model, e.x, e.y, f.x, f.y, kEnemyInstigator - int(&e - _enemies.data()));
     e.shooting = 1e-6f;
-    hurtEnemy(size_t(e.foe), *e.weapon, -1, e.stuns);
+    hurtEnemy(size_t(e.foe), *e.weapon, kEnemyInstigator - int(&e - _enemies.data()), e.stuns);
 }
 
 } // namespace reluva::stawayteam
