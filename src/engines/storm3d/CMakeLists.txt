@@ -13,6 +13,7 @@ reluva_add_engine(storm3d
         play/mission_scripts.cpp
         play/script_calls.cpp
         play/wormholes.cpp
+        play/campaign_calls.cpp
         play/mission_view.cpp
         play/movement.cpp
         play/combat.cpp

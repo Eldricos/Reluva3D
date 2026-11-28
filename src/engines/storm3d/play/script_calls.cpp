@@ -56,6 +56,18 @@ void MissionView::runScripts(double seconds) {
         _scriptFault = err.message;
         return;
     }
+    // Each player's strength, its units' most shields, every 200th pass,
+    // from nothing (0x430600).
+    if (++_scriptPasses % 200 == 0)
+        for (int team = 1; team <= 8; ++team) {
+            float sum = 0;
+            for (size_t i = 0; i < _scene.units().size() && i < _vitals.size(); ++i)
+                if (!_dead[i] && _scene.units()[i].slot == team)
+                    sum += _vitals[i].maxShields;
+            const std::string name = "strength_team_" + std::to_string(team);
+            _missionScripts->setFloat(name, 0);
+            _missionScripts->setFloat(name, sum);
+        }
     // The cut scene's camera after the rules, its flags for the next pass
     // (0x43db6f); its titles fading in or out over a second, gone faded out
     // (0x494330).
@@ -315,8 +327,8 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         float bestDistance = 0;
         for (size_t i = 0; i < units.size(); ++i) {
             const gfx::Vec3 &b = _ships[i].at;
-            if (_dead[i] || units[i].slot == units[*unit].slot || units[i].slot < 1 || std::abs(b[0] - a[0]) > range ||
-                std::abs(b[2] - a[2]) > range)
+            if (_dead[i] || !hostile(units[*unit].slot, units[i].slot) || units[i].slot < 1 ||
+                std::abs(b[0] - a[0]) > range || std::abs(b[2] - a[2]) > range)
                 continue;
             const float d = std::hypot(b[0] - a[0], b[2] - a[2]);
             if (best < 0 || d < bestDistance)
@@ -440,6 +452,46 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
             auto eye = pathPoint(args.text(0), args.integer(1));
             if (const std::vector<gfx::Vec3> *look = pathOf(2); eye && look)
                 _cine.shotLookingAlong(*eye, *look, args.real(3), locate);
+        } else if (k == "sfsf") {
+            // Both along their paths, each at its speed (0x4ecd80).
+            using Mode = Cineractive::Controller::Mode;
+            const std::vector<gfx::Vec3> *eye = pathOf(0);
+            const std::vector<gfx::Vec3> *look = pathOf(2);
+            if (!eye || !look)
+                return 0u;
+            Cineractive::Controller e{Mode::kPath};
+            e.path = *eye;
+            e.speed = args.real(1);
+            Cineractive::Controller l{Mode::kPath};
+            l.path = *look;
+            l.speed = args.real(3);
+            _cine.shot(e, l, locateForCine());
+        } else if (k == "sfi" || k == "isi" || k == "isf") {
+            // A path at its speed and a unit (0x4ecc20), or a unit and a
+            // path's point or the path at its speed (0x4ec520, 0x4ec820).
+            using Mode = Cineractive::Controller::Mode;
+            auto follow = [&](int n) {
+                Cineractive::Controller c{Mode::kFollow};
+                c.handle = args.integer(n);
+                return c;
+            };
+            const std::vector<gfx::Vec3> *path = pathOf(k == "sfi" ? 0 : 1);
+            if (!path || !locate(args.integer(k == "sfi" ? 2 : 0)))
+                return 0u;
+            Cineractive::Controller other{k == "isi" ? Mode::kFixed : Mode::kPath};
+            if (k == "isi") {
+                auto at = pathPoint(args.text(1), args.integer(2));
+                if (!at)
+                    return 0u;
+                other.point = *at;
+            } else {
+                other.path = *path;
+                other.speed = args.real(k == "sfi" ? 1 : 2);
+            }
+            if (k == "sfi")
+                _cine.shot(other, follow(2), locate);
+            else
+                _cine.shot(follow(0), other, locate);
         } else {
             return std::nullopt; // the shots along a heading, not made yet
         }
@@ -595,7 +647,7 @@ std::optional<uint32_t> MissionView::scriptCall(const std::string &name, const M
         }
         return 0u;
     }
-    return std::nullopt;
+    return moreScriptCalls(name, args);
 }
 
 void MissionView::runMarkers(double seconds) {

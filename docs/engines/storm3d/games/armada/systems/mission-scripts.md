@@ -264,8 +264,76 @@ for what they take from Armada.exe.
     the start of Federation 1's opening and its Premonition scene till
     they end; on unless a script turns it off.
 
-  Not done yet: saving and loading a mission, the shots along a
-  heading, and the AI files other missions load.
+- **The other missions' calls** (`play/campaign_calls.cpp`), from the
+  notes on the program's code *(from the code)* unless marked:
+  - **players:** `SetTeamCrew`, `AddCrew`, `SetOfficers`, `AddOfficers`
+    (to the officers' limit) and `AddDilithium` set or add to a player's
+    counters and give back the new value; `SetRelation(player, other,
+    stance)` sets one side's stance, 0 enemy, 1 neutral, 2 ally, and
+    two players are at war only while the lower of their two stances
+    is enemy, which units' choice of targets, the computer players and
+    `GetNearestEnemy` follow; with none set, every other player is an
+    enemy;
+  - **computer players:** `AI_Team_Load_AIP(team, file)` turns its AI on
+    with the `.aip`'s personality; `EnableTeam` and `DisableTeam` turn
+    one on and off; `SetIsAITeam` makes a player a computer one, or not;
+  - **units:** `GetRealTeam`, `SetRealTeam` (a unit given to another
+    player, in its colour) and `SetPerceivedTeam` (the player it looks
+    like); `IsAlive`, `Exists`, `DoesNotExist`; `IsDerelict`, true for a
+    bad handle; `GetShieldPercent` a share from 0 to 1 and -33 for a bad
+    handle, `GetRealShieldPercent` the shields a disruptor holds back
+    when they're down; `SetMaxShields` the most and the shields both;
+    `SetSpecialEnergy`, `GetCrew` (-1 for a bad handle), `SetCrew`
+    (within its most; a unit that can't die keeps 10 when it'd have
+    none); `DestroyShieldGenerator`, `DestroyEngines` and
+    `DestroySensors`; `SetImpulseSpeed`, and `ResetWarpSpeed` undoing
+    `SetWarpSpeed`; `UnderAttack(unit, seconds)`, hit by another
+    player's within them; `GetDilithiumOnFreighter`;
+    `IsThereARomulanSpyOnShip`; `GetAttackLocation`, the attacker's rim
+    towards the target, returned in the place the script passes first;
+    `InStopMode` going nowhere and fighting nothing, and
+    `OutOfSpecialAttackMode` having an order, both *(inferred)*: the
+    program reads the unit's current order, which Reluva doesn't keep;
+  - **orders:** `RecruitSpecialForces` takes the first idle unit of the
+    player's of that definition for the script and writes its handle;
+    `StopAllShips` stops those its filters leave; `Patrol` flies a path
+    round and round *(inferred)*; `Build` puts the item in the unit's
+    queue *(inferred)*; `Special_Attack` fires the unit's last special
+    weapon of that definition, matched on 8 letters, at the target;
+    `Cloak`, `ImmediateCloak` and `Decloak` press its cloak's button;
+    `SearchAndDestroy` sends it after the nearest unit it's at war with
+    and `AttackMainEnemyBase` after the nearest such starbase
+    *(guessed)*; `Mine` sets a freighter working for its nearest mining
+    station; `RemoveAllCraft`, `RemoveAllObjects` and `ReplaceObject`
+    (the new unit in the old one's place, for its player, nothing else
+    kept);
+  - **finding and counting:** `CountUnitsNearPoint`, `CountVisibleUnits`
+    (the one seeing first), `CountVisibleUnitsNearObject` (seen by the
+    unit's own player), `IsVisibleToTeam`, and `GetNearestObjectNear
+    Position` and `...NearMe`, across the plane, units and the map's
+    objects, a radius under 0 no limit. The computer players' sight isn't
+    kept, so they're taken to see everything, a choice of Reluva's own;
+  - **the people aboard ships:** `CreateSpecialFlag` puts a named
+    person on a unit and gives its id; `TransferFlag` moves one carried
+    to another unit, whatever its restrictions; `RestrictSpecialFlag`
+    and `ClearRestrictions` keep its bits and lists; `GetLocationOfFlag`,
+    `GetRealTeamOfFlag` and `GetPercievedTeamOfFlag` its carrier, its
+    player, or the player it looks like (-1 for none);
+  - **the world:** `PauseSimulation` holds the world still while the
+    scripts and the camera run on, `UnpauseSimulation` lets it go;
+    `CenterCamera` on a path's point, or the map's middle without one;
+    `SetWormholeTeam` keeps a wormhole for one player's ships;
+  - **the rule engine's `hot_float`:** from -1, changed only by a value
+    that differs, a NaN never stored; the program's own
+    `strength_team_1` to `8`, each player's units' most shields added up
+    every 200th pass, from 0.
+
+  Not done yet: saving and loading a mission; the shots along a
+  heading; `Load_Action_Scripts` and `Add_Team_To_Group` (a skirmish
+  AI's script borrowed by Romulan 1); an ally's attacks counted
+  (`GetAllyShipAttacks`); the transwarp gates' wormholes; the credits;
+  the transporter's glow; the sky changed; the alert levels and the
+  people aboard handed over of themselves.
 - **`reluva-tool storm3d mission-scripts <game folder> <mission> [-run
   seconds]`** loads a mission's scripts, runs them 30 passes a second
   with each shot taken as done at once, and lists each call they make

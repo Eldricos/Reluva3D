@@ -121,6 +121,9 @@ bool MissionView::inWormholeQueue(size_t unit) const {
 }
 
 void MissionView::sendThrough(size_t unit, size_t hole) {
+    // A wormhole kept for a player takes no other's (0x462fc3).
+    if (_wormholes[hole].team >= 0 && _scene.units()[unit].slot != _wormholes[hole].team)
+        return;
     // To its queue's point: 100 from its middle towards the ship, or where
     // the ship is if it's nearer than that (0x54dae0).
     Movement::Ship &ship = _ships[unit];

@@ -805,7 +805,7 @@ void MissionView::plan(Computer &c) {
                 ships.push_back({units[i].at[0] - map.area[0], units[i].at[2] - map.area[4], _vitals[i].maxShields});
                 shipUnits.push_back(i);
             }
-        } else {
+        } else if (hostile(c.slot, units[i].slot)) {
             cell.enemyStations += station;
             cell.enemyShips += !station;
             cell.enemyShields += _vitals[i].shields;
@@ -862,7 +862,7 @@ void MissionView::engage() {
             // A cloaked unit not seen by a detector isn't taken.
             // Nor a wormhole: it isn't fought *(inferred: the program's
             // wormhole_obj isn't a craft or a building)*.
-            if (_dead[j] || units[j].slot == units[i].slot || (_cloaked[j] && !_revealedUntil.count(j)) ||
+            if (_dead[j] || !hostile(units[i].slot, units[j].slot) || (_cloaked[j] && !_revealedUntil.count(j)) ||
                 _classes[j] == "wormhole_obj")
                 continue;
             const gfx::Vec3 to = units[j].middle();
@@ -939,6 +939,8 @@ void MissionView::think(double seconds) {
     for (Computer &c : _computers) {
         if (_computersOff)
             break;
+        if (_teamsOff.count(c.slot))
+            continue;
         // Its ships' goals, each ten seconds (guessed: its personality's
         // recompute_strategy_period, 200, says no unit).
         c.plan -= seconds;
@@ -1250,6 +1252,8 @@ void MissionView::fight(double seconds) {
             }
             _roll = _roll * 1664525u + 1013904223u;
             Combat::hit(v, shot.damage, shot.crew, float(_roll >> 8) / float(1u << 24));
+            if (shot.slot != units[shot.target].slot)
+                _hitAt[shot.target] = double(_last) / 1000;
             // The shield glows where it's hit, a new hit starting it over;
             // a hit on the hull alone doesn't (guessed).
             if (shielded) {
@@ -1671,6 +1675,7 @@ Error MissionView::start(gfx::Renderer3D *renderer, const std::string &map, int 
         _paths.emplace(p.name, p.points);
     for (const BznMap::Object &o : parsed.objects) {
         _mapObjects.emplace_back(o.label, o.position);
+        _mapObjectOdfs.push_back(text::toLower(o.odf));
         Odf def;
         if (!def.load(o.odf + ".odf", loaderOf(_files.files())) &&
             text::equalsIgnoreCase(def.string("classLabel"), "wormhole_obj"))
@@ -2245,6 +2250,7 @@ void MissionView::stop() {
     _scriptFault.clear();
     _paths.clear();
     _mapObjects.clear();
+    _mapObjectOdfs.clear();
     _wormholes.clear();
     _waitingWormhole = -1;
     _boundFor.clear();
@@ -2253,6 +2259,15 @@ void MissionView::stop() {
     _picked.clear();
     _avoiding = true;
     _markers.clear();
+    _flags.clear();
+    _nextFlag = 1;
+    _relations.clear();
+    _perceived.clear();
+    _hitAt.clear();
+    _patrols.clear();
+    _teamsOff.clear();
+    _paused = false;
+    _scriptPasses = 0;
     _cannotDie.clear();
     _missionEnd.reset();
     _computersOff = false;
@@ -2823,6 +2838,9 @@ void MissionView::draw(uint64_t millis) {
     for (Computer &c : _computers)
         c.bank.crew = grownCrew(c.bank.crew, c.crewCarry, starbasesOf(c.slot), seconds);
     runScripts(seconds);
+    // Paused by a script, the world holds still; the scripts and the camera run on.
+    if (_paused)
+        seconds = 0;
     runMusic();
     think(seconds);
     build(seconds);
@@ -2831,6 +2849,7 @@ void MissionView::draw(uint64_t millis) {
     fight(seconds);
     runWormholes(seconds);
     runMarkers(seconds);
+    runPatrols();
     // The ships fly on, in steps of no more than a twentieth of a second.
     const int steps = std::max(1, int(std::ceil(seconds / 0.05)));
     // What each ship keeps clear of: every other unit standing, as it moves.

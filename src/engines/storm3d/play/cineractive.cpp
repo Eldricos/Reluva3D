@@ -177,6 +177,12 @@ void Cineractive::shotLookingAlong(const gfx::Vec3 &eye, const std::vector<gfx::
     afterShot(locate);
 }
 
+void Cineractive::shot(const Controller &eye, const Controller &look, const Locate &locate) {
+    _eye = eye;
+    _look = look;
+    afterShot(locate);
+}
+
 void Cineractive::cameraOffset(const std::vector<gfx::Vec3> &path, float speed, bool turned, const Locate &locate) {
     _eyeOffset = Controller{Controller::Mode::kPath};
     _eyeOffset.path = path;

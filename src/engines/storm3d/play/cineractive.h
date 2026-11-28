@@ -67,6 +67,8 @@ public:
     void shotAt(const gfx::Vec3 &eye, const gfx::Vec3 &look, const Locate &locate);
     void shotAlong(const std::vector<gfx::Vec3> &eye, float speed, const gfx::Vec3 &look, const Locate &locate);
     void shotLookingAlong(const gfx::Vec3 &eye, const std::vector<gfx::Vec3> &look, float speed, const Locate &locate);
+    /** Any other pairing: each a fixed point, a unit followed, or a path at its speed. */
+    void shot(const Controller &eye, const Controller &look, const Locate &locate);
     ///@}
     /**
      * The eye's offset along a path, from its second point, less its first

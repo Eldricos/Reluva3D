@@ -89,6 +89,11 @@ public:
     void setCineractive(bool done, bool cancel);
     /** A variable the script exports, by its plain name: a hot_int's or timer's value, or an int's. */
     std::optional<int32_t> variable(const std::string &name) const;
+    /**
+     * Sets one of the program's own hot_floats the scripts read, by its
+     * plain name (`strength_team_1`), as the program does.
+     */
+    void setFloat(const std::string &name, float value);
     /** The game seconds the passes have counted, which GetTime gives if the game doesn't. */
     float clock() const { return _clock; }
     /** The rules made, and the scripts running. */
@@ -98,7 +103,7 @@ public:
 private:
     // A variable rules depend on: a hot_int, a timer_int (true for one pass
     // as it runs out), or ALWAYS_EVALUATE, a dirty_int never clean.
-    enum class HotKind : uint8_t { kInt, kTimer, kAlways };
+    enum class HotKind : uint8_t { kInt, kTimer, kAlways, kFloat }; // a hot_float's value is its bits
     struct Hot {
         HotKind kind = HotKind::kInt;
         int32_t value = -1;
@@ -127,6 +132,7 @@ private:
     uint32_t callGame(const std::string &decorated, const Signature &sig, x86::Cpu &cpu);
     std::optional<uint32_t> engine(const std::string &decorated, const Signature &sig, const Arguments &args);
     void set(uint32_t hot, int32_t value);
+    void setReal(uint32_t hot, float value);
     void mirror(uint32_t hot);
     Error call(uint32_t function, const std::vector<uint32_t> &args, uint32_t &result);
 

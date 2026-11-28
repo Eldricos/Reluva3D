@@ -525,6 +525,7 @@ private:
     std::string _scriptFault;                                   // why they stopped, if they faulted
     std::map<std::string, std::vector<gfx::Vec3>> _paths;       // the map's, by name
     std::vector<std::pair<std::string, gfx::Vec3>> _mapObjects; // the map's objects: name, place
+    std::vector<std::string> _mapObjectOdfs;                    // and their definitions
     std::set<size_t> _scripted;                                 // units the scripts order (SetSpecialForcesFlag)
     std::map<size_t, int> _picked;                              // targets units took up of themselves, by unit
     bool _avoiding = true;                                      // ships steer round each other (ObstacleAvoidence)
@@ -541,6 +542,29 @@ private:
     };
     std::vector<Marker> _markers;
     void runMarkers(double seconds);
+    // A person aboard a ship, as the scripts make them (CreateSpecialFlag,
+    // 0x438e00): who may take them from it, by the bits at its +0x10.
+    struct SpecialFlag {
+        std::string name;
+        int holder = -1; // the unit carrying it
+        uint32_t restrictions = 0;
+        std::vector<std::string> names;
+        std::vector<int32_t> handles;
+    };
+    std::map<int32_t, SpecialFlag> _flags; // by id, from 1
+    int32_t _nextFlag = 1;
+    // A player's stance towards another, by SetRelation: 0 enemy, 1
+    // neutral, 2 ally; enemies where none's been set.
+    std::map<std::pair<int, int>, int> _relations;
+    bool hostile(int slot, int other) const; // the lower of the two stances is enemy
+    std::map<size_t, int> _perceived;        // the player a unit looks like it's of (SetPerceivedTeam)
+    std::map<size_t, double> _hitAt;         // game seconds it was last hit by another player's
+    std::map<size_t, std::string> _patrols;  // a unit's path, flown round and round (Patrol)
+    std::set<int> _teamsOff;                 // computer players whose AI is off (DisableTeam)
+    uint64_t _scriptPasses = 0;              // the rule engine's passes, for the strengths' every 200th
+    bool _paused = false;                    // the world held still, the scripts running on (PauseSimulation)
+    void runPatrols();
+    std::optional<uint32_t> moreScriptCalls(const std::string &name, const MissionScripts::Arguments &args);
     std::set<size_t> _cannotDie;                        // CraftCannotDie
     std::optional<std::pair<double, bool>> _missionEnd; // when, in game seconds; whether failed
     bool _computersOff = false;                         // DisableAllAITeams
@@ -680,6 +704,7 @@ private:
         float maxSpeed = 4;
         std::string openSound;
         std::string closeSound;
+        int team = -1; // only its ships go through, if it's set (SetWormholeTeam)
         bool gone = false;
     };
     // A ship on its way into a wormhole, or out of its partner.

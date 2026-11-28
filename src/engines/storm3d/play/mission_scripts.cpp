@@ -6,6 +6,7 @@
 #include "common/pe.h"
 
 #include <algorithm>
+#include <cmath>
 #include <bit>
 #include <cctype>
 #include <cstring>
@@ -208,11 +209,25 @@ std::optional<MissionScripts::Signature> MissionScripts::signatureOf(const std::
     if (constructs && d.peek() == '@') {
         d.next();
     } else {
+        // A class returned by value ("?AVVector3@@") comes back in a place
+        // the caller passes first, ahead of the arguments.
+        bool byValue = false;
+        if (d.peek() == '?') {
+            d.next();
+            d.next();
+            byValue = true;
+        }
         const char ret = d.peek();
         d.type();
-        sig.returnsFloat = ret == 'M' || ret == 'N';
+        sig.returnsFloat = !byValue && (ret == 'M' || ret == 'N');
+        if (byValue) {
+            sig.kinds = "i";
+            sig.argBytes = 4;
+        }
     }
-    sig.argBytes = d.parameters(&sig.kinds);
+    std::string kinds;
+    sig.argBytes += d.parameters(&kinds);
+    sig.kinds += kinds;
     if (d.failed())
         return std::nullopt;
     return sig;
@@ -298,6 +313,8 @@ void MissionScripts::provideImports(const std::vector<uint8_t> &file) {
                 // every pass (0x404ed0) *(from the code)*.
                 if (fn.name.find("@@3Vhot_int@@") != std::string::npos) {
                     _hots[at] = {HotKind::kInt, 0};
+                } else if (fn.name.find("@@3Vhot_float@@") != std::string::npos) {
+                    _hots[at] = {HotKind::kFloat, std::bit_cast<int32_t>(-1.0f)};
                 } else if (fn.name.find("@@3Vdirty_int@@") != std::string::npos) {
                     _hots[at] = {HotKind::kAlways, -1, 0, true};
                     _dirty.push_front(at);
@@ -371,12 +388,26 @@ std::optional<uint32_t> MissionScripts::engine(const std::string &decorated, con
         mirror(self);
         return self;
     }
+    if (name == "hot_float::constructor") {
+        // From -1, or a copy's value and mark, off the dirty list (0x405110,
+        // 0x405000).
+        auto from = args.kinds.empty() || args.kinds == "s" ? _hots.end() : _hots.find(args.word(0));
+        Hot h{HotKind::kFloat, std::bit_cast<int32_t>(-1.0f)};
+        if (from != _hots.end()) {
+            h.value = from->second.value;
+            h.dirty = from->second.dirty;
+        }
+        _hots[self] = h;
+        mirror(self);
+        return self;
+    }
     if (name == "timer_int::constructor") {
         _hots[self] = {HotKind::kTimer, 0};
         mirror(self);
         return self;
     }
-    if (name == "hot_int::destructor" || name == "timer_int::destructor" || name == "dirty_int::destructor") {
+    if (name == "hot_int::destructor" || name == "timer_int::destructor" || name == "dirty_int::destructor" ||
+        name == "hot_float::destructor") {
         _dirty.remove(self);
         _timers.remove(self);
         _hots.erase(self);
@@ -386,6 +417,30 @@ std::optional<uint32_t> MissionScripts::engine(const std::string &decorated, con
     if (name == "hot_int::operator=" || name == "hot_int::set") {
         set(self, args.integer(0));
         return 0u;
+    }
+    if (name == "hot_float::set" || (name == "hot_float::operator=" && args.kinds == "f")) {
+        setReal(self, args.real(0));
+        return 0u;
+    }
+    if (name == "hot_float::operator=") {
+        // A copy: the value and the mark, the dirty list untouched (0x405040).
+        auto from = _hots.find(args.word(0));
+        if (hot != _hots.end() && from != _hots.end()) {
+            hot->second.value = from->second.value;
+            hot->second.dirty = from->second.dirty;
+            mirror(self);
+        }
+        return self;
+    }
+    if (name == "hot_float::operator float")
+        return uint32_t(hot == _hots.end() ? std::bit_cast<int32_t>(-1.0f) : hot->second.value);
+    if (hot != _hots.end() && name == "hot_float::get") {
+        if (!hot->second.dirty)
+            return 0u;
+        _process->cpu().write32(args.word(0), uint32_t(hot->second.value));
+        hot->second.dirty = false;
+        mirror(self);
+        return 1u;
     }
     if (name == "hot_int::operator int")
         return hot == _hots.end() ? 0u : uint32_t(hot->second.value);
@@ -500,6 +555,26 @@ void MissionScripts::set(uint32_t hot, int32_t value) {
         _dirty.push_front(hot);
     }
     mirror(hot);
+}
+
+void MissionScripts::setReal(uint32_t hot, float value) {
+    // As set, but by the processor's compare, which takes a NaN on either
+    // side as equal: one is never stored (0x405170).
+    auto it = _hots.find(hot);
+    if (it == _hots.end())
+        return;
+    const float was = std::bit_cast<float>(it->second.value);
+    if (std::isnan(value) || std::isnan(was) || value == was)
+        return;
+    set(hot, std::bit_cast<int32_t>(value));
+}
+
+void MissionScripts::setFloat(const std::string &name, float value) {
+    for (const auto &[decorated, at] : _data) {
+        const std::optional<Signature> sig = signatureOf(decorated);
+        if (sig && sig->name == name && _hots.count(at))
+            setReal(at, value);
+    }
 }
 
 void MissionScripts::mirror(uint32_t hot) {
